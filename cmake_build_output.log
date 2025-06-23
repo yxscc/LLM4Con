@@ -1,0 +1,171 @@
+[  0%] Generating extapi.bc
+[  0%] Built target intrinsics_gen
+[  0%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Core/AbstractState.cpp.o
+[  1%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Core/RelExeState.cpp.o
+[  2%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Core/RelationSolver.cpp.o
+[  2%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Svfexe/AEDetector.cpp.o
+[  3%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Svfexe/AbsExtAPI.cpp.o
+[  4%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/AE/Svfexe/AbstractInterpretation.cpp.o
+[  4%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFGNormalizer.cpp.o
+[  4%] Built target gen_extapi_ir
+[  5%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFGrammar.cpp.o
+[  6%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLAlias.cpp.o
+[  7%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLBase.cpp.o
+[  7%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLGraphBuilder.cpp.o
+[  8%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLSVFGBuilder.cpp.o
+[  9%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLSolver.cpp.o
+[  9%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLStat.cpp.o
+[ 10%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/CFLVF.cpp.o
+[ 11%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/CFL/GrammarBuilder.cpp.o
+[ 12%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/DDA/ContextDDA.cpp.o
+[ 12%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/DDA/DDAClient.cpp.o
+[ 13%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/DDA/DDAPass.cpp.o
+[ 14%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/DDA/DDAStat.cpp.o
+[ 14%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/DDA/FlowDDA.cpp.o
+[ 15%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/FastCluster/fastcluster.cpp.o
+[ 16%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/CDG.cpp.o
+[ 17%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/CFLGraph.cpp.o
+[ 17%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/CHG.cpp.o
+[ 18%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/CallGraph.cpp.o
+[ 19%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/ConsG.cpp.o
+[ 19%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/GraphWriter.cpp.o
+[ 20%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/ICFG.cpp.o
+[ 21%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/IRGraph.cpp.o
+[ 21%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/PTACallGraph.cpp.o
+[ 22%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/SVFG.cpp.o
+[ 23%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/SVFGOPT.cpp.o
+[ 24%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/SVFGReadWrite.cpp.o
+[ 24%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/SVFGStat.cpp.o
+[ 25%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/ThreadCallGraph.cpp.o
+[ 26%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Graphs/VFG.cpp.o
+[ 26%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MSSA/MemPartition.cpp.o
+[ 27%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MSSA/MemRegion.cpp.o
+[ 28%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MSSA/MemSSA.cpp.o
+[ 29%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MSSA/SVFGBuilder.cpp.o
+[ 29%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MTA/LockAnalysis.cpp.o
+[ 30%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MTA/MHP.cpp.o
+[ 31%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MTA/MTA.cpp.o
+[ 31%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MTA/MTAStat.cpp.o
+[ 32%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MTA/TCT.cpp.o
+[ 33%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MemoryModel/AccessPath.cpp.o
+[ 34%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MemoryModel/PointerAnalysis.cpp.o
+[ 34%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MemoryModel/PointerAnalysisImpl.cpp.o
+[ 35%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/MemoryModel/PointsTo.cpp.o
+[ 36%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/DoubleFreeChecker.cpp.o
+[ 36%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/FileChecker.cpp.o
+[ 37%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/LeakChecker.cpp.o
+[ 38%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/ProgSlice.cpp.o
+[ 39%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/SaberCheckerAPI.cpp.o
+[ 39%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/SaberCondAllocator.cpp.o
+[ 40%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/SaberSVFGBuilder.cpp.o
+[ 41%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SABER/SrcSnkDDA.cpp.o
+[ 41%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/PAGBuilderFromFile.cpp.o
+[ 42%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFFileSystem.cpp.o
+[ 43%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFIR.cpp.o
+[ 43%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFModule.cpp.o
+[ 44%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFStatements.cpp.o
+[ 45%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFType.cpp.o
+[ 46%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFValue.cpp.o
+[ 46%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SVFVariables.cpp.o
+[ 47%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/SVFIR/SymbolTableInfo.cpp.o
+[ 48%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/BitVector.cpp.o
+[ 48%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/CDGBuilder.cpp.o
+[ 49%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/CallGraphBuilder.cpp.o
+[ 50%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/CoreBitVector.cpp.o
+[ 51%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/ExtAPI.cpp.o
+[ 51%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/NodeIDAllocator.cpp.o
+[ 52%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/Options.cpp.o
+[ 53%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/PTAStat.cpp.o
+[ 53%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/SVFBugReport.cpp.o
+[ 54%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/SVFStat.cpp.o
+[ 55%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/SVFUtil.cpp.o
+[ 56%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/ThreadAPI.cpp.o
+[ 56%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/Z3Expr.cpp.o
+[ 57%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/Util/cJSON.cpp.o
+[ 58%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/Andersen.cpp.o
+[ 58%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/AndersenSCD.cpp.o
+[ 59%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/AndersenSFR.cpp.o
+[ 60%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/AndersenStat.cpp.o
+[ 60%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/AndersenWaveDiff.cpp.o
+[ 61%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/CSC.cpp.o
+[ 62%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/FlowSensitive.cpp.o
+[ 63%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/FlowSensitiveStat.cpp.o
+[ 63%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/Steensgaard.cpp.o
+[ 64%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/TypeAnalysis.cpp.o
+[ 65%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/VersionedFlowSensitive.cpp.o
+[ 65%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/VersionedFlowSensitiveStat.cpp.o
+[ 66%] Building CXX object svf/CMakeFiles/SvfCore.dir/lib/WPA/WPAPass.cpp.o
+[ 67%] Linking CXX static library ../lib/libSvfCore.a
+[ 67%] Built target SvfCore
+[ 68%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/BreakConstantExpr.cpp.o
+[ 68%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/CHGBuilder.cpp.o
+[ 69%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/CppUtil.cpp.o
+[ 70%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/DCHG.cpp.o
+[ 70%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/ICFGBuilder.cpp.o
+[ 71%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/LLVMLoopAnalysis.cpp.o
+[ 73%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/LLVMModule.cpp.o
+[ 73%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/LLVMUtil.cpp.o
+[ 73%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/ObjTypeInference.cpp.o
+[ 74%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/SVFIRBuilder.cpp.o
+[ 75%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/SVFIRExtAPI.cpp.o
+[ 75%] Building CXX object svf-llvm/CMakeFiles/SvfLLVM.dir/lib/SymbolTableBuilder.cpp.o
+[ 76%] Linking CXX static library ../lib/libSvfLLVM.a
+[ 76%] Built target SvfLLVM
+[ 78%] Building CXX object svf-llvm/tools/SABER/CMakeFiles/saber.dir/saber.cpp.o
+[ 78%] Building CXX object svf-llvm/tools/MTA/CMakeFiles/mta.dir/mta.cpp.o
+[ 79%] Building CXX object svf-llvm/tools/WPA/CMakeFiles/wpa.dir/wpa.cpp.o
+[ 80%] Building CXX object svf-llvm/tools/DDA/CMakeFiles/dvf.dir/dda.cpp.o
+[ 80%] Building CXX object svf-llvm/tools/Example/CMakeFiles/svf-ex.dir/svf-ex.cpp.o
+[ 80%] Building CXX object CMakeFiles/ccql.dir/src/CCPG/AliasChecker.cpp.o
+[ 82%] Building CXX object svf-llvm/tools/CFL/CMakeFiles/cfl.dir/cfl.cpp.o
+[ 82%] Building CXX object svf-llvm/tools/LLVM2SVF/CMakeFiles/llvm2svf.dir/llvm2svf.cpp.o
+In file included from /home/ConCodeQL/include/CCPG/CCPGNode.h:8,
+                 from /home/ConCodeQL/include/CCPG/AliasChecker.h:4,
+                 from /home/ConCodeQL/src/CCPG/AliasChecker.cpp:1:
+/home/ConCodeQL/include/CPG/CPG.h:132:31: error: ‘SVFFunction’ does not name a type
+  132 |     Node * findMethod ( const SVFFunction * svfFunction ) const {
+      |                               ^~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h: In member function ‘Node* CPG::findMethod(const int*) const’:
+/home/ConCodeQL/include/CPG/CPG.h:133:9: error: ‘SVFAnalyzer’ was not declared in this scope
+  133 |         SVFAnalyzer * svfAnalyzer = SVFAnalyzer::getInstance();
+      |         ^~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:133:23: error: ‘svfAnalyzer’ was not declared in this scope
+  133 |         SVFAnalyzer * svfAnalyzer = SVFAnalyzer::getInstance();
+      |                       ^~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:133:37: error: ‘SVFAnalyzer’ is not a class, namespace, or enumeration
+  133 |         SVFAnalyzer * svfAnalyzer = SVFAnalyzer::getInstance();
+      |                                     ^~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:135:41: error: request for member ‘getName’ in ‘* svfFunction’, which is of non-class type ‘const int’
+  135 |         std::string name = svfFunction->getName();
+      |                                         ^~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:136:79: error: request for member ‘getSourceLoc’ in ‘* svfFunction’, which is of non-class type ‘const int’
+  136 |         int lineNumber = svfAnalyzer->getLineNumberFromSourceLoc(svfFunction->getSourceLoc());
+      |                                                                               ^~~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:137:79: error: request for member ‘getSourceLoc’ in ‘* svfFunction’, which is of non-class type ‘const int’
+  137 |         std::string fileName = svfAnalyzer->getFileFromSourceLoc(svfFunction->getSourceLoc());
+      |                                                                               ^~~~~~~~~~~~
+/home/ConCodeQL/include/CPG/CPG.h:142:51: error: request for member ‘getName’ in ‘* svfFunction’, which is of non-class type ‘const int’
+  142 |             && svfAnalyzer->demangle(svfFunction->getName().c_str()).find(methodNode->getName()) != std::string::npos){
+      |                                                   ^~~~~~~
+/home/ConCodeQL/src/CCPG/AliasChecker.cpp: In member function ‘bool AliasChecker::isSharedVar(const SVF::SVFVar*)’:
+/home/ConCodeQL/src/CCPG/AliasChecker.cpp:143:1: warning: control reaches end of non-void function [-Wreturn-type]
+  143 | }
+      | ^
+make[2]: *** [CMakeFiles/ccql.dir/build.make:76: CMakeFiles/ccql.dir/src/CCPG/AliasChecker.cpp.o] Error 1
+make[1]: *** [CMakeFiles/Makefile2:389: CMakeFiles/ccql.dir/all] Error 2
+make[1]: *** Waiting for unfinished jobs....
+[ 82%] Linking CXX executable ../../../bin/mta
+[ 83%] Linking CXX executable ../../../bin/wpa
+[ 84%] Linking CXX executable ../../../bin/llvm2svf
+[ 85%] Linking CXX executable ../../../bin/dvf
+[ 86%] Linking CXX executable ../../../bin/saber
+[ 86%] Linking CXX executable ../../../bin/cfl
+[ 87%] Linking CXX executable ../../../bin/svf-ex
+[ 87%] Built target llvm2svf
+[ 87%] Built target mta
+[ 87%] Built target wpa
+[ 87%] Built target dvf
+[ 87%] Built target cfl
+[ 87%] Built target svf-ex
+[ 87%] Built target saber
+make: *** [Makefile:136: all] Error 2
