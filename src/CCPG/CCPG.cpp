@@ -40,15 +40,32 @@ bool CCPG::hasHBEdge(CCPGNode * node){
     return false;
 }
 
+std::unordered_map<NodeLoc, std::vector<const CallICFGNode*>, NodeLocHash> svfCallSitesByLoc;
+
 void CCPG::build(){
 
     //mapSVFInstructions();
     SVFManager* svfManager = getSVFManager();
     SVFG* svfg = svfManager->getSVFG();
+    SVFIR* pag = svfManager->getSVFIR();
     const CPG* cpg = this->getCPG();
     ThreadCreationTree* tree = ThreadCreationTree::getInstance();
     tree->setCPG(cpg);
     tree->setCCPG(this);
+
+    // 遍历整个程序的所有SVF调用点，构建索引
+    for (const CallICFGNode* callNode : pag->getCallSiteSet()) {
+        if (callNode && callNode->getCalledFunction()) {
+            std::string sourceLoc = callNode->getSourceLoc();
+            int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
+            std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
+            
+            NodeLoc loc(fileName, lineNumber, nullptr); 
+
+            // 将 callNode 指针添加到对应位置的 vector 中
+            svfCallSitesByLoc[loc].push_back(callNode);
+        }
+    }
 
     std::queue<ccpg::Function *> functionQueue;
     std::set<ccpg::Function *> visited;
@@ -111,9 +128,9 @@ void CCPG::build(){
     tree->build();
     ExecutionTimer::getInstance()->stop("Building thread creation tree");
 
-    /*ExecutionTimer::getInstance()->start("Mapping SVF instructions");
+    ExecutionTimer::getInstance()->start("Mapping SVF instructions");
     mapSVFInstructions();
-    ExecutionTimer::getInstance()->stop("Mapping SVF instructions");*/
+    ExecutionTimer::getInstance()->stop("Mapping SVF instructions");
 
     labelAPI();
 
@@ -361,7 +378,6 @@ ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
             else{
                 childNode = createCCPGNode(child);
                 childNode->setFunction(function);
-                //mapSVFInstructions(childNode);
                 edge = createCCPGEdge(node, childNode);
                 nodeQueue.push(childNode);
             }
@@ -402,75 +418,37 @@ ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
         return function;
     }
 
-    SVFManager * svfManager = SVFManager::getInstance();
-    SVFIR* pag = svfManager->getSVFIR();
-
-    for(const SVFBasicBlock * svfbb : svfFunction->getBasicBlockList()){
-        for (const ICFGNode* icfgNode : svfbb->getICFGNodeList())
-        {
-            for(const SVFStmt* stmt : pag->getSVFStmtList(icfgNode))
-            {
-                if (const LoadStmt* l = SVFUtil::dyn_cast<LoadStmt>(stmt))
-                {
-                    
-                    if(l == nullptr || !AliasChecker::getInstance()->isSharedAccess(l)){
-                        continue;
-                    }
-                    const SVFInstruction* inst = l->getInst();
-                    std::string sourceLoc = inst->getSourceLoc();
-                    int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                    std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                    addSVFInstByLoc(NodeLoc(fileName, lineNumber, function), stmt);
-                    addStructFieldStmt(stmt);
-                }
-                else if (const StoreStmt* s = SVFUtil::dyn_cast<StoreStmt>(stmt))
-                {
-                    if(s == nullptr || !AliasChecker::getInstance()->isSharedAccess(s)){
-                        continue;
-                    }
-                    const SVFInstruction* inst = s->getInst();
-                    std::string sourceLoc = inst->getSourceLoc();
-                    int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                    std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                    addSVFInstByLoc(NodeLoc(fileName, lineNumber, function), s);
-                }
-            }
-        }
-    }
-
     for(CCPGNode* node : function->getNodes()){
         if(node->isCallSite()){
-            for(const CallICFGNode* callNode : pag->getCallSiteSet())
-            {
-                if(callNode && callNode->getCalledFunction() == nullptr){
-                    continue;
-                }
-                std::string callName =SVFAnalyzer::getInstance()->demangle(callNode->getCalledFunction()->getName().c_str());
-                std::string sourceLoc = callNode->getSourceLoc();
-                int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                NodeLoc loc(fileName, lineNumber, nullptr);
-
-                if(AliasChecker::getInstance()->areCallsSame(callNode, node->getCPGNode())){
-                    node->setCallICFGNode(callNode);
-                    if (SaberCheckerAPI::getCheckerAPI()->isMemDealloc(callNode)){
-                        addSpecialCall(loc, SpecialCallType::Free, callNode);
+            NodeLoc loc = node->getNodeLoc();
+            NodeLoc lookupKey(loc.getFileName(), loc.getLineNumber(), nullptr);
+            auto it = svfCallSitesByLoc.find(lookupKey);
+            if (it != svfCallSitesByLoc.end()) {
+                const auto& candidates = it->second;
+                // 遍历这个位置的所有候选SVF调用点
+                for (const CallICFGNode* candidateCallNode : candidates) {
+                    // 使用 areCallsSame 进行精确匹配
+                    if(AliasChecker::getInstance()->areCallsSame(candidateCallNode, node->getCPGNode())){
+                        node->setCallICFGNode(candidateCallNode);
+                        if (SaberCheckerAPI::getCheckerAPI()->isMemDealloc(candidateCallNode)){
+                            addSpecialCall(loc, SpecialCallType::Free, candidateCallNode);
+                        }
+                        else if (SaberCheckerAPI::getCheckerAPI()->isMemAlloc(candidateCallNode)){
+                            addSpecialCall(loc, SpecialCallType::Alloc, candidateCallNode);
+                        }
+                        break;
                     }
-                    else if (SaberCheckerAPI::getCheckerAPI()->isMemAlloc(callNode)){
-                        addSpecialCall(loc, SpecialCallType::Alloc, callNode);
-                    }
-                    break;
+                    
                 }
             }
         }
     }
-
 
     return function;    
 
 }
 
-std::unordered_set<Node*> CCPG::findChildren(Node* node, std::unordered_set<Node*> visited_node){
+/*std::unordered_set<Node*> CCPG::findChildren(Node* node, std::unordered_set<Node*> visited_node){
     
     if(visited_node.find(node) != visited_node.end()){
         return std::unordered_set<Node*>();
@@ -496,6 +474,37 @@ std::unordered_set<Node*> CCPG::findChildren(Node* node, std::unordered_set<Node
     }
 
     return children;
+}
+*/
+
+std::unordered_set<Node*> CCPG::findChildren(Node* startNode) {
+    std::unordered_set<Node*> final_children;
+    std::queue<Node*> worklist;
+    std::unordered_set<Node*> visited_in_this_search;
+    for (Edge* edge : startNode->outCFGEdges) {
+        worklist.push(edge->getToNode());
+    }
+    visited_in_this_search.insert(startNode);
+    while (!worklist.empty()) {
+        Node* currentNode = worklist.front();
+        worklist.pop();
+
+        if (visited_in_this_search.count(currentNode)) {
+            continue;
+        }
+        visited_in_this_search.insert(currentNode);
+
+        if (ThreadAPIUtil::getInstance()->isCCPGNode(currentNode)) {
+            final_children.insert(currentNode);
+        } else {
+            for (Edge* edge : currentNode->outCFGEdges) {
+                worklist.push(edge->getToNode());
+            }
+        }
+    }
+
+    return final_children;
+
 }
 
 ccpg::Function * CCPG::getFunctionByCCPGNode(CCPGNode * node){
@@ -577,7 +586,7 @@ void CCPG::mapSVFInstructions(){
                     if (const LoadStmt* l = SVFUtil::dyn_cast<LoadStmt>(stmt))
                     {
                         
-                        if(l == nullptr || !AliasChecker::getInstance()->isSharedAccess(l)){
+                        if(l == nullptr ){ //|| !AliasChecker::getInstance()->isSharedAccess(l)
                             continue;
                         }
                         const SVFInstruction* inst = l->getInst();
@@ -589,7 +598,7 @@ void CCPG::mapSVFInstructions(){
                     }
                     else if (const StoreStmt* s = SVFUtil::dyn_cast<StoreStmt>(stmt))
                     {
-                        if(s == nullptr || !AliasChecker::getInstance()->isSharedAccess(s)){
+                        if(s == nullptr ){ //|| !AliasChecker::getInstance()->isSharedAccess(s)
                             continue;
                         }
                         const SVFInstruction* inst = s->getInst();
@@ -603,35 +612,6 @@ void CCPG::mapSVFInstructions(){
         }
 
     }
-
-    for(const CallICFGNode* callNode : pag->getCallSiteSet())
-    {
-        if(callNode && callNode->getCalledFunction() == nullptr){
-            continue;
-        }
-
-        std::string callName =SVFAnalyzer::getInstance()->demangle(callNode->getCalledFunction()->getName().c_str());
-
-        std::string sourceLoc = callNode->getSourceLoc();
-        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-        NodeLoc loc(fileName, lineNumber, nullptr);
-        CCPGNodeSet nodes = getNodesByLoc(loc);
-        for(auto it = nodes.begin(); it != nodes.end(); it++){
-            CCPGNode * node = * it;
-            if(node->isCallSite() && node->getCPGNode()->getName() == callName){
-                node->setCallICFGNode(callNode);
-                if (SaberCheckerAPI::getCheckerAPI()->isMemDealloc(callNode)){
-                    addSpecialCall(loc, SpecialCallType::Free, callNode);
-                }
-                else if (SaberCheckerAPI::getCheckerAPI()->isMemAlloc(callNode)){
-                    addSpecialCall(loc, SpecialCallType::Alloc, callNode);
-                }
-                break;
-            }
-        }
-    }
-
 }
 
 void CCPG::addStructFieldStmt(const SVFStmt* stmt){

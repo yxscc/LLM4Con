@@ -126,9 +126,10 @@ CPG * CPGGenerator::buildCPGByDot(std::string dir) {
             properties[key] = value;
         }
 
-        Node* cpg_node = new Node(id, label, properties);
-        cpg->addNode(cpg_node); // 假设addNode只是简单地将节点存起来
-        nodeMap[id] = cpg_node;
+        auto node_ptr = std::make_unique<Node>(id, label, properties);
+        Node* raw_node_ptr = node_ptr.get();
+        nodeMap[id] = raw_node_ptr;
+        cpg->addNode(std::move(node_ptr));
 
     }
 
@@ -148,26 +149,26 @@ CPG * CPGGenerator::buildCPGByDot(std::string dir) {
             
             const char* label = agget(g_edge, "label");
 
-            Edge* cpg_edge = new Edge(fromNode->getId(), toNode->getId(), label);
-            cpg_edge->setFromNode(fromNode); // 直接设置指针
-            cpg_edge->setToNode(toNode);   // 直接设置指针
-            cpg->addEdge(cpg_edge);
-
-            // 直接更新节点的边集合
-            fromNode->outEdges.insert(cpg_edge);
-            toNode->inEdges.insert(cpg_edge);
+            auto edge_ptr = std::make_unique<Edge>(fromNode->getId(), toNode->getId(), label);
+            Edge* raw_edge_ptr = edge_ptr.get();
+            raw_edge_ptr->setFromNode(fromNode);
+            raw_edge_ptr->setToNode(toNode);
+            fromNode->outEdges.insert(raw_edge_ptr);
+            toNode->inEdges.insert(raw_edge_ptr);
             
             // 根据类型更新具体的边集合
-            if (cpg_edge->getType() == "Cfg") {
-                fromNode->outCFGEdges.insert(cpg_edge);
-                toNode->inCFGEdges.insert(cpg_edge);
+            if (raw_edge_ptr->getType() == "Cfg") {
+                fromNode->outCFGEdges.insert(raw_edge_ptr);
+                toNode->inCFGEdges.insert(raw_edge_ptr);
             }
-            else if(cpg_edge->getType() == "Argument"){
-                fromNode->argumentEdges.insert(cpg_edge);
+            else if(raw_edge_ptr->getType() == "Argument"){
+                fromNode->argumentEdges.insert(raw_edge_ptr);
             }
-            else if(cpg_edge->getType() == "Condition"){
-                fromNode->conditionEdges.insert(cpg_edge);
+            else if(raw_edge_ptr->getType() == "Condition"){
+                fromNode->conditionEdges.insert(raw_edge_ptr);
             }
+
+            cpg->addEdge(std::move(edge_ptr));
         }
 
     }

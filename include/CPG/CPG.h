@@ -5,14 +5,15 @@
 #include "Node.h"
 #include "Edge.h"
 #include <vector>
+#include <memory>
 
 typedef std::unordered_set<Node*> CPGNodeSet;
 
 class CPG {
 private:
-    CPGNodeSet nodes; // 存储节点指针
-    std::unordered_set<Edge*> edges; // 存储边指针
-    std::unordered_map<const char *, Node*> id2Node; // 根据ID查找节点
+    std::vector<std::unique_ptr<Node>> m_nodes;
+    std::vector<std::unique_ptr<Edge>> m_edges;
+    std::unordered_map<std::string, Node*> id2Node; // 根据ID查找节点
     CPGNodeSet mainNodes; // 主函数节点
     
     std::unordered_map<std::string, CPGNodeSet> type2Nodes; // 根据类型查找节点
@@ -20,14 +21,14 @@ private:
 
 public:
     CPG() {}
-    ~CPG() {}
+    ~CPG() = default;
 
-    void addNode(Node* node); // 添加节点
-    void addEdge(Edge* edge); // 添加边
-    Node* findNode(const char * id) const; // 根据ID查找节点
+    void addNode(std::unique_ptr<Node> node);
+    void addEdge(std::unique_ptr<Edge> edge);
+    Node* findNode(const std::string& id) const;
 
-    CPGNodeSet getNodes() const { return nodes; }
-    std::unordered_set<Edge*> getEdges() const { return edges; }
+    // CPGNodeSet getNodes() const { return nodes; }
+    // std::unordered_set<Edge*> getEdges() const { return edges; }
 
     CPGNodeSet getMainNodes() const { return mainNodes; }
     bool isMainNode(Node* node) const { return mainNodes.find(node) != mainNodes.end(); }

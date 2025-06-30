@@ -6,6 +6,7 @@ using namespace SVF;
 
 AliasChecker * AliasChecker::instance = nullptr;
 
+
 const SVF::SVFFunction* AliasChecker::getSVFFunction(ccpg::Function * function){
 
     if(function->getSVFFunction() != nullptr){

@@ -112,6 +112,8 @@ public:
         return std::vector<const SVFStmt *>();
     }
 
+
+
     FunctionSet getFunctions() const { return functions; }
     void addFunction(ccpg::Function *function) {
         functions.insert(function);
@@ -144,7 +146,8 @@ public:
     void addEntryFunction(ccpg::Function *function) { entryFunctions.insert(function); }
 
     void build();
-    std::unordered_set<Node*> findChildren(Node* node, std::unordered_set<Node*> visited_node = std::unordered_set<Node*>());
+    //std::unordered_set<Node*> findChildren(Node* node, std::unordered_set<Node*> visited_node = std::unordered_set<Node*>());
+    std::unordered_set<Node*> findChildren(Node* node);
 
     ccpg::Function * getFunctionByCCPGNode(CCPGNode *node);
 
