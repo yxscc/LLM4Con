@@ -45,6 +45,23 @@ void DataRaceDetector::detect() {
                 if(stmts2.size() == 0){
                     continue;
                 }
+
+                // ----------------- VERIFICATION CODE START -----------------
+                if (loc1.getFileName().find("2011-2183.cpp") != std::string::npos && loc1.getLineNumber() == 310) {
+                    std::cout << "\n\n--- CONTEXT VERIFICATION FOR 2011-2183.cpp:310 ---\n";
+                    std::cout << "Thread ID: " << t1->getId() << "\n";
+                    std::cout << "Context for loc1 (" << loc1.getFileName() << ":" << loc1.getLineNumber() << "):\n";
+                    std::cout << ctx_1.toString() << "\n";
+                    std::cout << "--- VERIFICATION END ---\n\n";
+                }
+                if (loc2.getFileName().find("2011-2183.cpp") != std::string::npos && loc2.getLineNumber() == 310) {
+                    std::cout << "\n\n--- CONTEXT VERIFICATION FOR 2011-2183.cpp:310 ---\n";
+                    std::cout << "Thread ID: " << t2->getId() << "\n";
+                    std::cout << "Context for loc2 (" << loc2.getFileName() << ":" << loc2.getLineNumber() << "):\n";
+                    std::cout << ctx_2.toString() << "\n";
+                    std::cout << "--- VERIFICATION END ---\n\n";
+                }
+                // ----------------- VERIFICATION CODE END -----------------
     
                 auto key = (loc1 < loc2) ? std::make_pair(loc1, loc2) : std::make_pair(loc2, loc1);
     
@@ -66,7 +83,14 @@ void DataRaceDetector::detect() {
                             }
                             const SVFStmt * stmt1 = *it_3;
                             const SVFStmt * stmt2 = *it_4;
-                            addDataRace(new DataRace(ctx_1, loc1, *it_3, ctx_2, loc2, *it_4));
+                            std::vector<Lock*> locks1 = lsAnalysis->getLockSet(loc1, ctx_1);
+                            std::vector<Lock*> locks2 = lsAnalysis->getLockSet(loc2, ctx_2);
+                            
+                            CCPGNode* node1 = *ccpg->getNodesByLoc(loc1).begin();
+                            CCPGNode* node2 = *ccpg->getNodesByLoc(loc2).begin();
+
+                            addDataRace(new DataRace(ctx_1, loc1, stmt1, locks1, node1->getCPGNode()->getCode(),
+                                                     ctx_2, loc2, stmt2, locks2, node2->getCPGNode()->getCode()));
                             dataRaces.insert(key);
                             isDataRace = true;
                             break;

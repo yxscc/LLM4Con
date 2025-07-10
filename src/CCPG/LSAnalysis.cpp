@@ -204,6 +204,22 @@ bool LSAnalysis::isDeadLock(NodeLoc loc1, Context ctx1, NodeLoc loc2, Context ct
     return false;
 }
 
+std::vector<Lock*> LSAnalysis::getLockSet(NodeLoc loc, Context ctx) {
+    CCPG * ccpg = LSAnalysis::getInstance()->getCCPG();
+    std::vector<Lock*> ctxlockSet;
+
+    ctxlockSet.insert(ctxlockSet.begin(), nodeLockSets[*(ccpg->getNodesByLoc(loc).begin())].begin(), nodeLockSets[*(ccpg->getNodesByLoc(loc).begin())].end());
+
+    const std::vector<CCPGNode*>& callStack = ctx.getCallStack();
+    for(auto it = callStack.rbegin(); it != callStack.rend(); it++){
+        CCPGNode * node = *it;
+        std::vector<Lock*> locks = nodeLockSets[node];
+        ctxlockSet.insert(ctxlockSet.begin(), locks.begin(), locks.end());
+    }
+
+    return ctxlockSet;
+}
+
 // 辅助函数实现
 bool LSAnalysis::hasLockOrderConflict(Lock* expectedFirst, Lock* expectedSecond,
                                       std::vector<Lock*>& lockset) {

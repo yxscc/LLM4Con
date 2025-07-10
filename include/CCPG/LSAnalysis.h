@@ -61,6 +61,7 @@ public:
 
     void build();
 
+    std::vector<Lock*> getLockSet(NodeLoc loc, Context ctx);
     bool isProtectedBySameLock(CCPGNode * node1, CCPGNode * node2);
     bool isProtectedBySameLock(NodeLoc loc1, Context ctx1, NodeLoc loc2, Context ctx2);
     bool isDeadLock(NodeLoc loc1, Context ctx1, NodeLoc loc2, Context ctx2);

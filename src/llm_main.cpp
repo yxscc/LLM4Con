@@ -1,9 +1,9 @@
 #include <iostream>
-#include <cstdlib> // For system()
-#include <filesystem>
+#include <memory>
 #include <vector>
 #include <string>
-#include <memory>
+#include <filesystem>
+#include <cstdlib>
 
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
@@ -13,11 +13,7 @@
 #include "SVF-LLVM/LLVMModule.h"
 #include "CCPG/CCPG.h"
 #include "Util/ExecutionTimer.h"
-#include "Query/DataRaceDetector.h"
-#include "Query/UseAfterFreeDetector.h"
-#include "Query/DoubleFreeDetector.h"
-#include "Query/NullReferenceDetector.h"
-#include "LLMUtil/LLMClient.h"
+#include "LLMUtil/AgentManager.h"
 
 
 using namespace std;
@@ -28,7 +24,6 @@ SVFManager * SVFManager::instance = nullptr;
 TargetPath * TargetPath::instance = nullptr;
 ExecutionTimer * ExecutionTimer::instance = nullptr;
 
-
 static llvm::cl::opt<std::string> InputSrcDir(cl::Positional,
         llvm::cl::desc("<input src>"), llvm::cl::init("-"));
 static llvm::cl::opt<std::string> InputBCFileName(cl::Positional,
@@ -36,13 +31,9 @@ static llvm::cl::opt<std::string> InputBCFileName(cl::Positional,
 static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace information"), cl::init(false));
 
 std::string convertToBC(const std::string& file);
-void dumpsvf(SVFG* svfg);
 
-int main(int argc, char* argv[]) {
-
-    // llm_client has been removed to avoid hardcoded keys.
-    // You can initialize it here using environment variables or a config file.
-    // llm_client::LLMClient::get_shared_instance(std::getenv("LLM_API_URL"), std::getenv("LLM_API_KEY"));
+int main(int argc, char** argv) {
+    std::cout << "LLM Concurrency Bug Detector Initialized." << std::endl;
 
     int arg_num = 0;
     std::vector<char*> arg_value(argc);
@@ -93,35 +84,13 @@ int main(int argc, char* argv[]) {
     ExecutionTimer::getInstance()->start("CCPG Analysis");
     auto ccpg = std::make_unique<CCPG>(cpg.get(), svfManager);
     ccpg->build();
-    //ExecutionTimer::getInstance()->stop("CCPG Analysis");
+    ExecutionTimer::getInstance()->stop("CCPG Analysis");
 
     ccpg->dump(targetPath->getOutputDir());
 
-    ExecutionTimer::getInstance()->start("Data Race Detection");
-    auto drd = std::make_unique<DataRaceDetector>();
-    drd->detect();
-    ExecutionTimer::getInstance()->stop("Data Race Detection");
-    drd->printDataRaces(targetPath->getOutputDir());
-
-    ExecutionTimer::getInstance()->start("Use After Free Detection");
-    auto uafd = std::make_unique<UseAfterFreeDetector>();
-    uafd->detect();
-    ExecutionTimer::getInstance()->stop("Use After Free Detection");
-    uafd->printUseAfterFrees(targetPath->getOutputDir());
-
-    ExecutionTimer::getInstance()->start("Double Free Detection");
-    auto dfd = std::make_unique<DoubleFreeDetector>();
-    dfd->detect();
-    ExecutionTimer::getInstance()->stop("Double Free Detection");
-    dfd->printDoubleFrees(targetPath->getOutputDir());
-
-    ExecutionTimer::getInstance()->start("Null Reference Detection");
-    auto nrd = std::make_unique<NullReferenceDetector>();
-    nrd->detect();
-    ExecutionTimer::getInstance()->stop("Null Reference Detection");
-    nrd->printNullReferences(targetPath->getOutputDir());
-
-    ExecutionTimer::getInstance()->printAllTimes(targetPath->getOutputDir());
+    // --- Agent-based Analysis ---
+    llm_client::AgentManager agentManager(ccpg.get());
+    agentManager.runAnalysis();
 
     return 0;
 }
@@ -178,43 +147,3 @@ std::string convertToBC(const std::string& file){
 
     return bcFile.string();
 }
-
-void dumpsvf(SVFG* svfg){
-    LLVMModuleSet* moduleSet = LLVMModuleSet::getLLVMModuleSet();
-    //std::cout << "Number of SVFG nodes: " << svfg->getSVFGNodeSet().size() << std::endl;
-    for (SVF::SVFG::const_iterator it = svfg->begin(); it != svfg->end(); ++it)
-    {
-        const SVF::SVFGNode* svfNode = it->second;
-        if(svfNode == nullptr){
-            continue;
-        }
-        const SVF::SVFValue *svfValue = svfNode->getValue();
-        if(svfValue == nullptr){
-            continue;
-        }
-
-        // 获取Value*的名字
-        std::string valueName = svfValue->getName();
-        // 获取Value*的sourceLoc
-        std::string sourceLoc = svfValue->getSourceLoc();
-        // 获取llvmValue
-        const llvm::Value* llvmValue = moduleSet->getLLVMValue(svfValue);
-
-
-        // 把上面输出的这些以同样的格式输出到一个txt文件中，文件生成在根目录
-        std::ofstream out(PROJECT_PATH + std::string("SVFG.txt"), std::ios::app);
-        out << "Node: " << svfNode->getId() << "\n";
-        out << "==============\n\t" << svfNode->toString() << "\n==============\n";
-        out << "\t|| SVF-Name:\t" << svfValue->getName() << "\n";
-        out << "\t|| LLVM-Name:\t" << llvmValue->getName().data() << "\n";
-        out << "\t|| LLVM-Val:\t" << svfValue->toString() << "\n";
-        out << "\t|| SVF-Type:\t" << svfValue->getType()->toString() << "\n";
-        out << "\t|| SVFSource-Loc:\t" << svfValue->getSourceLoc() << "\n";
-        out << "\n";
-        out.close();
-
-    }
-}
-
-
-

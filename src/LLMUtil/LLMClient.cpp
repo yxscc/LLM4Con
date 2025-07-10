@@ -3,6 +3,7 @@
 #include <cpprest/asyncrt_utils.h>
 #include <algorithm>
 #include <nlohmann/json.hpp>
+#include "Util/Logger.h"
 
 using namespace utility;
 
@@ -107,25 +108,28 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
     std::string request_body_str = request_body.dump();
     request.set_body(conversions::to_string_t(request_body_str));
 
-    // 打印请求（格式化输出）
-    std::cout << "Request:\n" << request_body.dump(4) << std::endl;
+    // 记录请求
+    Logger::getInstance()->log("--> Request:\n" + request_body.dump(4));
 
     // 5. 发送请求并获取响应
     http_response response = client_->request(request).get();
 
     // 6. 处理响应
     if (response.status_code() == status_codes::OK) {
-        auto response_body = nlohmann::json::parse(conversions::to_utf8string(response.extract_string().get()));
+        auto response_body_str = conversions::to_utf8string(response.extract_string().get());
+        auto response_body = nlohmann::json::parse(response_body_str);
 
-        // 打印响应（格式化输出）
-        std::cout << "Response:\n" << response_body.dump(4) << std::endl;
+        // 记录响应
+        Logger::getInstance()->log("<-- Response:\n" + response_body.dump(4));
         
         LLMResponse result;
 
         // 提取 assistant 回复内容
         if (response_body.contains("choices") && !response_body["choices"].empty()) {
             auto message = response_body["choices"][0]["message"];
-            result.assistant_content = message["content"].get<std::string>();
+            if(message.contains("content") && !message["content"].is_null()){
+                 result.assistant_content = message["content"].get<std::string>();
+            }
 
             // 提取 tool_calls（如果有）
             if (message.contains("tool_calls")) {
@@ -145,14 +149,16 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
     } else {
         std::ostringstream error_msg;
         error_msg << "LLM API request failed with status code: " << response.status_code();
+        std::string error_body_str;
         try {
-            auto error_body = response.extract_string().get();
-            if (!error_body.empty()) {
-                error_msg << ", Error: " << conversions::to_utf8string(error_body);
+            error_body_str = conversions::to_utf8string(response.extract_string().get());
+            if (!error_body_str.empty()) {
+                error_msg << ", Error: " << error_body_str;
             }
         } catch (...) {
-            std::cout << "Failed to extract error body from response." << std::endl;
+            // ignore if body cannot be extracted
         }
+        Logger::getInstance()->log("!!! Error: " + error_msg.str());
         throw std::runtime_error(error_msg.str());
     }
 }

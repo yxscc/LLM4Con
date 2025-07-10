@@ -196,6 +196,7 @@ ccpg::Function * CCPG::createFunctionByCaller(CCPGNode * caller){
     edge->setType(CCPGEdge::EdgeType::CALL);
     this->addEdge(edge);
     handleContext(caller, f);
+    return f;
 }
 
 void CCPG::labelForkPotential(){
@@ -270,7 +271,7 @@ CCPGNodeSet CCPG::getEntries(){
         PTACallGraphNode* node = callGraph->getCallGraphNode(svfFunction);
 
         if (node->hasIncomingEdge())
-        {    
+        {
             continue;
         }
 
@@ -289,7 +290,7 @@ CCPGNodeSet CCPG::getEntries(){
         }
         for(auto it = methods.begin(); it != methods.end(); it++){
             Node * methodNode = *it;
-            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() == lineNumber) <= 3){ //因为有一些函数的定义是分行的，所以需要将比较条件设置宽松一点
+            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){ //因为有一些函数的定义是分行的，所以需要将比较条件设置宽松一点
                 entries.insert(createCCPGNode(methodNode));
                 
             }
@@ -338,11 +339,14 @@ CCPGNode * CCPG::createCCPGNode(Node* n) {
 }
 
 CCPGEdge* CCPG::createCCPGEdge(CCPGNode* from, CCPGNode* to) {
+    if(from == nullptr || to == nullptr){
+        return nullptr;
+    }
     CCPGEdge* edge = new CCPGEdge(from, to);
     from->addOutEdge(edge);
     to->addInEdge(edge);
     addEdge(edge);
-    return edge; 
+    return edge;
 }
 
 ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
@@ -478,6 +482,12 @@ ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
 */
 
 std::unordered_set<Node*> CCPG::findChildren(Node* startNode) {
+    // Check cache first
+    auto cachedResult = findChildrenCache.find(startNode);
+    if (cachedResult != findChildrenCache.end()) {
+        return cachedResult->second;
+    }
+
     std::unordered_set<Node*> final_children;
     std::queue<Node*> worklist;
     std::unordered_set<Node*> visited_in_this_search;
@@ -503,8 +513,9 @@ std::unordered_set<Node*> CCPG::findChildren(Node* startNode) {
         }
     }
 
+    // Store result in cache before returning
+    findChildrenCache[startNode] = final_children;
     return final_children;
-
 }
 
 ccpg::Function * CCPG::getFunctionByCCPGNode(CCPGNode * node){

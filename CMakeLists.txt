@@ -123,15 +123,37 @@ DESTINATION include/svf
 FILES_MATCHING
 PATTERN "**/*.h")
 
-# 将src目录下的所有源文件添加到变量SRC
-file(GLOB_RECURSE SRC "src/*.cpp")
+# 1. Get all source files from the src directory.
+file(GLOB_RECURSE ALL_SRC "src/*.cpp" "src/Util/*.cpp")
 
-# 添加可执行文件
-add_executable(ccql ${SRC})
+# 2. Create a list of COMMON source files by filtering out ALL main entry points.
+list(FILTER ALL_SRC EXCLUDE REGEX ".*main.cpp$")
+list(FILTER ALL_SRC EXCLUDE REGEX ".*llm_main.cpp$")
+set(COMMON_SRC ${ALL_SRC})
+
+# 3. Define the source list for the 'ccql' executable.
+# It includes the common files plus its own main.cpp.
+set(CCQL_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/main.cpp")
+
+# 4. Define the source list for the 'llm_detector' executable.
+# It includes the common files plus its own llm_main.cpp.
+set(LLM_DETECTOR_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/llm_main.cpp")
+
+# 5. Add the executables with their correct, separate source lists.
+add_executable(ccql ${CCQL_SRC})
+add_executable(llm_detector ${LLM_DETECTOR_SRC})
 
 link_directories(svf/lib)
 link_directories(svf-llvm/lib)
 target_link_libraries(ccql PUBLIC ${llvm_libs} ${Z3_LIBRARIES} SvfCore SvfLLVM curl cgraph 
+    cpprestsdk::cpprest
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Boost::system
+    Boost::thread
+    pthread)
+
+target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} SvfCore SvfLLVM curl cgraph 
     cpprestsdk::cpprest
     OpenSSL::SSL
     OpenSSL::Crypto

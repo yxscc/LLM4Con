@@ -76,6 +76,7 @@ private:
     const CPG* cpg; // CPG指针
     std::unordered_map<std::pair<Thread*, Thread*>, std::string, pair_hash> parallelThreadPairs;
     ParallelLocCache parallelLocCache;
+    std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> mayHappenInParallelCache;
 
 
     // 私有构造函数

@@ -1,6 +1,7 @@
 #include "CCPG/ThreadCreationTree.h"
 #include "SVFUtil/SVFAnalyzer.h"
 #include "CCPG/AliasChecker.h"
+#include "LLMUtil/FindingThreadEntryAgent.h"
 
 #include <iostream>
 #include <regex>
@@ -12,7 +13,8 @@
 using namespace ccpg;
 
 // 全局缓存，存储每个函数对应的所有调用链
-std::unordered_map<const ccpg::Function*, std::vector<std::vector<const ccpg::Function*>>> callPathCache;
+std::unordered_map<std::pair<const ccpg::Function*, const ccpg::Function*>, std::vector<std::vector<const ccpg::Function*>>, pair_hash> callPathCache;
+
 ThreadCreationTree* ThreadCreationTree::instance = nullptr;
 
 void ThreadCreationTree::addThread(Thread* thread) {
@@ -320,6 +322,12 @@ void Thread::addFunction(ccpg::Function* function){
 
 std::vector<std::vector<const ccpg::Function*>> 
 getAllCallPaths(const ccpg::Function* target, const ccpg::Function* root) {
+    // 检查缓存
+    auto cacheKey = std::make_pair(root, target);
+    if (callPathCache.count(cacheKey)) {
+        return callPathCache.at(cacheKey);
+    }
+
     // 结果存储
     std::vector<std::vector<const ccpg::Function*>> result;
 
@@ -331,7 +339,7 @@ getAllCallPaths(const ccpg::Function* target, const ccpg::Function* root) {
     // 递归辅助函数
     std::function<void(const ccpg::Function*, std::vector<const ccpg::Function*>, 
                      std::unordered_set<const ccpg::Function*>&)>
-    dfs = [&](const ccpg::Function* current, 
+dfs = [&](const ccpg::Function* current, 
               std::vector<const ccpg::Function*> currentPath,
               std::unordered_set<const ccpg::Function*>& visited) {
         // 如果当前节点是根节点，保存路径
@@ -364,6 +372,9 @@ getAllCallPaths(const ccpg::Function* target, const ccpg::Function* root) {
     // 初始化并开始递归
     std::unordered_set<const ccpg::Function*> visited;
     dfs(target, {}, visited);
+
+    // 将结果存入缓存
+    callPathCache[cacheKey] = result;
 
     return result;
 }
@@ -411,100 +422,113 @@ bool isBeforeInCallChains(const std::vector<const ccpg::Function*>& callChain1,
     return (callOrder1 != -1 && callOrder2 != -1) && (callOrder1 < callOrder2);
 }
 
+
+
+
+
+// Helper function to check reachability within a thread's CFG
+bool isReachable(CCPGNode* start, CCPGNode* end, Thread* thread) {
+    if (!start || !end || !thread) return false;
+    if (start == end) return true;
+
+    std::queue<CCPGNode*> worklist;
+    std::unordered_set<CCPGNode*> visited;
+
+    worklist.push(start);
+    visited.insert(start);
+
+    const auto& thread_nodes = thread->getNodes();
+
+    while (!worklist.empty()) {
+        CCPGNode* current = worklist.front();
+        worklist.pop();
+
+        for (CCPGEdge* edge : current->getOutEdges()) {
+            CCPGNode* next = edge->getDst();
+
+            if (next == end) {
+                return true;
+            }
+
+            // Only explore nodes within the same thread that haven't been visited
+            if (thread_nodes.count(next) && visited.find(next) == visited.end()) {
+                visited.insert(next);
+                worklist.push(next);
+            }
+        }
+    }
+    return false;
+}
+
+
 bool ThreadCreationTree::mayHappenInParallel(Thread * t1, Thread * t2) {
-    assert(t1->getParent() == t2->getParent());
+    // Generate an ordered pair for the cache key
+    auto cacheKey = (t1 <= t2) ? std::make_pair(t1, t2) : std::make_pair(t2, t1);
+
+    // Check cache first
+    if (mayHappenInParallelCache.count(cacheKey)) {
+        return mayHappenInParallelCache.at(cacheKey);
+    }
+
+    assert(t1->getParent() == t2->getParent() && "mayHappenInParallel should only be called on sibling threads");
+    Thread* parent = t1->getParent();
+    if (!parent) { // Should not happen based on assert, but as a safeguard
+        mayHappenInParallelCache[cacheKey] = false;
+        return false;
+    }
 
     CCPGNode * forkNode1 = t1->getForkNode();
     CCPGNode * forkNode2 = t2->getForkNode();
     CCPGNode * joinNode1 = t1->getJoinNode();
     CCPGNode * joinNode2 = t2->getJoinNode();
 
-    Thread * parent = t1->getParent();
-    ccpg::Function * mainFunction = parent->getThreadMainFunction();
+    // t1 happens-before t2 if join(t1) is reachable to fork(t2) in the parent thread's CFG.
+    // If t1 is never joined, it cannot have a happens-before relationship with the creation of t2.
+    bool t1HBt2 = (joinNode1 != nullptr) && isReachable(joinNode1, forkNode2, parent);
 
-    bool t1HBt2 = true; // t1 是否在 t2 之前执行
-    bool t2HBt1 = true; // t2 是否在 t1 之前执行
+    // t2 happens-before t1 if join(t2) is reachable to fork(t1) in the parent thread's CFG.
+    bool t2HBt1 = (joinNode2 != nullptr) && isReachable(joinNode2, forkNode1, parent);
 
-    ccpg::Function * f1 = forkNode1->getFunction();
-    ccpg::Function * f2 = forkNode2->getFunction();
-
-    // 获取两个线程的 fork 节点的调用链
-    std::vector<std::vector<const ccpg::Function*>> callChains1 = getAllCallPaths(f1, mainFunction);
-    std::vector<std::vector<const ccpg::Function*>> callChains2 = getAllCallPaths(f2, mainFunction);
-
-    if(joinNode2 == nullptr){
-        t2HBt1 = false;
-    }
-    else{
-        // 检查 t2 的 join 节点是否在 t1 的 fork 节点之前执行
-        for (const std::vector<const ccpg::Function*>& callChain1 : callChains1) {
-            std::vector<std::vector<const ccpg::Function*>> joinCallChains2 = getAllCallPaths(joinNode2->getFunction(), mainFunction);
-            for (const std::vector<const ccpg::Function*>& callChain2 : joinCallChains2) {
-                if (!isBeforeInCallChains(callChain2, callChain1)) {
-                    t2HBt1 = false;
-                    break;
-                }
-            }
-            if (!t2HBt1) break;
-        }
-    }
-    
-    if(joinNode1 == nullptr){
-        t1HBt2 = false;
-    }
-    else{
-        // 检查 t2 的 join 节点是否在 t1 的 fork 节点之前执行
-        for (const std::vector<const ccpg::Function*>& callChain2 : callChains2) {
-            std::vector<std::vector<const ccpg::Function*>> joinCallChains1 = getAllCallPaths(joinNode1->getFunction(), mainFunction);
-            for (const std::vector<const ccpg::Function*>& callChain1 : joinCallChains1) {
-                if (!isBeforeInCallChains(callChain1, callChain2)) {
-                    t1HBt2 = false;
-                    break;
-                }
-            }
-            if (!t1HBt2) break;
-        }
-    }
-
-    // 默认情况下，两个线程不会并行
-    return ( !t1HBt2 ) && ( !t2HBt1 );
+    // They can happen in parallel if neither happens-before the other.
+    bool result = !t1HBt2 && !t2HBt1;
+    mayHappenInParallelCache[cacheKey] = result;
+    return result;
 }
 
 void ThreadCreationTree::countParallelThreadPairs(){
-    std::unordered_set<Thread *> threads = getThreads();
-    std::unordered_set<std::pair<Thread *, Thread *>, pair_hash> visited;
+    // Using a vector is cleaner for iterating over unique pairs
+    std::vector<Thread*> threads_vec(threads.begin(), threads.end());
     
-    for(auto it_1 = threads.begin(); it_1 != threads.end(); it_1++){
-        for(auto it_2 = threads.begin(); it_2 != threads.end(); it_2++){
- 
-            if(*(it_1) == *(it_2)){
-                continue;
-            }
-            Thread * t1 = *it_1;
-            Thread * t2 = *it_2;
+    for (size_t i = 0; i < threads_vec.size(); ++i) {
+        for (size_t j = i + 1; j < threads_vec.size(); ++j) {
+            Thread* t1 = threads_vec[i];
+            Thread* t2 = threads_vec[j];
 
-            if(visited.find(std::make_pair(t1, t2)) != visited.end() || visited.find(std::make_pair(t2, t1)) != visited.end()){
-                continue;
-            }
-            visited.insert(std::make_pair(t1, t2));
-            
-            // 判断两个线程的父子关系
-            Thread* parent1 = t1->getParent();
-            Thread* parent2 = t2->getParent();
-
-            // 检查直接父子关系或间接父子关系
-            if (isDescendant(t1, t2)) {
+            // Check for descendant relationship first, as it's the most specific
+            if (isDescendant(t1, t2)) { // t1 is a descendant of t2
                 addParallelThreadPairs(t1, t2, "descendant");
+                continue; // Found relationship, move to next pair
             }
-            else if(isDescendant(t2, t1)){
+            if (isDescendant(t2, t1)) { // t2 is a descendant of t1
                 addParallelThreadPairs(t2, t1, "descendant");
+                continue; // Found relationship, move to next pair
             }
-            // 检查兄弟关系
-            else if (isSibling(t1, t2)) {
-                addParallelThreadPairs(t1, t2, "sibling");
+
+            // Check for sibling relationship
+            // A quick check for a common parent before the more expensive isSibling call
+            if (t1->getParent() != nullptr && t1->getParent() == t2->getParent()) {
+                if (isSibling(t1, t2)) {
+                    addParallelThreadPairs(t1, t2, "sibling");
+                } else {
+                    // If isSibling is false, they are on different branches, but still indirect siblings
+                    addParallelThreadPairs(t1, t2, "indirect sibling");
+                }
+                continue; // Found relationship, move to next pair
             }
-            // 检查间接兄弟关系
-            else if (isIndirectSibling(t1, t2)) {
+
+            // Finally, check for indirect sibling relationship (common ancestor)
+            // This is the most general case
+            if (isIndirectSibling(t1, t2)) {
                 addParallelThreadPairs(t1, t2, "indirect sibling");
             }
         }
@@ -525,59 +549,65 @@ bool ThreadCreationTree::isDescendant(Thread* t1, Thread* t2) {
 
 // 补全最后一部分：查找最近公共祖先节点并判断分支类型
 CCPGNode* findLCA(CCPGNode* n1, CCPGNode* n2) {
-    // 存储 n1 的祖先链（含自身）
-    std::unordered_set<CCPGNode*> n1_ancestors;
-    std::queue<CCPGNode *> q;
-    ccpg::Function * f1 = n1->getFunction();
+    if (!n1 || !n2) return nullptr;
+    if (n1 == n2) return n1;
+
+    // 1. 从 n1 向上遍历，记录所有祖先（包括n1自身）
+    std::unordered_set<CCPGNode*> ancestors_of_n1;
+    std::queue<CCPGNode*> q;
     q.push(n1);
-    while(!q.empty()){
-        CCPGNode * node = q.front();
+    
+    // 假设节点都在同一个函数内，如果不在，需要额外处理
+    ccpg::Function* func = n1->getFunction(); 
+    if (!func || func != n2->getFunction()) {
+        // 如果不在同一个函数，LCA逻辑会更复杂，
+        // 当前假设它们在同一个父线程的CFG内，因此在同一个函数内。
+        // 如果这个假设不成立，需要返回或采用更复杂的逻辑。
+        return nullptr; 
+    }
+    
+    std::unordered_set<CCPGNode*> visited_in_bfs;
+    visited_in_bfs.insert(n1);
+
+    while (!q.empty()) {
+        CCPGNode* current = q.front();
         q.pop();
-        // 避免重复访问
-        if (n1_ancestors.find(node) != n1_ancestors.end()) {
-            continue;
-        }
-        n1_ancestors.insert(node);
-        if(node == n2) return n2;
-        auto in_edges = node->getInEdges();
-        for(CCPGEdge * edge : in_edges){
-            CCPGNode * src = edge->getSrc();
-            CCPGNodeSet nodes = f1->getNodes();
-            if(nodes.find(src) == nodes.end()){
-                continue;
+        ancestors_of_n1.insert(current);
+
+        for (CCPGEdge* edge : current->getInEdges()) {
+            CCPGNode* parent = edge->getSrc();
+            // 确保父节点在同一个函数内，并且没有被访问过
+            if (func->getNodes().count(parent) && visited_in_bfs.find(parent) == visited_in_bfs.end()) {
+                visited_in_bfs.insert(parent);
+                q.push(parent);
             }
-            q.push(edge->getSrc());
         }
     }
 
-    // 存储 n2 的祖先链（含自身）
-    std::unordered_set<CCPGNode*> n2_ancestors;
-    std::queue<CCPGNode *> q2;
-    ccpg::Function * f2 = n2->getFunction();
-    q2.push(n2);
-    while(!q2.empty()){
-        CCPGNode * node = q2.front();
-        if (n1_ancestors.count(node)) {
-            return node;
+    // 2. 从 n2 向上遍历，遇到的第一个在 n1 祖先集合中的节点即为LCA
+    q = {}; // Clear the queue
+    q.push(n2);
+    visited_in_bfs.clear();
+    visited_in_bfs.insert(n2);
+
+    while (!q.empty()) {
+        CCPGNode* current = q.front();
+        q.pop();
+
+        if (ancestors_of_n1.count(current)) {
+            return current; // 找到了LCA
         }
-        q2.pop();
-        // 避免重复访问
-        if (n2_ancestors.find(node) != n2_ancestors.end()) {
-            continue;
-        }
-        n2_ancestors.insert(node);
-        if(node == n1) return n1;
-        auto in_edges = node->getInEdges();
-        for(CCPGEdge * edge : in_edges){
-            CCPGNode * src = edge->getSrc();
-            CCPGNodeSet nodes = f2->getNodes();
-            if(nodes.find(src) == nodes.end()){
-                continue;
+
+        for (CCPGEdge* edge : current->getInEdges()) {
+            CCPGNode* parent = edge->getSrc();
+            if (func->getNodes().count(parent) && visited_in_bfs.find(parent) == visited_in_bfs.end()) {
+                visited_in_bfs.insert(parent);
+                q.push(parent);
             }
-            q.push(edge->getSrc());
         }
     }
-    return nullptr;
+
+    return nullptr; // 没有找到公共祖先
 }
 
 // 判断线程 t1 和 t2 是否是兄弟关系（即它们有相同的父线程）
@@ -621,7 +651,7 @@ bool ThreadCreationTree::isSibling(Thread* t1, Thread* t2) {
         // 在原有代码尾部添加以下逻辑
         CCPGNode* lca_node = findLCA(node1, node2);
         if (lca_node && lca_node->getType() == ThreadAPIUtil::TYPE::BRANCH) {
-            return false; // 调用点位于分支节点的不同分支
+            return false; // 调用��位于分支节点的不同分支
         }
         if (lca_node && lca_node->getType() != ThreadAPIUtil::TYPE::BRANCH){
             return true;
@@ -907,18 +937,18 @@ void Thread::addThreadToDot(std::ostringstream& dot) {
                 }
             }
             if (!callChain.empty()) {
-                callChain += "\\n"; // 换行分隔不同的调用链
+                callChain += "\n"; // 换行分隔不同的调用链
             }
         }
     }
 
     // 构建节点的标签
     std::ostringstream label;
-    label << "Thread ID: " << threadId << "\\n"
-          << "File: " << threadFile << "\\n"
-          << "Line: " << threadLine << "\\n"
-          << "Fork File: " << forkFile << "\\n"
-          << "Fork Line: " << forkLine << "\\n"
+    label << "Thread ID: " << threadId << "\n"
+          << "File: " << threadFile << "\n"
+          << "Line: " << threadLine << "\n"
+          << "Fork File: " << forkFile << "\n"
+          << "Fork Line: " << forkLine << "\n"
           << "Call Chain: " << (callChain.empty() ? "N/A" : callChain);
 
     // 添加节点到 DOT

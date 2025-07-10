@@ -1,5 +1,6 @@
 #include <fstream>
 #include "CCPG/ThreadCreationTree.h"
+#include "LLMUtil/Conversation.h"
 
 namespace llm_client{
 
@@ -72,97 +73,6 @@ void Conversation::set_system_prompt(const std::string& prompt) {
         history_.insert(history_.begin(), {MessageRole::SYSTEM, effective_sys_prompt});
     }
     prune_history(); // Ensure it's still within limits
-}
-
-int FindingThreadEntryAgent::find_thread_entry(CCPGNode * node) {
-    
-    if (!node) {
-        return -1; // Invalid node
-    }
-
-    std::string user_prompt = "Analyze the following node to find the thread entry point: \nSource code: " + node->getCPGNode()->getCode() + 
-                            "\nNodeID: " + std::to_string(node->getId()) +
-                            "\nNode Type: " + ThreadAPIUtil::getTypeString(node->getType());
-
-    std::string result = send_message(user_prompt, nullptr);
-
-
-    return 0; // Indicating success
-
-}
-
-std::string FindingThreadEntryAgent::execute_tool(const std::string& tool_name, const nlohmann::json& arguments) {
-    CCPG * ccpg = ThreadCreationTree::getInstance()->getCCPG();
-    const CPG * cpg = ccpg->getCPG();
-
-    if (tool_name == "get_function") {
-        nlohmann::json result = nlohmann::json::object();
-        int node_id = arguments.at("node_id").get<int>();
-        CCPGNode* function_node = ccpg->getNodeByID(node_id);
-        ccpg::Function * function = function_node ? function_node->getFunction() : nullptr;
-        if (function) {
-            result["function_id"] = function->getId();
-            result["function_body"] = function->getFuncNode()->getCPGNode()->getCode();
-            return result.dump();
-        } else {
-            return R"({"error": "Function not found for node ID: )" + std::to_string(node_id) + R"("})";
-        }
-    } else if (tool_name == "get_callers") {
-        int function_id = arguments.at("function_id").get<int>();
-        ccpg::Function * function = ccpg->getFunctionById(function_id);
-        CCPGNodeSet callsites = function->getCallSites();
-        nlohmann::json result = nlohmann::json::array();
-        for (const auto& callsite : callsites) {
-            nlohmann::json callsite_info = {
-                {"callsite_node_id", callsite->getId()},
-                {"callsite_code", callsite->getCPGNode()->getCode()},
-            };
-            result.push_back(callsite_info);
-        }
-        return result.dump();
-    } else if (tool_name == "confirm_thread_entry") {
-        int entry_function_id = arguments.at("entry_function_id").get<int>();
-        last_entry_point_ = std::to_string(entry_function_id);
-        return "finish";
-    } else if (tool_name == "get_function_by_name") {
-        std::string name = arguments.at("name").get<std::string>();
-        std::unordered_set<Node *> nodes = cpg->findMethodsByName(name);
-        nlohmann::json functions = nlohmann::json::array();
-        for(Node * node : nodes) {
-            CCPGNode * function_node = ccpg->getCCPGNodeByCPGNode(node);
-            ccpg::Function * function = function_node ? function_node->getFunction() : nullptr;
-            if (function_node) {
-                nlohmann::json function_info = {
-                    {"function_id", function->getId()},
-                    {"function_body", function->getFuncNode()->getCPGNode()->getCode()},
-                };
-                functions.push_back(function_info);
-            }
-        }
-        return functions.dump();
-    }
-
-    // Default case for unrecognized tools
-    nlohmann::json error_resp;
-    error_resp["error"] = "Tool '" + tool_name + "' not found or not implemented by this agent.";
-    error_resp["arguments_received"] = arguments;
-    return error_resp.dump();
-}
-
-std::string FindingThreadEntryAgent::parseResult(const std::vector<ChatMessage>& history) {
-    if (!history.empty()) {
-        for(auto it = history.rbegin(); it != history.rend(); ++it) {
-            ChatMessage msg = *it;
-            if (msg.role == MessageRole::ASSISTANT && msg.tool_calls.has_value() && !msg.tool_calls->empty()) {
-                // Return the first tool call's content (adjust based on your actual ToolCall structure)
-                ToolCallRequest tool_call = msg.tool_calls->front();
-                if(tool_call.toolname == "confirm_thread_entry"){
-                    return tool_call.arguments["entry_function_id"];
-                }
-            }
-        }
-    }
-    return "No valid assistant response found.";   
 }
 
 }

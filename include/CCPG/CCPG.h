@@ -10,7 +10,6 @@
 #include "CPG/CPG.h"
 //#include "CIG/LockAnalysis.h"
 #include "CCPG/CCPGEdge.h"
-#include "LLMUtil/Conversation.h"
 
 
 using namespace SVF;
@@ -233,6 +232,7 @@ public:
     NodeLocHash> locToSpecialCallMap;
     FunctionSet entryFunctions;
     std::unordered_set<const SVFStmt *> visited;
+    std::unordered_map<Node*, std::unordered_set<Node*>> findChildrenCache;
 };
 
 #endif
