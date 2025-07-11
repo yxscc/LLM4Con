@@ -9,8 +9,6 @@
 #include "CPG/CPG.h"
 #include "SVFUtil/SVFManager.h"
 #include "Util/ExtAPI.h"
-#include "SVF-LLVM/SVFIRBuilder.h"
-#include "SVF-LLVM/LLVMModule.h"
 #include "CCPG/CCPG.h"
 #include "Util/ExecutionTimer.h"
 #include "Query/DataRaceDetector.h"
@@ -19,12 +17,18 @@
 #include "Query/NullReferenceDetector.h"
 #include "LLMUtil/LLMClient.h"
 
+#ifdef U
+#undef U
+#endif
+
+#include "SVF-LLVM/LLVMUtil.h"
+#include "SVF-LLVM/LLVMModule.h"
+
 
 using namespace std;
 using namespace llvm;
 using namespace SVF;
 
-SVFManager * SVFManager::instance = nullptr;
 TargetPath * TargetPath::instance = nullptr;
 ExecutionTimer * ExecutionTimer::instance = nullptr;
 
@@ -75,23 +79,11 @@ int main(int argc, char* argv[]) {
     }  
 
     ExecutionTimer::getInstance()->start("SVF Analysis");
-    LLVMModuleSet* moduleSet = LLVMModuleSet::getLLVMModuleSet();
-
-    SVFModule* svfModule = moduleSet->buildSVFModule(moduleNameVec);
-    SVFIRBuilder builder(svfModule);
-    SVFIR* pag = builder.build();
-    ICFG* icfg = pag->getICFG();
-    Andersen* ander = AndersenWaveDiff::createAndersenWaveDiff(pag);
-    PTACallGraph* callgraph = ander->getCallGraph();
-    auto vfg = std::make_unique<VFG>(callgraph);
-    SVFGBuilder svfBuilder(true);
-    SVFG* svfg = svfBuilder.buildFullSVFG(ander);
-
-    SVFManager* svfManager = SVFManager::build(svfModule, pag, ander, svfg, callgraph, icfg, vfg.get());
+    SVFManager::getInstance()->runSVFAnalysis(moduleNameVec);
     ExecutionTimer::getInstance()->stop("SVF Analysis");
 
     ExecutionTimer::getInstance()->start("CCPG Analysis");
-    auto ccpg = std::make_unique<CCPG>(cpg.get(), svfManager);
+    auto ccpg = std::make_unique<CCPG>(cpg.get());
     ccpg->build();
     //ExecutionTimer::getInstance()->stop("CCPG Analysis");
 
@@ -113,13 +105,13 @@ int main(int argc, char* argv[]) {
     auto dfd = std::make_unique<DoubleFreeDetector>();
     dfd->detect();
     ExecutionTimer::getInstance()->stop("Double Free Detection");
-    dfd->printDoubleFrees(targetPath->getOutputDir());
+dfd->printDoubleFrees(targetPath->getOutputDir());
 
     ExecutionTimer::getInstance()->start("Null Reference Detection");
     auto nrd = std::make_unique<NullReferenceDetector>();
     nrd->detect();
     ExecutionTimer::getInstance()->stop("Null Reference Detection");
-    nrd->printNullReferences(targetPath->getOutputDir());
+nrd->printNullReferences(targetPath->getOutputDir());
 
     ExecutionTimer::getInstance()->printAllTimes(targetPath->getOutputDir());
 
@@ -215,6 +207,3 @@ void dumpsvf(SVFG* svfg){
 
     }
 }
-
-
-

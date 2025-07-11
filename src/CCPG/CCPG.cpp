@@ -15,6 +15,8 @@
 #include "CCPG/LSAnalysis.h"
 #include "Util/ExecutionTimer.h"
 #include "SABER/SaberCheckerAPI.h"
+#include "SVFUtil/SVFManager.h"
+#include "Graphs/PTACallGraph.h"
 
 using namespace ccpg;
 
@@ -45,7 +47,7 @@ std::unordered_map<NodeLoc, std::vector<const CallICFGNode*>, NodeLocHash> svfCa
 void CCPG::build(){
 
     //mapSVFInstructions();
-    SVFManager* svfManager = getSVFManager();
+    SVFManager* svfManager = SVFManager::getInstance();
     SVFG* svfg = svfManager->getSVFG();
     SVFIR* pag = svfManager->getSVFIR();
     const CPG* cpg = this->getCPG();
@@ -261,7 +263,7 @@ CCPGNodeSet CCPG::getEntries(){
     CCPGNodeSet entries;
     const CPG* cpg = this->getCPG();
 
-    for(const SVFFunction * svfFunction : getSVFManager()->getSVFModule()->getFunctionSet()){
+    for(const SVFFunction * svfFunction : SVFManager::getInstance()->getSVFModule()->getFunctionSet()){
 
         PTACallGraph * callGraph = SVFManager::getInstance()->getPTACallGraph();
 
@@ -290,7 +292,7 @@ CCPGNodeSet CCPG::getEntries(){
         }
         for(auto it = methods.begin(); it != methods.end(); it++){
             Node * methodNode = *it;
-            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){ //因为有一些函数的定义是分行的，所以需要将比较条件设置宽松一点
+            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){ //因为有一些函数的定��是分行的，所以需要将比较条件设置宽松一点
                 entries.insert(createCCPGNode(methodNode));
                 
             }
@@ -678,7 +680,7 @@ std::string escapeSpecialCharacters(const std::string& input) {
             case '\t': result += "\\t"; break;  // 制表符
             case '\r': result += "\\r"; break;  // 回车符
             case '\\': result += "\\\\"; break; // 反斜杠
-            case '\"': result += "\\\""; break; // 双引号
+            case '"': result += "\\\""; break; // 双引号
             case '\'': result += "\\'"; break;  // 单引号
             case '\0': result += "\\0"; break;  // 空字符
             case '\b': result += "\\b"; break;  // 退格符
@@ -774,4 +776,3 @@ void CCPG::dump(fs::path outputDir) {
 
     ThreadCreationTree::getInstance()->printThreadCreationTree(outputDir);
 }
-

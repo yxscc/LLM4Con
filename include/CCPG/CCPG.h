@@ -31,14 +31,15 @@ public:
         Free
     };
 
-    CCPG(const CPG* cpg, SVFManager* svfManager) : cpg(cpg), svfManager(svfManager) {}
+    CCPG(const CPG* cpg) : cpg(cpg) {}
     ~CCPG() {}
 
     const CPG* getCPG() const { return cpg; }
 
-    SVFManager* getSVFManager() const { return svfManager; }
+
 
     CCPGNode * createCCPGNode(Node *n);
+    
     CCPGEdge * createCCPGEdge(CCPGNode *src, CCPGNode *dst);
 
     bool containsCPGNode(Node *node) const {
@@ -213,8 +214,7 @@ public:
     void dump(fs::path outputDir);
 
     private:
-    const CPG* cpg; 
-    SVFManager* svfManager;
+    const CPG* cpg;
 
     CCPGNodeSet nodes;
     CCPGEdgeSet edges;

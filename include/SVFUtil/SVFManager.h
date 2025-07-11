@@ -2,122 +2,54 @@
 #ifndef SVFMANAGER_H 
 #define SVFMANAGER_H
 
-#include <set>
+#include <string>
 #include <vector>
 
-
+// Forward declarations to reduce header dependencies
 #include "WPA/Andersen.h"
-#include "MTA/MTA.h"
-#include "MemoryModel/PointerAnalysisImpl.h"
-#include "SVFIR/SVFValue.h"
-#include "CPG/Node.h"
 #include "Graphs/SVFG.h"
-#include "Graphs/SVFGStat.h"
 #include "Graphs/PTACallGraph.h"
+#include "Graphs/ICFG.h"
+#include "Graphs/VFG.h"
+#include "SVFIR/SVFModule.h"
+#include "SVFIR/SVFIR.h"
 
 
-namespace SVF
-{
-
-class PointerAnalysis;
-class AndersenWaveDiff;
-class LockAnalysis;
-class SVFModule;
-class SVFG;
-class Andersen;
-class PTACallGraph;
-class ICFG;
-class VFG;
-
-class SVFManager{
-private:
-    SVFModule* svfModule;
-    SVFIR* pag;
-    Andersen* ander;
-    SVFG* svfg;
-    PTACallGraph* callgraph;
-    ICFG* icfg;
-    VFG* vfg;
-
-    static SVFManager* instance;  // 静态实例指针
-
-    SVFManager(SVFModule* svfModule, SVFIR* pag, Andersen* ander, SVFG* svfg, PTACallGraph* callgraph, ICFG* icfg, VFG* vfg){
-        this->svfModule = svfModule;
-        this->pag = pag;
-        this->ander = ander;
-        this->svfg = svfg;
-        this->callgraph = callgraph;
-        this->icfg = icfg;
-        this->vfg = vfg;
-    };
-    ~SVFManager() {}  // 私有析构函数
-    SVFManager(const SVFManager&) = delete;            // 阻止复制构造
-    SVFManager& operator=(const SVFManager&) = delete; // 阻止赋值操作
-
+class SVFManager {
 public:
-    /*SVFManager(SVFModule* svfModule, SVFIR* pag, Andersen* ander, SVFG* svfg, PTACallGraph* callgraph, ICFG* icfg, VFG* vfg){
-        this->svfModule = svfModule;
-        this->pag = pag;
-        this->ander = ander;
-        this->svfg = svfg;
-        this->callgraph = callgraph;
-        this->icfg = icfg;
-        this->vfg = vfg;
-    };*/
+    // Get the singleton instance
+    static SVFManager* getInstance();
 
-    static SVFManager* build(SVFModule* svfModule, SVFIR* pag, Andersen* ander, SVFG* svfg, PTACallGraph* callgraph, ICFG* icfg, VFG* vfg) {
-        if (instance == nullptr) {
-            instance = new SVFManager(svfModule, pag, ander, svfg, callgraph, icfg, vfg);
-        }
-        return instance;
-    }
+    // Delete copy constructor and assignment operator
+    SVFManager(const SVFManager&) = delete;
+    void operator=(const SVFManager&) = delete;
 
-    // Accessor method to get the singleton instance
-    static SVFManager* getInstance() {
-        if (instance == nullptr) {
-            throw std::runtime_error("SVFManager is not built yet. Call build() first.");
-        }
-        return instance;
-    }
+    // Run the SVF analysis
+    void runSVFAnalysis(const std::vector<std::string>& moduleNameVec);
 
+    // Accessors
+    SVF::SVFModule* getSVFModule() { return svfModule; }
+    SVF::SVFIR* getSVFIR() { return pag; }
+    SVF::Andersen* getAndersen() { return ander; }
+    SVF::PTACallGraph* getPTACallGraph() { return callgraph; }
+    SVF::ICFG* getICFG() { return icfg; }
+    SVF::VFG* getVFG() { return vfg; }
+    SVF::SVFG* getSVFG() { return svfg; }
 
-    // 获取SVFModule
-    SVFModule* getSVFModule(){
-        return svfModule;
-    }
+private:
+    // Private constructor and destructor
+    SVFManager();
+    ~SVFManager();
 
-    // 获取SVFIR
-    SVFIR* getSVFIR(){
-        return pag;
-    }
+    SVF::SVFModule* svfModule;
+    SVF::SVFIR* pag;
+    SVF::Andersen* ander;
+    SVF::SVFG* svfg;
+    SVF::PTACallGraph* callgraph;
+    SVF::ICFG* icfg;
+    SVF::VFG* vfg;
 
-    // 获取Andersen
-    Andersen* getAndersen(){
-        return ander;
-    }
-
-    // 获取PTACallGraph
-    PTACallGraph* getPTACallGraph(){
-        return callgraph;
-    }
-
-    // 获取ICFG
-    ICFG* getICFG(){
-        return icfg;
-    }
-
-    // 获取VFG
-    VFG* getVFG(){
-        return vfg;
-    }
-
-    // 获取SVFG
-    SVFG* getSVFG(){
-        return svfg;
-    }
-
+    static SVFManager* instance;  // Static instance pointer
 };
-
-} // End of SVF namespace
 
 #endif // End of SVFMANAGER_H
