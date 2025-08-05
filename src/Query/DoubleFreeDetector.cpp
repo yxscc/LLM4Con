@@ -1,4 +1,4 @@
-#include "Query/DoubleFreeDetector.h"
+/*#include "Query/DoubleFreeDetector.h"
 #include "CCPG/AliasChecker.h"
 
 using namespace SVF;
@@ -73,4 +73,4 @@ void DoubleFreeDetector::printDoubleFrees(fs::path outputDir) {
         file << "count  "<< i++ << " ----------------------------------------" << std::endl;
     }
     file.close();
-}
+}*/

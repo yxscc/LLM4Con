@@ -1,3 +1,4 @@
+#include "phasar.h"
 #include <cxxabi.h>
 #include <regex>
 #include <filesystem>
@@ -10,15 +11,14 @@
 #include <sstream>
 
 #include "CCPG/HB.h"
-#include "SVFUtil/SVFAnalyzer.h"
+#include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
 #include "CCPG/LSAnalysis.h"
 #include "Util/ExecutionTimer.h"
-#include "SABER/SaberCheckerAPI.h"
-#include "SVFUtil/SVFManager.h"
-#include "Graphs/PTACallGraph.h"
+#include "PhasarUtil/AnalysisManager.h"
 
 using namespace ccpg;
+using namespace psr;
 
 namespace fs = std::filesystem;
 
@@ -42,48 +42,29 @@ bool CCPG::hasHBEdge(CCPGNode * node){
     return false;
 }
 
-std::unordered_map<NodeLoc, std::vector<const CallICFGNode*>, NodeLocHash> svfCallSitesByLoc;
-
 void CCPG::build(){
 
-    //mapSVFInstructions();
-    SVFManager* svfManager = SVFManager::getInstance();
-    SVFG* svfg = svfManager->getSVFG();
-    SVFIR* pag = svfManager->getSVFIR();
     const CPG* cpg = this->getCPG();
     ThreadCreationTree* tree = ThreadCreationTree::getInstance();
     tree->setCPG(cpg);
     tree->setCCPG(this);
-
-    // 遍历整个程序的所有SVF调用点，构建索引
-    for (const CallICFGNode* callNode : pag->getCallSiteSet()) {
-        if (callNode && callNode->getCalledFunction()) {
-            std::string sourceLoc = callNode->getSourceLoc();
-            int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-            std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-            
-            NodeLoc loc(fileName, lineNumber, nullptr); 
-
-            // 将 callNode 指针添加到对应位置的 vector 中
-            svfCallSitesByLoc[loc].push_back(callNode);
-        }
-    }
-
+    
     std::queue<ccpg::Function *> functionQueue;
     std::set<ccpg::Function *> visited;
-    CCPGNodeSet entryNodes = getEntries();
-    for(CCPGNode * entry : entryNodes){
+
+    CCPGNodeSet entries = getEntries();
+    for(CCPGNode * entry : entries){
         ccpg::Function * f = createFunction(entry);
         entryFunctions.insert(f);
         functionQueue.push(f);
     }
-
+    
     int i = 0;
     // create function for each call node
     while (!functionQueue.empty()) {
         ccpg::Function * function = functionQueue.front();
         functionQueue.pop();
-        if(visited.find(function) != visited.end()){
+        if(visited.count(function)){
             continue;
         }
         visited.insert(function);
@@ -129,10 +110,6 @@ void CCPG::build(){
     ExecutionTimer::getInstance()->start("Building thread creation tree");
     tree->build();
     ExecutionTimer::getInstance()->stop("Building thread creation tree");
-
-    ExecutionTimer::getInstance()->start("Mapping SVF instructions");
-    mapSVFInstructions();
-    ExecutionTimer::getInstance()->stop("Mapping SVF instructions");
 
     labelAPI();
 
@@ -259,29 +236,21 @@ void CCPG::deleteNode(CCPGNode * node){
 }
 
 CCPGNodeSet CCPG::getEntries(){
-
     CCPGNodeSet entries;
     const CPG* cpg = this->getCPG();
 
-    for(const SVFFunction * svfFunction : SVFManager::getInstance()->getSVFModule()->getFunctionSet()){
+    auto potentialEntries = AnalysisManager::getInstance()->getPointerAnalyzer()->getPotentialEntryPoints();
 
-        PTACallGraph * callGraph = SVFManager::getInstance()->getPTACallGraph();
-
-        if (SVFUtil::isExtCall(svfFunction))
-            continue;
-
-        PTACallGraphNode* node = callGraph->getCallGraphNode(svfFunction);
-
-        if (node->hasIncomingEdge())
-        {
-            continue;
+    for (const auto& entryInfo : potentialEntries) {
+        
+        const std::string& fileName = entryInfo.fileName;
+        int lineNumberFromPhasar = entryInfo.lineNumber;
+        
+        if (fileName == "N/A" || lineNumberFromPhasar == 0) {
+            continue; // 跳过无效的入口点信息
         }
 
-        std::string sourceLoc = svfFunction->getSourceLoc();
-        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
         std::string fileName_last = fileName.substr(fileName.find_last_of("/") + 1);
-
 
         CPGNodeSet methods = cpg->getMethodsByFileName(fileName);
         if(methods.size() == 0){
@@ -290,15 +259,14 @@ CCPGNodeSet CCPG::getEntries(){
                 continue;
             }
         }
+
         for(auto it = methods.begin(); it != methods.end(); it++){
             Node * methodNode = *it;
-            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){ //因为有一些函数的定��是分行的，所以需要将比较条件设置宽松一点
+            if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumberFromPhasar) <= 3){
                 entries.insert(createCCPGNode(methodNode));
-                
             }
         }
     }
-
     return entries;
 }
 
@@ -352,99 +320,91 @@ CCPGEdge* CCPG::createCCPGEdge(CCPGNode* from, CCPGNode* to) {
 }
 
 ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
-    SVFAnalyzer * svfAnalyzer = SVFAnalyzer::getInstance();
     ccpg::Function * function = getFunctionByCCPGNode(funcNode);
     if (function != nullptr) {
         return function;
     }
-
-    funcNode->setControlFlowOrder(0);
     
     function = new ccpg::Function(funcNode);
     addFunction(function);
 
     std::queue<CCPGNode *> nodeQueue;
     nodeQueue.push(funcNode);
+    funcNode->setFunction(function);
+
+    std::unordered_set<CCPGNode*> visitedNodes; // 防止因循环等造成重复处理
+    visitedNodes.insert(funcNode);
 
     while (!nodeQueue.empty()) {
 
         CCPGNode* node = nodeQueue.front();
-        function->addNode(node);
         nodeQueue.pop();
+        function->addNode(node);
 
         Node* cpgNode = node->getCPGNode();
         std::unordered_set<Node*> children = findChildren(cpgNode);
 
         for(Node* child : children){
             CCPGNode* childNode = getCCPGNodeByCPGNode(child);
-            CCPGEdge* edge;
-            if(childNode != nullptr ){
-                edge = createCCPGEdge(node, childNode);
-            }
-            else{
+            if (!childNode) {
                 childNode = createCCPGNode(child);
-                childNode->setFunction(function);
-                edge = createCCPGEdge(node, childNode);
-                nodeQueue.push(childNode);
+                childNode->setFunction(function); // 新节点也需要设置其所属函数
             }
-            if(childNode->getControlFlowOrder() == 0){
-                childNode->setControlFlowOrder(node->getControlFlowOrder() + 1);
-            }
+            CCPGEdge* edge = createCCPGEdge(node, childNode);
+            nodeQueue.push(childNode);
             this->addEdge(edge);
             function->addEdge(edge);
+
+            if (visitedNodes.find(childNode) == visitedNodes.end()) {
+                visitedNodes.insert(childNode);
+                nodeQueue.push(childNode);
+            }
         }
     }
 
-    for(CCPGNode* node : function->getNodes()){
-        if(node->getCPGNode()->getFileName() != ""){
-            NodeLoc loc(node->getCPGNode()->getFileName(), node->getCPGNode()->getLineNumber(), function);
-            node->setNodeLoc(loc);
-            addNodeByLoc(loc, node);
-            function->addNodeByLoc(loc, node);
-            locToNodeSetMap[loc].insert(node);
-        }
-        else{
-            NodeLoc loc(function->getFuncNode()->getCPGNode()->getFileName(), node->getCPGNode()->getLineNumber(), function);
-            node->setNodeLoc(loc);
-            addNodeByLoc(loc, node);
-            function->addNodeByLoc(loc, node);
-            locToNodeSetMap[loc].insert(node);
-        }
+    const std::string& funcFileName = function->getFuncNode()->getCPGNode()->getFileName();
+    for (CCPGNode* node : function->getNodes()) {
+        const std::string& nodeFileName = node->getCPGNode()->getFileName();
+        const std::string& effectiveFileName = nodeFileName.empty() ? funcFileName : nodeFileName;
+        NodeLoc loc(effectiveFileName, node->getCPGNode()->getLineNumber(), function);
+        node->setNodeLoc(loc);
+        locToNodeSetMap[loc].insert(node);
+        function->addNodeByLoc(loc, node);
     }
 
-    if(function->getFuncNode()->getId() == 9){
-        int i=1;
+    PointerAnalysisInterface* analyzer = AnalysisManager::getInstance()->getPointerAnalyzer();
+    PhasarPointerAnalysis* phasarAnalyzer = static_cast<PhasarPointerAnalysis*>(analyzer);
+    if (!phasarAnalyzer) {
+        std::cerr << "Error: Phasar analysis backend is not initialized." << std::endl;
+        return function;
     }
 
-    const SVF::SVFFunction* svfFunction = AliasChecker::getInstance()->getSVFFunction(function);
-    function->setSVFFunction(svfFunction);
-    funcNode->setFunction(function);
-
-    if(svfFunction == nullptr){
+    const llvm::Function* llvmFunc = AliasChecker::getInstance()->getLLVMFunction(function);
+    if (llvmFunc) {
+        function->setLLVMFunction(llvmFunc);
+    } else {
+        std::cerr << "Warning: Could not map CPG function '" << function->getFuncNode()->getCPGNode()->getName()
+                  << "' to an llvm::Function." << std::endl;
         return function;
     }
 
     for(CCPGNode* node : function->getNodes()){
         if(node->isCallSite()){
             NodeLoc loc = node->getNodeLoc();
-            NodeLoc lookupKey(loc.getFileName(), loc.getLineNumber(), nullptr);
-            auto it = svfCallSitesByLoc.find(lookupKey);
-            if (it != svfCallSitesByLoc.end()) {
-                const auto& candidates = it->second;
-                // 遍历这个位置的所有候选SVF调用点
-                for (const CallICFGNode* candidateCallNode : candidates) {
-                    // 使用 areCallsSame 进行精确匹配
-                    if(AliasChecker::getInstance()->areCallsSame(candidateCallNode, node->getCPGNode())){
-                        node->setCallICFGNode(candidateCallNode);
-                        if (SaberCheckerAPI::getCheckerAPI()->isMemDealloc(candidateCallNode)){
-                            addSpecialCall(loc, SpecialCallType::Free, candidateCallNode);
-                        }
-                        else if (SaberCheckerAPI::getCheckerAPI()->isMemAlloc(candidateCallNode)){
-                            addSpecialCall(loc, SpecialCallType::Alloc, candidateCallNode);
-                        }
-                        break;
-                    }
-                    
+            std::string cpgCallName = node->getCPGNode()->getName();
+            auto candidateCallInsts = phasarAnalyzer->getCallInstsByLoc(loc);
+            
+            for (const llvm::CallInst* candidateInst : candidateCallInsts) {
+                const llvm::Function* calledFunc = candidateInst->getCalledFunction();
+                if (!calledFunc) {
+                    continue; 
+                }
+
+                std::string llvmCallName = LLVMAnalyzer::getInstance()->demangle(calledFunc->getName().str().c_str());
+                if (cpgCallName == llvmCallName) {
+                    // 找到了完美的匹配！
+                    node->setLLVMCallInst(candidateInst);
+                    break; 
                 }
             }
         }
@@ -540,12 +500,15 @@ CCPGNode * CCPG::findCalleeByCaller(CCPGNode * caller){
         }
     }
 
-    const SVF::CallICFGNode * callICFGNode = caller->getCallICFGNode();
-    if(callICFGNode != nullptr){
-        const SVFFunction * svfFunction = callICFGNode->getCalledFunction();
-        Node * method = aliasChecker->findMethodBySVFFunction(svfFunction);
-        if(method != nullptr){
-            return createCCPGNode(method);
+    const llvm::CallInst* callInst = caller->getLLVMCallInst();
+    if (callInst) {
+        auto potentialCallees = AnalysisManager::getInstance()->getPointerAnalyzer()->getCalleesOfCallAt(callInst);
+
+        for (const llvm::Function* llvmFunc : potentialCallees) {
+            Node* methodNode = cpg->findMethodByLLVMFunction(llvmFunc);
+            if (methodNode) {
+                return createCCPGNode(methodNode);
+            }
         }
     }
 
@@ -573,94 +536,6 @@ CCPGNode * CCPG::findCalleeByCaller(CCPGNode * caller){
     }
     
     return nullptr;
-}
-
-
-
-void CCPG::mapSVFInstructions(){
-    AliasChecker * aliasChecker = AliasChecker::getInstance();
-
-    SVFManager * svfManager = SVFManager::getInstance();
-    SVFIR* pag = svfManager->getSVFIR();
-
-    for(auto it = functions.begin(); it != functions.end(); it++){
-        ccpg::Function * function = *it;
-        const SVF::SVFFunction* svfFunction = function->getSVFFunction();
-
-        if(svfFunction == nullptr){
-            continue;
-        }
-
-        for(const SVFBasicBlock * svfbb : svfFunction->getBasicBlockList()){
-            for (const ICFGNode* icfgNode : svfbb->getICFGNodeList())
-            {
-                for(const SVFStmt* stmt : pag->getSVFStmtList(icfgNode))
-                {
-                    if (const LoadStmt* l = SVFUtil::dyn_cast<LoadStmt>(stmt))
-                    {
-                        
-                        if(l == nullptr ){ //|| !AliasChecker::getInstance()->isSharedAccess(l)
-                            continue;
-                        }
-                        const SVFInstruction* inst = l->getInst();
-                        std::string sourceLoc = inst->getSourceLoc();
-                        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                        addSVFInstByLoc(NodeLoc(fileName, lineNumber, function), stmt);
-                        addStructFieldStmt(stmt);
-                    }
-                    else if (const StoreStmt* s = SVFUtil::dyn_cast<StoreStmt>(stmt))
-                    {
-                        if(s == nullptr ){ //|| !AliasChecker::getInstance()->isSharedAccess(s)
-                            continue;
-                        }
-                        const SVFInstruction* inst = s->getInst();
-                        std::string sourceLoc = inst->getSourceLoc();
-                        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                        addSVFInstByLoc(NodeLoc(fileName, lineNumber, function), s);
-                    }
-                }
-            }
-        }
-
-    }
-}
-
-void CCPG::addStructFieldStmt(const SVFStmt* stmt){
-    if(const LoadStmt* l = SVFUtil::dyn_cast<LoadStmt>(stmt)){
-        const SVFVar * var = l->getLHSVar();
-        if(var->hasOutgoingEdges(SVFStmt::Gep)){
-            for(auto it = var->getOutgoingEdgesBegin(SVFStmt::Gep); it != var->getOutgoingEdgesEnd(SVFStmt::Gep); it++){
-                const SVFStmt * gep = *it;
-                const GepStmt * gepStmt = SVFUtil::dyn_cast<GepStmt>(gep);
-                const SVFVar * gepVar = gepStmt->getLHSVar();
-                if(gepVar->hasOutgoingEdges(SVFStmt::Load)){
-                    for(auto it = gepVar->getOutgoingEdgesBegin(SVFStmt::Load); it != gepVar->getOutgoingEdgesEnd(SVFStmt::Load); it++){
-                        const SVFStmt * load = *it;
-                        const LoadStmt * loadStmt = SVFUtil::dyn_cast<LoadStmt>(load);
-                        const SVFInstruction* inst = loadStmt->getInst();
-                        std::string sourceLoc = inst->getSourceLoc();
-                        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                        addSVFInstByLoc(NodeLoc(fileName, lineNumber, nullptr), loadStmt);
-                        addStructFieldStmt(loadStmt);
-                    }
-                }
-                if(gepVar->hasIncomingEdges(SVFStmt::Store)){
-                    for(auto it = gepVar->getIncomingEdgesBegin(SVFStmt::Store); it != gepVar->getIncomingEdgesEnd(SVFStmt::Store); it++){
-                        const SVFStmt * store = *it;
-                        const StoreStmt * storeStmt = SVFUtil::dyn_cast<StoreStmt>(store);
-                        const SVFInstruction* inst = storeStmt->getInst();
-                        std::string sourceLoc = inst->getSourceLoc();
-                        int lineNumber = SVFAnalyzer::getInstance()->getLineNumberFromSourceLoc(sourceLoc);
-                        std::string fileName = SVFAnalyzer::getInstance()->getFileFromSourceLoc(sourceLoc);
-                        addSVFInstByLoc(NodeLoc(fileName, lineNumber, nullptr), storeStmt);
-                    }
-                }
-            }
-        }
-    }
 }
 
 bool CCPG::existsEdge(CCPGNode * src, CCPGNode * dst) const {

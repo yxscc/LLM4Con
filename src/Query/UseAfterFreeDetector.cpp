@@ -1,4 +1,4 @@
-#include "Query/UseAfterFreeDetector.h"
+/*#include "Query/UseAfterFreeDetector.h"
 #include "CCPG/AliasChecker.h"
 
 using namespace SVF;
@@ -110,4 +110,4 @@ void UseAfterFreeDetector::printUseAfterFrees(fs::path outputDir) {
         file << "count  "<< i++ << " ----------------------------------------" << std::endl;
     }
     file.close();
-}
+}*/

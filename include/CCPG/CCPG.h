@@ -8,11 +8,12 @@
 
 #include "CPG/Node.h"
 #include "CPG/CPG.h"
-//#include "CIG/LockAnalysis.h"
 #include "CCPG/CCPGEdge.h"
 
+namespace llvm {
+    class CallInst;
+}
 
-using namespace SVF;
 using namespace ccpg;
 
 class Thread;
@@ -96,24 +97,6 @@ public:
         locToNodeSetMap[loc].insert(node);
     }
 
-    void addSVFInstByLoc(NodeLoc loc, const SVFStmt * stmt) {
-        if(visited.find(stmt) != visited.end()){
-            return;
-        }
-        locToSVFStmtMap[loc].push_back(stmt);
-        visited.insert(stmt);
-    }
-
-    std::vector<const SVFStmt *> getSVFStmtByLoc(NodeLoc loc) const {
-        auto it = locToSVFStmtMap.find(loc);
-        if (it != locToSVFStmtMap.end()) {
-            return it->second;
-        }
-        return std::vector<const SVFStmt *>();
-    }
-
-
-
     FunctionSet getFunctions() const { return functions; }
     void addFunction(ccpg::Function *function) {
         functions.insert(function);
@@ -152,7 +135,6 @@ public:
     ccpg::Function * getFunctionByCCPGNode(CCPGNode *node);
 
     void mapSVFInstructions();
-    void addStructFieldStmt(const SVFStmt *stmt);
 
     CCPGNodeSet getEntries();
 
@@ -197,19 +179,10 @@ public:
     
     CCPGNode * getCallSiteInFunction(const ccpg::Function * caller, const ccpg::Function * callee);
 
-    void addSpecialCall(NodeLoc loc, SpecialCallType type, const CallICFGNode* callNode) {
+    void addSpecialCall(NodeLoc loc, SpecialCallType type, const llvm::CallInst* callNode){
         locToSpecialCallMap[loc][type].insert(callNode);
     }
-    std::unordered_set<const CallICFGNode *> getSpecialCallByLoc(NodeLoc loc, SpecialCallType type) const {
-        auto it = locToSpecialCallMap.find(loc);
-        if (it != locToSpecialCallMap.end()) {
-            auto it2 = it->second.find(type);
-            if (it2 != it->second.end()) {
-                return it2->second;
-            }
-        }
-        return std::unordered_set<const CallICFGNode *>();
-    }
+    std::unordered_set<const llvm::CallInst*> getSpecialCallByLoc(NodeLoc loc, SpecialCallType type) const;
 
     void dump(fs::path outputDir);
 
@@ -225,13 +198,13 @@ public:
     std::unordered_map<Node *, CCPGNode *> cpgNodeToCCPGNodeMap;
     std::unordered_map<CCPGNode *, ccpg::Function *> funcNodeToFunctionMap;
     std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> locToNodeSetMap;
-    std::unordered_map<NodeLoc, std::vector<const SVFStmt *>, NodeLocHash> locToSVFStmtMap;
+    std::unordered_map<NodeLoc, std::vector<const llvm::Instruction*>, NodeLocHash> locToSVFStmtMap;
     std::unordered_map<
     NodeLoc, 
-    std::unordered_map< SpecialCallType, std::unordered_set<const CallICFGNode *>>, 
+    std::unordered_map< SpecialCallType, std::unordered_set<const llvm::CallInst*>>, 
     NodeLocHash> locToSpecialCallMap;
     FunctionSet entryFunctions;
-    std::unordered_set<const SVFStmt *> visited;
+    std::unordered_set<const llvm::Instruction*> visited;
     std::unordered_map<Node*, std::unordered_set<Node*>> findChildrenCache;
 };
 

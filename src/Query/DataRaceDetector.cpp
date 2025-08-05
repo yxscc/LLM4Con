@@ -1,4 +1,4 @@
-#include "Query/DataRaceDetector.h"
+/*#include "Query/DataRaceDetector.h"
 #include "CCPG/AliasChecker.h"
 
 using namespace SVF;
@@ -119,4 +119,4 @@ void DataRaceDetector::printDataRaces(fs::path outputDir) {
         file << "count  "<< i++ << " ----------------------------------------" << std::endl;
     }
     file.close();
-}
+}*/

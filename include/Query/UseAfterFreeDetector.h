@@ -1,4 +1,4 @@
-#include "CCPG/LSAnalysis.h"
+/*#include "CCPG/LSAnalysis.h"
 
 class UseAfterFree;
 
@@ -94,4 +94,4 @@ class UseAfterFree {
         Context ctx2;
         NodeLoc loc2;
         const SVFStmt * use;
-};
+};*/

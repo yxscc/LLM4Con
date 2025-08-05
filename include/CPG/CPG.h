@@ -6,6 +6,14 @@
 #include "Edge.h"
 #include <vector>
 #include <memory>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+namespace llvm {
+    class Function;
+    class Instruction;
+} // namespace llvm
 
 typedef std::unordered_set<Node*> CPGNodeSet;
 
@@ -149,6 +157,8 @@ public:
             return findMethod(node->getName());
         }
     }
+
+    Node * findMethodByLLVMFunction(const llvm::Function* llvmFunc) const;
     
     bool hasContainsEdge(Node * callee, Node * node) const{
         for(auto edge : node->inEdges){

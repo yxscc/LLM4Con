@@ -7,12 +7,14 @@
 #include "CPG/Node.h"
 #include "CPG/CPG.h"
 #include "CCPG/ThreadAPIUtil.h"
-#include "SVFUtil/SVFManager.h"
 #include "Util/TargetPath.h"
 #include "Context.h"
 
-
-using namespace SVF;
+namespace llvm {
+    class Instruction;
+    class CallInst;
+    class Function;
+}
 
 namespace ccpg {
     class Function;
@@ -156,7 +158,7 @@ private:
     ccpg::Function * function;
     int controlFlowOrder = 0;
     bool callSite;
-    const SVF::CallICFGNode * callICFGNode;
+    const llvm::CallInst* llvmCallInst = nullptr; // 专门存储CallInst
     std::vector<Lock *> intraProceduralLocks;
     std::unordered_set<Thread *> relevantThreads;
 
@@ -166,7 +168,6 @@ public:
     CCPGNode(Node* node, ThreadAPIUtil::TYPE type) 
     : cpgNode(node), 
     type(type),
-    callICFGNode(nullptr),  // 显式初始化
     function(nullptr),
     callSite(false),
     controlFlowOrder(0) {
@@ -180,8 +181,8 @@ public:
     void setCallSite(bool isCallSite) { this->callSite = isCallSite; }
     bool isCallSite() const { return callSite; }
 
-    void setCallICFGNode(const SVF::CallICFGNode * callICFGNode) { this->callICFGNode = callICFGNode; }
-    const SVF::CallICFGNode * getCallICFGNode() const { return callICFGNode; }
+    void setLLVMCallInst(const llvm::CallInst* CI) { llvmCallInst = CI; }
+    const llvm::CallInst* getLLVMCallInst() const { return llvmCallInst; }
 
     void setType(ThreadAPIUtil::TYPE type) { this->type = type; }
     ThreadAPIUtil::TYPE getType() const { return type; }
@@ -233,7 +234,6 @@ private:
     CCPGNodeSet nodes;
     CCPGEdgeSet edges;
     TypeToNodeSetMap typeToNodeSet;
-    const SVFFunction * svfFunction = nullptr;
     CCPGNode * funcNode;
     ContextSet contextSet;
     bool forkPotential = false;
@@ -241,6 +241,7 @@ private:
     bool releasePotential = false;
     bool joinPotential = false;
     std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> locToNodeSetMap;
+    const llvm::Function * llvmFunction = nullptr;
 
 public:
     Function(CCPGNode * funcNode) {
@@ -257,6 +258,9 @@ public:
     void addEdge(CCPGEdge *edge) { edges.insert(edge); }
     CCPGEdgeSet getEdges() const { return edges; }
 
+    void setLLVMFunction(const llvm::Function * func) { this->llvmFunction = func; }
+    const llvm::Function * getLLVMFunction() const { return llvmFunction; }
+
     CCPGNodeSet getNodesByType(ThreadAPIUtil::TYPE type) const {
         auto it = typeToNodeSet.find(type);
         if (it != typeToNodeSet.end()) {
@@ -268,9 +272,6 @@ public:
     void addNodeByLoc(NodeLoc loc, CCPGNode *node) {
         locToNodeSetMap[loc].insert(node);
     }
-
-    void setSVFFunction(const SVFFunction * svfFunction) { this->svfFunction = svfFunction; }
-    const SVFFunction * getSVFFunction() const { return svfFunction; }
 
     CCPGNode * getFuncNode() const { return funcNode; }
 

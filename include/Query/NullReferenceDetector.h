@@ -1,4 +1,4 @@
-#include "CCPG/LSAnalysis.h"
+/*#include "CCPG/LSAnalysis.h"
 
 class NullReference;
 class UseAfterFree;
@@ -93,3 +93,4 @@ class NullReference {
 };
 
 
+*/

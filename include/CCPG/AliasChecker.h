@@ -1,46 +1,36 @@
+// include/CCPG/AliasChecker.h
 #ifndef ALIASCHECKER_H
 #define ALIASCHECKER_H
 
 #include "CCPGNode.h"
 
-using namespace ccpg;
-using namespace SVF;
+namespace llvm {
+class Value;
+class Function;
+class Instruction;
+}
 
 class AliasChecker {
 private:
-    static AliasChecker * instance;
+    static AliasChecker* instance;
     AliasChecker() {}
 
 public:
-    // 删除复制构造函数和赋值运算符
     AliasChecker(const AliasChecker&) = delete;
     AliasChecker& operator=(const AliasChecker&) = delete;
 
-    // 获取唯一实例的静态方法
-    static AliasChecker* getInstance() {
-        if (instance == nullptr) {
-            instance = new AliasChecker();
-        }
-        return instance;
-    }
+    static AliasChecker* getInstance(); // 实现会移动到cpp
 
-    const SVF::SVFFunction * getSVFFunction(ccpg::Function * function);
-    Node * findMethodBySVFFunction(const SVFFunction * svfFunction) const;
+    // --- 方法签名修改 ---
+    bool isThreadAlias(CCPGNode *node1, CCPGNode *node2);
+    bool isLockAlias(CCPGNode *node1, CCPGNode *node2);
+    bool isAlias(const llvm::Value* V1, const llvm::Value* V2);
 
-    bool isThreadAlias(CCPGNode * node1, CCPGNode * node2);
-    bool isLockAlias(CCPGNode * node1, CCPGNode * node2);
+    const llvm::Function * getLLVMFunction(ccpg::Function * function) const;
+    bool areCallsSame(const llvm::Instruction* llvmInst, Node* cpgNode) const;
 
-    bool isSharedAccess(const LoadStmt * l);
-    bool isSharedAccess(const StoreStmt * s);
-    bool isSharedVar(const SVFVar * var);
-
-    bool isStmtAlias(const SVFStmt * stmt1, const SVFStmt * stmt2);
-    bool isUseAndFreeAlias(const CallICFGNode* node, const SVFStmt * stmt2);
-    bool isFreeAndFreeAlias(const CallICFGNode* node1, const CallICFGNode* node2);
-    bool areSameField(const SVFStmt * stmt1, const CCPGNodeSet & nodes1, const SVFStmt * stmt2, const CCPGNodeSet & nodes2);
-    bool areCallsSame(const CallICFGNode* svfNode, Node* joernNode);
-
-
+    // isSharedAccess 和 isSharedVar 逻辑需要重新思考，暂时移除
+    // bool isSharedAccess(const llvm::Value* V); 
 };
 
 #endif // ALIASCHECKER_H

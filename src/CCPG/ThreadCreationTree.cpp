@@ -1,5 +1,6 @@
 #include "CCPG/ThreadCreationTree.h"
-#include "SVFUtil/SVFAnalyzer.h"
+#include "phasar.h"
+#include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
 #include "LLMUtil/FindingThreadEntryAgent.h"
 
@@ -11,6 +12,7 @@
 #include <queue>
 
 using namespace ccpg;
+using namespace psr;
 
 // 全局缓存，存储每个函数对应的所有调用链
 std::unordered_map<std::pair<const ccpg::Function*, const ccpg::Function*>, std::vector<std::vector<const ccpg::Function*>>, pair_hash> callPathCache;

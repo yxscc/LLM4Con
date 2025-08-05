@@ -59,7 +59,7 @@ class TargetPath
                 return outputDir;
             }
 
-            fs::path ccpg_dump = fs::path(PROJECT_PATH) / "CCPG_dump";
+            fs::path ccpg_dump = fs::path(PROJECT_PATH) / "LLM_dump";
             if (!fs::exists(ccpg_dump)) {
                 fs::create_directory(ccpg_dump);
             }
@@ -73,7 +73,7 @@ class TargetPath
             ss << targetProjectName << "_";
             ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%H-%M-%S");
             // create output dir with system time as name
-            fs::path outputDir0 = fs::path(PROJECT_PATH) / "CCPG_dump" / ss.str();
+            fs::path outputDir0 = fs::path(PROJECT_PATH) / "LLM_dump" / ss.str();
             outputDir = outputDir0;
             
             if (!fs::exists(outputDir)) {

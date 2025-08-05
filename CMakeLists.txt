@@ -33,7 +33,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 # add -std=gnu++14
 set(CMAKE_CXX_EXTENSIONS ON)
 
-add_compile_options("-fno-rtti")
+# add_compile_options("-fno-rtti")
 
 # Keep assertions enabled if requested
 option(SVF_ENABLE_ASSERTIONS "Always enable assertions")
@@ -83,6 +83,7 @@ link_directories(/usr/local/lib/graphviz)
 find_package(cpprestsdk REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system thread)  # 新增
+find_package(phasar REQUIRED)
 
 # Find Z3 and its include directory from the top-level include file
 find_library(
@@ -112,8 +113,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include
                     ${PROJECT_SOURCE_DIR}/svf-llvm/include
                     ${PROJECT_BINARY_DIR}/include)
 # 将SVF的include目录添加到包含路径
-add_subdirectory(svf)
-add_subdirectory(svf-llvm)
+# add_subdirectory(svf)
+# add_subdirectory(svf-llvm)
 
 install(
 DIRECTORY ${PROJECT_SOURCE_DIR}/svf/include/
@@ -143,55 +144,60 @@ set(LLM_DETECTOR_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/llm_main.cpp")
 add_executable(ccql ${CCQL_SRC})
 add_executable(llm_detector ${LLM_DETECTOR_SRC})
 
-link_directories(svf/lib)
-link_directories(svf-llvm/lib)
-target_link_libraries(ccql PUBLIC ${llvm_libs} ${Z3_LIBRARIES} SvfCore SvfLLVM curl cgraph 
-    cpprestsdk::cpprest
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    Boost::system
-    Boost::thread
-    pthread)
 
-target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} SvfCore SvfLLVM curl cgraph 
+
+# link_directories(svf/lib)
+# link_directories(svf-llvm/lib)
+# SvfCore SvfLLVM
+target_link_libraries(ccql PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
     cpprestsdk::cpprest
     OpenSSL::SSL
     OpenSSL::Crypto
     Boost::system
     Boost::thread
-    pthread)
+    pthread
+    phasar::phasar)
+# SvfCore SvfLLVM
+target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
+    cpprestsdk::cpprest
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Boost::system
+    Boost::thread
+    pthread
+    phasar::phasar)
 
 # Export the SVF target for including SVF from CMake using find_package(SVF)
-include(CMakePackageConfigHelpers)
+#include(CMakePackageConfigHelpers)
 
 # Generate SVFConfig.cmake
-configure_package_config_file(
-  .config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
-  PATH_VARS
-    SVF_INSTALL_ROOT
-    SVF_INSTALL_BIN_DIR
-    SVF_INSTALL_LIB_DIR
-    SVF_INSTALL_INCLUDE_DIR
-    SVF_INSTALL_EXTAPI_DIR
-    SVF_INSTALL_EXTAPI_FILE
-)
+#configure_package_config_file(
+#  .config.cmake.in
+#  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
+#  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
+#  PATH_VARS
+#    SVF_INSTALL_ROOT
+#    SVF_INSTALL_BIN_DIR
+#    SVF_INSTALL_LIB_DIR
+#    SVF_INSTALL_INCLUDE_DIR
+#    SVF_INSTALL_EXTAPI_DIR
+#    SVF_INSTALL_EXTAPI_FILE
+#)
 
 # Generate SVFConfigVersion.cmake
-write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake"
-  VERSION "${SVF_VERSION_MAJOR}.${SVF_VERSION_MINOR}"
-  COMPATIBILITY AnyNewerVersion
-)
+#write_basic_package_version_file(
+#  "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake"
+#  VERSION "${SVF_VERSION_MAJOR}.${SVF_VERSION_MINOR}"
+#  COMPATIBILITY AnyNewerVersion
+#)
 
 # Install above CMake files as part of installation
-install(
-  FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
-)
+#install(
+#  FILES
+#    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
+#    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake
+#  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
+#)
 
 
 

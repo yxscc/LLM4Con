@@ -1,11 +1,14 @@
 #include <iostream>
-#include <cstdlib> // For system()
-#include <filesystem>
+#include <cstdlib>
+
 #include "CPG/Node.h"
 #include "CPG/Edge.h"
 #include "CPG/CPG.h"
+#include "PhasarUtil/LLVMAnalyzer.h"
+#include "phasar.h"
 
 using namespace std;
+using namespace psr;
 
 void CPG::addNode(std::unique_ptr<Node> node) {
     Node* raw_node = node.get();
@@ -69,4 +72,53 @@ bool CPG::isConditionBeginNode(Node* node) const {
     return false;
 }
 
+
+Node * CPG::findMethodByLLVMFunction(const llvm::Function* llvmFunc) const {
+    if (!llvmFunc) {
+        return nullptr;
+    }
+    LLVMAnalyzer *llvmAnalyzer = LLVMAnalyzer::getInstance();
+    std::string funcNameFromLLVM = llvmAnalyzer->demangle(llvmFunc->getName().str().c_str());
+    int lineFromLLVM = 0;
+    std::string pathFromLLVM;
+    if (auto* subprogram = llvmFunc->getSubprogram()) {
+        pathFromLLVM = subprogram->getFilename().str();
+        lineFromLLVM = subprogram->getLine();
+    }
+    if (pathFromLLVM.empty() || lineFromLLVM == 0) {
+        return findMethod(funcNameFromLLVM);
+    }
+
+    fs::path llvmPath(pathFromLLVM);
+    std::string baseNameFromLLVM = llvmPath.filename().string();
+    CPGNodeSet allMethodsInCPG = getNodesByType("Method");
+    for (Node* methodNode : allMethodsInCPG) {
+        if (funcNameFromLLVM.find(methodNode->getName()) == std::string::npos) {
+            continue;
+        }
+        const std::string& pathFromCPG = methodNode->getFileName();
+        if (pathFromCPG.empty()) {
+            continue;
+        }
+        fs::path cpgPath(pathFromCPG);
+        if (baseNameFromLLVM != cpgPath.filename().string()) {
+            continue;
+        }
+        if (methodNode->getLineNumber() != -1 && 
+        abs(methodNode->getLineNumber() - lineFromLLVM) <= 3) {
+        
+            if (methodNode->properties.at("CODE") != "<empty>") {
+                if (methodNode->outCFGEdges.size() == 1) {
+                    Edge* edge = *methodNode->outCFGEdges.begin();
+                    Node* nextNode = edge->getToNode();
+                    if (nextNode->getType() == "Method_return") {
+                        continue;
+                    }
+                }
+                return methodNode;
+            }
+        }
+    }
+    return nullptr;
+}
 

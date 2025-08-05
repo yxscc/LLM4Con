@@ -7,8 +7,6 @@
 
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
-#include "SVFUtil/SVFManager.h"
-#include "Util/ExtAPI.h"
 #include "CCPG/CCPG.h"
 #include "Util/ExecutionTimer.h"
 #include "Query/DataRaceDetector.h"
@@ -16,31 +14,26 @@
 #include "Query/DoubleFreeDetector.h"
 #include "Query/NullReferenceDetector.h"
 #include "LLMUtil/LLMClient.h"
+#include "PhasarUtil/AnalysisManager.h"
+#include "llvm/Support/CommandLine.h"
 
 #ifdef U
 #undef U
 #endif
 
-#include "SVF-LLVM/LLVMUtil.h"
-#include "SVF-LLVM/LLVMModule.h"
-
 
 using namespace std;
 using namespace llvm;
-using namespace SVF;
+
+static cl::opt<std::string> InputSrcDir(cl::Positional,
+        cl::desc("<input src>"), cl::init("-"));
+static cl::opt<std::string> InputBCFileName(cl::Positional,
+        cl::desc("<input bc>"), cl::init("-"));
 
 TargetPath * TargetPath::instance = nullptr;
 ExecutionTimer * ExecutionTimer::instance = nullptr;
 
-
-static llvm::cl::opt<std::string> InputSrcDir(cl::Positional,
-        llvm::cl::desc("<input src>"), llvm::cl::init("-"));
-static llvm::cl::opt<std::string> InputBCFileName(cl::Positional,
-        llvm::cl::desc("<input bc>"), llvm::cl::init("-"));
-static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace information"), cl::init(false));
-
 std::string convertToBC(const std::string& file);
-void dumpsvf(SVFG* svfg);
 
 int main(int argc, char* argv[]) {
 
@@ -50,11 +43,6 @@ int main(int argc, char* argv[]) {
 
     int arg_num = 0;
     std::vector<char*> arg_value(argc);
-
-    std::vector<std::string> moduleNameVec;
-    LLVMUtil::processArguments(argc, argv, arg_num, arg_value.data(), moduleNameVec);
-    cl::ParseCommandLineOptions(arg_num, arg_value.data(),
-                                "Whole Program Concurrency Analysis\n");
 
     std::string projectDir = InputSrcDir;
     TargetPath * targetPath = TargetPath::getInstance();
@@ -71,16 +59,15 @@ int main(int argc, char* argv[]) {
     std::string bcFile;
     if(InputBCFileName != "-"){
         bcFile = InputBCFileName;
-        moduleNameVec.push_back(bcFile);
     }
     else{
         bcFile = convertToBC(projectDir);
-        moduleNameVec.push_back(bcFile);
     }  
 
-    ExecutionTimer::getInstance()->start("SVF Analysis");
-    SVFManager::getInstance()->runSVFAnalysis(moduleNameVec);
-    ExecutionTimer::getInstance()->stop("SVF Analysis");
+    ExecutionTimer::getInstance()->start("Running whole-program pointer analysis with Phasar");
+    auto pointerAnalyzer = std::make_unique<PhasarPointerAnalysis>(bcFile);
+    AnalysisManager::getInstance()->initialize(std::move(pointerAnalyzer));
+    ExecutionTimer::getInstance()->stop("Running whole-program pointer analysis with Phasar");
 
     ExecutionTimer::getInstance()->start("CCPG Analysis");
     auto ccpg = std::make_unique<CCPG>(cpg.get());
@@ -89,7 +76,7 @@ int main(int argc, char* argv[]) {
 
     ccpg->dump(targetPath->getOutputDir());
 
-    ExecutionTimer::getInstance()->start("Data Race Detection");
+    /*ExecutionTimer::getInstance()->start("Data Race Detection");
     auto drd = std::make_unique<DataRaceDetector>();
     drd->detect();
     ExecutionTimer::getInstance()->stop("Data Race Detection");
@@ -111,7 +98,7 @@ dfd->printDoubleFrees(targetPath->getOutputDir());
     auto nrd = std::make_unique<NullReferenceDetector>();
     nrd->detect();
     ExecutionTimer::getInstance()->stop("Null Reference Detection");
-nrd->printNullReferences(targetPath->getOutputDir());
+nrd->printNullReferences(targetPath->getOutputDir());*/
 
     ExecutionTimer::getInstance()->printAllTimes(targetPath->getOutputDir());
 
@@ -169,41 +156,4 @@ std::string convertToBC(const std::string& file){
     }*/
 
     return bcFile.string();
-}
-
-void dumpsvf(SVFG* svfg){
-    LLVMModuleSet* moduleSet = LLVMModuleSet::getLLVMModuleSet();
-    //std::cout << "Number of SVFG nodes: " << svfg->getSVFGNodeSet().size() << std::endl;
-    for (SVF::SVFG::const_iterator it = svfg->begin(); it != svfg->end(); ++it)
-    {
-        const SVF::SVFGNode* svfNode = it->second;
-        if(svfNode == nullptr){
-            continue;
-        }
-        const SVF::SVFValue *svfValue = svfNode->getValue();
-        if(svfValue == nullptr){
-            continue;
-        }
-
-        // 获取Value*的名字
-        std::string valueName = svfValue->getName();
-        // 获取Value*的sourceLoc
-        std::string sourceLoc = svfValue->getSourceLoc();
-        // 获取llvmValue
-        const llvm::Value* llvmValue = moduleSet->getLLVMValue(svfValue);
-
-
-        // 把上面输出的这些以同样的格式输出到一个txt文件中，文件生成在根目录
-        std::ofstream out(PROJECT_PATH + std::string("SVFG.txt"), std::ios::app);
-        out << "Node: " << svfNode->getId() << "\n";
-        out << "==============\n\t" << svfNode->toString() << "\n==============\n";
-        out << "\t|| SVF-Name:\t" << svfValue->getName() << "\n";
-        out << "\t|| LLVM-Name:\t" << llvmValue->getName().data() << "\n";
-        out << "\t|| LLVM-Val:\t" << svfValue->toString() << "\n";
-        out << "\t|| SVF-Type:\t" << svfValue->getType()->toString() << "\n";
-        out << "\t|| SVFSource-Loc:\t" << svfValue->getSourceLoc() << "\n";
-        out << "\n";
-        out.close();
-
-    }
 }

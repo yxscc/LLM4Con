@@ -7,6 +7,10 @@
 #include <fstream>
 #include <optional>
 
+#ifdef U
+#undef U
+#endif
+
 #include "nlohmann/json.hpp" // Ensure you have this library for JSON handling
 
 namespace llm_client {

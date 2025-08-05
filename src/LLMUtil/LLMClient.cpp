@@ -101,8 +101,8 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
 
     // 4. 准备 HTTP 请求
     http_request request(methods::POST);
-    request.headers().add(U("Authorization"), U("Bearer ") + conversions::to_string_t(api_key_));
-    request.headers().add(U("Content-Type"), U("application/json"));
+    request.headers().add(conversions::to_string_t("Authorization"), conversions::to_string_t("Bearer ") + conversions::to_string_t(api_key_));
+    request.headers().add(conversions::to_string_t("Content-Type"), conversions::to_string_t("application/json"));
 
     // 将 nlohmann::json 转换为 string 并设置请求体
     std::string request_body_str = request_body.dump();

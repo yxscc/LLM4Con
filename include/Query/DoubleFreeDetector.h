@@ -1,4 +1,4 @@
-#include "CCPG/LSAnalysis.h"
+/*#include "CCPG/LSAnalysis.h"
 
 class DoubleFree;
 
@@ -94,4 +94,4 @@ class DoubleFree {
         Context ctx2;
         NodeLoc loc2;
         const CallICFGNode * free2;
-};
+};*/

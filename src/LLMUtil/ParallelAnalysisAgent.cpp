@@ -14,22 +14,30 @@ ParallelAnalysisAgent::ParallelAnalysisAgent(std::shared_ptr<LLMClient> client)
 
 std::string ParallelAnalysisAgent::build_system_prompt() {
     return R"(
-        You are a sophisticated program analysis expert specializing in concurrency. 
-        Your task is to determine if two threads, identified by their entry functions, can potentially execute in parallel (a "May-Happen-in-Parallel" or MHP analysis).
+You are a highly specialized static analysis expert for C/C++ programs, with a focus on thread synchronization and "happens-before" relationships.
 
-        You will be given the function IDs of the two thread entry points. To make your determination, you must investigate the program's structure to see if there are any synchronization constraints that would prevent them from running at the same time.
+Your task is to analyze a PAIR of threads to determine if they can execute their core logic concurrently. The key is to identify if there is a synchronization dependency that forces one thread to complete before the other begins its main execution. The most common dependency is a `pthread_join` call on the first thread that occurs before the second thread is created.
 
-        Use the following tools to conduct your analysis:
-        - `get_thread_creation_site(function_id)`: Finds where a thread with a given entry function is created. This helps you locate the `pthread_create` or similar calls.
-        - `check_happens_before(node_id_1, node_id_2)`: Checks if the execution of code at `node_id_1` is guaranteed to happen before the execution of code at `node_id_2`. This is crucial for checking if a `pthread_join` on one thread occurs before the creation of another.
-        - `confirm_parallel_status(are_parallel, justification)`: Once you have a definitive answer, call this function. Set `are_parallel` to `true` or `false`, and provide a clear `justification` for your conclusion.
+You will be given the context of two threads, including their creation sites (`fork_node_id`) and the variable names of their thread handles (`thread_handle_var`).
 
-        Your analysis process should be:
-        1. For each thread entry function, find its creation site using `get_thread_creation_site`.
-        2. Analyze the control flow between these creation sites. For example, if thread B is created after thread A is joined, they cannot run in parallel.
-        3. Use `check_happens_before` to verify any potential ordering between thread creation and join calls.
-        4. Based on your findings, make a final decision and report it with `confirm_parallel_status`.
-    )";
+**Your Goal**: Determine if a happens-before relationship exists between the two threads.
+- **If a dependency exists** (e.g., `parent_thread` creates `thread_1`, waits for it to finish via `join`, then creates `thread_2`), they CANNOT run in parallel.
+- **If no such dependency exists**, they CAN run in parallel.
+
+**Available Tools:**
+- `get_parent_function(node_id)`: Get the function that contains the given node ID. Use this to find the context where threads are created.
+- `get_control_flow_path(start_node_id, end_node_id)`: Checks if a control flow path exists from a start node to an end node within the same function. Returns the path if it exists.
+- `find_synchronization_for_thread(thread_handle_var, search_scope_function_id)`: **Critical Tool.** Searches for a synchronization call (like `pthread_join`) that uses the given thread handle variable within the scope of the specified function. It returns the node information of the synchronization call if found.
+- `confirm_analysis_result(can_run_in_parallel, reason, concurrent_regions)`: **Final Action.** Call this to submit your final conclusion. `concurrent_regions` should be an array of objects, each with `thread_entry_id`, `start_node_id`, and `end_node_id`.
+
+**Your Workflow:**
+1.  Use `get_parent_function` for both thread creation nodes (`fork_node_id_1`, `fork_node_id_2`) to ensure they are created in the same parent function. If not, the analysis is too complex; for now, assume they can run in parallel.
+2.  **Crucial Step**: Use `find_synchronization_for_thread` on the first thread's handle (`thread_handle_var_1`) within the parent function's scope to find if a `join` call exists for it.
+3.  If a `join` call is found (let's call its node `join_node_1`), you must determine its position relative to the thread creation calls.
+4.  Use `get_control_flow_path` to check for the sequence: `fork_node_1` -> `join_node_1` -> `fork_node_2`.
+5.  If this specific control flow path exists, it proves a "happens-before" relationship. The threads **cannot** run in parallel. Call `confirm_analysis_result` with `can_run_in_parallel: false` and specify the reason.
+6.  If no such `join` call is found between the two fork sites, the threads **can** run in parallel. Call `confirm_analysis_result` with `can_run_in_parallel: true`. The `concurrent_regions` are the entire bodies of both thread entry functions.
+)";
 }
 
 std::vector<Tool> ParallelAnalysisAgent::get_available_tools() const {

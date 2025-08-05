@@ -4,6 +4,7 @@
 #include <memory>
 #include "LLMUtil/LLMClient.h"
 #include "LLMUtil/FindingThreadEntryAgent.h"
+#include "LLMUtil/ContractGeneratorAgent.h"
 #include "LLMUtil/ParallelAnalysisAgent.h"
 #include "CCPG/CCPG.h"
 
@@ -17,6 +18,7 @@ public:
 private:
     std::shared_ptr<LLMClient> llmClient;
     FindingThreadEntryAgent entryFinder;
+    ContractGeneratorAgent contractGenerator;
     ParallelAnalysisAgent parallelAnalyzer;
     CCPG* ccpg;
 };

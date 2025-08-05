@@ -1,4 +1,4 @@
-#include "Query/NullReferenceDetector.h"
+/*#include "Query/NullReferenceDetector.h"
 #include "CCPG/AliasChecker.h"
 
 using namespace SVF;
@@ -107,4 +107,4 @@ void NullReferenceDetector::printNullReferences(fs::path outputDir) {
         file << "count  "<< i++ << " ----------------------------------------" << std::endl;
     }
     file.close();
-}
+}*/

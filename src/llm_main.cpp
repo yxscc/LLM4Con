@@ -7,27 +7,23 @@
 
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
-#include "SVFUtil/SVFManager.h"
-#include "Util/ExtAPI.h"
-#include "SVF-LLVM/SVFIRBuilder.h"
-#include "SVF-LLVM/LLVMModule.h"
 #include "CCPG/CCPG.h"
+#include "llvm/Support/CommandLine.h"
 #include "Util/ExecutionTimer.h"
-#include "LLMUtil/LLMClient.h"
+#include "PhasarUtil/AnalysisManager.h"
 
 #ifdef U
 #undef U
 #endif
 
-#include "LLMUtil/FindingThreadEntryAgent.h"
-#include "LLMUtil/ContractGeneratorAgent.h"
-#include "CCPG/CCPGNode.h"
+#include "LLMUtil/AgentManager.h"
 #include "CPG/Node.h"
 
 
 using namespace std;
 using namespace llvm;
-using namespace SVF;
+using namespace psr;
+using namespace llm_client;
 
 TargetPath * TargetPath::instance = nullptr;
 ExecutionTimer * ExecutionTimer::instance = nullptr;
@@ -47,9 +43,9 @@ int main(int argc, char** argv) {
     std::vector<char*> arg_value(argc);
 
     std::vector<std::string> moduleNameVec;
-    LLVMUtil::processArguments(argc, argv, arg_num, arg_value.data(), moduleNameVec);
-    cl::ParseCommandLineOptions(arg_num, arg_value.data(),
-                                "Whole Program Concurrency Analysis\n");
+    //LLVMUtil::processArguments(argc, argv, arg_num, arg_value.data(), moduleNameVec);
+    //cl::ParseCommandLineOptions(arg_num, arg_value.data(),
+    //                            "Whole Program Concurrency Analysis\n");
 
     std::string projectDir = InputSrcDir;
     TargetPath * targetPath = TargetPath::getInstance();
@@ -73,9 +69,14 @@ int main(int argc, char** argv) {
         moduleNameVec.push_back(bcFile);
     }  
 
-    ExecutionTimer::getInstance()->start("SVF Analysis");
+    /*ExecutionTimer::getInstance()->start("SVF Analysis");
     SVFManager::getInstance()->runSVFAnalysis(moduleNameVec);
-    ExecutionTimer::getInstance()->stop("SVF Analysis");
+    ExecutionTimer::getInstance()->stop("SVF Analysis");*/
+
+    ExecutionTimer::getInstance()->start("Running whole-program pointer analysis with Phasar");
+    auto pointerAnalyzer = std::make_unique<PhasarPointerAnalysis>(bcFile);
+    AnalysisManager::getInstance()->initialize(std::move(pointerAnalyzer));
+    ExecutionTimer::getInstance()->stop("Running whole-program pointer analysis with Phasar");
 
     ExecutionTimer::getInstance()->start("CCPG Analysis");
     auto ccpg = std::make_unique<CCPG>(cpg.get());
@@ -85,60 +86,8 @@ int main(int argc, char** argv) {
     ccpg->dump(targetPath->getOutputDir());
 
     // --- LLM-based Analysis ---
-    std::cout << "\n--- Starting LLM-based Concurrency Analysis ---" << std::endl;
-
-    // 1. Initialize LLM Client
-    auto llmClient = llm_client::LLMClient::get_shared_instance(std::getenv("LLM_API_URL"), std::getenv("LLM_API_KEY"));
-    if (!llmClient) {
-        std::cerr << "Failed to initialize LLM Client. Please check URL and API key. Aborting." << std::endl;
-        return 1;
-    }
-    std::cout << "LLM Client initialized." << std::endl;
-
-    // 2. Find all thread creation sites
-    CCPGNodeSet forkNodes = ccpg->getNodesByType(ThreadAPIUtil::TYPE::FORK);
-    std::cout << "Found " << forkNodes.size() << " thread creation sites." << std::endl;
-
-    // 3. Instantiate Agents
-    llm_client::FindingThreadEntryAgent entryFinder(llmClient);
-    ContractGeneratorAgent contractGenerator(ccpg.get(), llmClient);
-    std::vector<LLM::ConcurrencyContract> allContracts;
-
-    // 4. Iterate over each thread creation site to find entry point and generate contract
-    for (CCPGNode* forkNode : forkNodes) {
-        std::cout << "\n--- Analyzing Fork Site (Node ID: " << forkNode->getId() << ") ---" << std::endl;
-        
-        // a. Use FindingThreadEntryAgent to get the entry function ID
-        int entryFuncId = entryFinder.find_thread_entry(forkNode);
-        
-        if (entryFuncId != -1) {
-            std::cout << "Agent identified thread entry function ID: " << entryFuncId << std::endl;
-            
-            // b. Use ContractGeneratorAgent to generate a contract for this thread
-            auto contractOpt = contractGenerator.generateContractForThread(entryFuncId);
-            
-            if (contractOpt) {
-                std::cout << "Successfully generated contract for thread entry ID " << entryFuncId << std::endl;
-                allContracts.push_back(contractOpt.value());
-            } else {
-                std::cerr << "Failed to generate contract for thread entry ID " << entryFuncId << std::endl;
-            }
-        } else {
-            std::cerr << "Could not determine thread entry for fork site " << forkNode->getId() << std::endl;
-        }
-    }
-
-    // 5. Print all generated contracts
-    std::cout << "\n--- All Generated Concurrency Contracts ---" << std::endl;
-    if (allContracts.empty()) {
-        std::cout << "No contracts were generated." << std::endl;
-    }
-    else {
-        for (const auto& contract : allContracts) {
-            std::cout << contract.toJson() << "\n" << std::endl;
-        }
-    }
-    std::cout << "--- LLM-based Analysis Finished ---\n" << std::endl;
+    llm_client::AgentManager agentManager(ccpg.get());
+    agentManager.runAnalysis();
 
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "CCPG/LSAnalysis.h"
+/*#include "CCPG/LSAnalysis.h"
 
 class DeadLock;
 
@@ -85,4 +85,4 @@ class DeadLock {
         NodeLoc loc2;
         const SVF::SVFStmt * stmt2;
         std::vector<Lock *> locks2;
-};
+};*/
