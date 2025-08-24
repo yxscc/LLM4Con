@@ -3,20 +3,33 @@
 #include <set>
 #include <vector>
 #include <string>
+#include <sstream>
 
 namespace llvm {
     class Value;
     class Function;
     class Instruction;
+    class GlobalVariable;
+    class StoreInst;
 }
 
 struct EntryPointInfo {
     std::string functionName;
     std::string fileName;
     unsigned int lineNumber;
+
+    std::string toString() const {
+        std::stringstream ss;
+        ss << "EntryPointInfo { "
+           << "functionName: \"" << functionName << "\", "
+           << "fileName: \"" << fileName << "\", "
+           << "lineNumber: " << lineNumber
+           << " }";
+        return ss.str();
+    }
 };
 
-// 定义一个纯虚类（接口）
+
 class PointerAnalysisInterface {
 public:
     virtual ~PointerAnalysisInterface() = default;
@@ -64,4 +77,19 @@ public:
      * @return 一个包含所有潜在被调用函数指针的向量。
      */
     virtual std::vector<const llvm::Function*> getCalleesOfCallAt(const llvm::Instruction* callInst) const = 0;
+
+    /**
+     * @brief 获取main函数的信息.
+     * @return main函数的入口点信息.
+     */
+    virtual EntryPointInfo getMainFunction() const = 0;
+
+    virtual std::vector<const llvm::GlobalVariable*> getAllGlobalVariables() const = 0;
+
+    /**
+     * @brief (新增) 检查一个StoreInst是否被编译器的线程安全静态初始化守卫所保护。
+     * @param storeInst 要检查的LLVM Store指令。
+     * @return 如果该写操作是线程安全的静态初始化的一部分，则返回true。
+     */
+    virtual bool isGuardedByStaticInitializer(const llvm::StoreInst* storeInst) const = 0;
 };

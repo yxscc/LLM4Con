@@ -10,10 +10,13 @@
 
 namespace llm_client {
 
+#include "LLMUtil/ConcurrencyContract.h"
+#include <vector>
+
 class AgentManager {
 public:
     AgentManager(CCPG* cpg);
-    void runAnalysis();
+    std::vector<ThreadPair> runAnalysis();
 
 private:
     std::shared_ptr<LLMClient> llmClient;

@@ -32,15 +32,19 @@ public:
     
     // 获取客户端引用
     LLMClient& get_client();
+
+    void* get_context_for_tools() const {
+        return context_for_tools_;
+    }
     
 private:
     std::shared_ptr<LLMClient> client_;
     std::string base_system_prompt_;
     std::vector<ChatMessage> history_;
+    void* context_for_tools_ = nullptr;
     size_t max_history_messages_;
-    void* tool_execution_context_;
 
-        void prune_history() {
+    void prune_history() {
         if (history_.empty()) return;
         
         size_t current_size = history_.size();

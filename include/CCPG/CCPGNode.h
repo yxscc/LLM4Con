@@ -112,6 +112,8 @@ class NodeLoc {
     
         std::string getFileName() const { return fileName; }
         int getLineNumber() const { return lineNumber; }
+
+        ccpg::Function* getFunction() const { return function; }
     
         bool operator==(const NodeLoc& other) const {
             return arePathsLikelySameFile(fileName, other.fileName) && lineNumber == other.lineNumber;
@@ -123,7 +125,7 @@ class NodeLoc {
             return lineNumber < other.lineNumber;
         }
     
-        std::string toString() {
+        std::string toString() const {
             return fileName + ":" + std::to_string(lineNumber);
         }
     

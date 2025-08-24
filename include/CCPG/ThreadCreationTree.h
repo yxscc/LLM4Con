@@ -4,16 +4,15 @@
 #define CCPG_THREAD_CREATION_TREE_H
 
 #include <unordered_set>
+#include <set>
 #include <unordered_map>
 #include <vector>
 #include <functional>
 
 #include "CPG/CPG.h"
 #include "CCPG/CCPG.h"
+#include "CCPG/AliasChecker.h"
 
-/*class CCPGNode;
-class CCPGEdge;
-class CCPG;*/
 class ThreadAPIUtil;
 class Thread;
 
@@ -32,7 +31,7 @@ class ParallelLocCache {
         std::pair<
             std::unordered_map<NodeLoc, Context, NodeLocHash>&,
             std::unordered_map<NodeLoc, Context, NodeLocHash>&
-        > getParallelLocs(Thread* t1, Thread* t2);
+        > getParallelLocs(Thread* t1, Thread* t2) const;
     
         // 可选：清理缓存（根据需求实现）
         void clear() {
@@ -58,7 +57,7 @@ class ParallelLocCache {
         };
     
         // 缓存数据结构
-        std::unordered_map<
+        mutable std::unordered_map<
             OrderedThreadPair,
             std::pair<
                 std::unordered_map<NodeLoc, Context, NodeLocHash>,
@@ -76,19 +75,16 @@ private:
     const CPG* cpg; // CPG指针
     std::unordered_map<std::pair<Thread*, Thread*>, std::string, pair_hash> parallelThreadPairs;
     ParallelLocCache parallelLocCache;
+    std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> concurrencyCache;
     std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> mayHappenInParallelCache;
 
-
-    // 私有构造函数
     ThreadCreationTree() {}
-
-    // 唯一实例
     static ThreadCreationTree* instance;
 
-
+    std::vector<CCPGNode*> findCallPath(ccpg::Function* startFunc, ccpg::Function* endFunc, Thread* thread);
+    CCPGNodeSet getReachableNodes(CCPGNode* startNode, Thread* thread, bool forward = true);
 
 public:
-    // 删除复制构造函数和赋值运算符
     ThreadCreationTree(const ThreadCreationTree&) = delete;
     ThreadCreationTree& operator=(const ThreadCreationTree&) = delete;
 
@@ -116,7 +112,9 @@ public:
     Node * findThreadEntryByArg(Node * arg);
     Node * findThreadEntryByLLM(CCPGNode* forknode);
 
-    std::unordered_set<Thread *> getThreads() {return threads;}
+    std::unordered_set<Thread *> getThreads() const {return threads;}
+
+    bool mayThreadsRunConcurrently(Thread* t1, Thread* t2);
 
     void addParallelThreadPairs(Thread* thread1, Thread* thread2, const std::string& relation) {
         // 生成有序的线程对键（确保 (thread1, thread2) 和 (thread2, thread1) 被视为相同）
@@ -131,38 +129,33 @@ public:
     bool isIndirectSibling(Thread * thread1, Thread * thread2);
 
     void countParallelThreadPairs();
+    std::set<const llvm::Value*> collectCandidateSharedObjects() const;
 
     void handleJoins();
 
-    // 同一个callNode对应线程最多出现两次（意味着要和自己比较），因为上下文信息已经在节点中
-    std::unordered_set<Thread *> getDetectedThreads();
-
-    bool sameCall(Thread * thread1, Thread * thread2);
-
     Thread * createThread(CCPGNode * forkNode, Thread * parent);
 
-    void createCall(CCPGNode * callNode, Thread * thread);
-
     bool mayHappenInParallel(Thread * thread1, Thread * thread2);
-
-    void dumpDot();
 
     void printThreadCreationTree(fs::path outputDir) const;
 
     std::pair<std::unordered_map<NodeLoc, Context, NodeLocHash>, std::unordered_map<NodeLoc, Context, NodeLocHash>> computeParallelLocs(Thread* t1, Thread* t2);
-    std::pair<std::unordered_map<NodeLoc, Context, NodeLocHash>, std::unordered_map<NodeLoc, Context, NodeLocHash>> getParallelLocs(Thread* t1, Thread* t2);
+    std::pair<std::unordered_map<NodeLoc, Context, NodeLocHash>, std::unordered_map<NodeLoc, Context, NodeLocHash>> getParallelLocs(Thread* t1, Thread* t2) const;
+
+    MemoryAccessMap buildMemoryAccessMapForThread(
+        Thread* targetThread,
+        Thread* otherThread, // 需要另一个线程来确定并发位置
+        const std::set<const llvm::Value*>& candidates
+    ) const;
 
     std::string getThreadRelationship(Thread* t1, Thread* t2) {
-        // 生成有序的线程对键（确保 (t1, t2) 和 (t2, t1) 被视为相同）
         auto key = std::make_pair(t1, t2);
     
-        // 查找关系字符串
         auto it = parallelThreadPairs.find(key);
         if (it != parallelThreadPairs.end()) {
-            return it->second; // 找到关系字符串
+            return it->second;
         }
     
-        // 如果未找到，返回默认关系
         return "No relationship found";
     }
 };

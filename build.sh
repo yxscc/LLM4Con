@@ -17,7 +17,7 @@ mkdir "${BUILD_DIR}"
 export CC=clang
 export CXX=clang++
 cmake -D CMAKE_BUILD_TYPE:STRING="${BUILD_TYPE}" \
-    -DSVF_SANITIZE="${SVF_SANITIZER}"            \
+    -D CMAKE_CXX_FLAGS_DEBUG="-g -fstandalone-debug" \
     -DBUILD_SHARED_LIBS=off                      \
     -S "${ProjectPath}" -B "${BUILD_DIR}"
 cmake --build "${BUILD_DIR}" -j ${jobs}

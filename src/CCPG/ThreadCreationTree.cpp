@@ -3,6 +3,8 @@
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
 #include "LLMUtil/FindingThreadEntryAgent.h"
+#include "PhasarUtil/PhasarPointerAnalysis.h"
+#include "PhasarUtil/AnalysisManager.h"
 
 #include <iostream>
 #include <regex>
@@ -36,8 +38,6 @@ void ThreadCreationTree::build(){
             forkQueue.push(std::make_pair(forkNode, entryThread));
         }
     }
-
-    // create thread for each fork node
 
     int i = 0;
     while(!forkQueue.empty()){
@@ -281,9 +281,10 @@ Node * ThreadCreationTree::findThreadEntryByLLM(CCPGNode* forkNode){
     const CPG * cpg = getCPG();
     Node* fork = forkNode->getCPGNode();
 
-    llm_client::FindingThreadEntryAgent agent(llm_client::LLMClient::get_shared_instance());
+    llm_client::FindingThreadEntryAgent agent(this->ccpg, llm_client::LLMClient::get_shared_instance());
     int result = agent.find_thread_entry(forkNode);
-    const char * node_id = std::to_string(result).c_str();
+    std::string result_str = std::to_string(result);
+    const char * node_id = result_str.c_str();
     return cpg->findNode(node_id);
 }
 
@@ -429,7 +430,7 @@ bool isBeforeInCallChains(const std::vector<const ccpg::Function*>& callChain1,
 
 
 // Helper function to check reachability within a thread's CFG
-bool isReachable(CCPGNode* start, CCPGNode* end, Thread* thread) {
+bool  isReachable(CCPGNode* start, CCPGNode* end, Thread* thread) {
     if (!start || !end || !thread) return false;
     if (start == end) return true;
 
@@ -474,7 +475,7 @@ bool ThreadCreationTree::mayHappenInParallel(Thread * t1, Thread * t2) {
 
     assert(t1->getParent() == t2->getParent() && "mayHappenInParallel should only be called on sibling threads");
     Thread* parent = t1->getParent();
-    if (!parent) { // Should not happen based on assert, but as a safeguard
+    if (!parent) {
         mayHappenInParallelCache[cacheKey] = false;
         return false;
     }
@@ -547,6 +548,37 @@ bool ThreadCreationTree::isDescendant(Thread* t1, Thread* t2) {
         parent = parent->getParent();
     }
     return false;
+}
+
+bool ThreadCreationTree::mayThreadsRunConcurrently(Thread* t1, Thread* t2) {
+    if (t1 == t2) return false;
+
+    auto cacheKey = (t1 <= t2) ? std::make_pair(t1, t2) : std::make_pair(t2, t1);
+    if (concurrencyCache.count(cacheKey)) {
+        return concurrencyCache.at(cacheKey);
+    }
+
+    bool result = false;
+
+    // Case 1: 后代关系。后代线程总是可以与其祖先线程并发。
+    if (isDescendant(t1, t2) || isDescendant(t2, t1)) {
+        result = true;
+    } else {
+    // Case 2: 兄弟或间接兄弟关系。
+        Thread* p1 = t1->getParent();
+        Thread* p2 = t2->getParent();
+        
+        if (p1 && p1 == p2) { // 直接兄弟
+            result = mayHappenInParallel(t1, t2);
+        } else if (p1 && p2) { // 间接兄弟（堂兄弟等）
+            // 递归地检查它们的父线程是否并发
+            result = mayThreadsRunConcurrently(p1, p2);
+        }
+        // 如果没有共同的父节点（例如，两个主线程），则它们不并发
+    }
+
+    concurrencyCache[cacheKey] = result;
+    return result;
 }
 
 // 补全最后一部分：查找最近公共祖先节点并判断分支类型
@@ -697,52 +729,108 @@ bool ThreadCreationTree::isIndirectSibling(Thread* t1, Thread* t2) {
     return false;
 }
 
-std::pair<
-std::unordered_map<NodeLoc, Context, NodeLocHash>, 
-std::unordered_map<NodeLoc, Context, NodeLocHash>
-> ThreadCreationTree::computeParallelLocs(Thread * t1, Thread * t2){
-    std::string relation = getThreadRelationship(t1, t2);
+std::pair<std::unordered_map<NodeLoc, Context, NodeLocHash>, std::unordered_map<NodeLoc, Context, NodeLocHash>>
+ThreadCreationTree::computeParallelLocs(Thread* t1, Thread* t2) {
+    std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs1;
+    std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs2;
 
-    std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs1 = {};
-    std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs2 = {};
+    if (!mayThreadsRunConcurrently(t1, t2)) {
+        return {parallelLocs1, parallelLocs2};
+    }
 
-    // t1 is descendant of t2
-    if(relation == "descendant"){
-        Thread * parent = t1->getParent();
-        Thread * temp = t1;
-        while (parent != nullptr) {
-            if (parent == t2) {
-                CCPGNode * forkNode = temp->getForkNode();
-                CCPGNode * joinNode = temp->getJoinNode();
-                if(forkNode != nullptr && joinNode != nullptr)
-                    parallelLocs2 = t2->findLocsInScope(forkNode->getNodeLoc(), joinNode->getNodeLoc());
-                if(joinNode == nullptr){
-                    int endLine = forkNode->getFunction()->getFuncNode()->getCPGNode()->getLineNumberEnd();
-                    NodeLoc end(forkNode->getNodeLoc().getFileName(), endLine, nullptr);
-                    parallelLocs2 = t2->findLocsInScope(forkNode->getNodeLoc(), end);
+    // 为每个线程的所有NodeLoc预先生成一次上下文，避免重复计算
+    auto build_all_contexts = [this](Thread* thread, std::unordered_map<NodeLoc, Context, NodeLocHash>& locs) {
+        ccpg::Function* mainFunc = thread->getThreadMainFunction();
+        if (!mainFunc) return;
+
+        for (CCPGNode* node : thread->getNodes()) {
+            const NodeLoc& loc = node->getNodeLoc();
+            if (loc.getLineNumber() > 0 && locs.find(loc) == locs.end()) {
+                ccpg::Function* currentFunc = node->getFunction();
+                if (currentFunc) {
+                    Context ctx;
+                    if(thread->getForkNode()) ctx.push(thread->getForkNode());
+                    
+                    std::vector<CCPGNode*> path_nodes = findCallPath(mainFunc, currentFunc, thread);
+                    for(CCPGNode* p_node : path_nodes) {
+                        ctx.push(p_node);
+                    }
+                    locs[loc] = ctx;
                 }
             }
-            temp = parent;
-            parent = parent->getParent();
         }
-        parallelLocs1 = t1->findAllLocs();
+    };
+    
+    // Case 1: 兄弟关系
+    if (t1->getParent() && t1->getParent() == t2->getParent()) {
+        build_all_contexts(t1, parallelLocs1);
+        build_all_contexts(t2, parallelLocs2);
         return {parallelLocs1, parallelLocs2};
     }
-    if(relation == "sibling"){
-        if(mayHappenInParallel(t1, t2)){
-            parallelLocs1 = t1->findAllLocs();
-            parallelLocs2 = t2->findAllLocs();
-            return {parallelLocs1, parallelLocs2};
+
+    // Case 2: 后代关系 (假设 t2 是 t1 的后代)
+    Thread *parent = nullptr, *child = nullptr;
+    if (isDescendant(t2, t1)) {
+        parent = t1;
+        child = t2;
+    } else if (isDescendant(t1, t2)) {
+        parent = t2;
+        child = t1;
+    }
+    
+    if (parent && child) {
+        // 子线程的所有位置都是并发的
+        build_all_contexts(child, (child == t1) ? parallelLocs1 : parallelLocs2);
+
+        // 计算父线程的并发范围
+        CCPGNode* forkNode = child->getForkNode();
+        CCPGNode* joinNode = child->getJoinNode();
+
+        CCPGNodeSet concurrentScope;
+        CCPGNodeSet reachable_from_fork = getReachableNodes(forkNode, parent, true);
+
+        if (joinNode) {
+            CCPGNodeSet can_reach_join = getReachableNodes(joinNode, parent, false);
+            // 计算交集
+            for (CCPGNode* node : reachable_from_fork) {
+                if (can_reach_join.count(node)) {
+                    concurrentScope.insert(node);
+                }
+            }
+        } else {
+            // 如果没有join，则fork之后的所有可达节点都并发
+            concurrentScope = reachable_from_fork;
+        }
+
+        // 只为并发范围内的父线程节点构建上下文
+        ccpg::Function* mainFunc = parent->getThreadMainFunction();
+        auto& parentLocs = (parent == t1) ? parallelLocs1 : parallelLocs2;
+
+        for (CCPGNode* node : concurrentScope) {
+            const NodeLoc& loc = node->getNodeLoc();
+            if (loc.getLineNumber() > 0 && parentLocs.find(loc) == parentLocs.end()) {
+                 ccpg::Function* currentFunc = node->getFunction();
+                if (currentFunc) {
+                    Context ctx;
+                    if(parent->getForkNode()) ctx.push(parent->getForkNode());
+                     std::vector<CCPGNode*> path_nodes = findCallPath(mainFunc, currentFunc, parent);
+                    for(CCPGNode* p_node : path_nodes){
+                       ctx.push(p_node);
+                    }
+                    parentLocs[loc] = ctx;
+                }
+            }
         }
         return {parallelLocs1, parallelLocs2};
     }
-    return {parallelLocs1, parallelLocs2};
+
+    return {parallelLocs1, parallelLocs2}; // 默认返回空
 }
 
 std::pair<
 std::unordered_map<NodeLoc, Context, NodeLocHash>, 
 std::unordered_map<NodeLoc, Context, NodeLocHash>
-> ThreadCreationTree::getParallelLocs(Thread * t1, Thread * t2){
+> ThreadCreationTree::getParallelLocs(Thread * t1, Thread * t2) const {
     return parallelLocCache.getParallelLocs(t1, t2);
 }
 
@@ -786,109 +874,98 @@ std::vector<Context> Thread::getIntraThreadContext(NodeLoc loc) {
     return result;
 }
 
-std::unordered_map<NodeLoc, Context, NodeLocHash> Thread::findLocsInScope(NodeLoc start, NodeLoc end){
-    CCPG * ccpg = ThreadCreationTree::getInstance()->getCCPG();
-    ccpg::Function * function = getThreadMainFunction();
-
-    std::unordered_map<NodeLoc, Context, NodeLocHash> locsInScope;
-    
-    std::queue<std::pair<ccpg::Function *, Context *>> functionQueue;
-    CCPGNodeSet nodes = ccpg->getNodesByLoc(start);
-    const CCPGNode * node = *nodes.begin();
-    ccpg::Function * tempFunction = node->getFunction();
-
-    if(start.getFileName() == "home/memcached/crawler.c" && start.getLineNumber() == 682){
-        int a = 1;
+std::vector<CCPGNode*> ThreadCreationTree::findCallPath(ccpg::Function* startFunc, ccpg::Function* endFunc, Thread* thread) {
+    if (startFunc == endFunc) {
+        return {startFunc->getFuncNode()};
     }
-    if(start.getFileName() == "home/memcached/assoc.c" && start.getLineNumber() == 278){
-        int a = 1;
-    }
-    
-    std::vector<Context> contexts = getIntraThreadContext(start);
-    Context ctx = contexts[0];
-    std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> locToNodeSetMap = tempFunction->getLocToNodeSetMap();
-    
-    for(auto it = locToNodeSetMap.begin(); it != locToNodeSetMap.end(); it++){
-        NodeLoc loc = it->first;
-        if(loc.getLineNumber() >= start.getLineNumber() && loc.getLineNumber() <= end.getLineNumber()){
-            locsInScope[loc] = ctx;
-            CCPGNodeSet nodes = it->second;
-            for(CCPGNode * node : nodes){
-                if(node->isCallSite()){
-                    CCPGEdge * callEdge = ccpg->hasCallEdge(node);
-                    if(callEdge == nullptr){
-                        continue;
+    std::queue<std::vector<CCPGNode*>> q;
+    q.push({startFunc->getFuncNode()});
+    std::unordered_set<ccpg::Function*> visited;
+    visited.insert(startFunc);
+
+    while (!q.empty()) {
+        std::vector<CCPGNode*> path = q.front();
+        q.pop();
+        ccpg::Function* lastFunc = path.back()->getFunction();
+        if (!lastFunc) continue;
+
+        for (CCPGNode* node : lastFunc->getNodes()) {
+            if (node->isCallSite()) {
+                CCPGEdge* callEdge = ccpg->hasCallEdge(node);
+                if (callEdge && callEdge->getDst()) {
+                    ccpg::Function* calleeFunc = callEdge->getDst()->getFunction();
+                    if (calleeFunc && thread->getFunctions().count(calleeFunc) && visited.find(calleeFunc) == visited.end()) {
+                        std::vector<CCPGNode*> new_path = path;
+                        new_path.push_back(node);
+                        if (calleeFunc == endFunc) {
+                            return new_path;
+                        }
+                        visited.insert(calleeFunc);
+                        q.push(new_path);
                     }
-                    ccpg::Function * f = callEdge->getDst()->getFunction();
-                    functionQueue.push(std::make_pair(f, ctx.extend(node)));
                 }
             }
         }
+    }
+    return {}; // 未找到路径
+}
+
+CCPGNodeSet ThreadCreationTree::getReachableNodes(CCPGNode* startNode, Thread* thread, bool forward) {
+    CCPGNodeSet reachable;
+    if (!startNode || !thread || !thread->getNodes().count(startNode)) {
+        return reachable;
+    }
+
+    std::queue<CCPGNode*> worklist;
+    worklist.push(startNode);
+    reachable.insert(startNode);
+
+    while (!worklist.empty()) {
+        CCPGNode* current = worklist.front();
+        worklist.pop();
         
-    }
-
-    while(functionQueue.size() > 0){
-        std::pair<ccpg::Function *, Context *> pair = functionQueue.front();
-        functionQueue.pop();
-        ccpg::Function * f = pair.first;
-        Context * ctx = pair.second;
-        std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> locToNodeSetMap = f->getLocToNodeSetMap();
-        for(auto it = locToNodeSetMap.begin(); it != locToNodeSetMap.end(); it++){
-            NodeLoc loc = it->first;
-            locsInScope[loc] = *ctx;
-            CCPGNodeSet nodes = it->second;
-            for(CCPGNode * node : nodes){
-                if(node->isCallSite() && !ctx->contains(node)){
-                    CCPGEdge * callEdge = ccpg->hasCallEdge(node);
-                    if(callEdge == nullptr){
-                        continue;
-                    }
-                    ccpg::Function * f = callEdge->getDst()->getFunction();
-                    functionQueue.push(std::make_pair(f, ctx->extend(node)));
-                }
+        const auto& edges = forward ? current->getOutEdges() : current->getInEdges();
+        for (CCPGEdge* edge : edges) {
+            CCPGNode* neighbor = forward ? edge->getDst() : edge->getSrc();
+            // 确保邻居节点属于同一个线程，并且之前未访问过
+            if (thread->getNodes().count(neighbor) && reachable.find(neighbor) == reachable.end()) {
+                reachable.insert(neighbor);
+                worklist.push(neighbor);
             }
         }
     }
-
-    return locsInScope;
+    return reachable;
 }
 
-std::unordered_map<NodeLoc, Context, NodeLocHash> Thread::findAllLocs(){
-    CCPG * ccpg = ThreadCreationTree::getInstance()->getCCPG();
-    ccpg::Function * function = getThreadMainFunction();
+std::set<const llvm::Value*> ThreadCreationTree::collectCandidateSharedObjects() const {
+    std::set<const llvm::Value*> candidateObjects;
+    auto* pa = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
+    if (!pa) {
+        return candidateObjects;
+    }
 
-    std::unordered_map<NodeLoc, Context, NodeLocHash> locsInScope;
-    Context ctx = Context();
-    ctx.push(forkNode);
-    ctx.push(function->getFuncNode());
-    std::queue<std::pair<ccpg::Function *, Context *>> functionQueue;
-    functionQueue.push(std::make_pair(function, &ctx));
+    // 1. 添加所有全局变量
+    auto globals = pa->getAllGlobalVariables();
+    std::cout << "[DEBUG PRINT] Phase 1: Found " << globals.size() << " global variables as candidate shared objects." << std::endl;
+    for (const auto* gv : globals) {
+        candidateObjects.insert(gv);
+    }
 
-    while(functionQueue.size() > 0){
-        std::pair<ccpg::Function *, Context *> pair = functionQueue.front();
-        functionQueue.pop();
-        ccpg::Function * f = pair.first;
-        Context * ctx = pair.second;
-        std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> locToNodeSetMap = f->getLocToNodeSetMap();
-        for(auto it = locToNodeSetMap.begin(); it != locToNodeSetMap.end(); it++){
-            NodeLoc loc = it->first;
-            locsInScope[loc] = *ctx;
-            CCPGNodeSet nodes = it->second;
-            for(CCPGNode * node : nodes){
-                if(node->isCallSite() && !ctx->contains(node)){
-                    CCPGEdge * callEdge = ccpg->hasCallEdge(node);
-                    if(callEdge == nullptr){
-                        continue;
-                    }
-                    ccpg::Function * f = callEdge->getDst()->getFunction();
-                    functionQueue.push(std::make_pair(f, ctx->extend(node)));
-                }
+    // 2. 添加所有线程的入口函数参数
+    std::cout << "[DEBUG PRINT] Phase 1: Analyzing thread arguments..." << std::endl;
+    for (const auto& thread : this->getThreads()) {
+        if (thread->getThreadMainFunction() && thread->getThreadMainFunction()->getLLVMFunction()) {
+            for (const auto& arg : thread->getThreadMainFunction()->getLLVMFunction()->args()) {
+                candidateObjects.insert(&arg);
+                std::cout << "  -> Found thread arg in function '" << thread->getThreadMainFunction()->getLLVMFunction()->getName().str() << "' as a candidate." << std::endl;
             }
         }
     }
+    std::cout << "[DEBUG PRINT] Phase 1: Total candidate shared objects found: " << candidateObjects.size() << std::endl;
 
-    return locsInScope;
+    return candidateObjects;
 }
+
 
 void ThreadCreationTree::printThreadCreationTree(fs::path outputDir) const {
 
@@ -961,7 +1038,7 @@ void Thread::addThreadToDot(std::ostringstream& dot) {
 std::pair<
 std::unordered_map<NodeLoc, Context, NodeLocHash>&,
 std::unordered_map<NodeLoc, Context, NodeLocHash>&
-> ParallelLocCache::getParallelLocs(Thread* t1, Thread* t2) {
+> ParallelLocCache::getParallelLocs(Thread* t1, Thread* t2) const {
 // 生成有序的线程对键
 const auto key = makeOrderedPair(t1, t2);
 
@@ -975,4 +1052,53 @@ if (it != cache.end()) {
 auto result = ThreadCreationTree::getInstance()->computeParallelLocs(t1, t2); // 调用外部函数计算结果
 auto emplaceResult = cache.emplace(key, std::move(result));
 return { emplaceResult.first->second.first, emplaceResult.first->second.second };
+}
+
+MemoryAccessMap ThreadCreationTree::buildMemoryAccessMapForThread(
+    Thread* targetThread,
+    Thread* otherThread,
+    const std::set<const llvm::Value*>& candidates
+) const {
+    using MemoryAccessMap = std::unordered_map<const llvm::Value*, std::vector<MemoryAccess>>;
+    
+    MemoryAccessMap accessMap;
+    AliasChecker* aliasChecker = AliasChecker::getInstance();
+    auto* pa = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
+    if (!pa) return accessMap;
+
+    // 获取并发位置。getParallelLocs 的返回值中，第一个元素对应第一个参数，第二个元素对应第二个参数。
+    auto [locsForTarget, locsForOther] = this->getParallelLocs(targetThread, otherThread);
+
+    std::cout << "[DEBUG PRINT] Building access map for Thread " << targetThread->getId() 
+              << " (concurrent with Thread " << otherThread->getId() << "). Found "
+              << locsForTarget.size() << " concurrent locations." << std::endl;
+    
+    for (const auto& [loc, ctx] : locsForTarget) { // 我们只关心 targetThread 的位置
+        auto accesses = aliasChecker->getMemoryAccessesFromLocation(loc, ctx);
+        for (const auto& access : accesses) {
+            // 主动剪枝：只关心对候选共享对象的访问
+            bool is_shared = false;
+            for (const auto* candidate : candidates) {
+                if (aliasChecker->isAlias(access.pointerOperand, candidate)) {
+                    is_shared = true;
+                    break;
+                }
+            }
+
+            if (is_shared) {
+                // 使用指向集的代表元作为Key
+                auto pointsToSet = pa->getPointsToSet(access.pointerOperand);
+                if (!pointsToSet.empty()) {
+                    const llvm::Value* representative = *pointsToSet.begin();
+                    accessMap[representative].push_back(access);
+                } else {
+                    accessMap[access.pointerOperand].push_back(access);
+                }
+            }
+        }
+    }
+
+    std::cout << "  -> Finished building map for Thread " << targetThread->getId() 
+              << ". Map contains " << accessMap.size() << " unique memory objects." << std::endl;
+    return accessMap;
 }

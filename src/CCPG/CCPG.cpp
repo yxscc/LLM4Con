@@ -52,9 +52,9 @@ void CCPG::build(){
     std::queue<ccpg::Function *> functionQueue;
     std::set<ccpg::Function *> visited;
 
-    CCPGNodeSet entries = getEntries();
-    for(CCPGNode * entry : entries){
-        ccpg::Function * f = createFunction(entry);
+    CCPGNode* main = getMain();
+    if(main != nullptr){
+        ccpg::Function * f = createFunction(main);
         entryFunctions.insert(f);
         functionQueue.push(f);
     }
@@ -114,34 +114,12 @@ void CCPG::build(){
     labelAPI();
 
     tree->handleJoins();
-    tree->countParallelThreadPairs();
-    ExecutionTimer::getInstance()->stop("CCPG Analysis");
-    std::unordered_map<std::pair<Thread*, Thread*>, std::string, pair_hash> parallelThreadPairs = tree->getParallelThreadPairs();
-    for(auto it = parallelThreadPairs.begin(); it != parallelThreadPairs.end(); it++){
-        std::pair<Thread*, Thread*> pair = it->first;
-        Thread * t1 = pair.first;
-        Thread * t2 = pair.second;
-        std::string relation = it->second;
-
-        std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs1;
-        std::unordered_map<NodeLoc, Context, NodeLocHash> parallelLocs2;
-
-        // 获取两个线程的并行位置
-        std::tie(parallelLocs1, parallelLocs2) = tree->getParallelLocs(t1, t2);
-    }
 
     ExecutionTimer::getInstance()->start("LockSet Analysis");
     LSAnalysis * lsAnalysis = LSAnalysis::getInstance();
     lsAnalysis->setCCPG(this);
     lsAnalysis->build();
     ExecutionTimer::getInstance()->stop("LockSet Analysis");
-
-    //inferTemporality();
-
-    /*HB* hb = HB::getInstance();
-    hb->setCCPG(tree->getCCPG());
-    hb->buildHB(tree->getThreads());
-    std::cout << "complete building happens-before relation" << std::endl;*/
 }
 
 CCPGNode * CCPG::getCallSiteInFunction(const ccpg::Function * caller, const ccpg::Function * callee){
@@ -270,6 +248,40 @@ CCPGNodeSet CCPG::getEntries(){
     return entries;
 }
 
+CCPGNode* CCPG::getMain() {
+    const CPG* cpg = this->getCPG();
+    auto mainInfo = AnalysisManager::getInstance()->getPointerAnalyzer()->getMainFunction();
+    if (mainInfo.fileName == "N/A" || mainInfo.lineNumber == 0) {
+        std::cerr << "Warning: No valid main function found." << std::endl;
+        return nullptr;
+    }
+
+    const std::string& mainFuncName = mainInfo.functionName;
+    std::string fileName = mainInfo.fileName;
+    int lineNumber = mainInfo.lineNumber;
+    std::string fileName_last = fileName.substr(fileName.find_last_of("/") + 1);
+
+    CPGNodeSet methods = cpg->getMethodsByFileName(fileName);
+    if(methods.empty()){
+        methods = cpg->getMethodsByFileName(fileName_last);
+        if(methods.empty()){
+            std::cerr << "Warning: No methods found in file " << fileName << " or " << fileName_last << std::endl;
+            return nullptr;
+        }
+    }
+
+    for(auto it = methods.begin(); it != methods.end(); it++){
+        Node * methodNode = *it;
+        if (methodNode->getName() != mainFuncName) {
+            continue;
+        }
+        if(methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){
+            return createCCPGNode(methodNode);
+        }
+    }
+
+    return nullptr;
+}
 
 CCPGNode * CCPG::createCCPGNode(Node* n) {
     if(n == nullptr){
@@ -351,7 +363,6 @@ ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {
                 childNode->setFunction(function); // 新节点也需要设置其所属函数
             }
             CCPGEdge* edge = createCCPGEdge(node, childNode);
-            nodeQueue.push(childNode);
             this->addEdge(edge);
             function->addEdge(edge);
 

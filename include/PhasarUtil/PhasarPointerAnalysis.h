@@ -32,12 +32,18 @@ public:
     std::set<const llvm::Value *> getPointsToSet(const llvm::Value *Ptr) override;
     const llvm::Value* getValueByName(const std::string &funcName, const std::string &varName) override;
     std::vector<EntryPointInfo> getPotentialEntryPoints() override;
+
+    EntryPointInfo getMainFunction() const override;
     std::vector<const llvm::Function *> getAllLLVMFunctions() const override;
+
     std::vector<const llvm::CallInst *> getCallInstsByLoc(const NodeLoc &Loc) const;
     std::vector<const llvm::LoadInst *> getLoadInstsByLoc(const NodeLoc &Loc) const;
     std::vector<const llvm::StoreInst *> getStoreInstsByLoc(const NodeLoc &Loc) const;
+    
     psr::LLVMBasedICFG* getICFG() const  { return ICFG.get(); }
     std::vector<const llvm::Function*> getCalleesOfCallAt(const llvm::Instruction* callInst) const override;
+    std::vector<const llvm::GlobalVariable*> getAllGlobalVariables() const override;
+    bool isGuardedByStaticInitializer(const llvm::StoreInst* storeInst) const override;
 
 private:
     std::unique_ptr<psr::LLVMProjectIRDB> DB;

@@ -1,8 +1,10 @@
 #include "Util/Logger.h"
+#include "Util/TargetPath.h"
 #include <iostream>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <filesystem>
 
 Logger* Logger::instance = nullptr;
 std::mutex Logger::mutex;
@@ -17,9 +19,10 @@ std::string getCurrentTimestamp() {
 }
 
 Logger::Logger() {
-    logFile.open("llm_conversations.log", std::ios_base::app);
+    fs::path log_path = TargetPath::getInstance()->getOutputDir() / "llm_conversations.log";
+    logFile.open(log_path, std::ios_base::app);
     if (!logFile.is_open()) {
-        std::cerr << "Failed to open log file: llm_conversations.log" << std::endl;
+        std::cerr << "Failed to open log file: " << log_path << std::endl;
     }
 }
 

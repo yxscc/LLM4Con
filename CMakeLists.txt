@@ -141,7 +141,7 @@ set(CCQL_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/main.cpp")
 set(LLM_DETECTOR_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/llm_main.cpp")
 
 # 5. Add the executables with their correct, separate source lists.
-add_executable(ccql ${CCQL_SRC})
+#add_executable(ccql ${CCQL_SRC})
 add_executable(llm_detector ${LLM_DETECTOR_SRC})
 
 
@@ -149,15 +149,14 @@ add_executable(llm_detector ${LLM_DETECTOR_SRC})
 # link_directories(svf/lib)
 # link_directories(svf-llvm/lib)
 # SvfCore SvfLLVM
-target_link_libraries(ccql PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
-    cpprestsdk::cpprest
-    OpenSSL::SSL
-    OpenSSL::Crypto
-    Boost::system
-    Boost::thread
-    pthread
-    phasar::phasar)
-# SvfCore SvfLLVM
+#target_link_libraries(ccql PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
+#    cpprestsdk::cpprest
+#    OpenSSL::SSL
+#    OpenSSL::Crypto
+#    Boost::system
+#    Boost::thread
+#    pthread
+#    phasar::phasar)
 target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
     cpprestsdk::cpprest
     OpenSSL::SSL
@@ -167,37 +166,6 @@ target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgra
     pthread
     phasar::phasar)
 
-# Export the SVF target for including SVF from CMake using find_package(SVF)
-#include(CMakePackageConfigHelpers)
-
-# Generate SVFConfig.cmake
-#configure_package_config_file(
-#  .config.cmake.in
-#  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
-#  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
-#  PATH_VARS
-#    SVF_INSTALL_ROOT
-#    SVF_INSTALL_BIN_DIR
-#    SVF_INSTALL_LIB_DIR
-#    SVF_INSTALL_INCLUDE_DIR
-#    SVF_INSTALL_EXTAPI_DIR
-#    SVF_INSTALL_EXTAPI_FILE
-#)
-
-# Generate SVFConfigVersion.cmake
-#write_basic_package_version_file(
-#  "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake"
-#  VERSION "${SVF_VERSION_MAJOR}.${SVF_VERSION_MINOR}"
-#  COMPATIBILITY AnyNewerVersion
-#)
-
-# Install above CMake files as part of installation
-#install(
-#  FILES
-#    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfig.cmake
-#    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SVF/SVFConfigVersion.cmake
-#  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SVF
-#)
 
 
 

@@ -137,6 +137,7 @@ public:
     void mapSVFInstructions();
 
     CCPGNodeSet getEntries();
+    CCPGNode* getMain();
 
     CCPGNode * findCalleeByCaller(CCPGNode *caller);
 

@@ -18,6 +18,7 @@
 
 #include "LLMUtil/AgentManager.h"
 #include "CPG/Node.h"
+#include "Query/LLMDataRaceDetector.h"
 
 
 using namespace std;
@@ -28,25 +29,17 @@ using namespace llm_client;
 TargetPath * TargetPath::instance = nullptr;
 ExecutionTimer * ExecutionTimer::instance = nullptr;
 
-static llvm::cl::opt<std::string> InputSrcDir(cl::Positional,
-        llvm::cl::desc("<input src>"), llvm::cl::init("-"));
-static llvm::cl::opt<std::string> InputBCFileName(cl::Positional,
-        llvm::cl::desc("<input bc>"), llvm::cl::init("-"));
+static llvm::cl::opt<std::string> InputSrcDir("input-src",
+        llvm::cl::desc("Input source file"), llvm::cl::Required);
+static llvm::cl::opt<std::string> InputBCFileName("input-bc",
+        llvm::cl::desc("Input bitcode file"), llvm::cl::Required);
 static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace information"), cl::init(false));
 
 std::string convertToBC(const std::string& file);
 
 int main(int argc, char** argv) {
-    std::cout << "LLM Concurrency Bug Detector Initialized." << std::endl;
-
-    int arg_num = 0;
-    std::vector<char*> arg_value(argc);
-
-    std::vector<std::string> moduleNameVec;
-    //LLVMUtil::processArguments(argc, argv, arg_num, arg_value.data(), moduleNameVec);
-    //cl::ParseCommandLineOptions(arg_num, arg_value.data(),
-    //                            "Whole Program Concurrency Analysis\n");
-
+    llvm::cl::ParseCommandLineOptions(argc, argv, "LLM Concurrency Bug Detector\n");
+    
     std::string projectDir = InputSrcDir;
     TargetPath * targetPath = TargetPath::getInstance();
     targetPath->setTargetAbsolutePath(projectDir);
@@ -59,19 +52,7 @@ int main(int argc, char** argv) {
     auto cpgGenerator = std::make_unique<CPGGenerator>();
     std::unique_ptr<CPG> cpg(cpgGenerator->buildCPGByDot(projectDir));
     
-    std::string bcFile;
-    if(InputBCFileName != "-"){
-        bcFile = InputBCFileName;
-        moduleNameVec.push_back(bcFile);
-    }
-    else{
-        bcFile = convertToBC(projectDir);
-        moduleNameVec.push_back(bcFile);
-    }  
-
-    /*ExecutionTimer::getInstance()->start("SVF Analysis");
-    SVFManager::getInstance()->runSVFAnalysis(moduleNameVec);
-    ExecutionTimer::getInstance()->stop("SVF Analysis");*/
+    std::string bcFile = InputBCFileName == "-" ? convertToBC(projectDir) : InputBCFileName;
 
     ExecutionTimer::getInstance()->start("Running whole-program pointer analysis with Phasar");
     auto pointerAnalyzer = std::make_unique<PhasarPointerAnalysis>(bcFile);
@@ -87,10 +68,18 @@ int main(int argc, char** argv) {
 
     // --- LLM-based Analysis ---
     llm_client::AgentManager agentManager(ccpg.get());
-    agentManager.runAnalysis();
+    auto contracts = agentManager.runAnalysis();
+
+    // --- Run Detectors on LLM-generated Contracts ---
+    std::cout << "\n[Phase 3: Detecting Data Races from Contracts]" << std::endl;
+    query::LLMDataRaceDetector raceDetector;
+    raceDetector.detect(contracts);
+    raceDetector.printDataRaces(targetPath->getOutputDir());
+    std::cout << "Data race detection complete. Results are in the output directory." << std::endl;
 
     return 0;
 }
+
 
 // 将文件或项目转换成bc文件，并输出到项目根目录的llvmbc文件夹下
 std::string convertToBC(const std::string& file){

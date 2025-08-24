@@ -1,6 +1,8 @@
 #include <fstream>
 #include "CCPG/ThreadCreationTree.h"
 #include "LLMUtil/Conversation.h"
+#include "Util/Logger.h"
+#include <iostream>
 
 namespace llm_client{
 
@@ -10,13 +12,10 @@ Conversation::Conversation(
         size_t max_history
     ) : client_(client),
         base_system_prompt_(system_prompt),
-        max_history_messages_(max_history),
-        tool_execution_context_(nullptr) {
-        // 其他初始化逻辑（如果需要）
-    }
+        max_history_messages_(max_history){}
 
 std::string Conversation::send_message(const std::string& user_message, void* context_for_tools) {
-    this->tool_execution_context_ = context_for_tools;
+    this->context_for_tools_ = context_for_tools; // Store context for tool execution
 
     std::string effective_sys_prompt = build_effective_system_prompt();
     if (history_.empty() || history_[0].role != MessageRole::SYSTEM) {
@@ -26,6 +25,7 @@ std::string Conversation::send_message(const std::string& user_message, void* co
     }
 
     history_.push_back({MessageRole::USER, user_message, std::nullopt, std::nullopt});
+    std::cout << "User: " << user_message << std::endl;
     prune_history();
 
     while (true) {
@@ -35,26 +35,23 @@ std::string Conversation::send_message(const std::string& user_message, void* co
         ChatMessage assistant_message = {MessageRole::ASSISTANT, llm_response.assistant_content};
         if (llm_response.tool_requests && !llm_response.tool_requests->empty()) {
             assistant_message.tool_calls = llm_response.tool_requests;
+            for (const auto& tool_req : *llm_response.tool_requests) {
+                std::cout << "LLM Tool Call: " << tool_req.toolname << " with args " << tool_req.arguments.dump() << std::endl;
+            }
         }
         history_.push_back(assistant_message);
         prune_history();
 
         if (!llm_response.tool_requests || llm_response.tool_requests->empty()) {
-            // No tool calls requested, this is the final assistant response for this turn
-            this->tool_execution_context_ = nullptr; // Clear context after turn
             return llm_response.assistant_content;
         }
 
-        // Process tool calls
-        // Note: Some LLMs might allow parallel tool calls.
-        // Here, we process them and add results, then let LLM decide next step.
         for (const auto& tool_req : *llm_response.tool_requests) {
             std::string tool_result_content = execute_tool(tool_req.toolname, tool_req.arguments);
+            std::cout << "Tool Result: " << tool_result_content << std::endl;
             history_.push_back({MessageRole::TOOL, tool_result_content, std::nullopt, tool_req.id});
             prune_history();
             if(tool_result_content == "finish"){
-                // Special case to end the conversation
-                this->tool_execution_context_ = nullptr; // Clear context after turn
                 return parseResult(history_);
             }
         }

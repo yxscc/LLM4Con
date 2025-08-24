@@ -2,90 +2,115 @@
 #include "CCPG/ThreadCreationTree.h"
 #include "CCPG/CCPG.h"
 #include "CCPG/CCPGNode.h"
+#include <sstream>
+#include <nlohmann/json.hpp>
 
 namespace llm_client {
 
-// --- Implementation for ParallelAnalysisAgent ---
+// Helper to serialize a contract to a string for the prompt
+std::string contract_to_string(const LLM::ConcurrencyContract& contract) {
+    std::stringstream ss;
+    ss << "  - Thread ID: " << contract.threadId << "\n";
+    ss << "  - Role: " << contract.role << "\n";
+    ss << "  - Summary: " << contract.summary << "\n";
+    ss << "  - Shared Variables: ";
+    if (contract.sharedVariables.empty()) {
+        ss << "None identified.\n";
+    } else {
+        ss << "\n";
+        for (const auto& var : contract.sharedVariables) {
+            ss << "    - Name: " << var.variableName << ", Access: " << var.accessType << "\n";
+        }
+    }
+    return ss.str();
+}
 
 ParallelAnalysisAgent::ParallelAnalysisAgent(std::shared_ptr<LLMClient> client)
-    : Conversation(client, build_system_prompt(), 20) {
-    // Initialization if needed
-}
+    : Conversation(client, build_system_prompt(), 20) {}
 
 std::string ParallelAnalysisAgent::build_system_prompt() {
     return R"(
-You are a highly specialized static analysis expert for C/C++ programs, with a focus on thread synchronization and "happens-before" relationships.
+You are a world-class expert in concurrent software architecture and formal verification. Your task is to perform a multi-part analysis on a pair of threads to uncover subtle concurrency protocol violations.
 
-Your task is to analyze a PAIR of threads to determine if they can execute their core logic concurrently. The key is to identify if there is a synchronization dependency that forces one thread to complete before the other begins its main execution. The most common dependency is a `pthread_join` call on the first thread that occurs before the second thread is created.
+**Your Analysis Workflow:**
 
-You will be given the context of two threads, including their creation sites (`fork_node_id`) and the variable names of their thread handles (`thread_handle_var`).
+**Part 1: Analyze Design Intent & Execution Concurrency**
+- Based on the semantic information in the two "Concurrency Contracts", determine if the threads are *designed* to be parallel.
+- Use the `check_happens_before` tool to determine if the code *actually allows* the threads to run concurrently.
 
-**Your Goal**: Determine if a happens-before relationship exists between the two threads.
-- **If a dependency exists** (e.g., `parent_thread` creates `thread_1`, waits for it to finish via `join`, then creates `thread_2`), they CANNOT run in parallel.
-- **If no such dependency exists**, they CAN run in parallel.
+**Part 2: Infer Stateful Temporal Ordering Rules (CRITICAL TASK)**
+- This is your most important task. Carefully analyze the interaction between the two threads, focusing on any shared data structures identified in their contracts.
+- Your goal is to infer the implicit "protocol" or "state machine" that governs the safe use of these shared objects.
+- If you identify such a protocol, you MUST formalize it as one or more **Stateful Temporal Ordering Rules**. A rule defines a sequence of function calls on a shared object that is forbidden unless a specific "resolving" function is called in between.
 
-**Available Tools:**
-- `get_parent_function(node_id)`: Get the function that contains the given node ID. Use this to find the context where threads are created.
-- `get_control_flow_path(start_node_id, end_node_id)`: Checks if a control flow path exists from a start node to an end node within the same function. Returns the path if it exists.
-- `find_synchronization_for_thread(thread_handle_var, search_scope_function_id)`: **Critical Tool.** Searches for a synchronization call (like `pthread_join`) that uses the given thread handle variable within the scope of the specified function. It returns the node information of the synchronization call if found.
-- `confirm_analysis_result(can_run_in_parallel, reason, concurrent_regions)`: **Final Action.** Call this to submit your final conclusion. `concurrent_regions` should be an array of objects, each with `thread_entry_id`, `start_node_id`, and `end_node_id`.
+**Part 3: Final Action**
+- After completing all analysis, you MUST call the `confirm_parallel_analysis_with_rules` tool to submit your complete findings.
+- This single tool call must include your analysis of parallelism AND any temporal rules you have inferred. If no specific rules are found, submit an empty list for the `temporal_rules` parameter.
 
-**Your Workflow:**
-1.  Use `get_parent_function` for both thread creation nodes (`fork_node_id_1`, `fork_node_id_2`) to ensure they are created in the same parent function. If not, the analysis is too complex; for now, assume they can run in parallel.
-2.  **Crucial Step**: Use `find_synchronization_for_thread` on the first thread's handle (`thread_handle_var_1`) within the parent function's scope to find if a `join` call exists for it.
-3.  If a `join` call is found (let's call its node `join_node_1`), you must determine its position relative to the thread creation calls.
-4.  Use `get_control_flow_path` to check for the sequence: `fork_node_1` -> `join_node_1` -> `fork_node_2`.
-5.  If this specific control flow path exists, it proves a "happens-before" relationship. The threads **cannot** run in parallel. Call `confirm_analysis_result` with `can_run_in_parallel: false` and specify the reason.
-6.  If no such `join` call is found between the two fork sites, the threads **can** run in parallel. Call `confirm_analysis_result` with `can_run_in_parallel: true`. The `concurrent_regions` are the entire bodies of both thread entry functions.
+**Example of a Stateful Temporal Ordering Rule (for a work queue scenario):**
+If you observe that a `work_struct` is first added to a queue via `queue_work()` and should not be re-initialized with `INIT_WORK()` before being processed by `process_one_work()`, you would generate the following rule:
+
+```json
+{
+  "rule_id": "WORK_QUEUE_STATE_PROTOCOL",
+  "description": "A 'work_struct' that has been queued (pending) must not be re-initialized before it is processed.",
+  "shared_object_type": "struct mock_work_struct",
+  "forbidden_sequence": [
+    { "function": "mock_queue_work", "effect": "sets state to PENDING" },
+    { "function": "mock_INIT_WORK", "effect": "destructively resets state" }
+  ],
+  "resolving_function": "process_one_work"
+}
+
+**Final Action**
+After completing both parts of the analysis, you MUST call the `confirm_parallel_analysis` tool to submit your complete findings. Provide a clear reason for each part of your analysis.
 )";
 }
 
 std::vector<Tool> ParallelAnalysisAgent::get_available_tools() const {
     return {
-        {"get_thread_creation_site", "Get the creation site of a thread by its entry function ID.",
+        {"check_happens_before", "Checks if a happens-before relationship exists between two threads (e.g., join(t1) before fork(t2)).",
         {
-            {"function_id", "number", "The ID of the thread's entry function.", true}
+            // No parameters needed, the agent will provide context internally.
         }},
-        {"check_happens_before", "Check if one code location is guaranteed to execute before another.", 
+        {"confirm_parallel_analysis", "Confirms the final, two-part analysis of the thread pair.",
         {
-            {"node_id_1", "number", "The ID of the first code node.", true},
-            {"node_id_2", "number", "The ID of the second code node.", true}
-        }},
-        {"confirm_parallel_status", "Confirm the final conclusion about whether the threads can run in parallel.",
-        {
-            {"are_parallel", "boolean", "True if the threads can run in parallel, false otherwise.", true},
-            {"justification", "string", "A brief explanation for your conclusion.", true}
+            {"designed_for_parallelism", "boolean", "True if the threads are designed to run in parallel based on their contracts.", true},
+            {"design_reasoning", "string", "A brief explanation for the design intent conclusion.", true},
+            {"actually_concurrent", "boolean", "True if the code allows the threads to execute at the same time.", true},
+            {"concurrency_reasoning", "string", "A brief explanation for the execution concurrency conclusion (based on the happens-before check).", true},
+            {"temporal_rules", "array", "An array of JSON objects, where each object represents a Stateful Temporal Ordering Rule. Each object must have fields like 'rule_id', 'description', 'shared_object_type', 'forbidden_sequence', and 'resolving_function'. Pass an empty array if no rules are found.", true}
         }}
     };
 }
 
 std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, const nlohmann::json& arguments) {
-    // NOTE: This is a placeholder implementation as requested.
-    // You should replace the logic here with your actual static analysis calls.
+    auto* pair = static_cast<ThreadPair*>(this->get_context_for_tools());
+    if (!pair) {
+        return R"({"error": "Internal context error: ThreadPair not found."})";
+    }
 
-    if (tool_name == "get_thread_creation_site") {
-        int function_id = arguments.at("function_id").get<int>();
-        // In a real implementation, you would look up the function and find its creation site.
+    if (tool_name == "check_happens_before") {
+        bool can_run_concurrently = ThreadCreationTree::getInstance()->mayThreadsRunConcurrently(pair->thread1, pair->thread2);
+        
         nlohmann::json result = {
-            {"creation_site_node_id", 100 + function_id}, // Placeholder ID
-            {"source_file", "main.cpp"},
-            {"line_number", 50 + function_id}
+            {"happens_before_found", !can_run_concurrently}
         };
         return result.dump();
-    } else if (tool_name == "check_happens_before") {
-        int node_id_1 = arguments.at("node_id_1").get<int>();
-        int node_id_2 = arguments.at("node_id_2").get<int>();
-        // Placeholder: assume no happens-before relationship unless IDs are sequential.
-        bool happens_before = (node_id_1 < node_id_2);
-        nlohmann::json result = {
-            {"happens_before", happens_before},
-            {"reason", happens_before ? "Node 1 occurs before Node 2 in control flow." : "No direct ordering constraint found."}
-        };
-        return result.dump();
-    } else if (tool_name == "confirm_parallel_status") {
-        last_parallel_status_ = arguments.at("are_parallel").get<bool>();
-        // The justification can be logged or stored if needed.
-        return "finish";
+    }
+    
+    if (tool_name == "confirm_parallel_analysis") {
+        pair->analysis.designed_for_parallelism = arguments.at("designed_for_parallelism").get<bool>();
+        pair->analysis.design_reasoning = arguments.at("design_reasoning").get<std::string>();
+        pair->analysis.actually_concurrent = arguments.at("actually_concurrent").get<bool>();
+        pair->analysis.concurrency_reasoning = arguments.at("concurrency_reasoning").get<std::string>();
+
+        if (arguments.contains("temporal_rules") && arguments.at("temporal_rules").is_array()) {
+            for (const auto& rule_json : arguments.at("temporal_rules")) {
+                pair->analysis.temporal_rules.push_back(rule_json);
+            }
+        }
+        return "finish"; // Signal completion
     }
 
     nlohmann::json error_resp;
@@ -94,20 +119,20 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
 }
 
 std::string ParallelAnalysisAgent::parseResult(const std::vector<ChatMessage>& history) {
-    // The result is stored in the member variable `last_parallel_status_`.
-    // We return it as a string to match the `send_message` return type.
-    return last_parallel_status_ ? "true" : "false";
+    return "Analysis complete.";
 }
 
-bool ParallelAnalysisAgent::analyze_parallelism(int function_id_1, int function_id_2) {
-    std::string user_prompt = "Determine if threads with entry function IDs " +
-                              std::to_string(function_id_1) + " and " +
-                              std::to_string(function_id_2) + " can execute in parallel.";
-    
-    // The context pointer is null here, but can be used to pass analysis-specific data.
-    std::string result_str = send_message(user_prompt, nullptr);
-    
-    return result_str == "true";
+void ParallelAnalysisAgent::analyze_parallelism(ThreadPair& pair) {
+    std::string contract1_str = contract_to_string(pair.contract1);
+    std::string contract2_str = contract_to_string(pair.contract2);
+
+    std::string user_prompt = 
+        "Please perform the multi-part analysis on the following thread pair.\n\n"
+        "**Contract for Thread 1:**\n" + contract1_str + "\n"
+        "**Contract for Thread 2:**\n" + contract2_str + "\n"
+        "First, analyze design and execution parallelism. Second, and most importantly, infer any Stateful Temporal Ordering Rules. Finally, report your combined findings with `confirm_parallel_analysis_with_rules`.";
+
+    send_message(user_prompt, &pair);
 }
 
 } // namespace llm_client

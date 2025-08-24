@@ -1,16 +1,18 @@
 #include "LLMUtil/AgentManager.h"
 #include <iostream>
 #include <vector>
+#include <map>
 #include "CCPG/CCPGNode.h"
 #include "CPG/Node.h"
 #include "LLMUtil/ConcurrencyContract.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "LLMUtil/ThreadPair.h"
 
 namespace llm_client {
 
 AgentManager::AgentManager(CCPG* cpg)
     : llmClient(LLMClient::get_shared_instance(std::getenv("LLM_API_URL"), std::getenv("LLM_API_KEY"))),
-      entryFinder(llmClient),
+      entryFinder(cpg, llmClient),
       parallelAnalyzer(llmClient),
       contractGenerator(cpg, llmClient),
       ccpg(cpg) {
@@ -19,57 +21,77 @@ AgentManager::AgentManager(CCPG* cpg)
     }
 }
 
-void AgentManager::runAnalysis() {
+std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
     if (!llmClient || !ccpg) {
-        std::cerr << "LLM Client or CCPG not initialized. Aborting analysis." << std::endl;
-        return;
+        std::cerr << "LLM Client or CCPG not initialized. Aborting analysis.";
+        return {};
     }
 
     std::cout << "\n--- Starting LLM-based Concurrency Analysis ---" << std::endl;
 
-    ThreadCreationTree * tree = ThreadCreationTree::getInstance();
-    // 2. Find all thread creation sites
+    ThreadCreationTree* tct = ThreadCreationTree::getInstance();
+    std::unordered_set<Thread*> threads = tct->getThreads();
+    
+    // Phase 1, Step A: Identify candidate shared objects once at the beginning.
+    const auto candidateSharedObjects = tct->collectCandidateSharedObjects();
 
-    // 3. Instantiate Agents
-    // FindingThreadEntryAgent entryFinder(llmClient); // Already initialized
-    // ContractGeneratorAgent contractGenerator(ccpg, llmClient); // Already initialized
-    std::vector<LLM::ConcurrencyContract> allContracts;
-
-    // 4. Iterate over each thread creation site to find entry point and generate contract
-    std::unordered_set<Thread *> threads = tree->getThreads();
-    for(Thread * thread : threads) {
-        CCPGNode * forkNode = thread->getForkNode();
-        
-        // a. Use FindingThreadEntryAgent to get the entry function ID
+    // Phase 1, Step B: Generate Concurrency Contracts for all threads
+    std::cout << "\n[Phase 1: Generating Concurrency Contracts]" << std::endl;
+    std::map<Thread*, LLM::ConcurrencyContract> contractMap;
+    for(Thread* thread : threads) {
         int entryFuncId = thread->getThreadMainFunction() ? thread->getThreadMainFunction()->getId() : -1;
-        
         if (entryFuncId != -1) {
-            std::cout << "Agent identified thread entry function ID: " << entryFuncId << std::endl;
-            
-            // b. Use ContractGeneratorAgent to generate a contract for this thread
-            auto contractOpt = contractGenerator.generateContractForThread(forkNode, entryFuncId);
-            
+            std::cout << "Analyzing thread " << thread->getId() << " (Entry Function ID: " << entryFuncId << ")" << std::endl;
+            auto contractOpt = contractGenerator.generateContractForThread(thread);
             if (contractOpt) {
-                std::cout << "Successfully generated contract for thread entry ID " << entryFuncId << std::endl;
-                allContracts.push_back(contractOpt.value());
+                std::cout << "  -> Successfully generated contract." << std::endl;
+                contractMap.emplace(thread, std::move(contractOpt.value()));
             } else {
-                std::cerr << "Failed to generate contract for thread entry ID " << entryFuncId << std::endl;
+                std::cerr << "  -> Failed to generate contract." << std::endl;
             }
         } else {
-            std::cerr << "Could not determine thread entry for fork site " << forkNode->getId() << std::endl;
+            std::cerr << "Could not determine thread entry for fork site " << thread->getForkNode()->getId() << std::endl;
         }
     }
 
-    // 5. Print all generated contracts
-    std::cout << "\n--- All Generated Concurrency Contracts ---" << std::endl;
-    if (allContracts.empty()) {
-        std::cout << "No contracts were generated." << std::endl;
-    } else {
-        for (const auto& contract : allContracts) {
-            std::cout << contract.toJson() << "\n" << std::endl;
+    // Step 2: Analyze parallelism and build access maps for each pair of threads
+    std::cout << "\n[Phase 2: Analyzing Parallelism and Building Access Maps]" << std::endl;
+    std::vector<ThreadPair> analysisResults;
+    std::vector<Thread*> thread_vec(threads.begin(), threads.end());
+
+    for (size_t i = 0; i < thread_vec.size(); ++i) {
+        for (size_t j = i + 1; j < thread_vec.size(); ++j) {
+            Thread* thread1 = thread_vec[i];
+            Thread* thread2 = thread_vec[j];
+
+            auto it1 = contractMap.find(thread1);
+            auto it2 = contractMap.find(thread2);
+
+            if (it1 != contractMap.end() && it2 != contractMap.end()) {
+                std::cout << "Analyzing pair: Thread " << thread1->getId() << " and Thread " << thread2->getId() << std::endl;
+                ThreadPair pair(thread1, it1->second, thread2, it2->second);
+                parallelAnalyzer.analyze_parallelism(pair);
+                
+                std::cout << "  - Designed for Parallelism: " << (pair.analysis.designed_for_parallelism ? "Yes" : "No") << std::endl;
+                std::cout << "    Reasoning: " << pair.analysis.design_reasoning << std::endl;
+                std::cout << "  - Actually Concurrent: " << (pair.analysis.actually_concurrent ? "Yes" : "No") << std::endl;
+                std::cout << "    Reasoning: " << pair.analysis.concurrency_reasoning << std::endl;
+
+                // If threads can run concurrently, build and cache their MemoryAccessMaps
+                if (pair.analysis.actually_concurrent) {
+                    std::cout << "  -> Building memory access maps for concurrent pair..." << std::endl;
+                    // Pass the pre-computed candidateSharedObjects to the builder function
+                    pair.analysis.accessMap1 = tct->buildMemoryAccessMapForThread(pair.thread1, pair.thread2, candidateSharedObjects);
+                    pair.analysis.accessMap2 = tct->buildMemoryAccessMapForThread(pair.thread2, pair.thread1, candidateSharedObjects);
+                }
+
+                analysisResults.push_back(std::move(pair));
+            }
         }
     }
-    std::cout << "--- LLM-based Analysis Finished ---\n" << std::endl;
+
+    std::cout << "\n--- LLM-based Analysis Finished ---\n" << std::endl;
+    return analysisResults;
 }
 
 } // namespace llm_client
