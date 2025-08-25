@@ -135,6 +135,8 @@ public:
 
     Thread * createThread(CCPGNode * forkNode, Thread * parent);
 
+    Thread * getThreadById(int thread_id);
+
     bool mayHappenInParallel(Thread * thread1, Thread * thread2);
 
     void printThreadCreationTree(fs::path outputDir) const;

@@ -5,6 +5,7 @@
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/ThreadCreationTree.h"
 #include "llvm/Demangle/Demangle.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace psr;
 
@@ -281,3 +282,41 @@ bool AliasChecker::isCompilerGeneratedSafeInit(const MemoryAccess& access) const
     return pa->isGuardedByStaticInitializer(storeInst);
 }
 
+/**
+ * @brief 根据调用点和一个期望的类型名，获取函数参数对应的llvm::Value。
+ *
+ * 这个函数会检查调用点的所有参数，如果某个参数的指针类型指向的结构体
+ * 名称与期望的 object_type_name 匹配，则返回该参数的Value。
+ * 如果 object_type_name 为空，则返回第一个指针类型的参数。
+ *
+ * @param call_site 代表函数调用的CCPGNode。
+ * @param object_type_name 期望的共享对象的C++结构体名称。
+ * @return 匹配到的参数的llvm::Value*，如果没有找到则返回nullptr。
+ */
+const llvm::Value* AliasChecker::getLLVMValueForArgument(CCPGNode* call_site, const std::string& object_type_name) {
+    if (!call_site || !call_site->isCallSite() || !call_site->getLLVMCallInst()) {
+        return nullptr;
+    }
+
+    const llvm::CallInst* callInst = call_site->getLLVMCallInst();
+
+    for (unsigned i = 0; i < callInst->arg_size(); ++i) {
+        const llvm::Value* arg = callInst->getArgOperand(i);
+        if (arg && arg->getType()->isPointerTy()) {
+            // 如果类型名为空，我们返回第一个找到的指针参数
+            if (object_type_name.empty()) {
+                return arg;
+            }
+            
+            llvm::Type* pointed_type = arg->getType()->getContainedType(0); // Opaque pointer safe
+            if (pointed_type->isStructTy()) {
+                llvm::StructType* st = llvm::dyn_cast<llvm::StructType>(pointed_type);
+                if (st && !st->isLiteral() && st->getStructName().contains(object_type_name)) {
+                    return arg;
+                }
+            }
+        }
+    }
+
+    return nullptr;
+}

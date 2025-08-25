@@ -1,0 +1,24 @@
+digraph G {
+41 [label="41<OTHER_CALL>printf(\"\\\\n\"\n               \"====================================================================\\\\n\"\n               \"|| VULNERABILITY REPRODUCED: pwq is NULL, about to crash!         ||\\\\n\"\n               \"====================================================================\\\\n\\\\n\")"];
+40 [label="40<OTHER_CALL>printf(\"  [Worker Thread] Work belongs to queue \'%s\'.\\\\n\", pwq->name)"];
+39 [label="39<BRANCH>!pwq"];
+43 [label="43<OTHER_CALL>exit(EXIT_FAILURE)"];
+38 [label="38<OTHER_CALL>printf(\"  [Worker Thread] get_work_pwq returned %p.\\\\n\", pwq)"];
+36 [label="36<OTHER_CALL>get_work_pwq(work)"];
+37 [label="37<ASSIGNMENT>*pwq = get_work_pwq(work)"];
+35 [label="35<OTHER_CALL>printf(\"  [Worker Thread] Processing work item...\\\\n\")"];
+34 [label="34<ASSIGNMENT>*work = wq->pending_work"];
+42 [label="42<OTHER_CALL>work->func(work)"];
+33 [label="33<DUMMY>process_one_work"];
+41 -> 43 [label="ORDER"];
+39 -> 41 [label="ORDER"];
+38 -> 39 [label="ORDER"];
+37 -> 38 [label="ORDER"];
+36 -> 37 [label="ORDER"];
+40 -> 42 [label="ORDER"];
+35 -> 36 [label="ORDER"];
+43 -> 40 [label="ORDER"];
+39 -> 40 [label="ORDER"];
+34 -> 35 [label="ORDER"];
+33 -> 34 [label="ORDER"];
+}

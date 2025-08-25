@@ -1,0 +1,37 @@
+digraph G {
+18 [label="18<DUMMY>return 0;"];
+17 [label="17<OTHER_CALL>printf(\"\\\\nPoC finished. If you see this, the bug was NOT reproduced.\\\\n\")"];
+16 [label="16<OTHER_CALL>pthread_barrier_destroy(&barrier_work_corrupted)"];
+14 [label="14<JOIN>pthread_join(worker_thread, NULL)"];
+1 [label="1<DUMMY>main"];
+2 [label="2<OTHER_CALL>printf(\"CVE Concurrency PoC: Race Condition in RDMA/cma Workqueue Handling\\\\n\")"];
+10 [label="10<OTHER_CALL>printf(\"Initial state: CM ID %d created.\\\\n\\\\n\", g_cm_id.id)"];
+11 [label="11<FORK>pthread_create(&net_thread, NULL, net_event_thread_func, NULL)"];
+4 [label="4<BAR_INIT>pthread_barrier_init(&barrier_work_queued, NULL, 2)"];
+5 [label="5<BAR_INIT>pthread_barrier_init(&barrier_work_corrupted, NULL, 2)"];
+7 [label="7<ASSIGNMENT>.name = \"cma_wq\""];
+6 [label="6<ASSIGNMENT>g_cm_id.id = 123"];
+12 [label="12<FORK>pthread_create(&worker_thread, NULL, worker_thread_func, NULL)"];
+8 [label="8<ASSIGNMENT>g_cma_pwq = (struct mock_pool_workqueue){ .name = \"cma_wq\" }"];
+15 [label="15<OTHER_CALL>pthread_barrier_destroy(&barrier_work_queued)"];
+3 [label="3<OTHER_CALL>printf(\"-------------------------------------------------------------------\\\\n\")"];
+13 [label="13<JOIN>pthread_join(net_thread, NULL)"];
+9 [label="9<ASSIGNMENT>g_cma_wq.pwq = &g_cma_pwq"];
+16 -> 17 [label="ORDER"];
+15 -> 16 [label="ORDER"];
+1 -> 2 [label="ORDER"];
+9 -> 10 [label="ORDER"];
+11 -> 12 [label="ORDER"];
+2 -> 3 [label="ORDER"];
+3 -> 4 [label="ORDER"];
+13 -> 14 [label="ORDER"];
+4 -> 5 [label="ORDER"];
+5 -> 6 [label="ORDER"];
+8 -> 9 [label="ORDER"];
+6 -> 7 [label="ORDER"];
+7 -> 8 [label="ORDER"];
+10 -> 11 [label="ORDER"];
+17 -> 18 [label="ORDER"];
+14 -> 15 [label="ORDER"];
+12 -> 13 [label="ORDER"];
+}

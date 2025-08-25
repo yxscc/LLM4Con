@@ -261,6 +261,15 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
     return thread;
 }
 
+Thread* ThreadCreationTree::getThreadById(int thread_id){
+    for (Thread* thread : threads) {
+        if (thread->getId() == thread_id) {
+            return thread;
+        }
+    }
+    return nullptr;
+}
+
 Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
     const CPG * cpg = getCPG();
     Node* fork = forkNode->getCPGNode();

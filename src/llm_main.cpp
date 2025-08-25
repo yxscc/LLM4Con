@@ -7,7 +7,7 @@
 
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
-#include "CCPG/CCPG.h"
+#include "CCPG/ThreadCreationTree.h"
 #include "llvm/Support/CommandLine.h"
 #include "Util/ExecutionTimer.h"
 #include "PhasarUtil/AnalysisManager.h"
@@ -19,6 +19,7 @@
 #include "LLMUtil/AgentManager.h"
 #include "CPG/Node.h"
 #include "Query/LLMDataRaceDetector.h"
+#include "Query/StatefulBugDetector.h"
 
 
 using namespace std;
@@ -34,6 +35,10 @@ static llvm::cl::opt<std::string> InputSrcDir("input-src",
 static llvm::cl::opt<std::string> InputBCFileName("input-bc",
         llvm::cl::desc("Input bitcode file"), llvm::cl::Required);
 static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace information"), cl::init(false));
+
+static cl::opt<std::string> LLMProviderOpt("llm-provider", cl::desc("Choose LLM provider: deepseek or gemini"), cl::init("deepseek"));
+static cl::opt<std::string> LLMApiKey("llm-key", cl::desc("API key for the chosen LLM provider"), cl::init(""));
+static cl::opt<std::string> LLMModel("llm-model", cl::desc("Model name for the chosen LLM provider"), cl::init(""));
 
 std::string convertToBC(const std::string& file);
 
@@ -68,14 +73,22 @@ int main(int argc, char** argv) {
 
     // --- LLM-based Analysis ---
     llm_client::AgentManager agentManager(ccpg.get());
-    auto contracts = agentManager.runAnalysis();
+    const auto candidateSharedObjects = ThreadCreationTree::getInstance()->collectCandidateSharedObjects();
+    auto thread_pairs_with_analysis = agentManager.runAnalysis();
 
     // --- Run Detectors on LLM-generated Contracts ---
     std::cout << "\n[Phase 3: Detecting Data Races from Contracts]" << std::endl;
     query::LLMDataRaceDetector raceDetector;
-    raceDetector.detect(contracts);
+    raceDetector.detect(thread_pairs_with_analysis);
     raceDetector.printDataRaces(targetPath->getOutputDir());
-    std::cout << "Data race detection complete. Results are in the output directory." << std::endl;
+
+    // --- 2. 实例化并调用新的检测器 ---
+    query::StatefulBugDetector statefulDetector;
+    statefulDetector.detect(thread_pairs_with_analysis, candidateSharedObjects);
+    statefulDetector.printResults(targetPath->getOutputDir());
+    // ------------------------------------
+
+    std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
 
     return 0;
 }

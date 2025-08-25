@@ -51,6 +51,7 @@ public:
     std::vector<MemoryAccess> getMemoryAccessesFromLocation(const NodeLoc& loc, const Context& ctx);
     bool isThreadSafeStaticInitializationVariable(const llvm::Value* val) const;
     bool isCompilerGeneratedSafeInit(const MemoryAccess& access) const;
+    const llvm::Value* getLLVMValueForArgument(CCPGNode* call_site, const std::string& object_type_name);
 
 };
 
