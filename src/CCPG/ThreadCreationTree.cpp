@@ -290,7 +290,7 @@ Node * ThreadCreationTree::findThreadEntryByLLM(CCPGNode* forkNode){
     const CPG * cpg = getCPG();
     Node* fork = forkNode->getCPGNode();
 
-    llm_client::FindingThreadEntryAgent agent(this->ccpg, llm_client::LLMClient::get_shared_instance());
+    llm_client::FindingThreadEntryAgent agent(this->ccpg, llm_client::LLMClient::get_instance());
     int result = agent.find_thread_entry(forkNode);
     std::string result_str = std::to_string(result);
     const char * node_id = result_str.c_str();
@@ -947,6 +947,11 @@ CCPGNodeSet ThreadCreationTree::getReachableNodes(CCPGNode* startNode, Thread* t
 }
 
 std::set<const llvm::Value*> ThreadCreationTree::collectCandidateSharedObjects() const {
+
+    if (candidateSharedObjectsCache.has_value()) {
+        return *candidateSharedObjectsCache;
+    }
+
     std::set<const llvm::Value*> candidateObjects;
     auto* pa = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
     if (!pa) {
@@ -971,6 +976,8 @@ std::set<const llvm::Value*> ThreadCreationTree::collectCandidateSharedObjects()
         }
     }
     std::cout << "[DEBUG PRINT] Phase 1: Total candidate shared objects found: " << candidateObjects.size() << std::endl;
+
+    candidateSharedObjectsCache = candidateObjects;
 
     return candidateObjects;
 }

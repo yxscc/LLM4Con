@@ -77,6 +77,7 @@ private:
     ParallelLocCache parallelLocCache;
     std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> concurrencyCache;
     std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> mayHappenInParallelCache;
+    mutable std::optional<std::set<const llvm::Value*>> candidateSharedObjectsCache;
 
     ThreadCreationTree() {}
     static ThreadCreationTree* instance;

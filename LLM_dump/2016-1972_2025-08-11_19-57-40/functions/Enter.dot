@@ -1,5 +1,0 @@
-digraph G {
-51 [label="51<ACQUIRE>pthread_mutex_lock(l)"];
-50 [label="50<DUMMY>Enter"];
-50 -> 51 [label="ORDER"];
-}

@@ -1,5 +1,0 @@
-digraph G {
-52 [label="52<RELEASE>pthread_mutex_unlock(l)"];
-51 [label="51<DUMMY>Exit"];
-51 -> 52 [label="ORDER"];
-}

@@ -1,7 +1,0 @@
-digraph G {
-50 [label="50<DUMMY>return --(*num);"];
-49 [label="49<ASSIGNMENT>--(*num)"];
-48 [label="48<DUMMY>Dec"];
-49 -> 50 [label="ORDER"];
-48 -> 49 [label="ORDER"];
-}

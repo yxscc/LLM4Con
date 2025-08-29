@@ -39,12 +39,37 @@ static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace infor
 static cl::opt<std::string> LLMProviderOpt("llm-provider", cl::desc("Choose LLM provider: deepseek or gemini"), cl::init("deepseek"));
 static cl::opt<std::string> LLMApiKey("llm-key", cl::desc("API key for the chosen LLM provider"), cl::init(""));
 static cl::opt<std::string> LLMModel("llm-model", cl::desc("Model name for the chosen LLM provider"), cl::init(""));
+static cl::opt<std::string> LLMBaseUrl("llm-url", cl::desc("Base URL for the LLM API"), cl::init(""));
 
 std::string convertToBC(const std::string& file);
 
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv, "LLM Concurrency Bug Detector\n");
     
+    LLMProvider provider;
+    std::string base_url;
+    std::string api_key_str = LLMApiKey.getValue();
+    std::string api_key = api_key_str.empty() ? (std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "DEEPSEEK_API_KEY") ? std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "DEEPSEEK_API_KEY") : "") : api_key_str;
+    std::string model = LLMModel.getValue();
+
+    if (LLMProviderOpt.getValue() == "gemini") {
+        provider = LLMProvider::GEMINI;
+        std::string llm_base_url_str = LLMBaseUrl.getValue();
+        base_url = llm_base_url_str.empty() ? "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent" : llm_base_url_str;
+    } else {
+        provider = LLMProvider::DEEPSEEK;
+        std::string llm_base_url_str = LLMBaseUrl.getValue();
+        base_url = llm_base_url_str.empty() ? "https://ark.cn-beijing.volces.com/api/v3/chat/completions" : llm_base_url_str;
+    }
+
+    if (api_key.empty()) {
+        std::cerr << "Error: API key for " << LLMProviderOpt << " is not set. Use --llm-key or environment variables." << std::endl;
+        return 1;
+    }
+
+    LLMClient::initialize_shared_instance(provider, base_url, api_key);
+    LLMClient::get_instance()->set_model(model);
+
     std::string projectDir = InputSrcDir;
     TargetPath * targetPath = TargetPath::getInstance();
     targetPath->setTargetAbsolutePath(projectDir);

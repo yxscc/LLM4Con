@@ -49,7 +49,13 @@ std::string Conversation::send_message(const std::string& user_message, void* co
         for (const auto& tool_req : *llm_response.tool_requests) {
             std::string tool_result_content = execute_tool(tool_req.toolname, tool_req.arguments);
             std::cout << "Tool Result: " << tool_result_content << std::endl;
-            history_.push_back({MessageRole::TOOL, tool_result_content, std::nullopt, tool_req.id});
+            ChatMessage tool_response_msg;
+            tool_response_msg.role = MessageRole::TOOL;
+            tool_response_msg.content = tool_result_content;
+            tool_response_msg.tool_call_id = tool_req.id;
+            tool_response_msg.tool_name = tool_req.toolname; // <-- 新增的赋值
+
+            history_.push_back(tool_response_msg);
             prune_history();
             if(tool_result_content == "finish"){
                 return parseResult(history_);

@@ -37,10 +37,6 @@ std::string convertToBC(const std::string& file);
 
 int main(int argc, char* argv[]) {
 
-    // llm_client has been removed to avoid hardcoded keys.
-    // You can initialize it here using environment variables or a config file.
-    // llm_client::LLMClient::get_shared_instance(std::getenv("LLM_API_URL"), std::getenv("LLM_API_KEY"));
-
     int arg_num = 0;
     std::vector<char*> arg_value(argc);
 

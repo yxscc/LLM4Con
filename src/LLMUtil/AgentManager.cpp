@@ -11,7 +11,7 @@
 namespace llm_client {
 
 AgentManager::AgentManager(CCPG* cpg)
-    : llmClient(LLMClient::get_shared_instance(std::getenv("LLM_API_URL"), std::getenv("LLM_API_KEY"))),
+    : llmClient(LLMClient::get_instance()),
       entryFinder(cpg, llmClient),
       parallelAnalyzer(llmClient),
       contractGenerator(cpg, llmClient),

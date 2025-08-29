@@ -1,7 +1,0 @@
-digraph G {
-60 [label="60<ASSIGNMENT>work->func = func"];
-59 [label="59<ASSIGNMENT>work->data = 0"];
-58 [label="58<DUMMY>mock_INIT_WORK"];
-59 -> 60 [label="ORDER"];
-58 -> 59 [label="ORDER"];
-}

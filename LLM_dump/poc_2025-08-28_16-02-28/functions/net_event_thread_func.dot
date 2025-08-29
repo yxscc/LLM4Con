@@ -1,0 +1,19 @@
+digraph G {
+32 [label="32<DUMMY>return NULL;"];
+31 [label="31<BAR_WAIT>pthread_barrier_wait(&barrier_work_corrupted)"];
+30 [label="30<OTHER_CALL>printf(\"[NetEvent Thread] Corrupted pending work item. Work data = 0x%lX.\\\\n\", g_cm_id.net_work.data)"];
+28 [label="28<OTHER_CALL>printf(\"[NetEvent Thread] Second event arrived before first was processed.\\\\n\")"];
+29 [label="29<OTHER_CALL>cma_netevent_callback(&g_cm_id, false)"];
+27 [label="27<BAR_WAIT>pthread_barrier_wait(&barrier_work_queued)"];
+26 [label="26<OTHER_CALL>printf(\"[NetEvent Thread] Queued first work item. Work data = 0x%lX.\\\\n\", g_cm_id.net_work.data)"];
+25 [label="25<OTHER_CALL>cma_netevent_callback(&g_cm_id, true)"];
+24 [label="24<DUMMY>net_event_thread_func"];
+31 -> 32 [label="ORDER"];
+30 -> 31 [label="ORDER"];
+29 -> 30 [label="ORDER"];
+28 -> 29 [label="ORDER"];
+27 -> 28 [label="ORDER"];
+26 -> 27 [label="ORDER"];
+25 -> 26 [label="ORDER"];
+24 -> 25 [label="ORDER"];
+}
