@@ -1,3 +1,5 @@
+// src/LLMUtil/AgentManager.cpp
+
 #include "LLMUtil/AgentManager.h"
 #include <iostream>
 #include <vector>
@@ -88,6 +90,26 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
                 analysisResults.push_back(std::move(pair));
             }
         }
+    }
+
+    fs::path rules_log_path = TargetPath::getInstance()->getOutputDir() / "temporal_rules.log";
+    std::ofstream rules_file(rules_log_path);
+    if (rules_file.is_open()) {
+        rules_file << "========= Generated Temporal Ordering Rules =========\n\n";
+        int pair_count = 1;
+        for (const auto& pair : analysisResults) {
+            rules_file << "--- Pair " << pair_count++ << ": Thread " << pair.thread1->getId() 
+                    << " vs Thread " << pair.thread2->getId() << " ---\n";
+            if (pair.analysis.temporal_rules.empty()) {
+                rules_file << "  No rules generated for this pair.\n\n";
+            } else {
+                for (const auto& rule : pair.analysis.temporal_rules) {
+                    rules_file << rule.dump(4) << "\n\n"; // 使用 .dump(4) 进行格式化输出
+                }
+            }
+        }
+        rules_file.close();
+        std::cout << "Temporal rules have been logged to: " << rules_log_path << std::endl;
     }
 
     std::cout << "\n--- LLM-based Analysis Finished ---\n" << std::endl;

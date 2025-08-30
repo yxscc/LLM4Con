@@ -6,6 +6,8 @@
 #include "CCPG/ThreadCreationTree.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/DerivedTypes.h"
 
 using namespace psr;
 
@@ -42,10 +44,6 @@ const llvm::Value* AliasChecker::getLLVMThreadValue(CCPGNode* node) {
 
     const llvm::CallInst* callInst = node->getLLVMCallInst();
     if (!callInst) {
-        // auto* phasar = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
-        // auto insts = phasar->getCallInstsByLoc(node->getNodeLoc());
-        // if (!insts.empty()) callInst = insts[0];
-        // else return nullptr;
         return nullptr;
     }
 
@@ -302,17 +300,42 @@ const llvm::Value* AliasChecker::getLLVMValueForArgument(CCPGNode* call_site, co
 
     for (unsigned i = 0; i < callInst->arg_size(); ++i) {
         const llvm::Value* arg = callInst->getArgOperand(i);
+
+        // 确保参数是一个指针类型
         if (arg && arg->getType()->isPointerTy()) {
-            // 如果类型名为空，我们返回第一个找到的指针参数
+            // 如果不需要特定的类型名，则返回第一个找到的指针参数
             if (object_type_name.empty()) {
                 return arg;
             }
-            
-            llvm::Type* pointed_type = arg->getType()->getContainedType(0); // Opaque pointer safe
-            if (pointed_type->isStructTy()) {
-                llvm::StructType* st = llvm::dyn_cast<llvm::StructType>(pointed_type);
-                if (st && !st->isLiteral() && st->getStructName().contains(object_type_name)) {
-                    return arg;
+
+            // 追溯指针的源头，剥去所有类型转换（cast）
+            const llvm::Value* baseValue = arg->stripPointerCasts();
+            llvm::Type* allocatedType = nullptr;
+
+            // 检查源头是否是一个内存分配指令
+            if (const auto* alloca = llvm::dyn_cast<llvm::AllocaInst>(baseValue)) {
+                allocatedType = alloca->getAllocatedType();
+            } 
+            // 检查源头是否是一个全局变量
+            else if (const auto* global = llvm::dyn_cast<llvm::GlobalVariable>(baseValue)) {
+                allocatedType = global->getValueType();
+            }
+            // 检查源头是否是另一个函数的参数
+            else if (const auto* funcArg = llvm::dyn_cast<llvm::Argument>(baseValue)) {
+                 if (funcArg->getType()->isPointerTy()){
+                     allocatedType = funcArg->getParamByValType();
+                 }
+            }
+
+
+            // 如果我们成功找到了源头的类型
+            if (allocatedType) {
+                // 安全地将其转换为结构体类型并检查名称
+                if (llvm::StructType* st = llvm::dyn_cast<llvm::StructType>(allocatedType)) {
+                    if (st && !st->isLiteral() && st->hasName() && st->getStructName().contains(object_type_name)) {
+                        // 匹配成功！返回原始的、未被剥离的参数
+                        return arg;
+                    }
                 }
             }
         }

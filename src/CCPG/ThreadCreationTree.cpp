@@ -1118,3 +1118,32 @@ MemoryAccessMap ThreadCreationTree::buildMemoryAccessMapForThread(
               << ". Map contains " << accessMap.size() << " unique memory objects." << std::endl;
     return accessMap;
 }
+
+std::unordered_map<NodeLoc, Context, NodeLocHash> Thread::findAllLocs() {
+    std::unordered_map<NodeLoc, Context, NodeLocHash> locs;
+    ThreadCreationTree* tct = ThreadCreationTree::getInstance();
+    ccpg::Function* mainFunc = this->getThreadMainFunction();
+    if (!mainFunc) return locs;
+
+    for (CCPGNode* node : this->getNodes()) {
+        const NodeLoc& loc = node->getNodeLoc();
+        // Ensure the location is valid and we haven't processed it yet
+        if (loc.getLineNumber() > 0 && locs.find(loc) == locs.end()) {
+            ccpg::Function* currentFunc = node->getFunction();
+            if (currentFunc) {
+                Context ctx;
+                if(this->getForkNode()) {
+                    ctx.push(this->getForkNode());
+                }
+                
+                // Find the call path from the thread's main function to the node's function
+                std::vector<CCPGNode*> path_nodes = tct->findCallPath(mainFunc, currentFunc, this);
+                for(CCPGNode* p_node : path_nodes){
+                   ctx.push(p_node);
+                }
+                locs[loc] = ctx;
+            }
+        }
+    }
+    return locs;
+}

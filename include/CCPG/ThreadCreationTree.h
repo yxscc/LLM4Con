@@ -82,12 +82,13 @@ private:
     ThreadCreationTree() {}
     static ThreadCreationTree* instance;
 
-    std::vector<CCPGNode*> findCallPath(ccpg::Function* startFunc, ccpg::Function* endFunc, Thread* thread);
     CCPGNodeSet getReachableNodes(CCPGNode* startNode, Thread* thread, bool forward = true);
 
 public:
     ThreadCreationTree(const ThreadCreationTree&) = delete;
     ThreadCreationTree& operator=(const ThreadCreationTree&) = delete;
+
+    std::vector<CCPGNode*> findCallPath(ccpg::Function* startFunc, ccpg::Function* endFunc, Thread* thread);
 
     // 获取唯一实例的静态方法
     static ThreadCreationTree* getInstance() {
