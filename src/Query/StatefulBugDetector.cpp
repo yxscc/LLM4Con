@@ -104,9 +104,9 @@ void StatefulBugDetector::detect(
                 std::cout << "  -> Verifying TOCTOU rule..." << std::endl;
 
                 // 1. 获取LLM提名的节点
-                int check_node_id = toctou_rule->get_node_for_role("state_check_function");
-                int modify_node_id = toctou_rule->get_node_for_role("state_modify_function");
-                int use_node_id = toctou_rule->get_node_for_role("resource_use_node");
+                int check_node_id = toctou_rule->get_node_for_role("state_check_operation");
+                int modify_node_id = toctou_rule->get_node_for_role("state_modify_operation");
+                int use_node_id = toctou_rule->get_node_for_role("resource_use_operation");
 
                 if (check_node_id == -1 || modify_node_id == -1 || use_node_id == -1) {
                     std::cerr << "     [!] Rule is incomplete, skipping." << std::endl;

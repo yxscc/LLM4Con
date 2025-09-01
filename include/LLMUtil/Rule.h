@@ -158,10 +158,7 @@ public:
     }
 
     std::string get_description() const override {
-        return R"(**High-Impact Data Race**: This pattern identifies a race condition where concurrent, unsynchronized memory access is highly likely to cause critical bugs, such as crashes, data corruption, or security vulnerabilities. Focus *only* on non-benign races. A race is considered high-impact if it meets the following criteria:
-
-1.  **Conflicting Operations**: Two or more threads access the same memory location without any explicit synchronization (e.g., locks).
-2.  **At Least One Write**: At least one of the accesses is a write operation.
+        return R"(**High-Impact Data Race**: This pattern identifies a race condition where concurrent, unsynchronized memory access is highly likely to cause critical bugs. Focus *only* on non-benign races. A race is considered high-impact if it meets the following criteria:
 
 **Required roles**:
 - 'write_operation': The operation in one thread that writes to the shared memory location. This is the potential source of corruption or invalidation.

@@ -38,7 +38,7 @@ struct RuleBuildingContext {
 
 // 构造函数
 ParallelAnalysisAgent::ParallelAnalysisAgent(std::shared_ptr<LLMClient> client)
-    : Conversation(client, "", 50), ccpg_(ThreadCreationTree::getInstance()->getCCPG()) {
+    : Conversation(client, "", 45), ccpg_(ThreadCreationTree::getInstance()->getCCPG()) {
     
     // 初始化所有支持的规则
     m_supported_rules["TOCTOU"] = std::make_unique<TOCTOURule>();

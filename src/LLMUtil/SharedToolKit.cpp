@@ -24,13 +24,6 @@ std::vector<Tool> get_shared_tools() {
         {"get_callees", "Get all functions called from within a given function.", {
             {"function_id", "number", "The ID of the calling function.", true}
         }},
-        {"get_nodes_by_location", "Get all node IDs at a specific file and line number.", {
-            {"file_path", "string", "The absolute or relative path to the source file.", true},
-            {"line_number", "number", "The line number in the source file.", true}
-        }},
-        {"get_control_flow_parents", "Get the immediate parent(s) of a node in the Control Flow Graph.", {
-            {"node_id", "number", "The ID of the node whose CFG parents are to be found.", true}
-        }}
     };
 }
 
@@ -123,46 +116,6 @@ std::optional<std::string> handle_shared_tool(
         nlohmann::json result;
         result["callees"] = calleesJson;
         return result.dump();
-    }
-
-    if (tool_name == "get_nodes_by_location") {
-        std::string file_path = arguments.at("file_path").get<std::string>();
-        int line_number = arguments.at("line_number").get<int>();
-        
-        NodeLoc loc(file_path, line_number, nullptr);
-        CCPGNodeSet nodes = ccpg->getNodesByLoc(loc);
-
-        nlohmann::json result = nlohmann::json::array();
-        for (CCPGNode* node : nodes) {
-            nlohmann::json node_info = {
-                {"node_id", node->getId()},
-                {"node_type", ThreadAPIUtil::getTypeString(node->getType())},
-                {"code", node->getCPGNode()->getCode()}
-            };
-            result.push_back(node_info);
-        }
-        return result.dump();
-    }
-
-    if (tool_name == "get_control_flow_parents") {
-        int node_id = arguments.at("node_id").get<int>();
-        CCPGNode* node = ccpg->getNodeByID(node_id);
-        if (!node) {
-            return R"({"error": "Node not found for ID: )" + std::to_string(node_id) + R"("})";
-        }
-
-        nlohmann::json parents = nlohmann::json::array();
-        for (CCPGEdge* edge : node->getInEdges()) {
-            // A more robust implementation would check `edge->getType() == CFG`
-            CCPGNode* parent = edge->getSrc();
-            nlohmann::json parent_info = {
-                {"node_id", parent->getId()},
-                {"node_type", ThreadAPIUtil::getTypeString(parent->getType())},
-                {"code", parent->getCPGNode()->getCode()}
-            };
-            parents.push_back(parent_info);
-        }
-        return parents.dump();
     }
 
     // If the tool name doesn't match any shared tool, return nullopt
