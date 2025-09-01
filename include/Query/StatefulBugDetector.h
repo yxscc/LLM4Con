@@ -9,6 +9,8 @@
 
 namespace fs = std::filesystem;
 
+class CCPGNode;
+
 namespace query {
 
 // 用于存储一个被发现的状态协议违规的详细信息
@@ -16,7 +18,7 @@ class StatefulBug {
 public:
     StatefulBug(
         const llm_client::StatefulRule& violated_rule,
-        const std::vector<std::pair<std::string, NodeLoc>>& violation_path,
+        const std::vector<std::pair<std::string, CCPGNode*>>& violation_path,
         const llm_client::ThreadPair& thread_pair
     );
 
@@ -24,7 +26,7 @@ public:
 
 private:
     llm_client::StatefulRule rule;
-    std::vector<std::pair<std::string, NodeLoc>> path;
+    std::vector<std::pair<std::string, CCPGNode*>> path;
     const llm_client::ThreadPair& threads;
 };
 

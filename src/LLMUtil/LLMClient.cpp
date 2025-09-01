@@ -1,44 +1,132 @@
 #include "LLMUtil/LLMClient.h"
-#include <cpprest/filestream.h>
-#include <cpprest/asyncrt_utils.h>
 #include <algorithm>
 #include <nlohmann/json.hpp>
-#include <boost/asio/ssl.hpp>
 #include "Util/Logger.h"
-#include <cpprest/uri.h>
 #include <cstdio>
 #include <memory>
 #include <stdexcept>
 #include <array>
-
-using namespace utility;
+#include <iostream>
+#include <utility>
+#include <thread> 
+#include <chrono> 
+#include <unistd.h> 
+#include <sys/wait.h> 
+#include <filesystem> 
+#include <vector>  
+#include <cerrno>   
+#include <cstring>  
 
 namespace llm_client {
 
 std::shared_ptr<LLMClient> LLMClient::instance = nullptr;
 std::mutex LLMClient::mutex;
 
-// Helper function to execute a command and get its output
-std::string exec(const char* cmd) {
-    std::array<char, 128> buffer;
+// --- GPT5's Robust Helper Functions ---
+
+/**
+ * @brief Executes a shell command and captures its combined stdout and stderr, along with the exit code.
+ * @param cmd The command to execute.
+ * @return A pair containing the command's output and its exit code.
+ */
+static std::pair<std::string, int> exec_with_status(const std::string& cmd) {
+    std::array<char, 4096> buffer;
     std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    // Note: "2>&1" redirects stderr to stdout, so we capture everything.
+    std::string cmd_with_stderr = cmd + " 2>&1";
+    FILE* pipe = popen(cmd_with_stderr.c_str(), "r");
     if (!pipe) {
         throw std::runtime_error("popen() failed!");
     }
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-        result += buffer.data();
+    while (true) {
+        size_t n = fread(buffer.data(), 1, buffer.size(), pipe);
+        if (n > 0) {
+            result.append(buffer.data(), n);
+        }
+        if (n < buffer.size()) {
+            if (feof(pipe)) break;
+            if (ferror(pipe)) {
+                 // You might want to log an error here, but we'll get the exit code anyway.
+                 break;
+            }
+        }
     }
-    return result;
+    int status = pclose(pipe);
+    int exit_code = -1;
+    if (WIFEXITED(status)) {
+        exit_code = WEXITSTATUS(status);
+    }
+    return {result, exit_code};
 }
 
-// --- DeepSeekHandler 保持不变 ---
-class DeepSeekHandler : public APIHandler {
+/**
+ * @brief Creates a temporary file with a unique name and writes the payload to it.
+ * @param payload The string content to write to the file.
+ * @return The unique path to the created temporary file.
+ */
+static std::string write_temp_json_unique(const std::string& payload) {
+    // 1. Get the system's temporary directory path portably.
+    std::filesystem::path temp_dir = std::filesystem::temp_directory_path();
+    // **FIX:** The template for mkstemp MUST end in "XXXXXX". The ".json" suffix was incorrect.
+    std::string temp_template_str = (temp_dir / "llm_req_XXXXXX").string();
+
+    // 2. mkstemp requires a mutable C-string, so we use a vector.
+    std::vector<char> tmpl(temp_template_str.begin(), temp_template_str.end());
+    tmpl.push_back('\0'); // Null-terminate
+
+    int fd = mkstemp(tmpl.data());
+    if (fd == -1) {
+        // Provide a more informative error message.
+        throw std::runtime_error("mkstemp failed in directory '" + temp_dir.string() + "'. Error: " + std::strerror(errno));
+    }
+
+    // The vector `tmpl` now contains the actual unique filename.
+    std::string unique_filename(tmpl.data());
+
+    FILE* f = fdopen(fd, "w");
+    if (!f) {
+        close(fd);
+        std::remove(unique_filename.c_str());
+        throw std::runtime_error("fdopen failed for temp file: " + unique_filename);
+    }
+
+    size_t n = fwrite(payload.data(), 1, payload.size(), f);
+    fclose(f); // This also closes fd
+
+    if (n != payload.size()) {
+        std::remove(unique_filename.c_str());
+        throw std::runtime_error("failed to write request body completely to " + unique_filename);
+    }
+
+    return unique_filename;
+}
+
+/**
+ * @brief Escapes single quotes in a string for safe use in a shell command.
+ * @param s The string to escape.
+ * @return The escaped string.
+ */
+static std::string sh_escape_single_quotes(const std::string& s) {
+    std::string out;
+    out.reserve(s.size() + 8);
+    for (char c : s) {
+        if (c == '\'') {
+            out += "'\\''";
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+
+// --- OpenAIHandler (handles OpenAI-compatible APIs) ---
+class OpenAIHandler : public APIHandler {
 public:
     nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) override {
-        // ... (这部分代码保持原样)
         nlohmann::json request_body;
         request_body["model"] = model;
+        request_body["temperature"] = 1.0;
 
         nlohmann::json messages_array = nlohmann::json::array();
         for (const auto& msg : messages) {
@@ -83,6 +171,17 @@ public:
                     nlohmann::json param_json;
                     param_json["type"] = param.type;
                     param_json["description"] = param.description;
+
+                    if (param.type == "array" && param.items.has_value() && param.items->get()) {
+                        nlohmann::json items_json;
+                        const auto& item_schema = **param.items;
+                        items_json["type"] = item_schema.type;
+                        if (!item_schema.description.empty()) {
+                            items_json["description"] = item_schema.description;
+                        }
+                        param_json["items"] = items_json;
+                    }
+                    
                     if( param.required) {
                         required_params.push_back(param.name);
                     }
@@ -99,7 +198,6 @@ public:
     }
     
     LLMResponse parse_response(const nlohmann::json& response_body) override {
-        // ... (这部分代码保持原样)
         LLMResponse result;
         if (response_body.contains("choices") && !response_body["choices"].empty()) {
             auto message = response_body["choices"][0]["message"];
@@ -122,6 +220,7 @@ public:
     }
 };
 
+// --- GeminiHandler (defines JSON body structure) ---
 class GeminiHandler : public APIHandler {
 public:
     nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) override {
@@ -200,19 +299,16 @@ public:
         
         request_body["contents"] = contents_array;
         
-        // --- THIS IS THE CRITICAL FIX ---
         if (!tools.empty()) {
             nlohmann::json function_declarations = nlohmann::json::array();
             for (const auto& tool : tools) {
                 function_declarations.push_back(tool.to_json());
             }
-            // The entire list of declarations must be wrapped in an object, which is then placed in the 'tools' array.
             request_body["tools"] = nlohmann::json::array({
                 {{"functionDeclarations", function_declarations}}
             });
         }
-        // --- END OF FIX ---
-
+        
         return request_body;
     }
 
@@ -265,7 +361,6 @@ public:
     }
 };
 
-// --- LLMClient 的修改 ---
 
 LLMClient::LLMClient(
     LLMProvider provider,
@@ -277,25 +372,13 @@ LLMClient::LLMClient(
       api_key_(api_key),
       default_model_(default_model),
       max_context_length_(max_context_length),
-      timeout_seconds_(30) {
-
-    if (provider_ == LLMProvider::DEEPSEEK) {
-        api_handler_ = std::make_unique<DeepSeekHandler>();
-        // cpprestsdk client setup
-        http_client_config config;
-        config.set_timeout(std::chrono::seconds(timeout_seconds_));
-        web::uri full_uri(utility::conversions::to_string_t(base_url));
-        path_ = full_uri.path();
-        utility::string_t base_uri_str = full_uri.scheme() + utility::conversions::to_string_t("://") + full_uri.host();
-        if (full_uri.port() > 0) {
-            base_uri_str += utility::conversions::to_string_t(":") + utility::conversions::to_string_t(std::to_string(full_uri.port()));
-        }
-        client_ = std::make_shared<http_client>(base_uri_str, config);
-
+      timeout_seconds_(120), // Increased default timeout
+      base_url_(base_url) 
+{
+    if (provider_ == LLMProvider::OPENAI) {
+        api_handler_ = std::make_unique<OpenAIHandler>();
     } else if (provider_ == LLMProvider::GEMINI) {
         api_handler_ = std::make_unique<GeminiHandler>();
-        // 对于Gemini，我们将base_url直接存储，因为curl会用到它
-        base_url_ = base_url;
     } else {
         throw std::invalid_argument("Unsupported LLM provider.");
     }
@@ -325,83 +408,82 @@ std::shared_ptr<LLMClient> LLMClient::get_instance() {
 LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages, const std::vector<Tool>& available_tools) {
     nlohmann::json request_body = api_handler_->build_request_body(default_model_, messages, available_tools);
     std::string request_body_str = request_body.dump();
-    
-    Logger::getInstance()->log(std::string("--> Request (") + (provider_ == LLMProvider::GEMINI ? "Gemini" : "DeepSeek") + "):\n" + request_body.dump(4));
+    std::string provider_name = (provider_ == LLMProvider::GEMINI) ? "Gemini" : "OpenAI";
+    Logger::getInstance()->log("--> Request (" + provider_name + "):\n" + request_body.dump(4));
 
+    // 1. Create a unique temporary file to avoid race conditions
+    std::string tmp_filename = write_temp_json_unique(request_body_str);
+
+    // 2. Construct a robust curl command
+    std::string timeout_opt = " --connect-timeout 10 --max-time " + std::to_string(timeout_seconds_);
+    std::string cmd;
     if (provider_ == LLMProvider::GEMINI) {
-        // 使用 curl 发送请求
-        // 需要转义JSON字符串中的单引号，以防止shell命令出错
-        std::string escaped_body = request_body_str;
-        size_t pos = 0;
-        while ((pos = escaped_body.find('\'', pos)) != std::string::npos) {
-             escaped_body.replace(pos, 1, "'\\''");
-             pos += 4;
+        cmd = "curl -sS -f -k" + timeout_opt +
+              " -X POST -H \"Content-Type: application/json\"" +
+              " -H \"x-goog-api-key: " + sh_escape_single_quotes(api_key_) + "\"" +
+              " '" + sh_escape_single_quotes(base_url_) + "'" +
+              " -d @" + tmp_filename +
+              " 2>&1";
+    } else { // OPENAI and compatible APIs
+        cmd = "curl -sS -f -k" + timeout_opt +
+              " -X POST -H \"Content-Type: application/json\"" +
+              " -H \"Authorization: Bearer " + sh_escape_single_quotes(api_key_) + "\"" +
+              " '" + sh_escape_single_quotes(base_url_) + "'" +
+              " -d @" + tmp_filename +
+              " 2>&1";
+    }
+
+    // 3. Execute with retry logic
+    const int max_retries = 3;
+    int attempt = 0;
+    std::string response_str;
+    int exit_code = -1;
+
+    while (attempt < max_retries) {
+        auto [out, code] = exec_with_status(cmd);
+        response_str = std::move(out);
+        exit_code = code;
+        
+        bool ok = (exit_code == 0) && !response_str.empty();
+        if (ok) {
+            break; // Success
         }
 
-        std::string command = "curl -s -X POST -H \"Content-Type: application/json\" -H \"x-goog-api-key: " + api_key_ + "\" '" + base_url_ + "' -d '" + escaped_body + "'";
-        
-        std::string response_str = exec(command.c_str());
-        
-        if (response_str.empty()) {
-             throw std::runtime_error("Gemini API request failed: empty response from curl. Check network or API key.");
-        }
+        Logger::getInstance()->log("curl attempt " + std::to_string(attempt + 1) +
+                                   " failed, exit=" + std::to_string(exit_code) +
+                                   ", output:\n" + response_str);
 
-        auto response_json = nlohmann::json::parse(response_str, nullptr, false);
-        if (response_json.is_discarded()) {
-             throw std::runtime_error("Gemini API request failed: could not parse JSON response: " + response_str);
-        }
-        
-        Logger::getInstance()->log(std::string("<-- Response (Gemini):\n") + response_json.dump(4));
-        return api_handler_->parse_response(response_json);
-
-    } else { // DeepSeek 的逻辑保持不变
-        http_request request(methods::POST);
-        request.set_request_uri(path_);
-        request.headers().add(conversions::to_string_t("Authorization"), conversions::to_string_t("Bearer ") + conversions::to_string_t(api_key_));
-        request.headers().add(conversions::to_string_t("Content-Type"), conversions::to_string_t("application/json"));
-        request.set_body(conversions::to_string_t(request_body_str));
-
-        try {
-            http_response response = client_->request(request).get();
-
-            if (response.status_code() == status_codes::OK) {
-                auto response_body_str_utf8 = conversions::to_utf8string(response.extract_string().get());
-                auto response_json = nlohmann::json::parse(response_body_str_utf8);
-                
-                Logger::getInstance()->log(std::string("<-- Response (DeepSeek):\n") + response_json.dump(4));
-                return api_handler_->parse_response(response_json);
-            } else {
-                std::ostringstream error_msg;
-                error_msg << "LLM API request failed with status code: " << response.status_code();
-                std::string error_body_str;
-                try {
-                    error_body_str = conversions::to_utf8string(response.extract_string().get());
-                    if (!error_body_str.empty()) {
-                        error_msg << ", Error: " << error_body_str;
-                    }
-                } catch (...) {}
-                Logger::getInstance()->log("!!! Error: " + error_msg.str());
-                throw std::runtime_error(error_msg.str());
-            }
-        } catch (const web::http::http_exception& e) {
-            std::cerr << "\n\n!!! CRITICAL HTTP LIBRARY ERROR !!!\n";
-            std::cerr << "Exception caught: " << e.what() << "\n";
-            std::cerr << "This often indicates a TLS/SSL handshake failure or a network issue.\n";
-            std::cerr << "Please check your system's root CA certificates.\n\n";
-            throw;
+        ++attempt;
+        if (attempt < max_retries) {
+            // Exponential backoff: 200ms, 800ms, 1800ms
+            std::this_thread::sleep_for(std::chrono::milliseconds(200 * attempt * attempt));
         }
     }
+
+    // Clean up the temporary file
+    std::remove(tmp_filename.c_str());
+
+    if (exit_code != 0) {
+        throw std::runtime_error("API request failed (curl exit=" + std::to_string(exit_code) + "): " + response_str);
+    }
+    if (response_str.empty()) {
+        throw std::runtime_error("API request failed: empty response from curl (after retries).");
+    }
+    
+    // 4. Parse the JSON response
+    auto response_json = nlohmann::json::parse(response_str, nullptr, false);
+    if (response_json.is_discarded()) {
+        Logger::getInstance()->log(std::string("<-- Raw response (") + provider_name + "):\n" + response_str);
+        throw std::runtime_error("API request failed: could not parse JSON response.");
+    }
+
+    Logger::getInstance()->log("<-- Response (" + provider_name + "):\n" + response_json.dump(4));
+    return api_handler_->parse_response(response_json);
 }
 
-// 配置方法
+
 void LLMClient::set_timeout(long seconds) {
     timeout_seconds_ = seconds;
-    if (provider_ == LLMProvider::DEEPSEEK) {
-        http_client_config config;
-        config.set_timeout(std::chrono::seconds(timeout_seconds_));
-        client_ = std::make_shared<http_client>(client_->base_uri(), config);
-    }
-    // curl的超时可以在命令中设置，但为了简化，这里暂时忽略
 }
 
 void LLMClient::set_model(const std::string& model) {
@@ -409,3 +491,4 @@ void LLMClient::set_model(const std::string& model) {
 }
 
 } // namespace llm_client
+

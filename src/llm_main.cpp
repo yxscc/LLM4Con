@@ -40,7 +40,7 @@ static llvm::cl::opt<std::string> InputBCFileName("input-bc",
         llvm::cl::desc("Input bitcode file"), llvm::cl::Required);
 static llvm::cl::opt<bool> PrintTrace("print-trace", cl::desc("Print trace information"), cl::init(false));
 
-static cl::opt<std::string> LLMProviderOpt("llm-provider", cl::desc("Choose LLM provider: deepseek or gemini"), cl::init("deepseek"));
+static cl::opt<std::string> LLMProviderOpt("llm-provider", cl::desc("Choose LLM provider: openai or gemini"), cl::init("openai"));
 static cl::opt<std::string> LLMApiKey("llm-key", cl::desc("API key for the chosen LLM provider"), cl::init(""));
 static cl::opt<std::string> LLMModel("llm-model", cl::desc("Model name for the chosen LLM provider"), cl::init(""));
 static cl::opt<std::string> LLMBaseUrl("llm-url", cl::desc("Base URL for the LLM API"), cl::init(""));
@@ -116,7 +116,7 @@ int main(int argc, char** argv) {
     LLMProvider provider;
     std::string base_url;
     std::string api_key_str = LLMApiKey.getValue();
-    std::string api_key = api_key_str.empty() ? (std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "DEEPSEEK_API_KEY") ? std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "DEEPSEEK_API_KEY") : "") : api_key_str;
+    std::string api_key = api_key_str.empty() ? (std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY") ? std::getenv(LLMProviderOpt.getValue() == "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY") : "") : api_key_str;
     std::string model = LLMModel.getValue();
 
     if (LLMProviderOpt.getValue() == "gemini") {
@@ -124,9 +124,9 @@ int main(int argc, char** argv) {
         std::string llm_base_url_str = LLMBaseUrl.getValue();
         base_url = llm_base_url_str.empty() ? "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent" : llm_base_url_str;
     } else {
-        provider = LLMProvider::DEEPSEEK;
+        provider = LLMProvider::OPENAI;
         std::string llm_base_url_str = LLMBaseUrl.getValue();
-        base_url = llm_base_url_str.empty() ? "https://ark.cn-beijing.volces.com/api/v3/chat/completions" : llm_base_url_str;
+        base_url = llm_base_url_str.empty() ? "https://jeniya.cn/v1/chat/completions" : llm_base_url_str;
     }
 
     if (api_key.empty()) {
@@ -180,10 +180,10 @@ int main(int argc, char** argv) {
     auto thread_pairs_with_analysis = agentManager.runAnalysis();
 
     // --- Run Detectors on LLM-generated Contracts ---
-    std::cout << "\n[Phase 3: Detecting Data Races from Contracts]" << std::endl;
+    /*std::cout << "\n[Phase 3: Detecting Data Races from Contracts]" << std::endl;
     query::LLMDataRaceDetector raceDetector;
     raceDetector.detect(thread_pairs_with_analysis);
-    raceDetector.printDataRaces(targetPath->getOutputDir());
+    raceDetector.printDataRaces(targetPath->getOutputDir());*/
 
     // --- 2. 实例化并调用新的检测器 ---
     query::StatefulBugDetector statefulDetector;

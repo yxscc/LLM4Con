@@ -17,7 +17,7 @@ namespace query {
 
 StatefulBug::StatefulBug(
     const llm_client::StatefulRule& violated_rule,
-    const std::vector<std::pair<std::string, NodeLoc>>& violation_path,
+    const std::vector<std::pair<std::string, CCPGNode*>>& violation_path,
     const llm_client::ThreadPair& thread_pair
 ) : rule(violated_rule), path(violation_path), threads(thread_pair) {}
 
@@ -25,13 +25,14 @@ std::string StatefulBug::toString() const {
     std::stringstream ss;
     ss << "========== Stateful Protocol Violation Detected ==========\n"
        << "Rule Violated: " << rule["rule_id"].get<std::string>() << "\n"
-       << "Description: " << rule["description"].get<std::string>() << "\n"
+       << "Description: " << rule["_llm_summary"].get<std::string>() << "\n"
        << "Shared Object Type: " << rule["shared_object_type"].get<std::string>() << "\n\n"
        << "Violation observed between Thread " << threads.thread1->getId() << " and Thread " << threads.thread2->getId() << ".\n\n"
        << "--- Forbidden Sequence Trace ---\n";
     
     for (const auto& step : path) {
-        ss << "  -> " << step.first << " at " << step.second.toString() << "\n";
+        CCPGNode* node = step.second;
+        ss << "  -> " << step.first << " at " << node->getNodeLoc().toString() << ".     Code : " << node->getCPGNode()->getCode() << "\n";
     }
     
     ss << "==========================================================";
@@ -39,125 +40,172 @@ std::string StatefulBug::toString() const {
 }
 
 
-// --- NEW HEURISTIC SEARCH HELPER ---
 /**
- * @brief Heuristically searches forward from a start_node for a "use" of a shared object.
- * A "use" is defined as any function call that takes the shared object instance (or an alias)
- * as an argument.
- * @return True if a potential "use" is found, false otherwise.
+ * @brief (重构) 检查在单个线程内，从start_node到end_node是否存在控制流路径.
+ * @return True 如果存在路径, false 否则.
  */
-bool find_heuristic_use_path(
-    CCPGNode* start_node,
-    const llvm::Value* shared_object_instance,
-    const std::string& object_type_name,
-    int search_limit,
-    std::vector<std::pair<std::string, NodeLoc>>& use_path)
-{
-    AliasChecker* aliasChecker = AliasChecker::getInstance();
+bool is_reachable_intra_thread(CCPGNode* start_node, CCPGNode* end_node, Thread* thread) {
+    if (!start_node || !end_node || !thread) return false;
+    if (start_node == end_node) return true;
+
+    // 确保两个节点都在同一个线程内
+    if (thread->getNodes().find(start_node) == thread->getNodes().end() ||
+        thread->getNodes().find(end_node) == thread->getNodes().end()) {
+        return false;
+    }
+
     std::queue<CCPGNode*> worklist;
     std::set<CCPGNode*> visited;
 
     worklist.push(start_node);
     visited.insert(start_node);
-    int nodes_searched = 0;
 
-    while (!worklist.empty() && nodes_searched < search_limit) {
-        CCPGNode* current_node = worklist.front();
+    while (!worklist.empty()) {
+        CCPGNode* current = worklist.front();
         worklist.pop();
-        nodes_searched++;
 
-        if (current_node != start_node && current_node->isCallSite()) {
-            const llvm::Value* arg_val = aliasChecker->getLLVMValueForArgument(current_node, object_type_name);
-            if (arg_val && aliasChecker->isAlias(shared_object_instance, arg_val)) {
-                use_path.push_back({current_node->getCPGNode()->getName(), current_node->getNodeLoc()});
-                return true; // Found a potential "use"
-            }
-        }
-
-        // Traverse forward along the CFG within the same function.
-        for (CCPGEdge* edge : current_node->getOutEdges()) {
-            if (edge->getType() == CCPGEdge::EdgeType::ORDER) { // ORDER edge represents CFG
-                CCPGNode* next_node = edge->getDst();
-                if (next_node->getFunction() == start_node->getFunction() && visited.find(next_node) == visited.end()) {
-                    visited.insert(next_node);
-                    worklist.push(next_node);
+        for (CCPGEdge* edge : current->getOutEdges()) {
+            // 只沿着CFG边 (ORDER) 探索
+            if (edge->getType() == CCPGEdge::EdgeType::ORDER) {
+                CCPGNode* next = edge->getDst();
+                if (next == end_node) {
+                    return true;
+                }
+                // 只探索在同一个线程内且未访问过的节点
+                if (thread->getNodes().count(next) && visited.find(next) == visited.end()) {
+                    visited.insert(next);
+                    worklist.push(next);
                 }
             }
         }
     }
-    return false; // No subsequent "use" found within the search limit.
+    return false;
 }
 
 
 // --- REWRITTEN DETECT FUNCTION ---
 void StatefulBugDetector::detect(
     const std::vector<llm_client::ThreadPair>& threadPairs,
-    const std::set<const llvm::Value*>& /*candidateSharedObjects*/) // candidateSharedObjects no longer needed here
+    const std::set<const llvm::Value*>& candidateSharedObjects)
 {
-    std::cout << "\n[Phase 4: Detecting Stateful Protocol Violations (Heuristic Approach)]" << std::endl;
+    std::cout << "\n[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]" << std::endl;
 
     CCPG* ccpg = ThreadCreationTree::getInstance()->getCCPG();
-    AliasChecker* aliasChecker = AliasChecker::getInstance();
+    ThreadCreationTree* tct = ThreadCreationTree::getInstance();
 
     for (const auto& pair : threadPairs) {
         if (!pair.analysis.actually_concurrent) {
             continue;
         }
 
-        for (const auto& rule : pair.analysis.temporal_rules) {
-            if (rule.value("pattern_type", "") != "TOCTOU") {
-                continue;
-            }
+        for (const auto& rule_ptr : pair.analysis.temporal_rules) {
 
-            std::string object_type_name = rule.value("shared_object_type", "");
-            std::string check_func_name = rule.value("state_check_function", "");
-            std::string modify_func_name = rule.value("state_modify_function", "");
+            if(const auto* toctou_rule = dynamic_cast<const llm_client::TOCTOURule*>(rule_ptr.get())){
+                std::cout << "  -> Verifying TOCTOU rule..." << std::endl;
 
-            if (check_func_name.empty() || modify_func_name.empty()) {
-                continue;
-            }
+                // 1. 获取LLM提名的节点
+                int check_node_id = toctou_rule->get_node_for_role("state_check_function");
+                int modify_node_id = toctou_rule->get_node_for_role("state_modify_function");
+                int use_node_id = toctou_rule->get_node_for_role("resource_use_node");
 
-            // STAGE 1: Find all potential check and modify sites
-            CCPGNodeSet check_sites;
-            for (CCPGNode* node : pair.thread1->getNodes()) {
-                if (node->isCallSite() && node->getCPGNode()->getName() == check_func_name) {
-                    check_sites.insert(node);
+                if (check_node_id == -1 || modify_node_id == -1 || use_node_id == -1) {
+                    std::cerr << "     [!] Rule is incomplete, skipping." << std::endl;
+                    continue;
                 }
-            }
 
-            CCPGNodeSet modify_sites;
-            for (CCPGNode* node : pair.thread2->getNodes()) {
-                if (node->isCallSite() && node->getCPGNode()->getName() == modify_func_name) {
-                    modify_sites.insert(node);
+                CCPGNode* check_node = ccpg->getNodeByID(check_node_id);
+                CCPGNode* modify_node = ccpg->getNodeByID(modify_node_id);
+                CCPGNode* use_node = ccpg->getNodeByID(use_node_id);
+                
+                if (!check_node || !modify_node || !use_node) {
+                    std::cerr << "     [!] Could not find all nodes for rule, skipping." << std::endl;
+                    continue;
                 }
-            }
-            
-            // STAGE 2: Find a concurrent, aliased pair of (check, modify)
-            for (CCPGNode* check_node : check_sites) {
-                for (CCPGNode* modify_node : modify_sites) {
-                    
-                    const llvm::Value* check_val = aliasChecker->getLLVMValueForArgument(check_node, object_type_name);
-                    const llvm::Value* modify_val = aliasChecker->getLLVMValueForArgument(modify_node, object_type_name);
 
-                    if (check_val && modify_val && aliasChecker->isAlias(check_val, modify_val)) {
-                        
-                        // STAGE 3: Heuristically search for a "Use" after the "Check"
-                        std::vector<std::pair<std::string, NodeLoc>> use_path;
-                        if (find_heuristic_use_path(check_node, check_val, object_type_name, 100, use_path)) {
-                            std::cout << "    [+] POTENTIAL TOCTOU VIOLATION FOUND for rule: " << rule["rule_id"].get<std::string>() << std::endl;
-                            
-                            std::vector<std::pair<std::string, NodeLoc>> full_violation_path;
-                            full_violation_path.push_back({"[CHECK] Function '" + check_func_name + "'", check_node->getNodeLoc()});
-                            full_violation_path.push_back({"[MODIFY - Concurrent] Function '" + modify_func_name + "'", modify_node->getNodeLoc()});
-                            full_violation_path.push_back({"[USE] Heuristically found use via function '" + use_path[0].first + "'", use_path[0].second});
-
-                            this->detectedBugs.emplace_back(rule, full_violation_path, pair);
-                            goto next_rule; // Found one instance for this rule, move to the next rule.
-                        }
-                    }
+                // 2. 确定哪个线程是检查者，哪个是修改者
+                Thread *checker_thread = nullptr, *modifier_thread = nullptr;
+                if (pair.thread1->getNodes().count(check_node) && pair.thread2->getNodes().count(modify_node)) {
+                    checker_thread = pair.thread1;
+                    modifier_thread = pair.thread2;
+                } else if (pair.thread2->getNodes().count(check_node) && pair.thread1->getNodes().count(modify_node)) {
+                    checker_thread = pair.thread2;
+                    modifier_thread = pair.thread1;
+                } else {
+                    std::cerr << "     [!] Nominated check/modify nodes are not in the expected thread pair, skipping." << std::endl;
+                    continue;
                 }
+
+                // 3. 验证并发性
+                bool can_be_concurrent = tct->mayThreadsRunConcurrently(checker_thread, modifier_thread);
+                if (!can_be_concurrent) {
+                    std::cout << "     [-] Concurrency check failed. Threads are not concurrent." << std::endl;
+                    continue;
+                }
+                std::cout << "     [+] Concurrency check passed." << std::endl;
+
+                // 4. 验证可达性 (Check -> Use)
+                bool is_reachable = is_reachable_intra_thread(check_node, use_node, checker_thread);
+                if (!is_reachable) {
+                    std::cout << "     [-] Reachability check failed. No path from CHECK to USE." << std::endl;
+                    continue;
+                }
+                std::cout << "     [+] Reachability check passed." << std::endl;
+
+                // **如果所有验证都通过，则报告一个缺陷**
+                std::cout << "    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule." << std::endl;
+
+                std::vector<std::pair<std::string, CCPGNode*>> full_violation_path;
+                full_violation_path.push_back({"[CHECK] Operation", check_node});
+                full_violation_path.push_back({"[MODIFY - Concurrent] Operation", modify_node});
+                full_violation_path.push_back({"[USE] Operation", use_node});
+
+                this->detectedBugs.emplace_back(toctou_rule->to_json(), full_violation_path, pair);
             }
-        next_rule:;
+
+            else if(const auto* datarace_rule = dynamic_cast<const llm_client::DataRaceRule*>(rule_ptr.get())){
+                // 1. 获取LLM提名的节点
+                int read_node_id = datarace_rule->get_node_for_role("read_operation");
+                int write_node_id = datarace_rule->get_node_for_role("write_operation");
+
+                CCPGNode* read_node = ccpg->getNodeByID(read_node_id);
+                CCPGNode* write_node = ccpg->getNodeByID(write_node_id);
+
+                if (!read_node || !write_node) {
+                    std::cerr << "     [!] Could not find all nodes for rule, skipping." << std::endl;
+                    continue;
+                }
+
+                // 2. 确定哪个线程是读取者，哪个是写入者
+                Thread *reader_thread = nullptr, *writer_thread = nullptr;
+                if (pair.thread1->getNodes().count(read_node) && pair.thread2->getNodes().count(write_node)) {
+                    reader_thread = pair.thread1;
+                    writer_thread = pair.thread2;
+                } else if (pair.thread2->getNodes().count(read_node) && pair.thread1->getNodes().count(write_node)) {
+                    reader_thread = pair.thread2;
+                    writer_thread = pair.thread1;
+                } else {
+                    std::cerr << "     [!] Nominated read/write nodes are not in the expected thread pair, skipping." << std::endl;
+                    continue;
+                }
+
+                // 3. 验证并发性
+                bool can_be_concurrent = tct->mayThreadsRunConcurrently(reader_thread, writer_thread);
+                if (!can_be_concurrent) {
+                    std::cout << "     [-] Concurrency check failed. Threads are not concurrent." << std::endl;
+                    continue;
+                }
+                std::cout << "     [+] Concurrency check passed." << std::endl;
+
+                // **如果所有验证都通过，则报告一个缺陷**
+                std::cout << "    [!!!] POTENTIAL DATA RACE VIOLATION FOUND for rule." << std::endl;
+
+                std::vector<std::pair<std::string, CCPGNode*>> full_violation_path;
+                full_violation_path.push_back({"[READ] Operation", read_node});
+                full_violation_path.push_back({"[WRITE - Concurrent] Operation", write_node});
+
+                this->detectedBugs.emplace_back(datarace_rule->to_json(), full_violation_path, pair);
+            }
+
         }
     }
 }

@@ -131,8 +131,8 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
             if (pair.analysis.temporal_rules.empty()) {
                 rules_file << "  No rules generated for this pair.\n\n";
             } else {
-                for (const auto& rule : pair.analysis.temporal_rules) {
-                    rules_file << rule.dump(4) << "\n\n"; // 使用 .dump(4) 进行格式化输出
+                for (const auto& rule_ptr : pair.analysis.temporal_rules) {
+                    rules_file << rule_ptr->to_json().dump(4) << "\n\n"; 
                 }
             }
         }

@@ -1,5 +1,4 @@
 #pragma once
-#include <cpprest/http_client.h>
 #include <string>
 #include <deque>
 #include <mutex>
@@ -7,21 +6,13 @@
 #include <fstream>
 #include <optional>
 
-#ifdef U
-#undef U
-#endif
-
 #include "nlohmann/json.hpp"
 
 namespace llm_client {
 
-using namespace web;
-using namespace web::http;
-using namespace web::http::client;
-
 // --- LLM Provider Enum ---
 enum class LLMProvider {
-    DEEPSEEK,
+    OPENAI,
     GEMINI
 };
 
@@ -47,7 +38,7 @@ struct Parameter {
         }
     }
 
-    // --- FIX: Custom copy constructor and assignment to handle unique_ptr ---
+    // Custom copy constructor and assignment to handle unique_ptr
     Parameter(const Parameter& other)
         : name(other.name),
           type(other.type),
@@ -84,8 +75,6 @@ struct Tool {
     std::string description;
     std::vector<Parameter> parameters;
 
-    // --- START OF MODIFICATION ---
-    // 添加这个缺失的 to_json() 函数
     nlohmann::json to_json() const {
         nlohmann::json j;
         j["name"] = name;
@@ -103,7 +92,6 @@ struct Tool {
                 param_details["description"] = p.description;
             }
 
-            // 正确处理数组类型的 'items' 字段
             if (p.type == "array" && p.items) {
                 nlohmann::json items_json;
                 items_json["type"] = (*p.items)->type;
@@ -131,7 +119,6 @@ struct Tool {
         j["parameters"] = params_obj;
         return j;
     }
-    // --- END OF MODIFICATION ---
 };
 
 struct ToolCallRequest {
@@ -165,27 +152,22 @@ struct ChatMessage {
     }
 };
 
-// --- FIX: Moved LLMResponse to be a standalone struct ---
 struct LLMResponse {
     std::string assistant_content;
     std::optional<std::vector<ToolCallRequest>> tool_requests;
     bool is_error = false; 
 };
 
-
-// --- API Handler abstract base class ---
 class APIHandler {
 public:
     virtual ~APIHandler() = default;
     virtual nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) = 0;
-    // --- FIX: Use the standalone LLMResponse struct ---
     virtual LLMResponse parse_response(const nlohmann::json& response_body) = 0;
 };
 
 
 class LLMClient {
 public:
-    // --- FIX: Use the standalone LLMResponse struct ---
     using LLMResponse = llm_client::LLMResponse;
 
     static void initialize_shared_instance(
@@ -207,13 +189,12 @@ public:
 private:
     LLMProvider provider_;
     std::unique_ptr<APIHandler> api_handler_;
-    utility::string_t path_;
     std::string base_url_;
-    std::shared_ptr<http_client> client_;
     std::string api_key_;
     std::string default_model_;
     size_t max_context_length_;
     long timeout_seconds_;
+
     static std::shared_ptr<LLMClient> instance;
     static std::mutex mutex;
 
@@ -224,8 +205,7 @@ private:
         const std::string& default_model = "",
         size_t max_context_length = 10
     );
-
-
 };
 
 } // namespace llm_client
+

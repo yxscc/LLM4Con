@@ -2,6 +2,7 @@
 
 #include "LLMUtil/ConcurrencyContract.h"
 #include "CCPG/AliasChecker.h"
+#include "LLMUtil/Rule.h"
 #include <string>
 #include <vector>
 
@@ -22,7 +23,7 @@ struct ThreadPairAnalysis {
     MemoryAccessMap accessMap1;
     MemoryAccessMap accessMap2;
 
-    std::vector<StatefulRule> temporal_rules; 
+    std::vector<std::unique_ptr<Rule>> temporal_rules; 
 };
 
 // Describes a pair of threads to be analyzed

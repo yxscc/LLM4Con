@@ -3,6 +3,8 @@
 #include "LLMUtil/Conversation.h"
 #include "LLMUtil/ThreadPair.h" // 使用新的头文件
 
+class CCPG;
+
 namespace llm_client {
 
 class ParallelAnalysisAgent : public Conversation {
@@ -14,10 +16,12 @@ public:
     void analyze_parallelism(ThreadPair& pair);
 
 private:
-    static std::string build_system_prompt();
+    std::string build_system_prompt();
     std::vector<Tool> get_available_tools() const override;
     std::string execute_tool(const std::string& tool_name, const nlohmann::json& arguments) override;
     std::string parseResult(const std::vector<ChatMessage>& history) override;
+    CCPG* ccpg_;
+    std::map<std::string, std::unique_ptr<Rule>> m_supported_rules;
 };
 
 } // namespace llm_client
