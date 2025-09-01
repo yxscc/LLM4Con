@@ -34,6 +34,7 @@ void ThreadCreationTree::build(){
     FunctionSet entries = ccpg->getEntryFunctions();
     for(ccpg::Function * entry : entries){
         Thread * entryThread = createThread(entry->getFuncNode(), nullptr);
+        entryThread->setMainThread(true);
         for(CCPGNode* forkNode : entryThread->getNodesByType(ThreadAPIUtil::TYPE::FORK)){
             forkQueue.push(std::make_pair(forkNode, entryThread));
         }
@@ -71,6 +72,13 @@ void ThreadCreationTree::build(){
         threads.erase(thread);
     }
 
+    // 暂时移除main线程
+    for (Thread* thread : threads) {
+        if (thread->isMainThread()) {
+            threads.erase(thread);
+            break;
+        }
+    }
 }
 
 std::string removeAmpersand(const std::string& str) {
@@ -837,8 +845,8 @@ ThreadCreationTree::computeParallelLocs(Thread* t1, Thread* t2) {
 }
 
 std::pair<
-std::unordered_map<NodeLoc, Context, NodeLocHash>, 
-std::unordered_map<NodeLoc, Context, NodeLocHash>
+    std::unordered_map<NodeLoc, Context, NodeLocHash>,
+    std::unordered_map<NodeLoc, Context, NodeLocHash>
 > ThreadCreationTree::getParallelLocs(Thread * t1, Thread * t2) const {
     return parallelLocCache.getParallelLocs(t1, t2);
 }
@@ -962,6 +970,9 @@ std::set<const llvm::Value*> ThreadCreationTree::collectCandidateSharedObjects()
     auto globals = pa->getAllGlobalVariables();
     std::cout << "[DEBUG PRINT] Phase 1: Found " << globals.size() << " global variables as candidate shared objects." << std::endl;
     for (const auto* gv : globals) {
+        if (gv->isConstant()) {
+            continue;
+        }
         candidateObjects.insert(gv);
     }
 
@@ -1050,24 +1061,37 @@ void Thread::addThreadToDot(std::ostringstream& dot) {
     dot << "  Thread_" << threadId << " [label=\"" << label.str() << "\"];\n";
 }
 
-// 获取两个线程的并行位置结果（带缓存）
 std::pair<
-std::unordered_map<NodeLoc, Context, NodeLocHash>&,
-std::unordered_map<NodeLoc, Context, NodeLocHash>&
+    std::unordered_map<NodeLoc, Context, NodeLocHash>,
+    std::unordered_map<NodeLoc, Context, NodeLocHash>
 > ParallelLocCache::getParallelLocs(Thread* t1, Thread* t2) const {
-// 生成有序的线程对键
-const auto key = makeOrderedPair(t1, t2);
+    // 1. 生成一个规范的、排序后的键，用于缓存查找和存储
+    const auto key = makeOrderedPair(t1, t2);
 
-// 检查缓存
-auto it = cache.find(key);
-if (it != cache.end()) {
-    return { it->second.first, it->second.second };
-}
+    // 2. 检查缓存中是否已有结果
+    auto it = cache.find(key);
+    if (it != cache.end()) {
+        // 缓存命中。现在根据调用者的原始顺序返回结果。
+        if (key.first == t1) {
+            // 调用顺序是 (t1, t2)，与键的顺序一致，直接返回
+            return it->second;
+        }
+        // 调用顺序是 (t2, t1)，与键的顺序相反，交换结果后返回
+        return { it->second.second, it->second.first };
+    }
 
-// 缓存未命中则计算并存储
-auto result = ThreadCreationTree::getInstance()->computeParallelLocs(t1, t2); // 调用外部函数计算结果
-auto emplaceResult = cache.emplace(key, std::move(result));
-return { emplaceResult.first->second.first, emplaceResult.first->second.second };
+    // 3. 缓存未命中：使用规范的、排序后的键来调用计算函数
+    //    这可以确保 `result.first` 总是对应 `key.first`，`result.second` 总是对应 `key.second`
+    auto result = ThreadCreationTree::getInstance()->computeParallelLocs(key.first, key.second);
+    auto emplaceResult = cache.emplace(key, result);
+
+    // 4. 根据调用者的原始顺序返回新计算的结果
+    if (key.first == t1) {
+        // 调用顺序是 (t1, t2)，与键的顺序一致，直接返回新计算的结果
+        return emplaceResult.first->second;
+    }
+    // 调用顺序是 (t2, t1)，与键的顺序相反，交换新计算的结果后返回
+    return { emplaceResult.first->second.second, emplaceResult.first->second.first };
 }
 
 MemoryAccessMap ThreadCreationTree::buildMemoryAccessMapForThread(
@@ -1082,27 +1106,57 @@ MemoryAccessMap ThreadCreationTree::buildMemoryAccessMapForThread(
     auto* pa = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
     if (!pa) return accessMap;
 
-    // 获取并发位置。getParallelLocs 的返回值中，第一个元素对应第一个参数，第二个元素对应第二个参数。
+    // // --- DETAILED LOGGING START ---
+    //std::cout << "\n\n// ====================================================================\n"
+    //          << "// Building Memory Access Map for Thread " << targetThread->getId() 
+    //          << " (Concurrent with Thread " << otherThread->getId() << ")\n"
+    //          << "// ====================================================================\n";
+
     auto [locsForTarget, locsForOther] = this->getParallelLocs(targetThread, otherThread);
 
-    std::cout << "[DEBUG PRINT] Building access map for Thread " << targetThread->getId() 
-              << " (concurrent with Thread " << otherThread->getId() << "). Found "
-              << locsForTarget.size() << " concurrent locations." << std::endl;
+    //std::cout << "[DEBUG] Found " << locsForTarget.size() << " concurrent locations to analyze for Thread " << targetThread->getId() << ".\n";
     
-    for (const auto& [loc, ctx] : locsForTarget) { // 我们只关心 targetThread 的位置
+    //int loc_count = 1;
+    for (const auto& [loc, ctx] : locsForTarget) {
+        //std::cout << "\n[DEBUG] " << loc_count++ << "/" << locsForTarget.size() << ": Processing Location: " << loc.toString() << "\n";
+        
         auto accesses = aliasChecker->getMemoryAccessesFromLocation(loc, ctx);
+        if (accesses.empty()) {
+            //std::cout << "  -> No memory accesses found at this location.\n";
+            continue;
+        }
+
+        //std::cout << "  -> Found " << accesses.size() << " memory access(es) here.\n";
+        
+        //int access_count = 1;
         for (const auto& access : accesses) {
-            // 主动剪枝：只关心对候选共享对象的访问
+             std::string access_val_str;
+             llvm::raw_string_ostream os(access_val_str);
+             access.pointerOperand->print(os);
+
+            //std::cout << "    [" << access_count++ << "/" << accesses.size() << "] Access operand: " << os.str() << "\n";
+            //std::cout << "      -> Is Write? " << (access.isWrite ? "Yes" : "No") << "\n";
+            
             bool is_shared = false;
+             int candidate_count = 1;
             for (const auto* candidate : candidates) {
+                 std::string candidate_val_str;
+                 llvm::raw_string_ostream os_cand(candidate_val_str);
+                //candidate->print(os_cand);
+
+                std::cout << "      -> Comparing with candidate " << candidate_count++ << "/" << candidates.size() << ": " 
+                          << (candidate->hasName() ? LLVMAnalyzer::getInstance()->demangle_valueName(candidate->getName().str().c_str()) : "(unnamed)")
+                         << " | " << os_cand.str() << "\n";
+                
                 if (aliasChecker->isAlias(access.pointerOperand, candidate)) {
+                    std::cout << "        --> ALIAS MATCH FOUND!\n";
                     is_shared = true;
-                    break;
+                    break; 
                 }
             }
 
             if (is_shared) {
-                // 使用指向集的代表元作为Key
+                std::cout << "    --> This access is SHARED. Adding to map.\n";
                 auto pointsToSet = pa->getPointsToSet(access.pointerOperand);
                 if (!pointsToSet.empty()) {
                     const llvm::Value* representative = *pointsToSet.begin();
@@ -1110,12 +1164,39 @@ MemoryAccessMap ThreadCreationTree::buildMemoryAccessMapForThread(
                 } else {
                     accessMap[access.pointerOperand].push_back(access);
                 }
+            } else {
+                std::cout << "    --> This access is NOT shared. Skipping.\n";
             }
         }
     }
 
-    std::cout << "  -> Finished building map for Thread " << targetThread->getId() 
-              << ". Map contains " << accessMap.size() << " unique memory objects." << std::endl;
+     std::cout << "\n// ====================================================================\n"
+               << "// Finished building map for Thread " << targetThread->getId() 
+               << ". Map contains " << accessMap.size() << " unique memory objects.\n"
+               << "// ====================================================================\n\n";
+    return accessMap;
+}
+
+MemoryAccessMap ThreadCreationTree::buildRawMemoryAccessMap(
+    Thread* targetThread
+) const {
+    MemoryAccessMap accessMap;
+    AliasChecker* aliasChecker = AliasChecker::getInstance();
+    auto* pa = static_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
+    if (!pa) return accessMap;
+
+    // Use the existing findAllLocs to get all locations and contexts for the thread
+    auto allLocs = targetThread->findAllLocs();
+
+    for (const auto& [loc, ctx] : allLocs) {
+        auto accesses = aliasChecker->getMemoryAccessesFromLocation(loc, ctx);
+        for (const auto& access : accesses) {
+            // Simply add every access found, without checking if it's shared yet.
+            // We use the pointer operand itself as the initial key.
+            // The alias-based grouping will happen during the intersection phase.
+            accessMap[access.pointerOperand].push_back(access);
+        }
+    }
     return accessMap;
 }
 

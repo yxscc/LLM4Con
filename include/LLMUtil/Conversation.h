@@ -43,7 +43,8 @@ private:
     std::vector<ChatMessage> history_;
     void* context_for_tools_ = nullptr;
     size_t max_history_messages_;
-
+    std::ofstream simplified_log_file_;
+    
     void prune_history() {
         if (history_.empty()) return;
         

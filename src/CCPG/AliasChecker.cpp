@@ -244,12 +244,12 @@ std::vector<MemoryAccess> AliasChecker::getMemoryAccessesFromLocation(const Node
     }
 
     // (可选) 增强调试输出，以观察过滤效果
-    if (!loads.empty() || !stores.empty()) {
+    /*if (!loads.empty() || !stores.empty()) {
         std::cout << "[DEBUG PRINT] GetAccess at " << loc.toString() 
                   << ": Found " << loads.size() << " loads and " 
                   << stores.size() << " stores. After function context filtering, "
                   << accesses.size() << " accesses remain." << std::endl;
-    }
+    }*/
 
     return accesses;
 }

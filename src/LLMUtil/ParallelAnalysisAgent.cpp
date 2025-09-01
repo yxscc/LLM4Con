@@ -35,7 +35,7 @@ struct RuleBuildingContext {
 };
 
 ParallelAnalysisAgent::ParallelAnalysisAgent(std::shared_ptr<LLMClient> client)
-    : Conversation(client, build_system_prompt(), 35) {} // Increased history for multi-step tools
+    : Conversation(client, build_system_prompt(), 35) {}
 
 std::string ParallelAnalysisAgent::build_system_prompt() {
     return R"(
@@ -48,9 +48,9 @@ You are a world-class expert in concurrent software architecture and a specialis
 4.  **Propose Rules Based on Evidence:** Only propose a rule (`start_rule`) and nominate functions (`nominate_function_for_role`) based on functions you have verified to exist through your exploration.
 
 **Core Analysis Principles (VERY IMPORTANT):**
-1.  **Distinguish State vs. Synchronization**: Your analysis must differentiate between operations that manage synchronization (e.g., locking/unlocking a mutex) and operations that handle state (e.g., reading a value to make a decision, then using that value). A bug often lies in the unprotected window between a state **check** and its **use**, not in the synchronization primitives themselves.
-2.  **Focus on Data Flow and Semantic Purpose**: Don't just look at function names. Analyze the code to understand the purpose of the functions. Trace how data (especially shared data) flows from one function to another to identify meaningful "check-then-use" or other stateful patterns.
-3.  **Ground Analysis in Code**: Your analysis MUST be grounded in the provided source code. Use the exploration tools (`get_callees`, etc.) to discover the actual functions involved in each thread's execution before proposing a rule.
+1.  **IGNORE TESTING SCAFFOLDING**: The code may use synchronization primitives like `pthread_barrier_wait` or functions like `sleep` to deterministically trigger a race condition for testing (e.g., in a PoC). You MUST IGNORE these testing constructs and focus on the underlying business logic. The critical question is: if the barriers/sleeps were removed, could a race occur in a real-world scenario due to a lack of proper locking?
+2.  **Distinguish State vs. Synchronization**: Your analysis must differentiate between operations that manage synchronization (e.g., `pthread_mutex_lock`, `pthread_barrier_wait`) and operations that handle state (e.g., reading a value to make a decision, then using that value). A bug often lies in the unprotected window between a state **check** and its **use**. A synchronization primitive itself is NOT a state check.
+3.  **Ground Analysis in Code**: Your analysis MUST be grounded in the provided source code. Use the exploration tools to discover the actual functions involved in each thread's execution before proposing a rule.
 
 **Your Workflow:**
 
@@ -59,17 +59,16 @@ You are a world-class expert in concurrent software architecture and a specialis
 - Describe the high-level interaction between the two threads based on the contracts and your initial code exploration.
 
 **Step 2: Propose and Validate Stateful Temporal Ordering Rules (CRITICAL).**
-- After confirming parallelism, you MUST follow your Analysis Strategy to explore the code.
+- After confirming parallelism, you MUST follow your analysis strategy to explore the code.
 - **2.1. Propose a Potential Rule:** Based on your exploration, if you identify a potential vulnerability, call `start_rule`. For a TOCTOU, identify the shared object being checked and used.
-- **2.2. Nominate and Verify Functions for Roles:** For the active rule, nominate functions that you have discovered and verified. For EACH role, call `nominate_function_for_role`.
-    - `state_check_function`: The function in one thread that reads the state of the shared object.
-    - `state_modify_function`: The function in the OTHER thread that invalidates the state after the check.
-    - `state_use_function`: The function in the FIRST thread that uses the shared object, assuming the state is still valid.
-    - `resolving_function` (Optional): A function that re-validates the state or otherwise resolves the race condition before the 'use'.
+- **2.2. Nominate Functions for Roles:** For the active rule, nominate functions that you have discovered and verified.
+    - **REQUIRED**: `state_check_function` - The function that **reads** the shared state (e.g., `filemap_get_folio`). This is NOT a synchronization call.
+    - **REQUIRED**: `state_modify_function` - The function in the OTHER thread that invalidates the state after the check.
+    - **OPTIONAL, but helpful**: `state_use_function` - The function in the FIRST thread that uses the shared object, assuming the state is still valid (e.g., `folio_move_anon_rmap`).
 - **2.3. Finalize the Rule:** Once all necessary functions are nominated, call `finalize_rule`.
 - **2.4. Repeat or Finish:** You can start a new rule if you find other vulnerabilities. If not, call `finish_analysis`.
 
-**CRITICAL INSTRUCTION**: The function names you provide MUST be an EXACT match to the C function names found in the source code. If a function nomination fails, use your exploration tools to find the correct name before trying again.
+**CRITICAL INSTRUCTION**: The function names you provide MUST be an EXACT match to the C function names found in the source code.
 )";
 }
 
@@ -153,7 +152,6 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
         std::string role = arguments.at("role").get<std::string>();
         std::string func_name = arguments.at("function_name").get<std::string>();
 
-        // --- Verification Step ---
         if (ThreadCreationTree::getInstance()->getCPG()->findMethodsByName(func_name).empty()) {
             return R"({"error": "Function ')" + func_name + R"(' not found in the codebase. Please use your tools to find an exact, existing function name."})";
         }
@@ -167,12 +165,12 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
             return R"({"error": "No active rule to finalize."})";
         }
         context->pair->analysis.temporal_rules.push_back(*context->current_rule);
-        context->current_rule.reset(); // Clear the current rule
+        context->current_rule.reset();
         return R"({"status": "Rule has been finalized and recorded. You can now start a new rule with 'start_rule' or finish with 'finish_analysis'."})";
     }
 
     if (tool_name == "finish_analysis") {
-        return "finish"; // Signal completion
+        return "finish";
     }
 
     nlohmann::json error_resp;
@@ -185,13 +183,11 @@ std::string ParallelAnalysisAgent::parseResult(const std::vector<ChatMessage>& h
 }
 
 void ParallelAnalysisAgent::analyze_parallelism(ThreadPair& pair) {
+    reset();
     std::string contract1_str = contract_to_string(pair.contract1);
     std::string contract2_str = contract_to_string(pair.contract2);
-    
-    // Create the context for this analysis run
     RuleBuildingContext context{&pair, std::nullopt};
     
-    // Retrieve source code for entry functions to provide more context to the LLM
     std::string entry_func1_code = "[Source code not available]";
     if (pair.thread1 && pair.thread1->getThreadMainFunction() && pair.thread1->getThreadMainFunction()->getFuncNode()) {
         entry_func1_code = pair.thread1->getThreadMainFunction()->getFuncNode()->getCPGNode()->getCode();
@@ -213,7 +209,7 @@ void ParallelAnalysisAgent::analyze_parallelism(ThreadPair& pair) {
               << "Thread " << pair.thread2->getId() << " entry function (ID=" << pair.contract2.entryPointFunctionId
               << ", Name='" << pair.thread2->getThreadMainFunction()->getFuncNode()->getCPGNode()->getName() << "'):\n"
               << "```cpp\n" << entry_func2_code << "\n```\n\n"
-              << "First, call `confirm_parallelism`. Then, follow your analysis strategy to explore the code (especially the provided functions) and propose rules if any vulnerabilities are found.";
+              << "First, call `confirm_parallelism`. Then, follow your analysis strategy to explore the code and propose rules if any vulnerabilities are found.";
 
     send_message(prompt_ss.str(), &context);
 }

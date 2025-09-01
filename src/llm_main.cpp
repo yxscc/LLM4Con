@@ -4,6 +4,9 @@
 #include <string>
 #include <filesystem>
 #include <cstdlib>
+#include <fstream> 
+#include <regex>  
+
 
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
@@ -20,6 +23,7 @@
 #include "CPG/Node.h"
 #include "Query/LLMDataRaceDetector.h"
 #include "Query/StatefulBugDetector.h"
+#include "LLMUtil/Conversation.h"
 
 
 using namespace std;
@@ -42,6 +46,69 @@ static cl::opt<std::string> LLMModel("llm-model", cl::desc("Model name for the c
 static cl::opt<std::string> LLMBaseUrl("llm-url", cl::desc("Base URL for the LLM API"), cl::init(""));
 
 std::string convertToBC(const std::string& file);
+
+std::string cleanSourceCode(const std::string& source_path) {
+    std::ifstream file(source_path);
+    if (!file.is_open()) {
+        return "[ERROR: Could not open source file]";
+    }
+
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    
+    // Remove multi-line comments
+    content = std::regex_replace(content, std::regex("/\\*[\\s\\S]*?\\*/"), "");
+    // Remove single-line comments
+    content = std::regex_replace(content, std::regex("//.*"), "");
+
+    std::stringstream original_ss(content);
+    std::stringstream cleaned_ss;
+    std::string line;
+
+    // Remove printf lines
+    while (std::getline(original_ss, line)) {
+        if (line.find("printf") == std::string::npos) {
+            cleaned_ss << line << "\n";
+        }
+    }
+    
+    return cleaned_ss.str();
+}
+
+// Runs the zero-shot analysis and saves the result.
+void runZeroShotAnalysis(const std::string& source_code_path, const fs::path& outputDir) {
+    std::stringstream code_ss;
+
+    for (Thread* t : ThreadCreationTree::getInstance()->getThreads()) {
+        if (t->getThreadMainFunction()) {
+            std::string func_name = t->getThreadMainFunction()->getFuncNode()->getCPGNode()->getName();
+            code_ss << "/* Thread " << t->getId() << " Entry Function: " << func_name << " */\n";
+            code_ss << t->getThreadMainFunction()->getFuncNode()->getCPGNode()->getCode() << "\n\n";
+        }
+    }
+    
+    std::string relevant_code = code_ss.str();
+    
+    std::string user_prompt = "我正在分析一个并发程序，这里是它的几个关键线程的入口函数代码。请你看看其中是否存在任何恶性数据竞争或漏洞，如果有，请把它们全部报告出来，注意，你应该报告你确定的缺陷，并给出对应的代码，减少说明性文字，不用考虑修复。\n\n```c\n" + relevant_code + "\n```";
+
+    try {
+        auto llm_client = LLMClient::get_instance();
+        // Use a simple conversation object for this one-off query
+        Conversation zero_shot_convo(llm_client, "You are an expert C/C++ concurrency bug analyzer.");
+        std::string llm_response = zero_shot_convo.send_message(user_prompt);
+        std::ofstream result_file(outputDir / "zero_shot_analysis.txt");
+        result_file << "========= Zero-Shot LLM Analysis Result =========\n\n";
+        result_file << "--- PROMPT ---\n";
+        result_file << user_prompt << "\n\n";
+        result_file << "--- RESPONSE ---\n";
+        result_file << llm_response << "\n";
+        result_file.close();
+    } catch (const std::exception& e) {
+        cerr << "  - An error occurred during zero-shot analysis: " << e.what() << endl;
+        std::ofstream result_file(outputDir / "zero_shot_analysis.txt");
+        result_file << "An error occurred: " << e.what() << "\n";
+        result_file.close();
+    }
+}
 
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv, "LLM Concurrency Bug Detector\n");
@@ -73,6 +140,17 @@ int main(int argc, char** argv) {
     std::string projectDir = InputSrcDir;
     TargetPath * targetPath = TargetPath::getInstance();
     targetPath->setTargetAbsolutePath(projectDir);
+
+    std::string source_file_path = projectDir;
+    if (fs::is_directory(projectDir)) {
+        // Simple heuristic to find the .c file in the directory
+        for (const auto& entry : fs::directory_iterator(projectDir)) {
+            if (entry.path().extension() == ".c") {
+                source_file_path = entry.path().string();
+                break;
+            }
+        }
+    }
 
     std::cout << "InputSrcDir: " << InputSrcDir << std::endl;
     std::cout <<  "InputBCFileName: " << InputBCFileName << std::endl;
@@ -114,6 +192,8 @@ int main(int argc, char** argv) {
     // ------------------------------------
 
     std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
+
+    runZeroShotAnalysis(source_file_path, targetPath->getOutputDir());
 
     return 0;
 }

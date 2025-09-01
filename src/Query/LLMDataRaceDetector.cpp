@@ -32,12 +32,30 @@ LLMDataRace::LLMDataRace(
 ) : variable1(var1), contract1(c1), variable2(var2), contract2(c2), reason(reason), location1(loc1), location2(loc2) {}
 
 std::string LLMDataRace::toString() const {
+    CCPG* ccpg = ThreadCreationTree::getInstance()->getCCPG();
+    std::string code1 = "[Code not found]";
+    if (ccpg) {
+        CCPGNodeSet nodes1 = ccpg->getNodesByLoc(location1);
+        if (!nodes1.empty()) {
+            code1 = (*nodes1.begin())->getCPGNode()->getCode();
+        }
+    }
+    std::string code2 = "[Code not found]";
+    if (ccpg) {
+        CCPGNodeSet nodes2 = ccpg->getNodesByLoc(location2);
+        if (!nodes2.empty()) {
+            code2 = (*nodes2.begin())->getCPGNode()->getCode();
+        }
+    }
+
     std::stringstream ss;
     ss << "========== LLM-Based Data Race Detected ==========\n"
        << "Reason: " << reason << "\n\n"
        << "Access 1 (Thread " << contract1.threadId << "):\n"
        << "  - Variable: " << variable1.variableName << " (Type: " << variable1.variableType << ")\n"
        << "  - Access: " << variable1.accessType << "\n"
+       << "  - Location: " << location1.toString() << "\n"
+       << "  - Source Code: " << code1 << "\n"
        << "  - Protected by: [";
     for (size_t i = 0; i < variable1.protectingPrimitives.size(); ++i) {
         ss << variable1.protectingPrimitives[i] << (i == variable1.protectingPrimitives.size() - 1 ? "" : ", ");
@@ -46,6 +64,8 @@ std::string LLMDataRace::toString() const {
        << "Access 2 (Thread " << contract2.threadId << "):\n"
        << "  - Variable: " << variable2.variableName << " (Type: " << variable2.variableType << ")\n"
        << "  - Access: " << variable2.accessType << "\n"
+       << "  - Location: " << location2.toString() << "\n" // <-- ADDED
+       << "  - Source Code: " << code2 << "\n" // <-- ADDED
        << "  - Protected by: [";
     for (size_t i = 0; i < variable2.protectingPrimitives.size(); ++i) {
         ss << variable2.protectingPrimitives[i] << (i == variable2.protectingPrimitives.size() - 1 ? "" : ", ");
@@ -69,28 +89,26 @@ void LLMDataRaceDetector::detect(const std::vector<llm_client::ThreadPair>& thre
 
         // 使用通用的辅助器来遍历所有并发访问对
         forEachConcurrentAccessPair(pair, 
-            // 传入一个 lambda 作为数据竞争的“检测函数”
             [&](const MemoryAccess& acc1, const LLM::ConcurrencyContract& contract1,
                 const MemoryAccess& acc2, const LLM::ConcurrencyContract& contract2) 
             {
-                // 规则 1: 必须至少有一个是写操作
+
                 if (!acc1.isWrite && !acc2.isWrite) {
-                    return; // a.k.a continue
+                    return;
                 }
 
-            if (aliasChecker->isCompilerGeneratedSafeInit(acc1) || aliasChecker->isCompilerGeneratedSafeInit(acc2)) {
-                return; // 这是一个安全的初始化，不是数据竞争，忽略。
-            }
+                if (aliasChecker->isCompilerGeneratedSafeInit(acc1) || aliasChecker->isCompilerGeneratedSafeInit(acc2)) {
+                    return;
+                }
 
                 auto key = (acc1.location < acc2.location) 
                          ? std::make_pair(acc1.location, acc2.location) 
                          : std::make_pair(acc2.location, acc1.location);
 
                 if (reported_loc_pairs.count(key)) {
-                    return; // 如果已经报告过，则提前返回
+                    return;
                 }
 
-                // 规则 2: 必须没有被同一个锁保护
                 if (!lsAnalysis->isProtectedBySameLock(acc1.location, acc1.context, acc2.location, acc2.context)) {
 
                     reported_loc_pairs.insert(key);
@@ -103,10 +121,10 @@ void LLMDataRaceDetector::detect(const std::vector<llm_client::ThreadPair>& thre
                     std::cout << "\n[DEBUG PRINT] >>> NEW UNIQUE DATA RACE FOUND <<<" << std::endl;
                     std::cout << "  - Thread 1 Access: " << (acc1.isWrite ? "WRITE" : "READ") 
                               << " at " << acc1.location.toString() << std::endl;
-                    std::cout << "    Source Code: " << code1 << std::endl; // <-- 新增
+                    std::cout << "    Source Code: " << code1 << std::endl;
                     std::cout << "  - Thread 2 Access: " << (acc2.isWrite ? "WRITE" : "READ") 
                               << " at " << acc2.location.toString() << std::endl;
-                    std::cout << "    Source Code: " << code2 << std::endl; // <-- 新增
+                    std::cout << "    Source Code: " << code2 << std::endl;
                     
                     std::string v1_str, v2_str;
                     llvm::raw_string_ostream os1(v1_str), os2(v2_str);
@@ -115,7 +133,7 @@ void LLMDataRaceDetector::detect(const std::vector<llm_client::ThreadPair>& thre
                     std::cout << "  - Pointer Operand 1: " << os1.str() << std::endl;
                     std::cout << "  - Pointer Operand 2: " << os2.str() << std::endl;
                     std::cout << "============================================" << std::endl;
-                    // 发现了数据竞争，现在用LLM合约信息来增强报告
+                    
                     std::string reason = "Unprotected concurrent access to a shared memory location.";
                     
                     const LLM::ConcurrencyContract::SharedVariable* relevant_var1 = nullptr;

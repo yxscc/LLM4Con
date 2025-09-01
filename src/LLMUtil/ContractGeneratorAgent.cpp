@@ -2,6 +2,8 @@
 #include "LLMUtil/SharedToolKit.h"
 #include "CCPG/ThreadCreationTree.h"
 #include "CPG/Node.h"
+#include "PhasarUtil/LLVMAnalyzer.h"
+#include "llvm/IR/Value.h"
 #include <iostream>
 #include <sstream>
 
@@ -16,11 +18,13 @@ You are an elite static analysis expert for C/C++ multithreaded programs.
 Your mission is to analyze a thread's entry function to build a precise "Concurrency Contract".
 You will be provided with the source code of a thread's entry function and its creation site.
 
-Your task is to build the contract by calling a series of tools in a specific order. You can also use shared query tools like `get_callees` to explore the code.
+**Analysis Strategy (VERY IMPORTANT):**
+1.  **Analyze Global and External State**: Carefully examine the function body for any access (read or write) to **global variables** (variables defined outside the function). Also, analyze parameters passed by **pointer or reference**, as they are potential carriers of shared state from the parent thread.
+2.  **Explore the Call Graph**: Use the `get_callees` tool to understand the full scope of operations performed by the thread, paying close attention to what data is passed to and returned from sub-functions.
 
 **Your Workflow:**
 1.  **Analyze Role & Summary**: Start by analyzing the thread's purpose. Respond by calling `confirm_role_and_summary`.
-2.  **Identify Shared Variables**: After the user prompts you to continue, identify all shared variables. For EACH variable, call `report_shared_variable`. When finished, call `finish_reporting_shared_variables`.
+2.  **Identify Shared Variables**: Based on your analysis of global variables and pointer/reference parameters, identify all shared variables. For EACH variable, call `report_shared_variable`. When finished, call `finish_reporting_shared_variables`.
 3.  **Identify Sync Primitives**: After the next prompt, identify all synchronization primitives (mutexes, semaphores, etc.). For EACH primitive, call `report_sync_primitive`. When finished, call `finish_reporting_sync_primitives`.
 4.  **Finalize**: Once all information is reported, call `finalize_contract` to complete the process.
 )";
@@ -35,10 +39,13 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
         {"summary", "string", "A one-sentence description of the thread's function.", true}
     }});
     tools.push_back({"report_shared_variable", "Reports a single shared variable accessed by the thread.", {
-        {"variable_name", "string", "The name of the shared variable.", true},
-        {"variable_type", "string", "The C/C++ type of the variable.", true},
-        {"access_type", "string", "Must be one of 'Read', 'Write', or 'ReadWrite'.", true},
-        {"protecting_primitives", "array", "An array of identifiers for the sync primitives guarding this variable.", true}
+        Parameter("variable_name", "string", "The name of the shared variable.", true),
+        Parameter("variable_type", "string", "The C/C++ type of the variable.", true),
+        Parameter("access_type", "string", "Must be one of 'Read', 'Write', or 'ReadWrite'.", true),
+        // This is the corrected definition for an array parameter
+        Parameter("protecting_primitives", "array", "An array of identifiers for the sync primitives guarding this variable.", true, 
+            std::make_unique<Parameter>("", "string", "The identifier of the sync primitive.", false)
+        )
     }});
     tools.push_back({"finish_reporting_shared_variables", "Call this after all shared variables have been reported.", {}});
     tools.push_back({"report_sync_primitive", "Reports a single synchronization primitive used in the thread.", {
@@ -53,6 +60,11 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
 }
 
 std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContractForThread(Thread* thread) {
+
+    reset();
+
+    const std::set<const llvm::Value*>& candidateSharedObjects = ThreadCreationTree::getInstance()->collectCandidateSharedObjects();
+
     if (!thread || !thread->getThreadMainFunction()) {
         return std::nullopt;
     }
@@ -65,10 +77,23 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
     std::string fork_stmt = thread->getForkNode()->getCPGNode()->getCode();
     std::string entry_func_code = thread->getThreadMainFunction()->getFuncNode()->getCPGNode()->getCode();
 
+    std::stringstream candidates_ss;
+    candidates_ss << "\n--- Candidate Shared Objects (from static analysis) ---\n";
+    if (candidateSharedObjects.empty()) {
+        candidates_ss << "None found.\n";
+    } else {
+        for (const auto* val : candidateSharedObjects) {
+            if (val && val->hasName()) {
+                candidates_ss << "- " << LLVMAnalyzer::getInstance()->demangle_valueName(val->getName().str().c_str()) << "\n";
+            }
+        }
+    }
+
     std::string user_prompt = 
         "Analyze the following thread to construct its Concurrency Contract.\n"
         "Fork statement: " + fork_stmt + "\n"
-        "Thread entry function body:\n```cpp\n" + entry_func_code + "\n```";
+        "Thread entry function body:\n```cpp\n" + entry_func_code + "\n```" +
+        candidates_ss.str(); //
 
     send_message(user_prompt, contract.get());
 

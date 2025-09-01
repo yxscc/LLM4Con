@@ -29,8 +29,8 @@ class ParallelLocCache {
     public:
         // 获取两个线程的并行位置结果（带缓存）
         std::pair<
-            std::unordered_map<NodeLoc, Context, NodeLocHash>&,
-            std::unordered_map<NodeLoc, Context, NodeLocHash>&
+        std::unordered_map<NodeLoc, Context, NodeLocHash>,
+        std::unordered_map<NodeLoc, Context, NodeLocHash>
         > getParallelLocs(Thread* t1, Thread* t2) const;
     
         // 可选：清理缓存（根据需求实现）
@@ -152,6 +152,8 @@ public:
         const std::set<const llvm::Value*>& candidates
     ) const;
 
+    MemoryAccessMap buildRawMemoryAccessMap(Thread* targetThread) const;
+
     std::string getThreadRelationship(Thread* t1, Thread* t2) {
         auto key = std::make_pair(t1, t2);
     
@@ -179,6 +181,7 @@ private:
     TypeToNodeSetMap typeToNodeSet;
     FunctionSet functions;
     ccpg::Function * threadMainFunction = nullptr;
+    bool isMain = false;
 
 public:
     Thread() {}
@@ -227,6 +230,9 @@ public:
 
     CCPGNode* getJoinNode() { return joinNode; }
     void setJoinNode(CCPGNode* joinNode) { this->joinNode = joinNode; }
+
+    bool isMainThread() const { return isMain; }
+    void setMainThread(bool isMainThread) { this->isMain = isMainThread; }
 
     void addFunction(ccpg::Function* function);
     FunctionSet getFunctions() { return functions; }

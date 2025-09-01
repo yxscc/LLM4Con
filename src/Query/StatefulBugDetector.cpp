@@ -4,13 +4,8 @@
 #include "CCPG/CCPG.h"
 #include "CCPG/ThreadCreationTree.h"
 #include "CCPG/AliasChecker.h"
-#include "PhasarUtil/PhasarPointerAnalysis.h"
 #include "PhasarUtil/AnalysisManager.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Instructions.h"
-
+#include "llvm/IR/Value.h"
 #include <iostream>
 #include <fstream>
 #include <queue>
@@ -18,7 +13,7 @@
 
 namespace query {
 
-// --- StatefulBug Implementation ---
+// --- StatefulBug Implementation (no change needed) ---
 
 StatefulBug::StatefulBug(
     const llm_client::StatefulRule& violated_rule,
@@ -36,186 +31,137 @@ std::string StatefulBug::toString() const {
        << "--- Forbidden Sequence Trace ---\n";
     
     for (const auto& step : path) {
-        ss << "  -> Function '" << step.first << "' called at " << step.second.toString() << "\n";
+        ss << "  -> " << step.first << " at " << step.second.toString() << "\n";
     }
     
     ss << "==========================================================";
     return ss.str();
 }
 
-bool findViolatingPath(
+
+// --- NEW HEURISTIC SEARCH HELPER ---
+/**
+ * @brief Heuristically searches forward from a start_node for a "use" of a shared object.
+ * A "use" is defined as any function call that takes the shared object instance (or an alias)
+ * as an argument.
+ * @return True if a potential "use" is found, false otherwise.
+ */
+bool find_heuristic_use_path(
     CCPGNode* start_node,
-    const std::string& target_func_name,
-    const std::string& resolver_func_name,
-    const llvm::Value* shared_object_instance, // 仍然传入，用于可能的调试或未来增强
+    const llvm::Value* shared_object_instance,
     const std::string& object_type_name,
-    const CCPGNodeSet& concurrent_modifying_nodes,
-    std::vector<std::pair<std::string, NodeLoc>>& violation_path) 
+    int search_limit,
+    std::vector<std::pair<std::string, NodeLoc>>& use_path)
 {
-    CCPG* ccpg = ThreadCreationTree::getInstance()->getCCPG();
     AliasChecker* aliasChecker = AliasChecker::getInstance();
-
-    if (concurrent_modifying_nodes.empty()) {
-        return false;
-    }
-
-    std::queue<std::vector<CCPGNode*>> worklist;
+    std::queue<CCPGNode*> worklist;
     std::set<CCPGNode*> visited;
 
-    worklist.push({start_node});
+    worklist.push(start_node);
     visited.insert(start_node);
+    int nodes_searched = 0;
 
-    while (!worklist.empty()) {
-        auto current_path = worklist.front();
+    while (!worklist.empty() && nodes_searched < search_limit) {
+        CCPGNode* current_node = worklist.front();
         worklist.pop();
-        CCPGNode* current_node = current_path.back();
+        nodes_searched++;
 
-        // 检查是否已经找到了目标
-        if (current_node->isCallSite() && current_node->getCPGNode()->getName() == target_func_name) {
-            // --- 核心修改 ---
-            // 我们已经通过并发修改检查，将分析范围限定在了特定的共享对象实例上。
-            // 同时，LLM规则已经从语义上将 check_func 和 use_func 绑定到了同一个对象上。
-            // 因此，只要我们能找到一条从 check 到 use 的有效控制流路径，就足以证明
-            // 存在潜在的TOCTOU。在此处进行精确的别名分析过于困难且容易失败。
-            // 我们相信，路径的存在本身就是最强的证据。
-            
-            // （可选）可以保留一个较弱的检查，比如检查参数类型是否匹配，但为了鲁棒性，我们暂时移除它。
-            // const llvm::Value* use_val = aliasChecker->getLLVMValueForArgument(current_node, object_type_name);
-            // if (use_val) { ... }
-            
-            for(CCPGNode* path_node : current_path) {
-                // 如果节点是调用点，记录函数名；否则，记录节点的代码，以提供更丰富的路径信息。
-                if (path_node->isCallSite()) {
-                    violation_path.push_back({path_node->getCPGNode()->getName(), path_node->getNodeLoc()});
-                } else {
-                     violation_path.push_back({path_node->getCPGNode()->getCode(), path_node->getNodeLoc()});
-                }
-            }
-            return true;
-        }
-
-        // 如果路径遇到了“解决”函数，则剪枝
-        if (!resolver_func_name.empty() && current_node->isCallSite() && current_node->getCPGNode()->getName() == resolver_func_name) {
-            const llvm::Value* resolver_val = aliasChecker->getLLVMValueForArgument(current_node, object_type_name);
-            if (resolver_val && aliasChecker->isAlias(shared_object_instance, resolver_val)) {
-                continue; // 这条路径是安全的，不再继续探索
+        if (current_node != start_node && current_node->isCallSite()) {
+            const llvm::Value* arg_val = aliasChecker->getLLVMValueForArgument(current_node, object_type_name);
+            if (arg_val && aliasChecker->isAlias(shared_object_instance, arg_val)) {
+                use_path.push_back({current_node->getCPGNode()->getName(), current_node->getNodeLoc()});
+                return true; // Found a potential "use"
             }
         }
-        
-        // 沿着CFG和CALL边继续探索
+
+        // Traverse forward along the CFG within the same function.
         for (CCPGEdge* edge : current_node->getOutEdges()) {
-            if (edge->getType() == CCPGEdge::EdgeType::ORDER || edge->getType() == CCPGEdge::EdgeType::CALL) {
+            if (edge->getType() == CCPGEdge::EdgeType::ORDER) { // ORDER edge represents CFG
                 CCPGNode* next_node = edge->getDst();
-                if (visited.find(next_node) == visited.end()) {
+                if (next_node->getFunction() == start_node->getFunction() && visited.find(next_node) == visited.end()) {
                     visited.insert(next_node);
-                    std::vector<CCPGNode*> new_path = current_path;
-                    new_path.push_back(next_node);
-                    worklist.push(new_path);
+                    worklist.push(next_node);
                 }
             }
         }
     }
-    
-    return false; // 没有找到违规路径
+    return false; // No subsequent "use" found within the search limit.
 }
 
-// --- StatefulBugDetector Implementation ---
 
+// --- REWRITTEN DETECT FUNCTION ---
 void StatefulBugDetector::detect(
     const std::vector<llm_client::ThreadPair>& threadPairs,
-    const std::set<const llvm::Value*>& candidateSharedObjects)
+    const std::set<const llvm::Value*>& /*candidateSharedObjects*/) // candidateSharedObjects no longer needed here
 {
-    std::cout << "\n[Phase 4: Detecting Stateful Protocol Violations]" << std::endl;
-    
+    std::cout << "\n[Phase 4: Detecting Stateful Protocol Violations (Heuristic Approach)]" << std::endl;
+
     CCPG* ccpg = ThreadCreationTree::getInstance()->getCCPG();
     AliasChecker* aliasChecker = AliasChecker::getInstance();
 
     for (const auto& pair : threadPairs) {
-        if (!pair.analysis.actually_concurrent) { continue; }
+        if (!pair.analysis.actually_concurrent) {
+            continue;
+        }
 
         for (const auto& rule : pair.analysis.temporal_rules) {
-            std::cout << "  - Applying rule '" << rule["rule_id"].get<std::string>() << "' for threads " 
-                      << pair.thread1->getId() << " and " << pair.thread2->getId() << "..." << std::endl;
-            
-            std::string pattern_type = rule.at("pattern_type").get<std::string>();
-            
-            if (pattern_type == "TOCTOU") {
-                std::string object_type_name = rule.at("shared_object_type").get<std::string>();
-                std::string check_func = rule.value("state_check_function", "");
-                std::string modify_func = rule.value("state_modify_function", "");
-                std::string use_func = rule.value("state_use_function", "");
-                std::string resolver_func = rule.value("resolving_function", "");
+            if (rule.value("pattern_type", "") != "TOCTOU") {
+                continue;
+            }
 
-                if (check_func.empty() || modify_func.empty() || use_func.empty()) continue;
-                
-                auto locs1 = pair.thread1->findAllLocs();
-                auto locs2 = pair.thread2->findAllLocs();
+            std::string object_type_name = rule.value("shared_object_type", "");
+            std::string check_func_name = rule.value("state_check_function", "");
+            std::string modify_func_name = rule.value("state_modify_function", "");
 
-                // 遍历所有共享对象实例
-                for (const llvm::Value* instance : candidateSharedObjects) {
+            if (check_func_name.empty() || modify_func_name.empty()) {
+                continue;
+            }
+
+            // STAGE 1: Find all potential check and modify sites
+            CCPGNodeSet check_sites;
+            for (CCPGNode* node : pair.thread1->getNodes()) {
+                if (node->isCallSite() && node->getCPGNode()->getName() == check_func_name) {
+                    check_sites.insert(node);
+                }
+            }
+
+            CCPGNodeSet modify_sites;
+            for (CCPGNode* node : pair.thread2->getNodes()) {
+                if (node->isCallSite() && node->getCPGNode()->getName() == modify_func_name) {
+                    modify_sites.insert(node);
+                }
+            }
+            
+            // STAGE 2: Find a concurrent, aliased pair of (check, modify)
+            for (CCPGNode* check_node : check_sites) {
+                for (CCPGNode* modify_node : modify_sites) {
                     
-                    // 1. 识别T1中所有对该实例的“检查”点
-                    for (const auto& [loc, ctx] : locs1) {
-                         for(CCPGNode* start_node : ccpg->getNodesByLoc(loc)){
-                            if (start_node->isCallSite() && start_node->getCPGNode()->getName() == check_func) {
-                                
-                                // 2. 识别T2中的“修改”行为
-                                CCPGNodeSet concurrent_modifiers;
-                                std::string thread2_main_func_name;
-                                if (pair.thread2 && pair.thread2->getThreadMainFunction() && pair.thread2->getThreadMainFunction()->getFuncNode()) {
-                                    thread2_main_func_name = pair.thread2->getThreadMainFunction()->getFuncNode()->getCPGNode()->getName();
-                                }
+                    const llvm::Value* check_val = aliasChecker->getLLVMValueForArgument(check_node, object_type_name);
+                    const llvm::Value* modify_val = aliasChecker->getLLVMValueForArgument(modify_node, object_type_name);
 
-                                // 情况一: "修改函数"就是线程2的主函数, 意味着整个线程都可能在修改状态
-                                if (modify_func == thread2_main_func_name) {
-                                    for (const auto& [loc_other, ctx_other] : locs2) {
-                                        auto accesses = aliasChecker->getMemoryAccessesFromLocation(loc_other, ctx_other);
-                                        for (const auto& access : accesses) {
-                                            if (access.isWrite && aliasChecker->isAlias(instance, access.pointerOperand)) {
-                                                // 找到了一个相关的写操作
-                                                CCPGNodeSet nodes = ccpg->getNodesByLoc(loc_other);
-                                                if (!nodes.empty()) {
-                                                    concurrent_modifiers.insert(*nodes.begin());
-                                                    goto modifiers_found; // 只要找到一个相关的写操作就足够了
-                                                }
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    // 情况二: "修改函数"是线程2中一个具体的调用
-                                    for (const auto& [loc_other, ctx_other] : locs2) {
-                                        for(CCPGNode* modify_node : ccpg->getNodesByLoc(loc_other)){
-                                             if (modify_node->isCallSite() && modify_node->getCPGNode()->getName() == modify_func) {
-                                                const llvm::Value* modify_val = aliasChecker->getLLVMValueForArgument(modify_node, object_type_name);
-                                                if (modify_val && aliasChecker->isAlias(instance, modify_val)) {
-                                                    concurrent_modifiers.insert(modify_node);
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                            modifiers_found:;
+                    if (check_val && modify_val && aliasChecker->isAlias(check_val, modify_val)) {
+                        
+                        // STAGE 3: Heuristically search for a "Use" after the "Check"
+                        std::vector<std::pair<std::string, NodeLoc>> use_path;
+                        if (find_heuristic_use_path(check_node, check_val, object_type_name, 100, use_path)) {
+                            std::cout << "    [+] POTENTIAL TOCTOU VIOLATION FOUND for rule: " << rule["rule_id"].get<std::string>() << std::endl;
+                            
+                            std::vector<std::pair<std::string, NodeLoc>> full_violation_path;
+                            full_violation_path.push_back({"[CHECK] Function '" + check_func_name + "'", check_node->getNodeLoc()});
+                            full_violation_path.push_back({"[MODIFY - Concurrent] Function '" + modify_func_name + "'", modify_node->getNodeLoc()});
+                            full_violation_path.push_back({"[USE] Heuristically found use via function '" + use_path[0].first + "'", use_path[0].second});
 
-                                // 3. 从“检查”点开始，在T1中搜索到“使用”点的路径
-                                if (!concurrent_modifiers.empty()) {
-                                    std::vector<std::pair<std::string, NodeLoc>> violation_path;
-                                    if (findViolatingPath(start_node, use_func, resolver_func, instance, object_type_name, concurrent_modifiers, violation_path)) {
-                                        std::cout << "    [+] VIOLATION FOUND for rule: " << rule["rule_id"].get<std::string>() << std::endl;
-                                        this->detectedBugs.emplace_back(rule, violation_path, pair);
-                                        goto next_rule; // 找到一个就足够了，避免重复报告
-                                    }
-                                }
-                            }
+                            this->detectedBugs.emplace_back(rule, full_violation_path, pair);
+                            goto next_rule; // Found one instance for this rule, move to the next rule.
                         }
                     }
                 }
             }
-            // TODO: 在这里可以为 'DESTRUCTIVE_REINIT' 等其他模式添加处理逻辑
-            next_rule:;
+        next_rule:;
         }
     }
 }
+
 
 void StatefulBugDetector::printResults(const fs::path& outputDir) const {
     if (detectedBugs.empty()) {

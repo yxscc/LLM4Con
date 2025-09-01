@@ -12,7 +12,10 @@ Conversation::Conversation(
         size_t max_history
     ) : client_(client),
         base_system_prompt_(system_prompt),
-        max_history_messages_(max_history){}
+        max_history_messages_(max_history){
+            fs::path log_path = TargetPath::getInstance()->getOutputDir() / "llm_simplified_trace.log";
+            simplified_log_file_.open(log_path, std::ios_base::app);
+        }
 
 std::string Conversation::send_message(const std::string& user_message, void* context_for_tools) {
     this->context_for_tools_ = context_for_tools; // Store context for tool execution
@@ -25,7 +28,9 @@ std::string Conversation::send_message(const std::string& user_message, void* co
     }
 
     history_.push_back({MessageRole::USER, user_message, std::nullopt, std::nullopt});
-    std::cout << "User: " << user_message << std::endl;
+    if (simplified_log_file_.is_open()) {
+        simplified_log_file_ << "User: " << user_message << std::endl;
+    }
     prune_history();
 
     while (true) {
@@ -36,7 +41,9 @@ std::string Conversation::send_message(const std::string& user_message, void* co
         if (llm_response.tool_requests && !llm_response.tool_requests->empty()) {
             assistant_message.tool_calls = llm_response.tool_requests;
             for (const auto& tool_req : *llm_response.tool_requests) {
-                std::cout << "LLM Tool Call: " << tool_req.toolname << " with args " << tool_req.arguments.dump() << std::endl;
+                if (simplified_log_file_.is_open()) {
+                    simplified_log_file_ << "LLM Tool Call: " << tool_req.toolname << " with args " << tool_req.arguments.dump() << std::endl;
+                }
             }
         }
         history_.push_back(assistant_message);
@@ -48,7 +55,9 @@ std::string Conversation::send_message(const std::string& user_message, void* co
 
         for (const auto& tool_req : *llm_response.tool_requests) {
             std::string tool_result_content = execute_tool(tool_req.toolname, tool_req.arguments);
-            std::cout << "Tool Result: " << tool_result_content << std::endl;
+            if (simplified_log_file_.is_open()) {
+                simplified_log_file_ << "Tool Result: " << tool_result_content << std::endl;
+            }
             ChatMessage tool_response_msg;
             tool_response_msg.role = MessageRole::TOOL;
             tool_response_msg.content = tool_result_content;
@@ -76,6 +85,10 @@ void Conversation::set_system_prompt(const std::string& prompt) {
         history_.insert(history_.begin(), {MessageRole::SYSTEM, effective_sys_prompt});
     }
     prune_history(); // Ensure it's still within limits
+}
+
+void Conversation::reset() {
+    history_.clear();
 }
 
 }

@@ -18,6 +18,9 @@ std::vector<Tool> get_shared_tools() {
         {"get_function_by_name", "Get a function by its exact name.", {
             {"name", "string", "The name of the function to find.", true}
         }},
+        {"get_function_by_id", "Get a function by its ID.", {
+            {"function_id", "number", "The ID of the function to find.", true}
+        }},
         {"get_callees", "Get all functions called from within a given function.", {
             {"function_id", "number", "The ID of the calling function.", true}
         }},
@@ -56,6 +59,21 @@ std::optional<std::string> handle_shared_tool(
         }
     }
 
+    if (tool_name == "get_function_by_id") {
+        int function_id = arguments.at("function_id").get<int>();
+        ccpg::Function* function = ccpg->getFunctionById(function_id);
+        if (function) {
+            nlohmann::json result = {
+                {"function_id", function->getId()},
+                {"function_name", function->getFuncNode()->getCPGNode()->getName()},
+                {"function_body", function->getFuncNode()->getCPGNode()->getCode()}
+            };
+            return result.dump();
+        } else {
+            return R"({"error": "Function not found for ID: )" + std::to_string(function_id) + R"("})";
+        }
+    }
+
     if (tool_name == "get_function_by_name") {
         std::string name = arguments.at("name").get<std::string>();
         std::unordered_set<Node*> nodes = ccpg->getCPG()->findMethodsByName(name);
@@ -85,7 +103,7 @@ std::optional<std::string> handle_shared_tool(
         nlohmann::json calleesJson = nlohmann::json::array();
         for (CCPGNode* node : func->getNodes()) {
             if (node->isCallSite()) {
-                CCPGEdge* callEdge = ccpg->hasCallEdge(node);
+                 CCPGEdge* callEdge = ccpg->hasCallEdge(node);
                 if (!callEdge) continue;
                 CCPGNode* calleeNode = callEdge->getDst();
                 if (calleeNode) {
@@ -102,7 +120,9 @@ std::optional<std::string> handle_shared_tool(
                 }
             }
         }
-        return calleesJson.dump();
+        nlohmann::json result;
+        result["callees"] = calleesJson;
+        return result.dump();
     }
 
     if (tool_name == "get_nodes_by_location") {
