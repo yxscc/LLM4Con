@@ -132,7 +132,33 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
                 rules_file << "  No rules generated for this pair.\n\n";
             } else {
                 for (const auto& rule_ptr : pair.analysis.temporal_rules) {
-                    rules_file << rule_ptr->to_json().dump(4) << "\n\n"; 
+                    // Get the initial JSON object for the rule
+                    nlohmann::json rule_json = rule_ptr->to_json();
+
+                    // Check if the "nodes" key exists and is an object
+                    if (rule_json.contains("nodes") && rule_json["nodes"].is_object()) {
+                        nlohmann::json nodes_with_code;
+                        // Iterate over each node role (e.g., "state_check_operation")
+                        for (auto& [role, node_id] : rule_json["nodes"].items()) {
+                            nlohmann::json node_info;
+                            node_info["id"] = node_id;
+
+                            // Look up the CCPGNode by its ID
+                            CCPGNode* ccpg_node = ccpg->getNodeByID(node_id.get<int>());
+                            if (ccpg_node && ccpg_node->getCPGNode()) {
+                                // Add the code to our new node_info object
+                                node_info["code"] = ccpg_node->getCPGNode()->getCode();
+                            } else {
+                                node_info["code"] = "[Code not found for this node ID]";
+                            }
+                            nodes_with_code[role] = node_info;
+                        }
+                        // Replace the old "nodes" object with our new, more detailed one
+                        rule_json["nodes"] = nodes_with_code;
+                    }
+                    
+                    // Write the modified JSON to the file
+                    rules_file << rule_json.dump(4) << "\n\n"; 
                 }
             }
         }

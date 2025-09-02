@@ -147,9 +147,8 @@ void StatefulBugDetector::detect(
                 bool is_reachable = is_reachable_intra_thread(check_node, use_node, checker_thread);
                 if (!is_reachable) {
                     std::cout << "     [-] Reachability check failed. No path from CHECK to USE." << std::endl;
-                    continue;
                 }
-                std::cout << "     [+] Reachability check passed." << std::endl;
+                else std::cout << "     [+] Reachability check passed." << std::endl;
 
                 // **如果所有验证都通过，则报告一个缺陷**
                 std::cout << "    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule." << std::endl;

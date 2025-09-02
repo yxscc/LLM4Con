@@ -418,14 +418,14 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
     std::string timeout_opt = " --connect-timeout 10 --max-time " + std::to_string(timeout_seconds_);
     std::string cmd;
     if (provider_ == LLMProvider::GEMINI) {
-        cmd = "curl -sS -f -k" + timeout_opt +
+        cmd = "curl -sS -k" + timeout_opt +
               " -X POST -H \"Content-Type: application/json\"" +
               " -H \"x-goog-api-key: " + sh_escape_single_quotes(api_key_) + "\"" +
               " '" + sh_escape_single_quotes(base_url_) + "'" +
               " -d @" + tmp_filename +
               " 2>&1";
     } else { // OPENAI and compatible APIs
-        cmd = "curl -sS -f -k" + timeout_opt +
+        cmd = "curl -sS -k" + timeout_opt +
               " -X POST -H \"Content-Type: application/json\"" +
               " -H \"Authorization: Bearer " + sh_escape_single_quotes(api_key_) + "\"" +
               " '" + sh_escape_single_quotes(base_url_) + "'" +

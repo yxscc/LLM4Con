@@ -16,3 +16,5 @@ CCPG_dump/
 cpg_dot/
 cpg.bin
 llvmbc/
+LLM_dump/
+ConVul/
