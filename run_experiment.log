@@ -1,0 +1,2028 @@
+nohup: ignoring input
+##################################################
+###   开始第 1 / 3 轮完整遍历   ###
+##################################################
+正在处理: CVE-2024-43830 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43830/CVE-2024-43830.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43830/CVE-2024-43830.c", lineNumber: 182 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 25 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sysfs_thread_func' as a candidate.
+  -> Found thread arg in function 'deactivation_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 32)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3382344 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43830 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43830/CVE-2024-43830.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43830/CVE-2024-43830.c", lineNumber: 182 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 25 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sysfs_thread_func' as a candidate.
+  -> Found thread arg in function 'deactivation_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 32)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 25)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3383796 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43830 失败 (尝试次数 2/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43830/CVE-2024-43830.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43830/CVE-2024-43830.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43830/CVE-2024-43830.c", lineNumber: 182 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 25 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sysfs_thread_func' as a candidate.
+  -> Found thread arg in function 'deactivation_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 32)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 25)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3383912 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43830 失败 (尝试次数 3/3)，退出码: 134
+已达到最大重试次数，暂时放弃处理 CVE-2024-43830。
+----------------------------------------
+正在处理: CVE-2024-43891 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43891/CVE-2024-43891.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43891/CVE-2024-43891.c", lineNumber: 213 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 20 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'reader_thread_func' as a candidate.
+  -> Found thread arg in function 'enable_write_thread_func' as a candidate.
+  -> Found thread arg in function 'freer_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 55)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3384004 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43891 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43891/CVE-2024-43891.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43891/CVE-2024-43891.c", lineNumber: 213 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 20 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'enable_write_thread_func' as a candidate.
+  -> Found thread arg in function 'reader_thread_func' as a candidate.
+  -> Found thread arg in function 'freer_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 38)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 55)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 47)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 3 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code comments and loop structures indicate the program is designed to run these threads in parallel to simulate concurrent enable-write operations versus read formatting.
+  - Actually Concurrent: Yes
+    Reasoning: Both functions are thread entry points intended to be spawned and run simultaneously. Each loops independently and calls into shared subsystems without synchronization, explicitly to "increase the chance of hitting the race window."
+Analyzing pair: Thread 3 and Thread 2
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3384015 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43891 失败 (尝试次数 2/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-43891/CVE-2024-43891.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-43891/CVE-2024-43891.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-43891/CVE-2024-43891.c", lineNumber: 213 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 20 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'freer_thread_func' as a candidate.
+  -> Found thread arg in function 'reader_thread_func' as a candidate.
+  -> Found thread arg in function 'enable_write_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 47)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 55)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 38)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 3 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The threads are intentionally designed to run in parallel: the reader loops while the reclaimer delays briefly then clears a global pointer and frees the shared file. The setup explicitly aims to expose a race/use-after-free.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads (reader_thread_func ID=55 and freer_thread_func ID=47) run concurrently without synchronization. Sleeps are used only to widen the race window; there are no locks or ordering primitives preventing overlap.
+Analyzing pair: Thread 3 and Thread 2
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured for parallel execution to expose races: comments note a benign race, the reclaimer is a resource cleanup thread, and the worker repeatedly operates on the shared trace_event_file. Thus they are designed to run in parallel.
+  - Actually Concurrent: Yes
+    Reasoning: Both threads are started and run without mutual exclusion; the worker loops calling event_enable_write(g_file) while the reclaimer sleeps briefly then sets g_file = NULL and calls event_release(file). The usleep in the reclaimer ensures overlap, so their accesses to shared state occur concurrently.
+Analyzing pair: Thread 1 and Thread 2
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3384149 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-43891 失败 (尝试次数 3/3)，退出码: 134
+已达到最大重试次数，暂时放弃处理 CVE-2024-43891。
+----------------------------------------
+正在处理: CVE-2024-45000 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-45000/CVE-2024-45000.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-45000/CVE-2024-45000.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-45000/CVE-2024-45000.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-45000/CVE-2024-45000.c", lineNumber: 104 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 10 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'accessor_thread_func' as a candidate.
+  -> Found thread arg in function 'withdrawer_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 1 (Entry Function ID: 20)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3384340 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-45000 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-45000/CVE-2024-45000.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-45000/CVE-2024-45000.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-45000/CVE-2024-45000.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-45000/CVE-2024-45000.c", lineNumber: 104 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 10 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'withdrawer_thread_func' as a candidate.
+  -> Found thread arg in function 'accessor_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 13)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 20)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured to simulate concurrent access/withdrawal: atomics are used for n_accesses and flag updates, and both threads update a benign global stat without synchronization. The scenario aims to expose concurrency bugs in the access vs. withdrawal path, hence it is designed for parallel execution.
+  - Actually Concurrent: Yes
+    Reasoning: Two distinct worker threads (withdrawer_thread_func and accessor_thread_func) operate on shared_cookie and a global counter without any mutual exclusion. The withdrawer explicitly sleeps to allow overlap and then sets a flag and runs a state machine while the accessor increments n_accesses and dereferences cache_priv. No ordering or join prevents interleaving, so they can run concurrently.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-45000_2025-09-03_00-12-02/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-45000_2025-09-03_00-12-02/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+    - An error occurred during LLM evaluation for RacerF: API request failed (curl exit=28): curl: (28) Operation timed out after 120001 milliseconds with 0 bytes received
+
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-45000
+----------------------------------------
+正在处理: CVE-2024-46704 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-46704/CVE-2024-46704.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-46704/CVE-2024-46704.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-46704/CVE-2024-46704.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2024-46704/CVE-2024-46704.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2024-46704/CVE-2024-46704.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2024-46704/CVE-2024-46704.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2024-46704
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 307 nodes, 1594 edges into /home/ConCodeQL/cpg_dot/CVE-2024-46704
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2024-46704
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-46704/CVE-2024-46704.c", lineNumber: 73 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 6 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'reader_thread_func' as a candidate.
+  -> Found thread arg in function 'writer_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 13)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 19)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: Both functions are structured as long-running worker loops, intended to run simultaneously and act on shared state (shared_work) with coordination only via the stop flag, which implies a design for parallel execution.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate worker threads loop independently until a shared atomic stop flag is set. The stop flag only gates termination and does not serialize accesses to other shared variables. Therefore, their iterations can interleave arbitrarily, allowing concurrent access to shared_work and wq_num_queued.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-46704_2025-09-03_00-25-13/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-46704
+----------------------------------------
+正在处理: CVE-2024-47715 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-47715/CVE-2024-47715.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2024-47715
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 645 nodes, 3975 edges into /home/ConCodeQL/cpg_dot/CVE-2024-47715
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2024-47715
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-47715/CVE-2024-47715.c", lineNumber: 136 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 14 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'concurrent_access_thread' as a candidate.
+  -> Found thread arg in function 'sta_remove_thread' as a candidate.
+  -> Found thread arg in function 'benign_race_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 35)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3385194 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-47715 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-47715/CVE-2024-47715.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-47715/CVE-2024-47715.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-47715/CVE-2024-47715.c", lineNumber: 136 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 14 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sta_remove_thread' as a candidate.
+  -> Found thread arg in function 'concurrent_access_thread' as a candidate.
+  -> Found thread arg in function 'benign_race_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 44)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 35)
+  -> Successfully generated contract.
+Analyzing thread 3 (Entry Function ID: 23)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: Both threads are workers that intentionally operate on the same shared WCID entry in the device. The stated summaries highlight potential races; the code is written to run concurrently to expose/remove a station while another thread concurrently accesses/cleans it.
+  - Actually Concurrent: Yes
+    Reasoning: Two independent threads (sta_remove_thread and concurrent_access_thread) operate on the same shared device and WCID without any synchronization. They are created to run simultaneously, and a deliberate usleep is used to increase overlap, so they can interleave arbitrarily.
+Analyzing pair: Thread 2 and Thread 3
+  - Designed for Parallelism: Yes
+    Reasoning: The code intentionally launches separate worker threads: one removes a station (clears/updates WCID) and another performs PN checks on the same WCID. The naming and summaries suggest they are intended to run in parallel to expose potential races.
+  - Actually Concurrent: Yes
+    Reasoning: Both threads are worker threads that can be spawned and run simultaneously without any synchronization shown. They access the same shared mt76_wcid (global_wcid) and related device structures, and no ordering or mutual exclusion is indicated.
+Analyzing pair: Thread 1 and Thread 3
+  - Designed for Parallelism: Yes
+    Reasoning: The code and thread role descriptions explicitly aim to provoke overlap and potential races (cleanup vs. PN checks). The sleeps and the names (concurrent_access_thread, benign_race_thread) indicate intentional parallel execution.
+  - Actually Concurrent: Yes
+    Reasoning: The two worker threads operate on the same shared mt76_wcid/mt76_dev structures without any shown synchronization. Both include usleep delays intended to overlap execution, making concurrent access highly plausible during runtime.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-47715_2025-09-03_00-37-39/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 3 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-47715_2025-09-03_00-37-39/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-47715
+----------------------------------------
+正在处理: CVE-2024-49998 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-49998/CVE-2024-49998.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-49998/CVE-2024-49998.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-49998/CVE-2024-49998.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2024-49998/CVE-2024-49998.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2024-49998/CVE-2024-49998.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2024-49998/CVE-2024-49998.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2024-49998
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 401 nodes, 2351 edges into /home/ConCodeQL/cpg_dot/CVE-2024-49998
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2024-49998
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-49998/CVE-2024-49998.c", lineNumber: 118 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 16 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'receive_thread' as a candidate.
+  -> Found thread arg in function 'benign_race_thread' as a candidate.
+  -> Found thread arg in function 'shutdown_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 8
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 35)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 15)
+  -> Successfully generated contract.
+Analyzing thread 3 (Entry Function ID: 26)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code intentionally uses multiple threads to create and exercise race windows: receive_thread coordinates with another thread via mutex/cond to widen a race window around g_net_device.dsa_ptr; benign_race_thread repeatedly updates shared statistics without locks to simulate concurrent packet reception. This indicates intentional, designed parallel execution.
+  - Actually Concurrent: Yes
+    Reasoning: The two functions shown (receive_thread and benign_race_thread) are independent pthread entry points that can be scheduled simultaneously. They access shared objects (g_net_device.dsa_ptr/g_dsa_switch and the ds->stats fields) without global serialization, so their executions can overlap in time.
+Analyzing pair: Thread 2 and Thread 3
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally designed to create a race window to demonstrate a TOCTOU/use-after-free/null-deref scenario. The explicit mutex/cond coordination and usleep are used to widen the window between the check and later use.
+  - Actually Concurrent: Yes
+    Reasoning: Two pthread-based threads (receive_thread and shutdown_thread) execute concurrently, coordinating only briefly via a mutex/condition variable to establish ordering of the initial check. After the receive thread signals, both threads proceed independently: shutdown thread writes g_net_device.dsa_ptr = NULL while receive thread later re-accesses g_net_device.dsa_ptr without synchronization. This creates a real concurrent overlap.
+Analyzing pair: Thread 1 and Thread 3
+  - Designed for Parallelism: Yes
+    Reasoning: The program intends parallel operation: one thread simulates packet reception by updating stats, while another coordinates shutdown by nullifying a shared pointer after a condition. This division of roles is a standard parallel design.
+  - Actually Concurrent: Yes
+    Reasoning: Both entry functions are typical pthread-style threads that can be scheduled simultaneously. shutdown_thread only synchronizes with a different "receive" thread via mutex/cond; there is no ordering or join that prevents overlap with benign_race_thread, which loops with usleep, allowing concurrent execution windows.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-49998_2025-09-03_00-59-51/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-49998_2025-09-03_00-59-51/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-49998
+----------------------------------------
+正在处理: CVE-2024-50082 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-50082/CVE-2024-50082.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-50082/CVE-2024-50082.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-50082/CVE-2024-50082.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-50082/CVE-2024-50082.c", lineNumber: 149 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'waiter_thread' as a candidate.
+  -> Found thread arg in function 'waker_thread' as a candidate.
+  -> Found thread arg in function 'clobber_stack_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 9
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 56)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 29)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 20)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 3 and Thread 2
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: Connection reset by peer in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3386822 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-50082 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-50082/CVE-2024-50082.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-50082/CVE-2024-50082.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-50082/CVE-2024-50082.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-50082/CVE-2024-50082.c", lineNumber: 149 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'waiter_thread' as a candidate.
+  -> Found thread arg in function 'waker_thread' as a candidate.
+  -> Found thread arg in function 'clobber_stack_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 9
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 56)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 29)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 20)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 3 and Thread 2
+  - Designed for Parallelism: Yes
+    Reasoning: The code explicitly spawns separate threads to model a waiter/waker pattern with condition variables and a shared wait queue, intending concurrent execution to reproduce a race/UAF scenario.
+  - Actually Concurrent: Yes
+    Reasoning: Two pthread-based threads (waiter and waker) interact via shared globals, a wait queue protected by g_wait_queue.lock, and condition variables under g_mutex. They run simultaneously with signaling and sleeps that allow true overlap, so operations can interleave.
+Analyzing pair: Thread 3 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: waiter_thread is intended to coordinate with a separate waker via mutexes/condition variables; clobber_stack_thread intentionally does not touch any shared state. There is no designed interaction or shared-variable dependency between these two specific threads.
+  - Actually Concurrent: Yes
+    Reasoning: Both functions are entry points of independent POSIX threads and can run at the same time under the scheduler.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally multi-threaded: one thread plays a Waker role manipulating a wait-queue and condition variables, while the other is a Worker that does independent stack clobbering and logging. They are intended to run in parallel.
+  - Actually Concurrent: Yes
+    Reasoning: Both functions are distinct pthread entry points that may be scheduled simultaneously. The waker_thread blocks on a condition variable unrelated to clobber_stack_thread, and clobber_stack_thread executes independently; nothing enforces mutual exclusion or serialized execution between them.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-50082_2025-09-03_01-24-57/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 3 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-50082_2025-09-03_01-24-57/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-50082
+----------------------------------------
+正在处理: CVE-2024-53124 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-53124/CVE-2024-53124.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-53124/CVE-2024-53124.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-53124/CVE-2024-53124.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-53124/CVE-2024-53124.c", lineNumber: 50 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 11 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_receive_path' as a candidate.
+  -> Found thread arg in function 'simulate_receive_path' as a candidate.
+  -> Found thread arg in function 'monitor_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 3 (Entry Function ID: 36)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 36)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 25)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 3 and Thread 2
+  - Designed for Parallelism: Yes
+    Reasoning: The code is clearly designed to run the workers in parallel to simulate concurrent adjustments to a per-socket accounting counter until a global stop flag is set.
+  - Actually Concurrent: Yes
+    Reasoning: Both Thread 2 and Thread 3 are worker threads that execute the same loop body concurrently over shared variables. They repeatedly perform atomic RMW operations on sk->sk_forward_alloc while polling the shared stop_threads flag. There is no mutual exclusion or sequencing between the two, so their executions can interleave.
+Analyzing pair: Thread 3 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The roles (Worker and Monitor) and the code structure (two loops governed by a shared stop flag) indicate that they are designed to run concurrently: the monitor observes the worker’s effects and can signal termination via stop_threads.
+  - Actually Concurrent: Yes
+    Reasoning: Both functions are intended to run as separate threads and loop simultaneously while checking a shared stop flag. The worker continuously updates an atomic per-socket counter, and the monitor continuously reads that counter; there is no synchronization that would serialize their execution, so they can execute at the same time.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The roles (Worker and Monitor), shared state, and independent while-loops indicate intent for parallel operation where the monitor observes and controls the worker via global flags.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads execute independently: the worker loops mutating sk->sk_forward_alloc, while the monitor concurrently samples that field and may set global stop flags. There is no mutual exclusion or sequencing that would serialize them, so they can run at the same time.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-53124_2025-09-03_01-45-52/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 2 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-53124_2025-09-03_01-45-52/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-53124
+----------------------------------------
+正在处理: CVE-2024-53136 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-53136/CVE-2024-53136.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-53136/CVE-2024-53136.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-53136/CVE-2024-53136.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-53136/CVE-2024-53136.c", lineNumber: 57 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 6 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_reader_thread' as a candidate.
+  -> Found thread arg in function 'simulate_writer_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 3
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 1 (Entry Function ID: 17)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 22)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 1 and Thread 2
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured as a concurrent reader/writer pair around a shared inode. The writer uses a pthread_rwlock write lock to protect updates to i_size, indicating a design that relies on reader-writer synchronization; the reader, however, currently omits the corresponding read lock.
+  - Actually Concurrent: Yes
+    Reasoning: Both threads run in while (!stop_threads) loops and operate on the same shared inode object concurrently. The writer even calls usleep(100) to allow the reader to run in parallel, and there is no synchronization that serializes the two threads with respect to each other as a whole.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-53136_2025-09-03_02-09-56/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-53136
+----------------------------------------
+正在处理: CVE-2024-53160 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-53160/CVE-2024-53160.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-53160/CVE-2024-53160.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-53160/CVE-2024-53160.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-53160/CVE-2024-53160.c", lineNumber: 68 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 5 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_kvfree_call_rcu' as a candidate.
+  -> Found thread arg in function 'simulate_kfree_rcu_monitor' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 3
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 27)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 20)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: Both are monitor-style threads intended to run in parallel: one repeatedly writes to a shared timer field, the other repeatedly reads it under a mutex. The presence of a mutex in one thread indicates intended synchronization, though it is not used by the writer.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate pthread entry functions each loop while polling a global stop flag. There is no synchronization that serializes their loops; thus they can run and interleave concurrently on different cores.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-53160_2025-09-03_02-17-02/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+     [+] Concurrency check passed.
+    [!!!] POTENTIAL DATA RACE VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-53160_2025-09-03_02-17-02/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-53160
+----------------------------------------
+正在处理: CVE-2024-56555 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-56555/CVE-2024-56555.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-56555/CVE-2024-56555.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-56555/CVE-2024-56555.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-56555/CVE-2024-56555.c", lineNumber: 203 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 21 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_iterator_thread' as a candidate.
+  -> Found thread arg in function 'simulate_remover_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 67)
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  API request failed (curl exit=35): curl: (35) OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to jeniya.cn:443 
+
+./run_all_cves.sh: line 48: 3387553 Aborted                 (core dumped) "$DETECTOR_PATH" --input-src "$input_src" --input-bc "$input_bc" --llm-provider "$LLM_PROVIDER" --llm-model "$LLM_MODEL" --llm-key "$LLM_KEY"
+处理 CVE-2024-56555 失败 (尝试次数 1/3)，退出码: 134
+将在 10 秒后重试...
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-56555/CVE-2024-56555.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-56555/CVE-2024-56555.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-56555/CVE-2024-56555.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-56555/CVE-2024-56555.c", lineNumber: 203 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 21 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_iterator_thread' as a candidate.
+  -> Found thread arg in function 'simulate_remover_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 67)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 39)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The design intentionally orchestrates a race window: iterator releases inner_lock, sets a flag and signals, allowing remover to remove the current node before iterator resumes. This demonstrates a TOCTOU vulnerability.
+  - Actually Concurrent: Yes
+    Reasoning: There are two pthread-based threads: an iterator thread that drops proc->inner_lock intentionally and a remover thread that waits on a condition variable; after being signaled it runs concurrently, acquiring the same inner_lock. The code explicitly creates an interleaving where remover operates while iterator is unlocked.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-56555_2025-09-03_02-30-13/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 3 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-56555_2025-09-03_02-30-13/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-56555
+----------------------------------------
+正在处理: CVE-2024-56788 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-56788/CVE-2024-56788.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-56788/CVE-2024-56788.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-56788/CVE-2024-56788.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-56788/CVE-2024-56788.c", lineNumber: 119 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_xmit_thread' as a candidate.
+  -> Found thread arg in function 'simulate_spi_thread' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 1 (Entry Function ID: 26)
+  -> Successfully generated contract.
+Analyzing thread 2 (Entry Function ID: 48)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 1 and Thread 2
+  - Designed for Parallelism: Yes
+    Reasoning: The roles are Producer and Worker operating on a shared oa_tc6_private context, explicitly coordinating via shared pointers; the comments mention races and lack of locks, indicating intentional concurrent execution.
+  - Actually Concurrent: Yes
+    Reasoning: Both simulate_xmit_thread and simulate_spi_thread run independent while-loops governed by the shared stop_simulation flag and sleep calls, and are intended to run simultaneously on separate threads.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-56788_2025-09-03_03-01-14/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 2 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-56788_2025-09-03_03-01-14/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-56788
+----------------------------------------
+正在处理: CVE-2024-58072 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2024-58072/CVE-2024-58072.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2024-58072/CVE-2024-58072.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2024-58072/CVE-2024-58072.c
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2024-58072/CVE-2024-58072.c", lineNumber: 218 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'simulate_second_probe' as a candidate.
+  -> Found thread arg in function 'simulate_probe_failure' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 13)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 21)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The test harness intentionally launches two threads to simulate probe-failure cleanup racing with a second probe; prints explicitly label Thread A/B, indicating intended parallelism.
+  - Actually Concurrent: Yes
+    Reasoning: Two pthread-based worker functions simulate failing probe (Thread A) and second probe (Thread B) running concurrently with no global serialization. Thread B deliberately usleeps to overlap after Thread A adds to list; both proceed independently afterward.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2024-58072_2025-09-03_03-15-03/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [-] Reachability check failed. No path from CHECK to USE.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2024-58072_2025-09-03_03-15-03/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2024-58072
+----------------------------------------
+正在处理: CVE-2025-22050 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-22050/CVE-2025-22050.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-22050/CVE-2025-22050.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-22050/CVE-2025-22050.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-22050/CVE-2025-22050.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-22050/CVE-2025-22050.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-22050/CVE-2025-22050.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-22050
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 570 nodes, 3436 edges into /home/ConCodeQL/cpg_dot/CVE-2025-22050
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-22050
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-22050/CVE-2025-22050.c", lineNumber: 107 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 19 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'thread_teardown_path' as a candidate.
+  -> Found thread arg in function 'thread_rx_path' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 25)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 34)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The roles indicate an RX worker operating while a teardown worker may signal device disconnect. This mirrors real systems where RX completions can race with device teardown; the barrier suggests intentional staging to create/ensure overlap for testing. Therefore, they are designed to run in parallel.
+  - Actually Concurrent: Yes
+    Reasoning: Two distinct pthread entry functions run without mutual exclusion. Thread 2 uses a barrier to coordinate start/stop windows, but Thread 1 does not synchronize with it, leaving an overlap window where both execute concurrently. Thus, there exists real-time overlap in which Thread 2 can set g_dev.flags while Thread 1 processes RX.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-22050_2025-09-03_03-30-14/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-22050
+----------------------------------------
+正在处理: CVE-2025-23142 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-23142/CVE-2025-23142.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-23142/CVE-2025-23142.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-23142/CVE-2025-23142.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-23142/CVE-2025-23142.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-23142/CVE-2025-23142.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-23142/CVE-2025-23142.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-23142
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 744 nodes, 4918 edges into /home/ConCodeQL/cpg_dot/CVE-2025-23142
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-23142
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-23142/CVE-2025-23142.c", lineNumber: 180 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 26 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'thread_sendmsg' as a candidate.
+  -> Found thread arg in function 'thread_remove_transport' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 9
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 48)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 39)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The design appears to intentionally run both threads in parallel: the sender performs a send under g_sock while the reclaimer coordinates via a barrier to free the transport afterward. The barrier suggests an intended ordering (free after send lock release), not mutual exclusion of the threads themselves.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads (thread_sendmsg and thread_remove_transport) operate over shared globals. The socket lock only protects g_sock and the send path; the reclaimer frees g_sctp_transport_ptr without taking that lock. A barrier is used to sequence, but does not eliminate overlap of lifetimes outside the critical section. Therefore, concurrent access to shared state is possible.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-23142_2025-09-03_03-42-20/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [-] Reachability check failed. No path from CHECK to USE.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-23142_2025-09-03_03-42-20/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-23142
+----------------------------------------
+正在处理: CVE-2025-23151 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-23151/CVE-2025-23151.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-23151/CVE-2025-23151.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-23151/CVE-2025-23151.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-23151/CVE-2025-23151.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-23151/CVE-2025-23151.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-23151/CVE-2025-23151.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-23151
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 1696 nodes, 11579 edges into /home/ConCodeQL/cpg_dot/CVE-2025-23151
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-23151
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-23151/CVE-2025-23151.c", lineNumber: 365 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 20 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'thread_queue' as a candidate.
+  -> Found thread arg in function 'thread_unprepare' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 11
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 54)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 60)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The teardown worker is explicitly meant to run while a queue operation is in progress to exercise teardown-during-activity behavior. The presence of a barrier and a race_flag indicates intentional interleaving.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate pthread entry points (thread_queue and thread_unprepare) are launched and run simultaneously, coordinating via a test barrier. Their operations on shared MHI device/channel state can overlap in time.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-23151_2025-09-03_03-52-50/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-23151_2025-09-03_03-52-50/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-23151
+----------------------------------------
+正在处理: CVE-2025-37772 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-37772/CVE-2025-37772.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-37772/CVE-2025-37772.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-37772/CVE-2025-37772.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-37772/CVE-2025-37772.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-37772/CVE-2025-37772.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-37772/CVE-2025-37772.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-37772
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 525 nodes, 3033 edges into /home/ConCodeQL/cpg_dot/CVE-2025-37772
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-37772
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-37772/CVE-2025-37772.c", lineNumber: 184 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 21 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'worker_thread_func' as a candidate.
+  -> Found thread arg in function 'net_event_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 19)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 24)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured for parallel execution: a producer thread enqueues and mutates work and uses barriers to create a controlled race window, while a worker thread waits on matching barriers and then processes the shared workqueue.
+  - Actually Concurrent: Yes
+    Reasoning: Two distinct threads execute in parallel. They synchronize via two barriers to phase their progress, but both threads are live concurrently. The producer thread performs operations on shared globals (g_cma_wq, g_cm_id.net_work) while coordinating with the worker thread, which later reads/processes the shared workqueue.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-37772_2025-09-03_04-17-58/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-37772
+----------------------------------------
+正在处理: CVE-2025-37854 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-37854/CVE-2025-37854.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-37854/CVE-2025-37854.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-37854/CVE-2025-37854.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-37854/CVE-2025-37854.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-37854/CVE-2025-37854.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-37854/CVE-2025-37854.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-37854
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 468 nodes, 2887 edges into /home/ConCodeQL/cpg_dot/CVE-2025-37854
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-37854
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-37854/CVE-2025-37854.c", lineNumber: 145 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 19 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'kfd_cleanup_thread_func' as a candidate.
+  -> Found thread arg in function 'gpu_user_queue_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 6
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 32)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 54)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally designed to model a GPU worker concurrently writing to a buffer while a cleanup thread frees and repurposes it to demonstrate a UAF scenario. The barrier ensures concurrent start; the subsequent operations are meant to run in parallel.
+  - Actually Concurrent: Yes
+    Reasoning: Both threads synchronize only at a startup barrier and then proceed independently: Thread 1 loops writing to gpu_local_ptr while Thread 2, after the same barrier and a small sleep, frees and nulls the buffer pointer. There is no further mutual exclusion or ordering, so their operations can overlap in time.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-37854_2025-09-03_04-32-00/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-37854_2025-09-03_04-32-00/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-37854
+----------------------------------------
+正在处理: CVE-2025-37882 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-37882/CVE-2025-37882.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-37882/CVE-2025-37882.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-37882/CVE-2025-37882.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-37882/CVE-2025-37882.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-37882/CVE-2025-37882.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-37882/CVE-2025-37882.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-37882
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 557 nodes, 3420 edges into /home/ConCodeQL/cpg_dot/CVE-2025-37882
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-37882
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-37882/CVE-2025-37882.c", lineNumber: 145 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 25 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'driver_submit_thread_func' as a candidate.
+  -> Found thread arg in function 'interrupt_handler_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 35)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 49)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: This setup is explicitly designed to model a driver/IRQ concurrency scenario: the IRQ handler simulates interrupt moderation delay while the driver concurrently queues a new TD into the same ring slot. Barriers are used only to orchestrate a deterministic interleaving for testing, not to serialize the roles permanently. Therefore, the code is designed for parallel execution and to expose a TOCTOU-style race.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate pthreads (driver_submit_thread_func and interrupt_handler_thread_func) execute in parallel. They synchronize only via two barriers, but there is no mutual exclusion protecting the shared ring slot or enqueue pointer. The IRQ thread sets up a pointer to a ring slot (Time-of-Check) and, while it is delayed, the driver thread modifies that same ring slot; later the IRQ thread uses the previously checked pointer (Time-of-Use). Thus, the critical operations can overlap in time in the absence of barriers, and even here are intentionally ordered across barriers to simulate that interleaving.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-37882_2025-09-03_04-43-22/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [-] Reachability check failed. No path from CHECK to USE.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-37882_2025-09-03_04-43-22/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-37882
+----------------------------------------
+警告: 源文件 /home/ConCodeQL/LinConVul/CVE-2025-37920/CVE-2025-37920.c 未找到，跳过 CVE-2025-37920。
+正在处理: CVE-2025-38037 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38037/CVE-2025-38037.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38037/CVE-2025-38037.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38037/CVE-2025-38037.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38037/CVE-2025-38037.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38037/CVE-2025-38037.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38037/CVE-2025-38037.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38037
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 496 nodes, 2952 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38037
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38037
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38037/CVE-2025-38037.c", lineNumber: 139 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 14 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'transmit_thread_func' as a candidate.
+  -> Found thread arg in function 'transmit_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 3
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 24)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 24)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: Both threads are described as workers in a network transmit path, and the contracts explicitly mention shared VXLAN FDB metadata being accessed/updated by both. This indicates they are intended to run in parallel over shared resources (typical of multi-queue TX workers).
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads execute the same entry function transmit_thread_func concurrently, each calling into the mock transmit path that ultimately updates the same VXLAN FDB fields. No synchronization is present in the contracts, so their executions can overlap in time.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38037_2025-09-03_04-57-43/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38037
+----------------------------------------
+正在处理: CVE-2025-38048 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38048/CVE-2025-38048.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38048/CVE-2025-38048.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38048/CVE-2025-38048.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38048/CVE-2025-38048.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38048/CVE-2025-38048.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38048/CVE-2025-38048.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38048
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 273 nodes, 1513 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38048
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38048
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38048/CVE-2025-38048.c", lineNumber: 111 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'task_context_thread_func' as a candidate.
+  -> Found thread arg in function 'interrupt_context_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 17)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 21)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured to model an interrupt vs task-context interaction and to expose a race window: Thread B signals imminent read, Thread A performs a write, and both rendezvous after. This design purposefully enables parallel execution to demonstrate a race.
+  - Actually Concurrent: Yes
+    Reasoning: Two independent threads execute in parallel: task_context_thread_func calls virtqueue_enable_cb_delayed and interrupt_context_thread_func calls virtqueue_disable_cb. They synchronize via barriers only to stage the interleaving; no mutual exclusion is used, so concurrent access to g_vq.event_triggered occurs between the barriers.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38048_2025-09-03_05-11-40/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-38048_2025-09-03_05-11-40/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38048
+----------------------------------------
+正在处理: CVE-2025-38078 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38078/CVE-2025-38078.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38078/CVE-2025-38078.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38078/CVE-2025-38078.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38078/CVE-2025-38078.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38078/CVE-2025-38078.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38078/CVE-2025-38078.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38078
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 448 nodes, 2655 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38078
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38078
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38078/CVE-2025-38078.c", lineNumber: 147 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 17 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'pcm_free_thread_func' as a candidate.
+  -> Found thread arg in function 'pcm_init_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 25)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 38)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code intentionally uses pthread barriers to open a race window between a read/use in Thread 1 and a free/null in Thread 2, creating a use-after-free scenario. This indicates it is designed for parallel execution and racing behavior.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads execute: pcm_init_thread_func (Thread 1) calls a vulnerable initializer that reads and uses g_substream.runtime->dma_area while pcm_free_thread_func (Thread 2) waits on a barrier and then frees and nulls that same pointer. The barriers explicitly coordinate overlap so that the free occurs while Thread 1 may still use the pointer.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38078_2025-09-03_05-19-04/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-38078_2025-09-03_05-19-04/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38078
+----------------------------------------
+正在处理: CVE-2025-38165 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38165/CVE-2025-38165.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38165/CVE-2025-38165.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38165/CVE-2025-38165.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38165/CVE-2025-38165.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38165/CVE-2025-38165.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38165/CVE-2025-38165.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38165
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 389 nodes, 2324 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38165
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38165
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38165/CVE-2025-38165.c", lineNumber: 134 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 22 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 1
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38165_2025-09-03_05-27-49/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38165
+----------------------------------------
+正在处理: CVE-2025-38217 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38217/CVE-2025-38217.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38217/CVE-2025-38217.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38217/CVE-2025-38217.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38217/CVE-2025-38217.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38217/CVE-2025-38217.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38217/CVE-2025-38217.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38217
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 428 nodes, 2527 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38217
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38217
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38217/CVE-2025-38217.c", lineNumber: 150 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 20 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'device_update_thread_func' as a candidate.
+  -> Found thread arg in function 'hwmon_read_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 5
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 19)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 26)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The code is intentionally structured to demonstrate a TOCTOU race: barriers bracket a race window between a check and a subsequent use. Thus, the threads are designed to run in parallel and interleave in a controlled manner.
+  - Actually Concurrent: Yes
+    Reasoning: Two separate threads execute: Thread A invokes fts_read while Thread B invokes fts_update_device. They synchronize with two barriers to deliberately create an overlap window where Thread B modifies shared device state while Thread A has already checked it but not yet used it. This establishes real concurrency during the window.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38217_2025-09-03_05-30-11/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-38217_2025-09-03_05-30-11/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38217
+----------------------------------------
+正在处理: CVE-2025-38242 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38242/CVE-2025-38242.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38242/CVE-2025-38242.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38242/CVE-2025-38242.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38242/CVE-2025-38242.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38242/CVE-2025-38242.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38242/CVE-2025-38242.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38242
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 733 nodes, 4500 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38242
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38242
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38242/CVE-2025-38242.c", lineNumber: 243 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 38 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'memory_manager_thread_func' as a candidate.
+  -> Found thread arg in function 'userfaultfd_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 9
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 32)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 49)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The scenario is explicitly crafted to simulate a swap race: Thread 1 opens a race window and performs lockless operations, while Thread 2 concurrently mutates the swap cache and PTE. The barrier coordinates start order but not mutual exclusion, indicating intentional parallel execution and race exposure.
+  - Actually Concurrent: Yes
+    Reasoning: Thread 2 waits on a barrier that indicates Thread 1 has opened a "race window" and then proceeds to update g_swap_cache and g_page_table_entry while Thread 1 performs a lockless lookup and validation. After the barrier, there is no mutual exclusion; both threads can run concurrently on shared data.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38242_2025-09-03_05-38-52/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-38242_2025-09-03_05-38-52/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38242
+----------------------------------------
+正在处理: CVE-2025-38250 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38250/CVE-2025-38250.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38250/CVE-2025-38250.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38250/CVE-2025-38250.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38250/CVE-2025-38250.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38250/CVE-2025-38250.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38250/CVE-2025-38250.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38250
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 641 nodes, 3797 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38250
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38250
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38250/CVE-2025-38250.c", lineNumber: 232 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 24 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'close_thread_func' as a candidate.
+  -> Found thread arg in function 'ioctl_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 4
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 49)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 57)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: These are separate roles (I/O handler and Closer) intentionally executed as concurrent threads to simulate teardown during ongoing operations; no design indicates they should be serialized.
+  - Actually Concurrent: Yes
+    Reasoning: Two independent pthread entry functions run without mutual exclusion. The IOCTL thread repeatedly loads g_hdev_ptr and may call hci_dev_do_reset while the Close thread atomically clears g_hdev_ptr and calls vhci_release. The sleeps make overlap highly likely; no synchronization prevents interleavings.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38250_2025-09-03_05-53-16/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [-] Concurrency check failed. Threads are not concurrent.
+No stateful protocol violations detected.
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
+处理成功: CVE-2025-38250
+----------------------------------------
+正在处理: CVE-2025-38337 (第 1 轮)
+InputSrcDir: /home/ConCodeQL/LinConVul/CVE-2025-38337/CVE-2025-38337.c
+InputBCFileName: /home/ConCodeQL/llvmbc/llvm15/LinConVul/CVE-2025-38337/CVE-2025-38337.ll
+Generating CPG for project directory: /home/ConCodeQL/LinConVul/CVE-2025-38337/CVE-2025-38337.c
+Parsing code at: /home/ConCodeQL/LinConVul/CVE-2025-38337/CVE-2025-38337.c - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /opt/joern/joern-cli/c2cpg.sh -J-Xmx102400m /home/ConCodeQL/LinConVul/CVE-2025-38337/CVE-2025-38337.c --output cpg.bin
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+Successfully wrote graph to: /home/ConCodeQL/cpg.bin
+To load the graph, type `joern /home/ConCodeQL/cpg.bin`
+generateCPGCommand: joern-parse -J-Xmx100G /home/ConCodeQL/LinConVul/CVE-2025-38337/CVE-2025-38337.c
+drawCPGCommand: joern-export -J-Xmx60G cpg.bin --repr=all --format=dot --out /home/ConCodeQL/cpg_dot/CVE-2025-38337
+Joern CPG generation (generate cpg.bin) succeed! 
+exported 839 nodes, 5991 edges into /home/ConCodeQL/cpg_dot/CVE-2025-38337
+Joern CPG drawing succeed! 
+CPG data generated at: /home/ConCodeQL/cpg_dot/CVE-2025-38337
+Graphviz parse dot succeed! 
+CPG building succeed! 
+Running whole-program pointer analysis with Phasar succeed! 
+DEBUG: Found entry point -> EntryPointInfo { functionName: "main", fileName: "LinConVul/CVE-2025-38337/CVE-2025-38337.c", lineNumber: 252 }
+Building thread creation tree succeed! 
+LockSet Analysis succeed! 
+CCPG Analysis succeed! 
+[DEBUG PRINT] Phase 1: Found 23 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'race_thread_func' as a candidate.
+  -> Found thread arg in function 'race_thread_func' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 7
+
+--- Starting LLM-based Concurrency Analysis ---
+
+[Phase 1: Generating Concurrency Contracts]
+Analyzing thread 2 (Entry Function ID: 36)
+  -> Successfully generated contract.
+Analyzing thread 1 (Entry Function ID: 36)
+  -> Successfully generated contract.
+
+[Phase 2: Analyzing Parallelism and Building Access Maps]
+  -> Pre-calculating raw memory access maps for all threads...
+  -> Caching complete.
+Analyzing pair: Thread 2 and Thread 1
+  - Designed for Parallelism: Yes
+    Reasoning: The program intentionally spawns multiple worker threads that call into the same journaling routine to mark metadata dirty on shared globals, indicating it is designed to run in parallel (likely to expose or test races).
+  - Actually Concurrent: Yes
+    Reasoning: Two worker threads execute the same entry function race_thread_func concurrently, both invoking jbd2_journal_dirty_metadata on the same global objects (&g_handle, &g_bh) without any shown synchronization. Therefore their executions can overlap in time and operate on shared state.
+Temporal rules have been logged to: "/home/ConCodeQL/LLM_dump/CVE-2025-38337_2025-09-03_06-06-07/temporal_rules.log"
+
+--- LLM-based Analysis Finished ---
+
+
+[Phase 4: Detecting Stateful Protocol Violations (Rule-Based)]
+  -> Verifying TOCTOU rule...
+     [+] Concurrency check passed.
+     [+] Reachability check passed.
+    [!!!] POTENTIAL TOCTOU VIOLATION FOUND for rule.
+Stateful bug detection complete. 1 potential bugs found. Results are in: "/home/ConCodeQL/LLM_dump/CVE-2025-38337_2025-09-03_06-06-07/stateful_bugs/bugs.txt"
+LLM-guided analysis complete. Results are in the output directory.
+
+[Phase 4: Evaluating Results with LLM]
+  - Evaluating Fsam...
+  - Evaluating Our Tool (LLM-guided Detector)...
+  - Evaluating RacerF...
+LLM-based evaluation complete. Report saved in output directory.
