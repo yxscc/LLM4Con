@@ -43,6 +43,10 @@ ParallelAnalysisAgent::ParallelAnalysisAgent(std::shared_ptr<LLMClient> client)
     // 初始化所有支持的规则
     m_supported_rules["TOCTOU"] = std::make_unique<TOCTOURule>();
     m_supported_rules["DataRace"] = std::make_unique<DataRaceRule>();
+    m_supported_rules["USE_AFTER_FREE"] = std::make_unique<UseAfterFreeRule>();
+    m_supported_rules["DOUBLE_FREE"] = std::make_unique<DoubleFreeRule>();
+    m_supported_rules["NULL_POINTER_DEREFERENCE"] = std::make_unique<NullPointerDereferenceRule>();
+    m_supported_rules["DEADLOCK"] = std::make_unique<DeadlockRule>();
     // m_supported_rules["DOUBLE_FETCH"] = std::make_unique<DoubleFetchRule>();
     
     // 在构造函数中调用 set_system_prompt，而不是依赖基类构造函数
@@ -113,7 +117,7 @@ std::vector<Tool> ParallelAnalysisAgent::get_available_tools() const {
     tools.push_back(
         {"start_rule", "Starts the definition of a new stateful rule.", {
             {"rule_id", "string", "A unique name for this rule instance, e.g., 'TASK_STATUS_TOCTOU'.", true},
-            {"pattern_type", "string", "The pattern type to define. Currently supported: 'TOCTOU'.", true},
+            {"pattern_type", "string", "The pattern type to define. Currently supported: 'TOCTOU', 'DataRace', 'USE_AFTER_FREE', 'DOUBLE_FREE', 'NULL_POINTER_DEREFERENCE', 'DEADLOCK'.", true},
             {"shared_object_type", "string", "The C-style type of the shared object.", true},
             {"rule_summary", "string", "A clear, natural language summary of the rule's intent.", true}
         }}
@@ -232,12 +236,19 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
             // 这里我们创建一个新的实例，而不是移动，因为m_supported_rules是模板
             if (pattern_type == "TOCTOU") {
                  context->current_rule = std::make_unique<TOCTOURule>();
-            }
-            else if (pattern_type == "DataRace") {
+            } else if (pattern_type == "DataRace") {
                 context->current_rule = std::make_unique<DataRaceRule>();
+            } else if (pattern_type == "USE_AFTER_FREE") {
+                context->current_rule = std::make_unique<UseAfterFreeRule>();
+            } else if (pattern_type == "DOUBLE_FREE") {
+                context->current_rule = std::make_unique<DoubleFreeRule>();
+            } else if (pattern_type == "NULL_POINTER_DEREFERENCE") {
+                context->current_rule = std::make_unique<NullPointerDereferenceRule>();
+            } else if (pattern_type == "DEADLOCK") {
+                context->current_rule = std::make_unique<DeadlockRule>();
             }
         } else {
-            return "{\"error\": \"Unsupported pattern_type: '" + pattern_type + "'. Supported types: 'TOCTOU'.\"}";
+            return "{\"error\": \"Unsupported pattern_type: '" + pattern_type + "'.\"}";
         }       
 
         context->current_rule->set_metadata(rule_id, object_type, context->current_rule_summary);

@@ -46,6 +46,7 @@ public:
 
 private:
     std::vector<StatefulBug> detectedBugs;
+    std::set<std::pair<std::string, NodeLoc>> reported_bugs_locations;
 };
 
 } // namespace query

@@ -22,6 +22,13 @@ namespace llm_client {
 std::shared_ptr<LLMClient> LLMClient::instance = nullptr;
 std::mutex LLMClient::mutex;
 
+void LLMClient::reset_instance() {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (instance) {
+        instance.reset(); // 销毁当前实例并将 shared_ptr 置为 nullptr
+    }
+}
+
 // --- GPT5's Robust Helper Functions ---
 
 /**

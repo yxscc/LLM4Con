@@ -130,6 +130,7 @@ file(GLOB_RECURSE ALL_SRC "src/*.cpp" "src/Util/*.cpp")
 # 2. Create a list of COMMON source files by filtering out ALL main entry points.
 list(FILTER ALL_SRC EXCLUDE REGEX ".*main.cpp$")
 list(FILTER ALL_SRC EXCLUDE REGEX ".*llm_main.cpp$")
+list(FILTER ALL_SRC EXCLUDE REGEX ".*llm_comparison.cpp$")
 set(COMMON_SRC ${ALL_SRC})
 
 # 3. Define the source list for the 'ccql' executable.
@@ -140,9 +141,13 @@ set(CCQL_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/main.cpp")
 # It includes the common files plus its own llm_main.cpp.
 set(LLM_DETECTOR_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/llm_main.cpp")
 
+# Define the source list for the 'llm_conparison' executable.
+set(LLM_COMPARISON_SRC ${COMMON_SRC} "${PROJECT_SOURCE_DIR}/src/llm_comparison.cpp")
+
 # 5. Add the executables with their correct, separate source lists.
 #add_executable(ccql ${CCQL_SRC})
 add_executable(llm_detector ${LLM_DETECTOR_SRC})
+add_executable(llm_comparison ${LLM_COMPARISON_SRC})
 
 
 
@@ -158,6 +163,15 @@ add_executable(llm_detector ${LLM_DETECTOR_SRC})
 #    pthread
 #    phasar::phasar)
 target_link_libraries(llm_detector PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
+    cpprestsdk::cpprest
+    OpenSSL::SSL
+    OpenSSL::Crypto
+    Boost::system
+    Boost::thread
+    pthread
+    phasar::phasar)
+
+target_link_libraries(llm_comparison PUBLIC ${llvm_libs} ${Z3_LIBRARIES} curl cgraph 
     cpprestsdk::cpprest
     OpenSSL::SSL
     OpenSSL::Crypto

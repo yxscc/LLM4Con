@@ -175,6 +175,8 @@ public:
         const std::string& base_url,
         const std::string& api_key);
 
+    static void reset_instance();
+
     static std::shared_ptr<LLMClient> get_instance();
 
     LLMResponse chat(const std::vector<ChatMessage>& messages, const std::vector<Tool>& available_tools = {});

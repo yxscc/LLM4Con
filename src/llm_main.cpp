@@ -1,3 +1,5 @@
+// in src/llm_main.cpp
+
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -75,14 +77,41 @@ std::string cleanSourceCode(const std::string& source_path) {
     return cleaned_ss.str();
 }
 
+// 新增的辅助函数，用于清理从CPG获取的代码片段
+std::string cleanCodeSnippet(const std::string& code) {
+    std::string cleaned_code = code;
+    // 移除多行注释
+    cleaned_code = std::regex_replace(cleaned_code, std::regex("/\\*[\\s\\S]*?\\*/"), "");
+    // 移除单行注释
+    cleaned_code = std::regex_replace(cleaned_code, std::regex("//.*"), "");
+
+    std::stringstream original_ss(cleaned_code);
+    std::stringstream final_ss;
+    std::string line;
+
+    // 移除包含printf的行
+    while (std::getline(original_ss, line)) {
+        if (line.find("printf") == std::string::npos) {
+            final_ss << line << "\n";
+        }
+    }
+    return final_ss.str();
+}
+
+
 void runZeroShotAnalysis(const std::string& source_code_path, const fs::path& outputDir) {
     std::stringstream code_ss;
 
     for (Thread* t : ThreadCreationTree::getInstance()->getThreads()) {
-        if (t->getThreadMainFunction()) {
+        if (t->getThreadMainFunction() && t->getThreadMainFunction()->getFuncNode()) {
             std::string func_name = t->getThreadMainFunction()->getFuncNode()->getCPGNode()->getName();
+            std::string original_code = t->getThreadMainFunction()->getFuncNode()->getCPGNode()->getCode();
+            
+            // 在这里调用清理函数
+            std::string cleaned_code = cleanCodeSnippet(original_code);
+
             code_ss << "/* Thread " << t->getId() << " Entry Function: " << func_name << " */\n";
-            code_ss << t->getThreadMainFunction()->getFuncNode()->getCPGNode()->getCode() << "\n\n";
+            code_ss << cleaned_code << "\n\n";
         }
     }
 
@@ -214,9 +243,6 @@ std::string convertToBC(const std::string& file){
     return bcFile.string();
 }
 
-// =================================================================
-// NEW HELPER FUNCTIONS FOR LLM EVALUATION
-// =================================================================
 
 std::string readFileContent(const fs::path& path) {
     if (!fs::exists(path)) {
