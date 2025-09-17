@@ -15,9 +15,6 @@ set(SVF_INSTALL_EXTAPI_DIR ${SVF_INSTALL_LIB_DIR})
 set(SVF_INSTALL_EXTAPI_FILE ${SVF_INSTALL_EXTAPI_DIR}/extapi.bc)
 
 
-configure_file(${PROJECT_SOURCE_DIR}/.config.in
-               ${PROJECT_BINARY_DIR}/include/Util/config.h)
-
 # Include the directory where the configuration header is exported for all targets
 include_directories(${SVF_BINARY_DIR}/include)
 
@@ -85,27 +82,6 @@ find_package(OpenSSL REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system thread)  # 新增
 find_package(phasar REQUIRED)
 
-# Find Z3 and its include directory from the top-level include file
-find_library(
-  Z3_LIBRARIES
-  REQUIRED
-  NAMES z3
-  HINTS ${Z3_DIR} ENV Z3_DIR
-  PATH_SUFFIXES bin lib)
-find_path(
-  Z3_INCLUDES
-  REQUIRED
-  NAMES z3++.h
-  HINTS ${Z3_DIR} ENV Z3_DIR
-  PATH_SUFFIXES include z3)
-message(STATUS "Z3 STATUS:
-  Z3 library file:        ${Z3_LIBRARIES}
-  Z3 include directory:   ${Z3_INCLUDES}")
-
-# Add the Z3 include directory and link the Z3 library to all targets of SVF
-set(CMAKE_INSTALL_RPATH ${Z3_INCLUDES})
-link_libraries(${Z3_LIBRARIES})
-include_directories(SYSTEM ${Z3_INCLUDES})
 
 # 包含头文件目录
 include_directories(${PROJECT_SOURCE_DIR}/include
