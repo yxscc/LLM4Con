@@ -1,7 +1,6 @@
 #ifndef TARGETPATH_H
 #define TARGETPATH_H
 
-#include "Util/config.h"
 #include <filesystem>
 #include <string>
 #include <chrono>

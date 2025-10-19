@@ -6,7 +6,6 @@
 #include <graphviz/cgraph.h>
 
 #include "CPG/CPGGenerator.h"
-#include "Util/config.h"
 #include "Util/TargetPath.h"
 #include "Util/ExecutionTimer.h"
 
