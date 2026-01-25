@@ -56,18 +56,17 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
         }
     }
 
-    // Step 2: Analyze parallelism and build access maps for each pair of threads
-    std::cout << "\n[Phase 2: Analyzing Parallelism and Building Access Maps]" << std::endl;
+    // Phase 2: Analyze parallelism for each pair of threads
+    // Note: We rely on LLM's Stage 1 judgment to filter out non-concurrent pairs,
+    // instead of expensive static alias analysis which can be slow on large projects.
+    std::cout << "\n[Phase 2: Analyzing Thread Pairs (LLM-based filtering)]" << std::endl;
     std::vector<ThreadPair> analysisResults;
     std::vector<Thread*> thread_vec(threads.begin(), threads.end());
 
-    std::cout << "  -> Pre-calculating raw memory access maps for all threads..." << std::endl;
-    std::map<Thread*, MemoryAccessMap> raw_map_cache;
-    for (Thread* thread : thread_vec) {
-        raw_map_cache[thread] = tct->buildRawMemoryAccessMap(thread);
-    }
-    std::cout << "  -> Caching complete." << std::endl;
-
+    int total_pairs = thread_vec.size() * (thread_vec.size() - 1) / 2;
+    int current_pair = 0;
+    int skipped_by_llm = 0;
+    
     for (size_t i = 0; i < thread_vec.size(); ++i) {
         for (size_t j = i + 1; j < thread_vec.size(); ++j) {
             Thread* thread1 = thread_vec[i];
@@ -77,7 +76,10 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
             auto it2 = contractMap.find(thread2);
 
             if (it1 != contractMap.end() && it2 != contractMap.end()) {
-                std::cout << "Analyzing pair: Thread " << thread1->getId() << " and Thread " << thread2->getId() << std::endl;
+                current_pair++;
+                std::cout << "Analyzing pair [" << current_pair << "/" << total_pairs << "]: "
+                          << "Thread " << thread1->getId() << " and Thread " << thread2->getId() << std::endl;
+                
                 ThreadPair pair(thread1, it1->second, thread2, it2->second);
                 parallelAnalyzer.analyze_parallelism(pair);
                 
@@ -86,39 +88,20 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
                 std::cout << "  - Actually Concurrent: " << (pair.analysis.actually_concurrent ? "Yes" : "No") << std::endl;
                 std::cout << "    Reasoning: " << pair.analysis.concurrency_reasoning << std::endl;
 
-                // If threads can run concurrently, build and cache their MemoryAccessMaps
-                if (pair.analysis.actually_concurrent) {
-                    //std::cout << "  -> Building memory access maps for concurrent pair..." << std::endl;
-                    // Pass the pre-computed candidateSharedObjects to the builder function
-                    //pair.analysis.accessMap1 = tct->buildMemoryAccessMapForThread(pair.thread1, pair.thread2, candidateSharedObjects);
-                    //pair.analysis.accessMap2 = tct->buildMemoryAccessMapForThread(pair.thread2, pair.thread1, candidateSharedObjects);
-                    // 1. 从缓存中获取预先计算好的 raw maps
-                    const auto& rawMap1 = raw_map_cache.at(pair.thread1);
-                    const auto& rawMap2 = raw_map_cache.at(pair.thread2);
-
-                    AliasChecker* aliasChecker = AliasChecker::getInstance();
-
-                    // 2. 基于别名分析，找到两个 maps 的交集
-                    for (const auto& [mem_loc1, accesses1] : rawMap1) {
-                        for (const auto& [mem_loc2, accesses2] : rawMap2) {
-                            if (aliasChecker->isAlias(mem_loc1, mem_loc2)) {
-                                // 这是一个真正的共享对象，因为它被两个线程都访问了
-                                // 将对应的访问添加到最终的 maps 中
-                                pair.analysis.accessMap1[mem_loc1] = accesses1;
-                                pair.analysis.accessMap2[mem_loc2] = accesses2;
-                                // 既然我们为 mem_loc1 找到了匹配项，就可以停止在 rawMap2 中继续搜索
-                                // 并移动到 rawMap1 的下一个内存位置
-                                goto next_location_in_map1;
-                            }
-                        }
-                    next_location_in_map1:;
-                    }
+                // Skip pairs that LLM determined cannot run concurrently
+                if (!pair.analysis.actually_concurrent) {
+                    skipped_by_llm++;
+                    std::cout << "  -> Skipped by LLM (no concurrency risk identified)" << std::endl;
+                    continue;
                 }
 
                 analysisResults.push_back(std::move(pair));
             }
         }
     }
+    
+    std::cout << "  -> Total pairs: " << total_pairs << ", Skipped by LLM: " << skipped_by_llm 
+              << ", Proceeding with: " << analysisResults.size() << std::endl;
 
     fs::path rules_log_path = TargetPath::getInstance()->getOutputDir() / "temporal_rules.log";
     std::ofstream rules_file(rules_log_path);

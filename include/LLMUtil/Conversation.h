@@ -53,22 +53,54 @@ private:
 
         if (current_size <= limit) return;
 
+        std::vector<ChatMessage>::iterator erase_start;
+        std::vector<ChatMessage>::iterator erase_end;
+
         if (history_[0].role == MessageRole::SYSTEM) {
             // Keep system prompt + last (limit - 1) messages
-            if (limit == 1) { // Only keep system prompt
-                 history_.erase(history_.begin() + 1, history_.end());
-            } else if (current_size > limit) {
-                history_.erase(history_.begin() + 1, history_.begin() + 1 + (current_size - limit));
-            }
+            // We erase from index 1 to (1 + count)
+            erase_start = history_.begin() + 1;
+            size_t num_to_remove = current_size - limit;
+            
+            // Safety clamp
+            if (num_to_remove > current_size - 1) num_to_remove = current_size - 1;
+
+            erase_end = history_.begin() + 1 + num_to_remove;
         } else {
             // No system prompt, just keep last 'limit' messages
-            history_.erase(history_.begin(), history_.begin() + (current_size - limit));
+            erase_start = history_.begin();
+            size_t num_to_remove = current_size - limit;
+             // Safety clamp
+            if (num_to_remove > current_size) num_to_remove = current_size;
+            
+            erase_end = history_.begin() + num_to_remove;
+        }
+
+        // CRITICAL FIX: Prevent "Orphaned Tool Response" error.
+        // The OpenAI API requires that every message with role 'tool' must be immediately 
+        // preceded by a message with role 'assistant' containing 'tool_calls'.
+        // Since we prune from the oldest messages, we might delete an ASSISTANT message 
+        // but leave its subsequent TOOL response as the new first message.
+        // To fix this, if the first message we plan to KEEP (erase_end) is a TOOL message,
+        // we must continue erasing until we find a non-TOOL message (or empty the history).
+        while (erase_end != history_.end() && erase_end->role == MessageRole::TOOL) {
+            erase_end++;
+        }
+
+        if (erase_start < erase_end) {
+            history_.erase(erase_start, erase_end);
         }
     }
 
     // To be overridden by Agent subclasses to provide their tools
     virtual std::vector<Tool> get_available_tools() const {
         return {};
+    }
+
+    // Agent-specific tool choice for OpenAI-compatible APIs.
+    // Typical values: "auto" (default) or "required" (force tool calls when tools are provided).
+    virtual std::string get_tool_choice() const {
+        return "auto";
     }
 
     virtual std::string parseResult(const std::vector<ChatMessage>& history) {

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <unordered_map>
+#include <vector>
+#include <string>
 
 #include "CPG/Node.h"
 
@@ -60,6 +62,7 @@ public:
     bool isBarInit(Node* node);
     bool isBarWait(Node* node);
     bool isAssignment(Node* node);
+    bool isDelete(Node* node);
     bool isOtherCall(Node* node);
     bool isBranch(Node* node);
     bool isLoop(Node* node);
@@ -76,6 +79,34 @@ public:
     std::unordered_map<std::string, TYPE> getThreadAPIMap(){
         return threadAPIMap;
     }
+
+    /**
+     * 动态添加API映射（用于LLM发现的封装函数）
+     * @param apiName API/函数名称
+     * @param type API类型
+     */
+    void addDynamicAPI(const std::string& apiName, TYPE type) {
+        threadAPIMap[apiName] = type;
+    }
+    
+    /**
+     * 检查API是否已注册
+     */
+    bool hasAPI(const std::string& apiName) const {
+        return threadAPIMap.find(apiName) != threadAPIMap.end();
+    }
+
+    /**
+     * 获取线程创建 API 的入口函数参数位置
+     * @param apiName API/函数名称
+     * @return 入口函数参数的索引位置列表（按优先级排序），空列表表示未知
+     */
+    std::vector<int> getEntryFunctionArgIndices(const std::string& apiName) const;
+
+    /**
+     * 动态添加入口函数参数位置映射
+     */
+    void addEntryArgIndex(const std::string& apiName, const std::vector<int>& indices);
 
     static std::string getTypeString(ThreadAPIUtil::TYPE type)
     {
@@ -125,10 +156,12 @@ public:
 
 private:
     std::unordered_map<std::string, TYPE> threadAPIMap;
+    std::unordered_map<std::string, std::vector<int>> entryArgIndexMap;  // API -> 入口函数参数位置
 
     static ThreadAPIUtil* instance;  // 静态实例指针
 
-    ThreadAPIUtil() { init(); }  // 私有构造函数
+    ThreadAPIUtil() { init(); initEntryArgIndices(); }  // 私有构造函数
+    void initEntryArgIndices();  // 初始化入口函数参数位置映射
     ~ThreadAPIUtil() {}  // 私有析构函数
     ThreadAPIUtil(const ThreadAPIUtil&) = delete;            // 阻止复制构造
     ThreadAPIUtil& operator=(const ThreadAPIUtil&) = delete; // 阻止赋值操作

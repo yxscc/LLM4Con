@@ -35,7 +35,7 @@ std::string Conversation::send_message(const std::string& user_message, void* co
 
     while (true) {
         std::vector<Tool> current_tools = get_available_tools(); // Get tools for current context/agent
-        LLMClient::LLMResponse llm_response = client_->chat(history_, current_tools);
+        LLMClient::LLMResponse llm_response = client_->chat(history_, current_tools, get_tool_choice());
 
         ChatMessage assistant_message = {MessageRole::ASSISTANT, llm_response.assistant_content};
         if (llm_response.tool_requests && !llm_response.tool_requests->empty()) {

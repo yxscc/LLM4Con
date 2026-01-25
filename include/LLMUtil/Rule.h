@@ -174,11 +174,15 @@ public:
     std::optional<query::StatefulBug> verify(const ThreadPair& pair, CCPG* ccpg) const override;
 
     std::string get_description() const override {
-        return R"(**High-Impact Data Race**: This pattern identifies a race condition where concurrent, unsynchronized memory access is highly likely to cause critical bugs. Focus *only* on non-benign races. A race is considered high-impact if it meets the following criteria:
+        return R"(**Inconsistent Locking / Data Race**: This pattern identifies unsynchronized memory access or inconsistent locking strategies that could cause data corruption, crashes, or logical errors.
+
+**High-Impact Criteria (You MUST report these):**
+1.  **Inconsistent Locking**: If Thread A accesses a shared variable (e.g., `conns`) with Lock X, but Thread B accesses the same variable WITHOUT Lock X (or with a different lock), this is a CRITICAL BUG. You MUST report this even if you don't see a specific crash scenario.
+2.  **Missing Protection**: If a complex shared structure (like a list, hash table, or state machine) is written by one thread and read by another without ANY apparent synchronization, this is a CRITICAL BUG.
 
 **Required roles**:
-- 'write_operation': The operation in one thread that writes to the shared memory location. This is the potential source of corruption or invalidation.
-- 'read_operation': The concurrent operation in another thread that reads from the same location. This is the operation that may observe the inconsistent state.)";
+- 'write_operation': The operation in one thread that writes to the shared memory location (or the operation that uses a lock).
+- 'read_operation': The concurrent operation in another thread that reads from the same location (or the operation that uses NO lock or a different lock).)";
     }
 
     std::string generate_confirmation_summary(CCPG* ccpg, const std::string& original_summary) const override {

@@ -31,12 +31,17 @@ class NodeLoc {
         NodeLoc(std::string fileName, int lineNumber, ccpg::Function * function) {
             std::string targetAbsolutePath = TargetPath::getInstance()->getTargetAbsolutePath();
             this->fileName = mergePaths(targetAbsolutePath, fileName);
+            this->normalizedFileName = normalizePath(this->fileName);
             this->lineNumber = lineNumber;
             this->function = function;
         }
         ~NodeLoc() {}
     
         std::string mergePaths(const std::string& absolutePath, const std::string& relativePath) {
+            std::filesystem::path relPath(relativePath);
+            if (relPath.is_absolute()) {
+                return normalizePath(relativePath);
+            }
             std::vector<std::string> absParts = splitPath(absolutePath);
             std::vector<std::string> relParts = splitPath(relativePath);
     
@@ -67,7 +72,7 @@ class NodeLoc {
                     mergedPath << "/" << relParts[i];
                 }
             }
-            return mergedPath.str();
+            return normalizePath(mergedPath.str());
         }
     
         std::vector<std::string> splitPath(const std::string& path) {
@@ -95,6 +100,13 @@ class NodeLoc {
             auto components1 = extractComponents(path1);
             auto components2 = extractComponents(path2);
     
+            if (components1.empty() || components2.empty()) {
+                return false;
+            }
+            if (components1.back() != components2.back()) {
+                return false;
+            }
+
             auto it1 = components1.rbegin();
             auto it2 = components2.rbegin();
     
@@ -111,17 +123,21 @@ class NodeLoc {
     
     
         std::string getFileName() const { return fileName; }
+        std::string getNormalizedFileName() const { return normalizedFileName; }
         int getLineNumber() const { return lineNumber; }
 
         ccpg::Function* getFunction() const { return function; }
     
         bool operator==(const NodeLoc& other) const {
-            return arePathsLikelySameFile(fileName, other.fileName) && lineNumber == other.lineNumber;
+            return arePathsLikelySameFile(normalizedFileName, other.normalizedFileName)
+                && lineNumber == other.lineNumber;
         }
 
             // 定义小于运算符，用于排序
         bool operator<(const NodeLoc& other) const {
-            if (fileName != other.fileName) return fileName < other.fileName;
+            if (normalizedFileName != other.normalizedFileName) {
+                return normalizedFileName < other.normalizedFileName;
+            }
             return lineNumber < other.lineNumber;
         }
     
@@ -132,14 +148,20 @@ class NodeLoc {
     
     
     private:
+        std::string normalizePath(const std::string& path) const {
+            std::filesystem::path p(path);
+            return p.lexically_normal().string();
+        }
+
         std::string fileName;
+        std::string normalizedFileName;
         int lineNumber;
         ccpg::Function * function;
     };
     
     struct NodeLocHash {
         std::size_t operator()(const NodeLoc& nl) const {
-            std::size_t h1 = std::hash<std::string>()(nl.getFileName());
+            std::size_t h1 = std::hash<std::string>()(nl.getNormalizedFileName());
             std::size_t h2 = std::hash<int>()(nl.getLineNumber());
             return h1 ^ (h2 << 1); 
         }

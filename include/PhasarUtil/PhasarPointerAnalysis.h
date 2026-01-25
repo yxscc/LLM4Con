@@ -25,7 +25,9 @@ class StoreInst;
 
 class PhasarPointerAnalysis : public PointerAnalysisInterface {
 public:
-    explicit PhasarPointerAnalysis(const std::string &bitcodeFilePath);
+    // Constructor with optional entry point list (for kernel modules)
+    explicit PhasarPointerAnalysis(const std::string &bitcodeFilePath, 
+                                   const std::vector<std::string>& userEntryPoints = {});
     ~PhasarPointerAnalysis(); // Required for unique_ptr with forward-declared types
 
     bool areAliases(const llvm::Value *V1, const llvm::Value *V2) override;
@@ -34,6 +36,7 @@ public:
     std::vector<EntryPointInfo> getPotentialEntryPoints() override;
 
     EntryPointInfo getMainFunction() const override;
+    std::vector<EntryPointInfo> getAllEntryPointInfos() const;  // NEW: Get all entry points for kernel modules
     std::vector<const llvm::Function *> getAllLLVMFunctions() const override;
 
     std::vector<const llvm::CallInst *> getCallInstsByLoc(const NodeLoc &Loc) const;
@@ -45,12 +48,16 @@ public:
     std::vector<const llvm::GlobalVariable*> getAllGlobalVariables() const override;
     bool isGuardedByStaticInitializer(const llvm::StoreInst* storeInst) const override;
 
+    // Get all discovered entry points (for kernel modules)
+    const std::vector<std::string>& getDiscoveredEntryPoints() const { return discoveredEntryPoints_; }
+
 private:
     std::unique_ptr<psr::LLVMProjectIRDB> DB;
     std::unique_ptr<psr::DIBasedTypeHierarchy> TH;
     std::unique_ptr<psr::LLVMBasedICFG> ICFG;
-    std::unique_ptr<psr::LLVMAliasSet> PTA; // Use LLVMAliasSet for pointer analysis
+    std::unique_ptr<psr::LLVMAliasSet> PTA;
     std::unordered_map<NodeLoc, std::vector<const llvm::CallInst *>, NodeLocHash> LocToCallInstsMap;
     std::unordered_map<NodeLoc, std::vector<const llvm::LoadInst *>, NodeLocHash> LocToLoadInstsMap;
-    std::unordered_map<NodeLoc, std::vector<const llvm::StoreInst *>, NodeLocHash> LocToStoreInstsMap;  
+    std::unordered_map<NodeLoc, std::vector<const llvm::StoreInst *>, NodeLocHash> LocToStoreInstsMap;
+    std::vector<std::string> discoveredEntryPoints_;  // Discovered kernel entry points
 };

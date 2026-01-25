@@ -36,6 +36,20 @@ class TargetPath
                 if(targetProjectName == ""){
                     targetProjectName = targetAbsolutePath.parent_path().filename();
                 }
+
+                // Heuristic: if user passes ".../src" as input directory, use parent folder
+                // as the "project name" to avoid collisions like multiple projects named "src".
+                if (targetProjectName == "src") {
+                    targetProjectName = targetAbsolutePath.parent_path().filename();
+                }
+
+                // Heuristic: make vuln_targets projects unique vs top-level clones.
+                // Example: ".../vuln_targets/memcached/src" -> "vuln_targets_memcached"
+                if (targetAbsolutePath.parent_path().parent_path().filename() == "vuln_targets") {
+                    if (!targetProjectName.empty()) {
+                        targetProjectName = std::string("vuln_targets_") + targetProjectName;
+                    }
+                }
             }
             else{
                 this->TargetAbsolutePath = targetAbsolutePath.parent_path();

@@ -3,30 +3,143 @@
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 
 #include "phasar.h"
+#include <algorithm>
 
 using namespace psr;
 
-PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath) {
+// Priority levels for kernel entry points (lower = higher priority)
+static int getKernelEntryPriority(const std::string& name) {
+    // Priority 1: System calls (highest priority)
+    if (name.find("sys_") == 0 || name.find("SyS_") == 0 || 
+        name.find("SYSC_") == 0 || name.find("__x64_sys_") == 0 ||
+        name.find("__ia32_sys_") == 0 || name.find("compat_sys_") == 0) {
+        return 1;
+    }
+    // Priority 2: Module init/exit (but not generic helpers)
+    if (name == "init_module" || name == "cleanup_module") {
+        return 2;
+    }
+    // Priority 3: Subsystem init functions (e.g., blk_dev_init, cfq_init)
+    if ((name.find("_init") == name.length() - 5 || name.find("_exit") == name.length() - 5) &&
+        name.find("list_") == std::string::npos && name.find("__init") == std::string::npos &&
+        name.find("kref_") == std::string::npos && name.find("hlist_") == std::string::npos) {
+        return 3;
+    }
+    // Priority 4: Work/thread handlers
+    if ((name.find("_work") != std::string::npos || name.find("_handler") != std::string::npos ||
+         name.find("_callback") != std::string::npos || name.find("_thread") != std::string::npos) &&
+        name.find("__init") == std::string::npos && name.find("list_") == std::string::npos) {
+        return 4;
+    }
+    // Not a kernel entry
+    return 0;
+}
+
+// Helper function to check if a function name matches Linux kernel entry patterns
+static bool isKernelEntryFunction(const std::string& name) {
+    return getKernelEntryPriority(name) > 0;
+}
+
+PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
+                                             const std::vector<std::string>& userEntryPoints) {
     DB = std::make_unique<psr::LLVMProjectIRDB>(bitcodeFilePath);
 
-    if (!DB || !DB->getFunctionDefinition("main")) {
-        std::cerr << "Error: LLVMProjectIRDB failed to load the bitcode file or could not find a 'main' function in: " 
-                  << bitcodeFilePath << std::endl;
-        // Even in case of an error, we should initialize members to a valid state
-        // to prevent crashes if other methods are called.
-        TH = std::make_unique<psr::DIBasedTypeHierarchy>(*DB);
-        ICFG = std::make_unique<psr::LLVMBasedICFG>(DB.get(), psr::CallGraphAnalysisType::OTF, std::vector<std::string>{});
-        PTA = std::make_unique<psr::LLVMAliasSet>(DB.get());
-        return;
+    // Try to find entry points: user-specified > 'main' > auto-detected kernel entries
+    std::vector<std::string> entryPoints;
+    
+    // Priority 1: User-specified entry points (from config file)
+    if (!userEntryPoints.empty()) {
+        std::cout << "Using " << userEntryPoints.size() << " user-specified entry point(s):" << std::endl;
+        for (const auto& ep : userEntryPoints) {
+            // Verify the function exists in the bitcode
+            if (DB && DB->getFunctionDefinition(ep)) {
+                entryPoints.push_back(ep);
+                std::cout << "  - " << ep << " (found)" << std::endl;
+            } else {
+                std::cerr << "  - " << ep << " (NOT FOUND in bitcode, skipping)" << std::endl;
+            }
+        }
+    }
+    // Priority 2: Check for 'main'
+    else if (DB && DB->getFunctionDefinition("main")) {
+        entryPoints.push_back("main");
+        std::cout << "Found 'main' function as entry point." << std::endl;
+    } else {
+        // No 'main' found - look for Linux kernel entry points
+        std::cout << "No 'main' function found. Searching for kernel entry points..." << std::endl;
+        
+        if (DB) {
+            // Collect entries with their priorities
+            std::vector<std::pair<int, std::string>> prioritizedEntries;
+            for (const llvm::Function *F : DB->getAllFunctions()) {
+                if (F->isDeclaration()) continue;
+                std::string funcName = F->getName().str();
+                int priority = getKernelEntryPriority(funcName);
+                if (priority > 0) {
+                    prioritizedEntries.push_back({priority, funcName});
+                }
+            }
+            
+            // Sort by priority (lower number = higher priority)
+            std::sort(prioritizedEntries.begin(), prioritizedEntries.end(),
+                      [](const auto& a, const auto& b) { return a.first < b.first; });
+            
+            for (const auto& pe : prioritizedEntries) {
+                entryPoints.push_back(pe.second);
+            }
+        }
+        
+        if (entryPoints.empty()) {
+            std::cerr << "Error: LLVMProjectIRDB failed to load the bitcode file or could not find any entry points in: " 
+                      << bitcodeFilePath << std::endl;
+            TH = std::make_unique<psr::DIBasedTypeHierarchy>(*DB);
+            ICFG = std::make_unique<psr::LLVMBasedICFG>(DB.get(), psr::CallGraphAnalysisType::CHA, std::vector<std::string>{});
+            PTA = std::make_unique<psr::LLVMAliasSet>(DB.get());
+            return;
+        }
+        
+        std::cout << "Found " << entryPoints.size() << " kernel entry point(s), top 10:" << std::endl;
+        for (size_t i = 0; i < std::min(entryPoints.size(), size_t(10)); i++) {
+            std::cout << "  - " << entryPoints[i] << std::endl;
+        }
+        if (entryPoints.size() > 10) {
+            std::cout << "  ... and " << (entryPoints.size() - 10) << " more" << std::endl;
+        }
     }
 
+    std::cout << "[Phasar] Building DIBasedTypeHierarchy..." << std::endl;
+    std::cout.flush();
     TH = std::make_unique<psr::DIBasedTypeHierarchy>(*DB);
-    std::vector<std::string> entryPoints = {"main"};
-    ICFG = std::make_unique<psr::LLVMBasedICFG>(DB.get(), psr::CallGraphAnalysisType::OTF, entryPoints);
+    std::cout << "[Phasar] DIBasedTypeHierarchy done." << std::endl;
+    
+    std::cout << "[Phasar] Building LLVMBasedICFG (CHA)..." << std::endl;
+    std::cout.flush();
+    ICFG = std::make_unique<psr::LLVMBasedICFG>(DB.get(), psr::CallGraphAnalysisType::CHA, entryPoints);
+    std::cout << "[Phasar] LLVMBasedICFG done." << std::endl;
+    
+    std::cout << "[Phasar] Building LLVMAliasSet..." << std::endl;
+    std::cout.flush();
     PTA = std::make_unique<psr::LLVMAliasSet>(DB.get());
+    std::cout << "[Phasar] LLVMAliasSet done." << std::endl;
+    
+    // Store discovered entry points for later use
+    discoveredEntryPoints_ = entryPoints;
 
+    std::cout << "[Phasar] Building location maps for all functions..." << std::endl;
+    std::cout.flush();
+    size_t funcCount = 0;
+    size_t totalFuncs = 0;
+    for (const llvm::Function *F : DB->getAllFunctions()) {
+        if (!F->isDeclaration()) totalFuncs++;
+    }
+    
     for (const llvm::Function *F : DB->getAllFunctions()) {
         if (F->isDeclaration()) continue;
+        funcCount++;
+        if (funcCount % 1000 == 0 || funcCount == totalFuncs) {
+            std::cout << "[Phasar] Processed " << funcCount << "/" << totalFuncs << " functions..." << std::endl;
+            std::cout.flush();
+        }
         for (const auto &BB : *F) {
             for (const auto &I : BB) {
                 if (const auto &Loc = I.getDebugLoc()) {
@@ -48,6 +161,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath)
             }
         }
     }
+    std::cout << "[Phasar] Location maps built. Total functions: " << funcCount << std::endl;
 }
 
 std::vector<const llvm::CallInst *> PhasarPointerAnalysis::getCallInstsByLoc(const NodeLoc &Loc) const {
@@ -113,6 +227,8 @@ std::vector<EntryPointInfo> PhasarPointerAnalysis::getPotentialEntryPoints() {
 
 EntryPointInfo PhasarPointerAnalysis::getMainFunction() const {
     EntryPointInfo mainInfo;
+    
+    // First try 'main'
     if (const llvm::Function *MainFunc = DB->getFunctionDefinition("main")) {
         mainInfo.functionName = MainFunc->getName().str();
 
@@ -126,12 +242,54 @@ EntryPointInfo PhasarPointerAnalysis::getMainFunction() const {
 
         std::cout << "DEBUG: Found entry point -> " << mainInfo.toString() << std::endl;
         return mainInfo;
-    } else {
-        std::cerr << "Warning: Could not find a 'main' function definition in the provided bitcode." << std::endl;
     }
+    
+    // No 'main' - try to return the first discovered kernel entry point
+    if (!discoveredEntryPoints_.empty()) {
+        const std::string& firstEntry = discoveredEntryPoints_[0];
+        if (const llvm::Function *EntryFunc = DB->getFunctionDefinition(firstEntry)) {
+            mainInfo.functionName = EntryFunc->getName().str();
+
+            if (auto *SP = EntryFunc->getSubprogram()) {
+                mainInfo.fileName = SP->getFilename().str();
+                mainInfo.lineNumber = SP->getLine();
+            } else {
+                mainInfo.fileName = "N/A";
+                mainInfo.lineNumber = 0;
+            }
+
+            std::cout << "DEBUG: Using kernel entry point -> " << mainInfo.toString() << std::endl;
+            return mainInfo;
+        }
+    }
+    
+    std::cerr << "Warning: Could not find a 'main' function definition in the provided bitcode." << std::endl;
     return {};
 }
 
+std::vector<EntryPointInfo> PhasarPointerAnalysis::getAllEntryPointInfos() const {
+    std::vector<EntryPointInfo> allEntries;
+    
+    for (const std::string& entryName : discoveredEntryPoints_) {
+        if (const llvm::Function *EntryFunc = DB->getFunctionDefinition(entryName)) {
+            EntryPointInfo info;
+            info.functionName = EntryFunc->getName().str();
+            
+            if (auto *SP = EntryFunc->getSubprogram()) {
+                info.fileName = SP->getFilename().str();
+                info.lineNumber = SP->getLine();
+            } else {
+                info.fileName = "N/A";
+                info.lineNumber = 0;
+            }
+            
+            allEntries.push_back(info);
+        }
+    }
+    
+    std::cout << "getAllEntryPointInfos: Returning " << allEntries.size() << " entry points for kernel module analysis" << std::endl;
+    return allEntries;
+}
 
 std::vector<const llvm::Function *> PhasarPointerAnalysis::getAllLLVMFunctions() const {
     std::vector<const llvm::Function *> AllFunctions;

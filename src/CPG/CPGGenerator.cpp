@@ -8,8 +8,10 @@
 #include "CPG/CPGGenerator.h"
 #include "Util/TargetPath.h"
 #include "Util/ExecutionTimer.h"
+#include <nlohmann/json.hpp>
 
 using namespace std;
+using json = nlohmann::json;
 //using namespace rapidjson;
 //using namespace tinyxml2;
 namespace fs = std::filesystem;
@@ -28,9 +30,9 @@ fs::path CPGGenerator::generateCPG(std::string dir){
     }
 
     // 调整命令以使用新的输出目录路径,joern在该项目的joern-cli目录下
-    std::string generateCPGCommand =  std::string("joern-parse") + " -J-Xmx100G " + dir ;
+    std::string generateCPGCommand =  std::string("joern-parse") + " -J-Xmx40G " + dir ;
     // 生成dot格式的CPG
-    std::string drawCPGCommand = std::string("joern-export") + " -J-Xmx60G cpg.bin --repr=all --format=dot --out " + outputDir.string();
+    std::string drawCPGCommand = std::string("joern-export") + " -J-Xmx40G cpg.bin --repr=all --format=dot --out " + outputDir.string();
     
     printf("generateCPGCommand: %s\n", generateCPGCommand.c_str());
     printf("drawCPGCommand: %s\n", drawCPGCommand.c_str());
@@ -70,7 +72,7 @@ fs::path CPGGenerator::generateCPG(std::string dir){
     // 记录结束时间
     ExecutionTimer::getInstance()->stop("Joern CPG drawing");
 
-    // 进一步处理Joern生成的数据
+    // 进一步处理Joern生成的数据（直接使用原始的 export.dot）
     std::cout << "CPG data generated at: " << outputDir.string() << endl;
     return outputDir;
 }
@@ -78,8 +80,8 @@ fs::path CPGGenerator::generateCPG(std::string dir){
 
 CPG * CPGGenerator::buildCPGByDot(std::string dir) {
     // 生成CPG
-    fs::path dotFile = generateCPG(dir) / "export.dot";
-
+    fs::path outputDir = generateCPG(dir);
+    fs::path dotFile = outputDir / "export.dot";
     if (!fs::exists(dotFile)) {
         throw std::runtime_error("DOT file does not exist at the specified location: " + dotFile.string());
     }
@@ -125,7 +127,7 @@ CPG * CPGGenerator::buildCPGByDot(std::string dir) {
             properties[key] = value;
         }
 
-        auto node_ptr = std::make_unique<Node>(id, label, properties);
+        auto node_ptr = std::make_unique<Node>(std::string(id), label, properties);
         Node* raw_node_ptr = node_ptr.get();
         nodeMap[id] = raw_node_ptr;
         cpg->addNode(std::move(node_ptr));

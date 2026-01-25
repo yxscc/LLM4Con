@@ -182,6 +182,7 @@ private:
     FunctionSet functions;
     ccpg::Function * threadMainFunction = nullptr;
     bool isMain = false;
+    bool isKernelEntryPoint = false;  // NEW: Mark as kernel entry point (for multi-entry analysis)
 
 public:
     Thread() {}
@@ -233,6 +234,10 @@ public:
 
     bool isMainThread() const { return isMain; }
     void setMainThread(bool isMainThread) { this->isMain = isMainThread; }
+    
+    // NEW: Kernel entry point support for multi-entry parallel analysis
+    bool isKernelEntry() const { return isKernelEntryPoint; }
+    void setKernelEntry(bool isKernel) { this->isKernelEntryPoint = isKernel; }
 
     void addFunction(ccpg::Function* function);
     FunctionSet getFunctions() { return functions; }

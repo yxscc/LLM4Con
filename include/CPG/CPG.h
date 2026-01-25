@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <filesystem>
+#include <iostream>
 
 namespace fs = std::filesystem;
 
@@ -67,19 +68,28 @@ public:
         if (it != file2Methods.end()) {
             return it->second;
         }
+
+        // 提取查询路径的basename (最后一个/之后的部分)
+        std::string resultBasename = result;
+        size_t lastSlash = result.find_last_of("/");
+        if (lastSlash != std::string::npos) {
+            resultBasename = result.substr(lastSlash + 1);
+        }
     
-        // 遍历 file2Methods，查找后缀匹配的 key
+        // 遍历 file2Methods，只匹配文件名完全相等的情况
         for (const auto& [key, methods] : file2Methods) {
             if(key == "") {
                 continue;
             }
-            if (key.size() >= result.size() &&
-                key.find(result) != std::string::npos) {
-                return methods; // 返回第一个匹配到的
+            // 提取key的basename
+            std::string keyBasename = key;
+            size_t keyLastSlash = key.find_last_of("/");
+            if (keyLastSlash != std::string::npos) {
+                keyBasename = key.substr(keyLastSlash + 1);
             }
-            if (result.size() >= key.size() &&
-                result.find(key) != std::string::npos) {
-                return methods; // 返回第一个匹配到的
+            // 精确匹配basename
+            if (keyBasename == resultBasename) {
+                return methods;
             }
         }
     
@@ -130,6 +140,40 @@ public:
         bool hasCallEdge = false;
         Node* method = nullptr;
         std::string callerName = node->getName();
+        std::string callFullName = node->getProperty("METHOD_FULL_NAME");
+        std::string callerFile = node->getFileName();
+        if (callerFile.empty()) {
+            for (Edge* edge : node->inEdges) {
+                if (edge->getType() == "Contains") {
+                    Node* parent = edge->getFromNode();
+                    if (parent && parent->getType() == "Method") {
+                        callerFile = parent->getFileName();
+                        break;
+                    }
+                }
+            }
+        }
+        if (!callFullName.empty() && callFullName != "<empty>") {
+            CPGNodeSet methodNodes = type2Nodes.at("Method");
+            Node* bestFullMatch = nullptr;
+            for (Node* methodNode : methodNodes) {
+                std::string fullName = methodNode->getProperty("FULL_NAME");
+                if (!fullName.empty() && fullName == callFullName) {
+                    if (methodNode->properties["CODE"] != "<empty>") {
+                        if (!callerFile.empty() &&
+                            methodNode->getFileName() == callerFile) {
+                            return methodNode;
+                        }
+                        if (!bestFullMatch) {
+                            bestFullMatch = methodNode;
+                        }
+                    }
+                }
+            }
+            if (bestFullMatch) {
+                return bestFullMatch;
+            }
+        }
         for(auto edge : node->outEdges){
             std::string calleeName = edge->getToNode()->getName();
             std::string type = edge->getType();
@@ -154,7 +198,8 @@ public:
         }
         else{
             std::string name;
-            return findMethod(node->getName());
+            Node* fallback = findMethod(node->getName());
+            return fallback;
         }
     }
 

@@ -126,11 +126,97 @@ static std::string sh_escape_single_quotes(const std::string& s) {
     return out;
 }
 
+/**
+ * @brief Sanitizes a string to ensure valid UTF-8 encoding.
+ * Replaces invalid UTF-8 sequences with replacement character.
+ */
+static std::string sanitize_utf8_string(const std::string& input) {
+    std::string output;
+    output.reserve(input.size());
+    size_t i = 0;
+    while (i < input.size()) {
+        unsigned char c = static_cast<unsigned char>(input[i]);
+        if (c < 0x80) {
+            // ASCII: keep printable chars and common whitespace
+            if (c >= 0x20 || c == '\n' || c == '\t' || c == '\r') {
+                output += static_cast<char>(c);
+            } else {
+                output += ' '; // Replace control chars with space
+            }
+            i++;
+        } else if ((c & 0xE0) == 0xC0) {
+            // 2-byte UTF-8
+            if (i + 1 < input.size() && (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80) {
+                output += input[i];
+                output += input[i + 1];
+                i += 2;
+            } else {
+                output += '?';
+                i++;
+            }
+        } else if ((c & 0xF0) == 0xE0) {
+            // 3-byte UTF-8
+            if (i + 2 < input.size() &&
+                (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(input[i + 2]) & 0xC0) == 0x80) {
+                output += input[i];
+                output += input[i + 1];
+                output += input[i + 2];
+                i += 3;
+            } else {
+                output += '?';
+                i++;
+            }
+        } else if ((c & 0xF8) == 0xF0) {
+            // 4-byte UTF-8
+            if (i + 3 < input.size() &&
+                (static_cast<unsigned char>(input[i + 1]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(input[i + 2]) & 0xC0) == 0x80 &&
+                (static_cast<unsigned char>(input[i + 3]) & 0xC0) == 0x80) {
+                output += input[i];
+                output += input[i + 1];
+                output += input[i + 2];
+                output += input[i + 3];
+                i += 4;
+            } else {
+                output += '?';
+                i++;
+            }
+        } else {
+            // Invalid UTF-8 start byte
+            output += '?';
+            i++;
+        }
+    }
+    return output;
+}
+
+/**
+ * @brief Recursively sanitizes all strings in a JSON object for valid UTF-8.
+ */
+static void sanitize_json_utf8(nlohmann::json& j) {
+    if (j.is_string()) {
+        j = sanitize_utf8_string(j.get<std::string>());
+    } else if (j.is_array()) {
+        for (auto& elem : j) {
+            sanitize_json_utf8(elem);
+        }
+    } else if (j.is_object()) {
+        for (auto& [key, val] : j.items()) {
+            sanitize_json_utf8(val);
+        }
+    }
+}
 
 // --- OpenAIHandler (handles OpenAI-compatible APIs) ---
 class OpenAIHandler : public APIHandler {
 public:
-    nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) override {
+    nlohmann::json build_request_body(
+        const std::string& model,
+        const std::vector<ChatMessage>& messages,
+        const std::vector<Tool>& tools,
+        const std::string& tool_choice
+    ) override {
         nlohmann::json request_body;
         request_body["model"] = model;
         request_body["temperature"] = 1.0;
@@ -200,6 +286,9 @@ public:
                 tools_json.push_back(function);
             }
             request_body["tools"] = tools_json;
+            // Be explicit: some OpenAI-compatible gateways default tool_choice to "none"
+            // even when tools are present. Setting it ensures the model may emit tool_calls.
+            request_body["tool_choice"] = tool_choice;
         }
         return request_body;
     }
@@ -230,7 +319,12 @@ public:
 // --- GeminiHandler (defines JSON body structure) ---
 class GeminiHandler : public APIHandler {
 public:
-    nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) override {
+    nlohmann::json build_request_body(
+        const std::string& model,
+        const std::vector<ChatMessage>& messages,
+        const std::vector<Tool>& tools,
+        const std::string& /*tool_choice*/
+    ) override {
         nlohmann::json request_body;
         nlohmann::json contents_array = nlohmann::json::array();
         std::string system_prompt_content;
@@ -412,8 +506,14 @@ std::shared_ptr<LLMClient> LLMClient::get_instance() {
     return instance;
 }
 
-LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages, const std::vector<Tool>& available_tools) {
-    nlohmann::json request_body = api_handler_->build_request_body(default_model_, messages, available_tools);
+LLMClient::LLMResponse LLMClient::chat(
+    const std::vector<ChatMessage>& messages,
+    const std::vector<Tool>& available_tools,
+    const std::string& tool_choice
+) {
+    nlohmann::json request_body = api_handler_->build_request_body(default_model_, messages, available_tools, tool_choice);
+    // Sanitize all strings in JSON to ensure valid UTF-8 before serialization
+    sanitize_json_utf8(request_body);
     std::string request_body_str = request_body.dump();
     std::string provider_name = (provider_ == LLMProvider::GEMINI) ? "Gemini" : "OpenAI";
     Logger::getInstance()->log("--> Request (" + provider_name + "):\n" + request_body.dump(4));
@@ -422,6 +522,10 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
     std::string tmp_filename = write_temp_json_unique(request_body_str);
 
     // 2. Construct a robust curl command
+    // IMPORTANT:
+    // Do NOT use curl's built-in --retry here. When a gateway returns JSON error bodies,
+    // curl may emit multiple bodies concatenated together across internal retries, which
+    // breaks JSON parsing. We implement retry/backoff ourselves below.
     std::string timeout_opt = " --connect-timeout 10 --max-time " + std::to_string(timeout_seconds_);
     std::string cmd;
     if (provider_ == LLMProvider::GEMINI) {
@@ -441,50 +545,80 @@ LLMClient::LLMResponse LLMClient::chat(const std::vector<ChatMessage>& messages,
     }
 
     // 3. Execute with retry logic
-    const int max_retries = 3;
+    const int max_retries = 10;
     int attempt = 0;
     std::string response_str;
     int exit_code = -1;
+    nlohmann::json response_json;
 
     while (attempt < max_retries) {
         auto [out, code] = exec_with_status(cmd);
         response_str = std::move(out);
         exit_code = code;
         
-        bool ok = (exit_code == 0) && !response_str.empty();
-        if (ok) {
-            break; // Success
+        bool ok_transport = (exit_code == 0) && !response_str.empty();
+        if (!ok_transport) {
+            Logger::getInstance()->log("curl attempt " + std::to_string(attempt + 1) +
+                                       " failed, exit=" + std::to_string(exit_code) +
+                                       ", output:\n" + response_str);
+        } else {
+            // Parse JSON response. If parsing fails, treat it as a transient error and retry.
+            response_json = nlohmann::json::parse(response_str, nullptr, false);
+            if (response_json.is_discarded()) {
+                Logger::getInstance()->log(std::string("<-- Raw response (") + provider_name + "):\n" + response_str);
+                ok_transport = false;
+            } else if (response_json.contains("error")) {
+                // Gateway/API returned an error JSON. Log and retry with backoff.
+                Logger::getInstance()->log("<-- Response (" + provider_name + "):\n" + response_json.dump(4));
+                ok_transport = false;
+            }
         }
 
-        Logger::getInstance()->log("curl attempt " + std::to_string(attempt + 1) +
-                                   " failed, exit=" + std::to_string(exit_code) +
-                                   ", output:\n" + response_str);
+        if (ok_transport) {
+            break; // Success: parsed JSON and no top-level error
+        }
 
         ++attempt;
         if (attempt < max_retries) {
-            // Exponential backoff: 200ms, 800ms, 1800ms
-            std::this_thread::sleep_for(std::chrono::milliseconds(200 * attempt * attempt));
+            // Exponential backoff: 200ms, 800ms, 1800ms, ... up to ~10s
+            int sleep_ms = 200 * attempt * attempt;
+            if (sleep_ms > 10000) sleep_ms = 10000;
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
         }
     }
 
     // Clean up the temporary file
     std::remove(tmp_filename.c_str());
 
-    if (exit_code != 0) {
-        throw std::runtime_error("API request failed (curl exit=" + std::to_string(exit_code) + "): " + response_str);
-    }
-    if (response_str.empty()) {
-        throw std::runtime_error("API request failed: empty response from curl (after retries).");
-    }
-    
-    // 4. Parse the JSON response
-    auto response_json = nlohmann::json::parse(response_str, nullptr, false);
-    if (response_json.is_discarded()) {
-        Logger::getInstance()->log(std::string("<-- Raw response (") + provider_name + "):\n" + response_str);
-        throw std::runtime_error("API request failed: could not parse JSON response.");
+    if (attempt >= max_retries) {
+        // Best-effort error reporting: if we ended with a parsed JSON error, keep it.
+        if (!response_json.is_discarded() && !response_json.is_null() && response_json.contains("error")) {
+            throw std::runtime_error("API request failed after retries (error JSON): " + response_json.dump());
+        }
+        if (exit_code != 0) {
+            throw std::runtime_error("API request failed after retries (curl exit=" + std::to_string(exit_code) + "): " + response_str);
+        }
+        if (response_str.empty()) {
+            throw std::runtime_error("API request failed after retries: empty response from curl.");
+        }
+        throw std::runtime_error("API request failed after retries: could not parse a valid JSON response.");
     }
 
+    // 4. At this point response_json is parsed and has no top-level "error".
     Logger::getInstance()->log("<-- Response (" + provider_name + "):\n" + response_json.dump(4));
+    
+    // Extract and accumulate token usage statistics
+    token_stats_.total_requests++;
+    if (response_json.contains("usage")) {
+        const auto& usage = response_json["usage"];
+        if (usage.contains("prompt_tokens")) {
+            token_stats_.total_prompt_tokens += usage["prompt_tokens"].get<size_t>();
+        }
+        if (usage.contains("completion_tokens")) {
+            token_stats_.total_completion_tokens += usage["completion_tokens"].get<size_t>();
+        }
+    }
+    
     return api_handler_->parse_response(response_json);
 }
 

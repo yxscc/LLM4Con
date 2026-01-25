@@ -1,8 +1,14 @@
+# Build directories
 joern-cli/
 .vscode/
 Debug-build/
 build/
 Release-build/
+.cache/
+.cursor/
+.specstory/
+
+# Generated files
 race_result.txt
 SVFG.txt
 svfg.dot
@@ -17,4 +23,36 @@ cpg_dot/
 cpg.bin
 llvmbc/
 LLM_dump/
+bug_reports/
+
+# Experiment data (large files)
 ConVul/
+baselines/
+coturn/
+lwan/
+redis/
+memcached/
+
+# Generated bitcode and logs
+**/*.bc
+**/*.log
+**/entry_config*
+*.log
+
+# Real world experiments (large)
+real_world_experiment/
+experimental_result/*.log
+experimental_result/lwan/
+experimental_result/mysql_analysis/
+experimental_result/git_analysis.log
+experimental_result/result
+
+# Temporary files
+monitor.log
+monitor_and_kill.sh
+.cursorignore
+
+# Analysis reports (keep only templates)
+LinConVul/**/uafx_*.log
+LinConVul/**/uafx_*.md
+LinConVul/**/*.bc

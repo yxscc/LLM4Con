@@ -16,17 +16,60 @@ namespace llm_client {
 std::string contract_to_string(const LLM::ConcurrencyContract& contract) {
     std::stringstream ss;
     ss << "  - Thread ID: " << contract.threadId << "\n";
+    ss << "  - Entry Function Node ID: " << contract.entryPointFunctionId << "\n";
     ss << "  - Role: " << contract.role << "\n";
     ss << "  - Summary: " << contract.summary << "\n";
-    ss << "  - Shared Variables: ";
+    
+    // 1. Shared Variables
+    ss << "  - Shared Variables Accessed:\n";
     if (contract.sharedVariables.empty()) {
-        ss << "None identified.\n";
+        ss << "    None identified.\n";
     } else {
-        ss << "\n";
         for (const auto& var : contract.sharedVariables) {
-            ss << "    - Name: " << var.variableName << ", Access: " << var.accessType << "\n";
+            ss << "    * Variable Name: " << var.variableName << "\n";
+            ss << "      Type: " << var.variableType << "\n";
+            ss << "      Access Type: " << var.accessType << "\n";
+            if (!var.protectingPrimitives.empty()) {
+                ss << "      Protected By: ";
+                for (size_t i = 0; i < var.protectingPrimitives.size(); ++i) {
+                    ss << var.protectingPrimitives[i] << (i < var.protectingPrimitives.size() - 1 ? ", " : "");
+                }
+                ss << "\n";
+            }
         }
     }
+
+    // 2. Synchronization Discipline
+    ss << "  - Synchronization Discipline:\n";
+    ss << "    Strategy: " << (contract.synchronization.strategy.empty() ? "None specified" : contract.synchronization.strategy) << "\n";
+    
+    if (!contract.synchronization.primitives.empty()) {
+        ss << "    Primitives:\n";
+        for (const auto& prim : contract.synchronization.primitives) {
+            ss << "      * ID: " << prim.identifier << " (Purpose: " << prim.purpose << ")\n";
+        }
+    }
+
+    if (!contract.synchronization.lockOrder.empty()) {
+        ss << "    Lock Orders:\n";
+        for (const auto& order : contract.synchronization.lockOrder) {
+            ss << "      [ ";
+            for (size_t i = 0; i < order.size(); ++i) {
+                ss << order[i] << (i < order.size() - 1 ? " -> " : "");
+            }
+            ss << " ]\n";
+        }
+    }
+
+    // 3. Intended Parallelism
+    if (!contract.intendedParallelThreads.empty()) {
+        ss << "  - Intended Parallel With Thread IDs: ";
+        for (auto it = contract.intendedParallelThreads.begin(); it != contract.intendedParallelThreads.end(); ++it) {
+            ss << *it << (std::next(it) != contract.intendedParallelThreads.end() ? ", " : "");
+        }
+        ss << "\n";
+    }
+
     return ss.str();
 }
 
@@ -60,9 +103,15 @@ std::string ParallelAnalysisAgent::build_system_prompt() {
 
 **Your analysis is a structured, multi-step process:**
 
-**Step 1: High-Level Concurrency Assessment.**
-- First, review the thread contexts and concurrency contracts.
-- You MUST make a high-level judgment on concurrency by calling the `confirm_parallelism` tool.
+**Step 1: High-Level Concurrency Assessment (QUICK FILTER).**
+- First, review the thread contexts and concurrency contracts carefully.
+- Look for signs that these threads CANNOT run concurrently:
+  * No shared variables between them (different data domains)
+  * Happens-before relationship (e.g., thread1 joins thread2, or sequential execution)
+  * One thread only runs during initialization, the other only during shutdown
+  * The threads operate on completely independent resources
+- You MUST call `confirm_parallelism` with your assessment.
+- If `actually_concurrent` is false, the analysis will END IMMEDIATELY (no further steps needed).
 
 **Step 2: Detailed Vulnerability Rule Generation (ONLY if threads are concurrent).**
 If concurrent, you will define rules based on the following supported vulnerability patterns:
@@ -76,11 +125,20 @@ If concurrent, you will define rules based on the following supported vulnerabil
     }
 
     ss << R"(
-**Your strategy for defining a rule is as follows:**
+**Strategy for Defining Rules (CRITICAL VALIDITY CHECKS):**
+Before defining any rule, you MUST perform a **Validity Check** to filter out benign races or logic-protected accesses:
+1.  **State/Logic Protection (CAREFUL!)**:
+    - For **DataRace / Logic bugs**, a guard like `if (obj->state != READY) continue;` can sometimes prevent harmful interleavings.
+    - For **USE_AFTER_FREE**, dereferencing `obj->state` is itself a **USE**. You MUST NOT treat "checking a field of the object" as a safety guard, because the object may already be freed. Only consider guards valid if they do **not** dereference the potentially-freed pointer (e.g., generation counters, handle validation via a registry/map, refcounting, or synchronization that prevents free/use overlap).
+    - Practical example: a background thread keeps an opaque handle (e.g., `RedisModuleBlockedClient*`) and later calls an API like `UnblockClient(handle)` after the client disconnected and the main thread freed the handle. This is a classic **high-impact USE_AFTER_FREE** even if code contains state checks that dereference the handle.
+2.  **Fine-Grained Locking**: If both threads lock a specific bucket or hash (e.g., `item_lock(hash(key))`), this is safe even if they don't hold the *same* global lock variable. Recognizing striped locking is crucial.
+3.  **Benign Config**: Races on global configuration flags (like `settings`) that are atomic or write-once are usually benign. Ignore them unless they cause memory corruption or serious logic errors.
+
+**Your Workflow:**
 1.  **Start a Rule:** Call `start_rule` with the `pattern_type` you want to investigate.
 2.  **Gather Evidence:** Use tools like `get_successors_chunked` to find nodes for the required roles.
 3.  **Nominate Nodes:** Call `nominate_node_for_role` for each required role.
-4.  **Confirm the Rule:** Call `propose_rule_for_confirmation`, review the system-generated summary, and then call `confirm_rule`.
+4.  **Confirm the Rule:** Call `propose_rule_for_confirmation`, review the system-generated summary (which will include your validity checks), and then call `confirm_rule`.
 
 **Step 3: Finish.**
 - Once all rules are defined, call `finish_analysis`.
@@ -153,15 +211,43 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
 
     // Stage 1 Tool
     if (tool_name == "confirm_parallelism") {
-        context->pair->analysis.designed_for_parallelism = arguments.at("designed_for_parallelism").get<bool>();
-        context->pair->analysis.design_reasoning = arguments.at("design_reasoning").get<std::string>();
-        context->pair->analysis.actually_concurrent = arguments.at("actually_concurrent").get<bool>();
-        context->pair->analysis.concurrency_reasoning = arguments.at("concurrency_reasoning").get<std::string>();
+        // Be robust to partial / malformed tool arguments from the LLM.
+        // Never throw here — return a structured error so the model can retry.
+        for (const auto& key : {"designed_for_parallelism", "design_reasoning", "actually_concurrent", "concurrency_reasoning"}) {
+            if (!arguments.contains(key)) {
+                return nlohmann::json{
+                    {"error", std::string("Missing required key '") + key + "' in confirm_parallelism."},
+                    {"required_keys", nlohmann::json::array({"designed_for_parallelism", "design_reasoning", "actually_concurrent", "concurrency_reasoning"})},
+                    {"arguments_received", arguments}
+                }.dump();
+            }
+        }
+        if (!arguments["designed_for_parallelism"].is_boolean() ||
+            !arguments["actually_concurrent"].is_boolean() ||
+            !arguments["design_reasoning"].is_string() ||
+            !arguments["concurrency_reasoning"].is_string()) {
+            return nlohmann::json{
+                {"error", "confirm_parallelism argument types are invalid."},
+                {"expected_types", {
+                    {"designed_for_parallelism", "boolean"},
+                    {"design_reasoning", "string"},
+                    {"actually_concurrent", "boolean"},
+                    {"concurrency_reasoning", "string"}
+                }},
+                {"arguments_received", arguments}
+            }.dump();
+        }
+
+        context->pair->analysis.designed_for_parallelism = arguments["designed_for_parallelism"].get<bool>();
+        context->pair->analysis.design_reasoning = arguments["design_reasoning"].get<std::string>();
+        context->pair->analysis.actually_concurrent = arguments["actually_concurrent"].get<bool>();
+        context->pair->analysis.concurrency_reasoning = arguments["concurrency_reasoning"].get<std::string>();
         
         if (context->pair->analysis.actually_concurrent) {
             return R"({"status": "Parallelism analysis confirmed. The threads CAN run concurrently. Please proceed to Stage 2 to define rules."})";
         } else {
-            return R"({"status": "Parallelism analysis confirmed. The threads CANNOT run concurrently. No further analysis is needed. Call 'finish_analysis'."})";
+            // Return "finish" to immediately end the conversation without needing another tool call
+            return "finish";
         }
     }
 
@@ -224,8 +310,15 @@ std::string ParallelAnalysisAgent::execute_tool(const std::string& tool_name, co
         if (context->current_rule) {
             return R"({"error": "A rule is already being built. You must finalize or discard it first."})";
         }
-        std::string pattern_type = arguments.at("pattern_type").get<std::string>();
         
+        // Robustly check for all required parameters
+        for (const auto& key : {"rule_id", "pattern_type", "shared_object_type", "rule_summary"}) {
+            if (!arguments.contains(key)) {
+                return "{\"error\": \"Missing required parameter '" + std::string(key) + "' in 'start_rule' call.\"}";
+            }
+        }
+
+        std::string pattern_type = arguments.at("pattern_type").get<std::string>();
         std::string rule_id = arguments.at("rule_id").get<std::string>();
         std::string object_type = arguments.at("shared_object_type").get<std::string>();
         context->current_rule_summary = arguments.at("rule_summary").get<std::string>();

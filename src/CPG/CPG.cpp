@@ -12,10 +12,11 @@ using namespace psr;
 
 void CPG::addNode(std::unique_ptr<Node> node) {
     Node* raw_node = node.get();
-    if(id2Node.find(raw_node->id) != id2Node.end()) {
+    const std::string& id = raw_node->getIdString();
+    if(id2Node.find(id) != id2Node.end()) {
         return ;
     }
-    id2Node[raw_node->id] = raw_node;
+    id2Node[id] = raw_node;
     type2Nodes[raw_node->getType()].insert(raw_node);
 
     if (raw_node->getType() == "Method") {

@@ -161,7 +161,12 @@ struct LLMResponse {
 class APIHandler {
 public:
     virtual ~APIHandler() = default;
-    virtual nlohmann::json build_request_body(const std::string& model, const std::vector<ChatMessage>& messages, const std::vector<Tool>& tools) = 0;
+    virtual nlohmann::json build_request_body(
+        const std::string& model,
+        const std::vector<ChatMessage>& messages,
+        const std::vector<Tool>& tools,
+        const std::string& tool_choice
+    ) = 0;
     virtual LLMResponse parse_response(const nlohmann::json& response_body) = 0;
 };
 
@@ -179,7 +184,11 @@ public:
 
     static std::shared_ptr<LLMClient> get_instance();
 
-    LLMResponse chat(const std::vector<ChatMessage>& messages, const std::vector<Tool>& available_tools = {});
+    LLMResponse chat(
+        const std::vector<ChatMessage>& messages,
+        const std::vector<Tool>& available_tools = {},
+        const std::string& tool_choice = "auto"
+    );
 
     LLMClient(const LLMClient&) = delete;
     LLMClient& operator=(const LLMClient&) = delete;
@@ -187,6 +196,16 @@ public:
     void set_timeout(long seconds);
     void set_model(const std::string& model);
     LLMProvider get_provider() const { return provider_; }
+
+    // Token usage statistics
+    struct TokenStats {
+        size_t total_prompt_tokens = 0;
+        size_t total_completion_tokens = 0;
+        size_t total_requests = 0;
+    };
+    
+    TokenStats get_token_stats() const { return token_stats_; }
+    void reset_token_stats() { token_stats_ = TokenStats{}; }
 
 private:
     LLMProvider provider_;
@@ -196,6 +215,7 @@ private:
     std::string default_model_;
     size_t max_context_length_;
     long timeout_seconds_;
+    TokenStats token_stats_;
 
     static std::shared_ptr<LLMClient> instance;
     static std::mutex mutex;

@@ -12,6 +12,7 @@
 #include <cxxabi.h>
 #include <filesystem>
 #include <queue>
+#include <limits>
 
 using namespace ccpg;
 using namespace psr;
@@ -32,10 +33,26 @@ void ThreadCreationTree::build(){
     // create main Thread
     std::queue<std::pair<CCPGNode *, Thread *>> forkQueue;
     FunctionSet entries = ccpg->getEntryFunctions();
+    
+    // NEW: Kernel module mode detection
+    // If we have multiple entry functions, treat them as parallel execution contexts
+    bool isKernelModuleMode = (entries.size() > 1);
+    if (isKernelModuleMode) {
+        std::cout << "[Kernel Module Mode] Treating " << entries.size() 
+                  << " entry points as parallel threads" << std::endl;
+    }
+    
     for(ccpg::Function * entry : entries){
         Thread * entryThread = createThread(entry->getFuncNode(), nullptr);
         entryThread->setMainThread(true);
-        for(CCPGNode* forkNode : entryThread->getNodesByType(ThreadAPIUtil::TYPE::FORK)){
+        
+        // In kernel module mode, mark threads for special handling
+        if (isKernelModuleMode) {
+            entryThread->setKernelEntry(true);  // NEW: Mark as kernel entry
+        }
+        
+        auto forkNodes = entryThread->getNodesByType(ThreadAPIUtil::TYPE::FORK);
+        for(CCPGNode* forkNode : forkNodes){
             forkQueue.push(std::make_pair(forkNode, entryThread));
         }
     }
@@ -61,24 +78,32 @@ void ThreadCreationTree::build(){
         i++;
     } 
 
-    std::unordered_set<Thread * > wrongThread;
-    for(Thread * thread : threads){
-        if(thread->getParent() == nullptr && thread->getChildren().size() == 0)
-        {
-            wrongThread.insert(thread);
+    // NEW: In kernel module mode, keep all entry threads even if they have no children
+    // In normal mode, remove threads that have no parent and no children (invalid threads)
+    if (!isKernelModuleMode) {
+        std::unordered_set<Thread * > wrongThread;
+        for(Thread * thread : threads){
+            if(thread->getParent() == nullptr && thread->getChildren().size() == 0)
+            {
+                wrongThread.insert(thread);
+            }
         }
-    }
-    for(Thread * thread : wrongThread){
-        threads.erase(thread);
+        for(Thread * thread : wrongThread){
+            threads.erase(thread);
+        }
+    } else {
+        std::cout << "[Kernel Module Mode] Keeping all " << threads.size() 
+                  << " threads for parallel analysis" << std::endl;
     }
 
-    // 暂时移除main线程
-    for (Thread* thread : threads) {
-        if (thread->isMainThread()) {
-            threads.erase(thread);
-            break;
-        }
-    }
+    // NOTE: Main thread is now kept for analysis to detect races between main and worker threads.
+    // Previously removed main thread here, but this caused missing race detection.
+    // for (Thread* thread : threads) {
+    //     if (thread->isMainThread()) {
+    //         threads.erase(thread);
+    //         break;
+    //     }
+    // }
 }
 
 std::string removeAmpersand(const std::string& str) {
@@ -172,6 +197,38 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
         int here = 1;
     }
 
+    // Deduplication: Check GLOBALLY if a thread for this exact fork node already exists.
+    // This prevents creating duplicate threads when the same fork site is discovered
+    // through different call paths (e.g., recursive thread creation where BGWork calls
+    // MaybeScheduleCompaction which contains the fork that creates BGWork threads).
+    if (parent != nullptr) {
+        // First, check if we've already created a thread for this exact CCPGNode*
+        // This is the most precise check - same node pointer means same fork instruction
+        for (Thread* existingThread : threads) {
+            if (existingThread->getForkNode() == forkNode) {
+                // Already created a thread for this fork node, skip
+                return nullptr;
+            }
+        }
+        
+        // Additionally, check globally (not just siblings) for same fork location
+        // This handles cases where the same fork site might have different CCPGNode*
+        // (e.g., due to context-sensitivity) but represents the same abstract thread
+        const NodeLoc& forkLoc = forkNode->getNodeLoc();
+        for (Thread* existingThread : threads) {
+            if (existingThread->getForkNode() != nullptr &&
+                existingThread->getForkNode()->getType() == ThreadAPIUtil::TYPE::FORK) {
+                const NodeLoc& existingForkLoc = existingThread->getForkNode()->getNodeLoc();
+                // Same fork location (file + line) means it's the same thread creation site
+                if (forkLoc.getFileName() == existingForkLoc.getFileName() &&
+                    forkLoc.getLineNumber() == existingForkLoc.getLineNumber()) {
+                    // Skip creating duplicate thread
+                    return nullptr;
+                }
+            }
+        }
+    }
+
     Thread* thread = new Thread();
     thread->setParent(parent);
     thread->setId(threads.size());
@@ -233,7 +290,8 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
             
         }
 
-        for(CCPGNode * callNode : function->getNodesByType(ThreadAPIUtil::TYPE::OTHER_CALL)){
+        auto otherCalls = function->getNodesByType(ThreadAPIUtil::TYPE::OTHER_CALL);
+        for(CCPGNode * callNode : otherCalls){
             CCPGEdge* edge = ccpg->hasCallEdge(callNode);
             if (edge != nullptr) {
                 thread->addEdge(edge);
@@ -281,13 +339,42 @@ Thread* ThreadCreationTree::getThreadById(int thread_id){
 Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
     const CPG * cpg = getCPG();
     Node* fork = forkNode->getCPGNode();
-    Node* methodArgument = fork->getArgument(3);
+    std::string apiName = fork->getName();
+    
+    // Debug logging for troublesome APIs
+    if (apiName == "StartThread" || apiName == "kthread_create" || apiName == "queue_work") {
+        std::cerr << "[DEBUG entry] " << apiName << " args:\n";
+        for (Edge* edge : fork->argumentEdges) {
+            Node* arg = edge->getToNode();
+            std::cerr << "  - idx=" << arg->getArgumentIndex()
+                      << " type=" << arg->getType()
+                      << " name=" << arg->getName()
+                      << " code=" << arg->getCode()
+                      << "\n";
+        }
+    }
     
     Node * method = nullptr;
-
-    method = findThreadEntryByArg(methodArgument);
+    
+    // Get API-specific argument indices for entry function
+    ThreadAPIUtil* apiUtil = ThreadAPIUtil::getInstance();
+    std::vector<int> candidateArgs = apiUtil->getEntryFunctionArgIndices(apiName);
+    
+    for (int argIndex : candidateArgs) {
+        Node* methodArgument = fork->getArgument(argIndex);
+        method = findThreadEntryByArg(methodArgument);
+        if (method != nullptr) {
+            std::cerr << "[Thread Entry] " << apiName << " uses arg" << argIndex
+                      << " -> " << method->getName() << std::endl;
+            break;
+        }
+    }
 
     if(method == nullptr){
+        // Fallback to LLM-assisted entry resolution for indirect cases
+        // (e.g., wrappers like create_worker(func, arg) where pthread_create's
+        // third argument is a variable/parameter).
+        std::cerr << "[Thread Entry] " << apiName << " - direct arg lookup failed, trying LLM..." << std::endl;
         method = findThreadEntryByLLM(forkNode);
     }    
 
@@ -296,13 +383,47 @@ Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
 
 Node * ThreadCreationTree::findThreadEntryByLLM(CCPGNode* forkNode){
     const CPG * cpg = getCPG();
-    Node* fork = forkNode->getCPGNode();
 
     llm_client::FindingThreadEntryAgent agent(this->ccpg, llm_client::LLMClient::get_instance());
-    int result = agent.find_thread_entry(forkNode);
-    std::string result_str = std::to_string(result);
-    const char * node_id = result_str.c_str();
-    return cpg->findNode(node_id);
+    long long result = agent.find_thread_entry(forkNode);
+    if (result < 0) {
+        return nullptr;
+    }
+
+    // The agent is instructed to return a "node ID", but in practice it may return:
+    // - a CPG node ID (Method node id)
+    // - a CCPG Function ID (ccpg::Function::getId())
+    // - (less likely) a CCPG node ID
+    //
+    // Be robust and accept any of the above to avoid dropping threads.
+    const std::string result_str = std::to_string(result);
+
+    // 1) Try interpreting as a CPG node id.
+    if (Node* node = cpg->findNode(result_str.c_str())) {
+        return node;
+    }
+
+    // 2) Try interpreting as a CCPG function id.
+    if (this->ccpg && result <= std::numeric_limits<int>::max()) {
+        int rid = static_cast<int>(result);
+        if (ccpg::Function* fn = this->ccpg->getFunctionById(rid)) {
+            if (fn->getFuncNode() && fn->getFuncNode()->getCPGNode()) {
+                return fn->getFuncNode()->getCPGNode();
+            }
+        }
+    }
+
+    // 3) Try interpreting as a CCPG node id pointing to a CPG method node.
+    if (this->ccpg && result <= std::numeric_limits<int>::max()) {
+        int rid = static_cast<int>(result);
+        if (CCPGNode* ccpgNode = this->ccpg->getNodeByID(rid)) {
+            if (ccpgNode->getCPGNode()) {
+                return ccpgNode->getCPGNode();
+            }
+        }
+    }
+
+    return nullptr;
 }
 
 Node* ThreadCreationTree::findThreadEntryByArg(Node * methodArgument){

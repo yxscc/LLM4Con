@@ -23,6 +23,8 @@ public:
     
     // 开始计时
     void start(const std::string& processName) {
+        std::cout << "[START] " << processName << " ..." << std::endl;
+        std::cout.flush();  // 确保立即输出
         startTimes[processName] = std::chrono::high_resolution_clock::now();
     }
 

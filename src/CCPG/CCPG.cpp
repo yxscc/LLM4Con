@@ -9,6 +9,7 @@
 #include <queue>
 #include <iomanip>
 #include <sstream>
+#include <limits>
 
 #include "CCPG/HB.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
@@ -16,6 +17,7 @@
 #include "CCPG/LSAnalysis.h"
 #include "Util/ExecutionTimer.h"
 #include "PhasarUtil/AnalysisManager.h"
+#include "PhasarUtil/PhasarPointerAnalysis.h"
 
 using namespace ccpg;
 using namespace psr;
@@ -57,6 +59,86 @@ void CCPG::build(){
         ccpg::Function * f = createFunction(main);
         entryFunctions.insert(f);
         functionQueue.push(f);
+    }
+    
+    // NEW: For kernel modules without explicit main/thread creation,
+    // treat all discovered entry points as potential parallel entry points
+    auto pointerAnalyzer = dynamic_cast<PhasarPointerAnalysis*>(
+        AnalysisManager::getInstance()->getPointerAnalyzer());
+    if (pointerAnalyzer) {
+        auto allEntries = pointerAnalyzer->getAllEntryPointInfos();
+        if (allEntries.size() > 1) {
+            std::cout << "[Kernel Module Mode] Adding " << allEntries.size() 
+                      << " entry points as parallel entries" << std::endl;
+            for (const auto& entryInfo : allEntries) {
+                // Skip the main entry point we already added
+                if (main != nullptr && main->getCPGNode()->getName() == entryInfo.functionName) {
+                    std::cout << "  - Skipping (already main): " << entryInfo.functionName << std::endl;
+                    continue;
+                }
+                
+                // Demangle the function name for CPG lookup
+                std::string demangledName = LLVMAnalyzer::getInstance()->demangle(entryInfo.functionName.c_str());
+                
+                // Extract short function name from demangled name
+                // e.g., "leveldb::DBImpl::Get(leveldb::ReadOptions const&, ...)" -> "Get"
+                std::string shortName = demangledName;
+                
+                // Remove parameters (everything after '(')
+                size_t parenPos = shortName.find('(');
+                if (parenPos != std::string::npos) {
+                    shortName = shortName.substr(0, parenPos);
+                }
+                
+                // Extract the last component after '::'
+                size_t lastColon = shortName.rfind("::");
+                if (lastColon != std::string::npos) {
+                    shortName = shortName.substr(lastColon + 2);
+                }
+                
+                // Handle destructor (remove leading '~' for lookup, will match ~ClassName)
+                std::string lookupName = shortName;
+                
+                std::cout << "  - Looking for: " << entryInfo.functionName 
+                          << " -> demangled: " << demangledName 
+                          << " -> shortName: " << shortName << std::endl;
+                
+                // Find the method node in CPG using short name
+                Node* methodNode = cpg->findMethod(shortName);
+                if (methodNode == nullptr && shortName != demangledName) {
+                    // Try full demangled name as fallback
+                    methodNode = cpg->findMethod(demangledName);
+                }
+                if (methodNode == nullptr) {
+                    // Try original mangled name as last resort
+                    methodNode = cpg->findMethod(entryInfo.functionName);
+                }
+                if (methodNode == nullptr) {
+                    std::cout << "  - Not found in CPG: " << shortName << " (tried: " << demangledName << ")" << std::endl;
+                    continue;
+                }
+                
+                std::cout << "  - Found in CPG: " << methodNode->getName() 
+                          << " at " << methodNode->getFileName() << ":" << methodNode->getLineNumber() << std::endl;
+                
+                // Check if already added before creating
+                if (containsCPGNode(methodNode)) {
+                    std::cout << "  - Already exists: " << entryInfo.functionName << std::endl;
+                    continue;
+                }
+                
+                CCPGNode* entryNode = createCCPGNode(methodNode);
+                if (entryNode != nullptr) {
+                    ccpg::Function* f = createFunction(entryNode);
+                    if (f != nullptr) {
+                        entryFunctions.insert(f);
+                        functionQueue.push(f);
+                        std::cout << "  - Added entry: " << entryInfo.functionName << std::endl;
+                    }
+                }
+            }
+            std::cout << "[Kernel Module Mode] Total entry functions: " << entryFunctions.size() << std::endl;
+        }
     }
     
     int i = 0;
@@ -261,25 +343,53 @@ CCPGNode* CCPG::getMain() {
     int lineNumber = mainInfo.lineNumber;
     std::string fileName_last = fileName.substr(fileName.find_last_of("/") + 1);
 
+    std::cerr << "[DEBUG getMain] Looking for: funcName=" << mainFuncName 
+              << ", fileName=" << fileName << ", fileName_last=" << fileName_last 
+              << ", lineNumber=" << lineNumber << std::endl;
+
     CPGNodeSet methods = cpg->getMethodsByFileName(fileName);
+    std::cerr << "[DEBUG getMain] methods from full path: " << methods.size() << std::endl;
     if(methods.empty()){
         methods = cpg->getMethodsByFileName(fileName_last);
+        std::cerr << "[DEBUG getMain] methods from filename only: " << methods.size() << std::endl;
         if(methods.empty()){
             std::cerr << "Warning: No methods found in file " << fileName << " or " << fileName_last << std::endl;
             return nullptr;
         }
     }
 
+    std::cerr << "[DEBUG getMain] Iterating " << methods.size() << " methods" << std::endl;
+    Node* bestMatch = nullptr;
+    int bestDelta = std::numeric_limits<int>::max();
     for(auto it = methods.begin(); it != methods.end(); it++){
         Node * methodNode = *it;
+        std::cerr << "[DEBUG getMain] Checking method: name=" << methodNode->getName()
+                  << ", line=" << methodNode->getLineNumber() << std::endl;
         if (methodNode->getName() != mainFuncName) {
             continue;
         }
-        if(methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumber) <= 3){
-            return createCCPGNode(methodNode);
+        if(methodNode->getLineNumber() != -1) {
+            int delta = abs(methodNode->getLineNumber() - lineNumber);
+            if (delta <= 3) {
+                std::cerr << "[DEBUG getMain] Found main! Creating CCPGNode" << std::endl;
+                return createCCPGNode(methodNode);
+            }
+            if (delta < bestDelta) {
+                bestDelta = delta;
+                bestMatch = methodNode;
+            }
+        } else if (bestMatch == nullptr) {
+            bestMatch = methodNode;
         }
     }
 
+    if (bestMatch != nullptr) {
+        std::cerr << "[DEBUG getMain] Main line mismatch; using closest match (delta="
+                  << bestDelta << "). Creating CCPGNode" << std::endl;
+        return createCCPGNode(bestMatch);
+    }
+
+    std::cerr << "[DEBUG getMain] Main not found after iteration" << std::endl;
     return nullptr;
 }
 

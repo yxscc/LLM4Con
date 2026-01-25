@@ -9,7 +9,48 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 
+#include <filesystem>
+#include <limits>
+#include <iostream>
+
 using namespace psr;
+
+namespace {
+std::string normalizePath(const std::string& path) {
+    return std::filesystem::path(path).lexically_normal().string();
+}
+
+bool arePathsLikelySameFile(const std::string& path1, const std::string& path2) {
+    if (path1.empty() || path2.empty()) {
+        return false;
+    }
+    std::filesystem::path p1(path1);
+    std::filesystem::path p2(path2);
+    if (p1.filename() != p2.filename()) {
+        return false;
+    }
+    auto it1 = p1.end();
+    auto it2 = p2.end();
+    while (it1 != p1.begin() && it2 != p2.begin()) {
+        --it1;
+        --it2;
+        if (*it1 != *it2) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::string baseNameFromDemangled(const std::string& demangled) {
+    size_t pos = demangled.rfind("::");
+    std::string base = (pos == std::string::npos) ? demangled : demangled.substr(pos + 2);
+    size_t paren = base.find('(');
+    if (paren != std::string::npos) {
+        base = base.substr(0, paren);
+    }
+    return base;
+}
+} // namespace
 
 // 初始化静态实例
 AliasChecker* AliasChecker::instance = nullptr;
@@ -96,8 +137,11 @@ const llvm::Function* AliasChecker::getLLVMFunction(ccpg::Function * function) c
 
     Node* cpgNode = function->getFuncNode()->getCPGNode();
     std::string cpgFuncName = cpgNode->getName();
-    std::string cpgFileName = cpgNode->getFileName();
+    std::string cpgFileName = normalizePath(cpgNode->getFileName());
     int cpgLineNum = cpgNode->getLineNumber();
+
+    const llvm::Function* bestMatch = nullptr;
+    int bestScore = std::numeric_limits<int>::max();
 
     for (const llvm::Function* llvmFunc : llvmFunctions) {
         if (!llvmFunc || llvmFunc->isDeclaration()) {
@@ -105,21 +149,58 @@ const llvm::Function* AliasChecker::getLLVMFunction(ccpg::Function * function) c
         }
 
         std::string llvmFuncNameDemangled = LLVMAnalyzer::getInstance()->demangle(llvmFunc->getName().str().c_str());
-        if (cpgFuncName == llvmFuncNameDemangled) {
-
-            // b. 如果名字相同，再比较源文件位置作为最终确认
+        std::string llvmBaseName = baseNameFromDemangled(llvmFuncNameDemangled);
+        bool nameMatch = (cpgFuncName == llvmFuncNameDemangled) || (cpgFuncName == llvmBaseName);
+        if (nameMatch) {
             if (auto *SP = llvmFunc->getSubprogram()) {
-                unsigned llvmLineNum = SP->getLine();
+                std::string llvmFileName = normalizePath(SP->getFilename().str());
+                bool fileMatch = arePathsLikelySameFile(cpgFileName, llvmFileName);
+                int lineDelta = (cpgLineNum > 0 && SP->getLine() > 0)
+                                    ? std::abs(cpgLineNum - static_cast<int>(SP->getLine()))
+                                    : std::numeric_limits<int>::max();
 
-                if (cpgLineNum == llvmLineNum) {
+                if (cpgFuncName == "ThreadBody") {
+                    std::cerr << "[DEBUG map] cpg=" << cpgFuncName
+                              << " llvm=" << llvmFuncNameDemangled
+                              << " llvmBase=" << llvmBaseName
+                              << " fileMatch=" << (fileMatch ? "true" : "false")
+                              << " cpgFile=" << cpgFileName
+                              << " llvmFile=" << llvmFileName
+                              << " cpgLine=" << cpgLineNum
+                              << " llvmLine=" << SP->getLine()
+                              << " lineDelta=" << lineDelta
+                              << std::endl;
+                }
+
+                if (fileMatch && lineDelta <= 3) {
                     function->setLLVMFunction(llvmFunc);
                     return llvmFunc;
                 }
+
+                int score = (fileMatch ? 0 : 1000) + lineDelta;
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestMatch = llvmFunc;
+                }
             } else {
-                 function->setLLVMFunction(llvmFunc);
-                 return llvmFunc;
+                // 没有调试信息，优先作为候选
+                if (!bestMatch) {
+                    bestMatch = llvmFunc;
+                    bestScore = 0;
+                }
             }
         }
+        if (cpgFuncName == "ThreadBody" && llvmFuncNameDemangled.find("ThreadBody") != std::string::npos) {
+            std::cerr << "[DEBUG map] cpg=" << cpgFuncName
+                      << " llvm=" << llvmFuncNameDemangled
+                      << " llvmBase=" << llvmBaseName
+                      << " nameMatch=" << (nameMatch ? "true" : "false")
+                      << std::endl;
+        }
+    }
+    if (bestMatch) {
+        function->setLLVMFunction(bestMatch);
+        return bestMatch;
     }
     return nullptr;
 }

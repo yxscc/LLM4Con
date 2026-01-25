@@ -18,6 +18,7 @@ public:
 private:
     std::string build_system_prompt();
     std::vector<Tool> get_available_tools() const override;
+    std::string get_tool_choice() const override { return "required"; } // Force tool calls
     std::string execute_tool(const std::string& tool_name, const nlohmann::json& arguments) override;
     std::string parseResult(const std::vector<ChatMessage>& history) override;
     CCPG* ccpg_;

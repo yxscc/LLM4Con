@@ -11,7 +11,10 @@
 
 class Node {
 public:
-    const char * id; // 节点的唯一标识
+    // IMPORTANT: id must own its storage.
+    // The DOT parser (graphviz) returns pointers that become invalid after agclose(),
+    // so we must store a copy here.
+    std::string id; // 节点的唯一标识
     std::string type; // 节点类型
     std::unordered_map<std::string, std::string> properties; // 节点属性
     std::string text; // 节点文本
@@ -22,8 +25,8 @@ public:
     std::unordered_set<Edge*> argumentEdges;
     std::unordered_set<Edge*> conditionEdges;
 
-    Node(const char * id, std::string type_upper, std::unordered_map<std::string, std::string> properties){
-        this->id = id;
+    Node(std::string id, std::string type_upper, std::unordered_map<std::string, std::string> properties){
+        this->id = std::move(id);
         this->properties = properties;
         this->type = type_upper;
         for(int i = 0; i < type.size(); i++){
@@ -37,6 +40,10 @@ public:
     }
 
     const char * getId() const {
+        return id.c_str();
+    }
+
+    const std::string& getIdString() const {
         return id;
     }
 
