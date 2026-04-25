@@ -4,6 +4,7 @@
 #include "PhasarUtil/AnalysisManager.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "Util/PathUtils.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
@@ -18,27 +19,6 @@ using namespace psr;
 namespace {
 std::string normalizePath(const std::string& path) {
     return std::filesystem::path(path).lexically_normal().string();
-}
-
-bool arePathsLikelySameFile(const std::string& path1, const std::string& path2) {
-    if (path1.empty() || path2.empty()) {
-        return false;
-    }
-    std::filesystem::path p1(path1);
-    std::filesystem::path p2(path2);
-    if (p1.filename() != p2.filename()) {
-        return false;
-    }
-    auto it1 = p1.end();
-    auto it2 = p2.end();
-    while (it1 != p1.begin() && it2 != p2.begin()) {
-        --it1;
-        --it2;
-        if (*it1 != *it2) {
-            return false;
-        }
-    }
-    return true;
 }
 
 std::string baseNameFromDemangled(const std::string& demangled) {
@@ -89,9 +69,11 @@ const llvm::Value* AliasChecker::getLLVMThreadValue(CCPGNode* node) {
     }
 
     if (node->getType() == ThreadAPIUtil::TYPE::FORK) {
+        if (callInst->arg_size() == 0) return nullptr;
         return callInst->getArgOperand(0);
     } 
     else if (node->getType() == ThreadAPIUtil::TYPE::JOIN) {
+        if (callInst->arg_size() == 0) return nullptr;
         const llvm::Value* joinArg = callInst->getArgOperand(0);
 
         if (const llvm::LoadInst* loadInst = llvm::dyn_cast<llvm::LoadInst>(joinArg)) {
@@ -110,6 +92,10 @@ bool AliasChecker::isLockAlias(CCPGNode * node1, CCPGNode * node2) {
     const llvm::CallInst* callInst2 = node2->getLLVMCallInst();
 
     if(!callInst1 || !callInst2){
+        return false;
+    }
+
+    if (callInst1->arg_size() == 0 || callInst2->arg_size() == 0) {
         return false;
     }
 
@@ -154,7 +140,7 @@ const llvm::Function* AliasChecker::getLLVMFunction(ccpg::Function * function) c
         if (nameMatch) {
             if (auto *SP = llvmFunc->getSubprogram()) {
                 std::string llvmFileName = normalizePath(SP->getFilename().str());
-                bool fileMatch = arePathsLikelySameFile(cpgFileName, llvmFileName);
+                bool fileMatch = PathUtils::arePathsLikelySameFile(cpgFileName, llvmFileName);
                 int lineDelta = (cpgLineNum > 0 && SP->getLine() > 0)
                                     ? std::abs(cpgLineNum - static_cast<int>(SP->getLine()))
                                     : std::numeric_limits<int>::max();

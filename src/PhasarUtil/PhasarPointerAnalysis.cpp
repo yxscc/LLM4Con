@@ -1,43 +1,271 @@
 // src/PhasarUtil/PhasarPointerAnalysis.cpp
 
 #include "PhasarUtil/PhasarPointerAnalysis.h"
+#include "Util/PathUtils.h"
 
 #include "phasar.h"
 #include <algorithm>
+#include <iomanip>
+#include <unordered_map>
+#include <cstring>
 
 using namespace psr;
 
-// Priority levels for kernel entry points (lower = higher priority)
+// ---------------------------------------------------------------------------
+// Name-based entry heuristic (LAST-RESORT fallback only).
+//
+// Prior versions of this file matched any function whose name contained
+// `_init`, `_exit`, `_work`, `_handler`, `_callback`, or `_thread`. That
+// list recklessly scooped up inline helpers like `sema_init`,
+// `__init_waitqueue_head`, `list_head_init`, anything ending in `_thread`
+// (including non-thread getters like `get_task_struct_thread`), etc.,
+// which then polluted the shared-object surface with garbage entries.
+//
+// The structural strategies below (section attribute, EXPORT_SYMBOL via
+// __addressable, _eil_addr_ syscall wrappers, ops-table membership) are
+// now authoritative. This residual name heuristic is only consulted when
+// all structural signals yielded zero entries AND we are unwilling to
+// fall back to "whole module", which would be intractable.
+// ---------------------------------------------------------------------------
 static int getKernelEntryPriority(const std::string& name) {
-    // Priority 1: System calls (highest priority)
-    if (name.find("sys_") == 0 || name.find("SyS_") == 0 || 
-        name.find("SYSC_") == 0 || name.find("__x64_sys_") == 0 ||
-        name.find("__ia32_sys_") == 0 || name.find("compat_sys_") == 0) {
+    // Priority 1: explicit syscall wrappers emitted by SYSCALL_DEFINE*.
+    if (name.find("__x64_sys_") == 0 ||
+        name.find("__ia32_sys_") == 0 ||
+        name.find("__arm64_sys_") == 0 ||
+        name.find("__se_sys_") == 0 ||
+        name.find("__do_sys_") == 0 ||
+        name.find("compat_sys_") == 0) {
         return 1;
     }
-    // Priority 2: Module init/exit (but not generic helpers)
+    // Priority 2: `sys_foo` top-level (must also start with sys_ but we
+    // reject the generic names that shadow it, e.g. `syscall_return_slowpath`).
+    if (name.find("sys_") == 0 && name.size() >= 5 &&
+        name != "system_state" && name != "syscall_nr_to_meta") {
+        return 1;
+    }
+    // Priority 3: module init/exit stubs specifically.
     if (name == "init_module" || name == "cleanup_module") {
         return 2;
     }
-    // Priority 3: Subsystem init functions (e.g., blk_dev_init, cfq_init)
-    if ((name.find("_init") == name.length() - 5 || name.find("_exit") == name.length() - 5) &&
-        name.find("list_") == std::string::npos && name.find("__init") == std::string::npos &&
-        name.find("kref_") == std::string::npos && name.find("hlist_") == std::string::npos) {
-        return 3;
-    }
-    // Priority 4: Work/thread handlers
-    if ((name.find("_work") != std::string::npos || name.find("_handler") != std::string::npos ||
-         name.find("_callback") != std::string::npos || name.find("_thread") != std::string::npos) &&
-        name.find("__init") == std::string::npos && name.find("list_") == std::string::npos) {
-        return 4;
-    }
-    // Not a kernel entry
+    // No more `_init` / `_exit` / `_handler` / `_work` / `_callback` /
+    // `_thread` name-matching: it is unreliable and is superseded by
+    // structural signals.
     return 0;
+}
+
+// Helper: recursively collect Function references from an LLVM Constant
+static void collectFunctionPointersFromConstant(const llvm::Constant* C,
+                                                 std::vector<const llvm::Function*>& out,
+                                                 std::set<const llvm::Constant*>& visited) {
+    if (!C || !visited.insert(C).second) return;
+
+    if (auto* F = llvm::dyn_cast<llvm::Function>(C)) {
+        if (!F->isDeclaration()) {
+            out.push_back(F);
+        }
+        return;
+    }
+    if (llvm::isa<llvm::ConstantPointerNull>(C) ||
+        llvm::isa<llvm::UndefValue>(C) ||
+        llvm::isa<llvm::ConstantAggregateZero>(C) ||
+        llvm::isa<llvm::ConstantDataSequential>(C) ||
+        llvm::isa<llvm::ConstantInt>(C) ||
+        llvm::isa<llvm::ConstantFP>(C)) {
+        return;
+    }
+    if (auto* GV = llvm::dyn_cast<llvm::GlobalVariable>(C)) {
+        if (GV->hasInitializer())
+            collectFunctionPointersFromConstant(GV->getInitializer(), out, visited);
+        return;
+    }
+    for (unsigned i = 0; i < C->getNumOperands(); ++i) {
+        if (auto* op = llvm::dyn_cast<llvm::Constant>(C->getOperand(i)))
+            collectFunctionPointersFromConstant(op, out, visited);
+    }
 }
 
 // Helper function to check if a function name matches Linux kernel entry patterns
 static bool isKernelEntryFunction(const std::string& name) {
     return getKernelEntryPriority(name) > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Structural entry-point signals (kernel-specific but entirely derived from
+// LLVM IR structure, not name matching). Each signal below corresponds to a
+// pattern observed directly in kernel bitcode for the dataset in
+// kernel_experiment/, cross-checked against ground-truth patched functions.
+//
+//   S1  .init.text / .exit.text   section on a Function
+//       (module_init / module_exit / subsys_initcall / ... all land here)
+//
+//   S2  EXPORT_SYMBOL / EXPORT_SYMBOL_GPL
+//       The kernel emits `__UNIQUE_ID___addressable_<name><num>` globals
+//       holding `ptr @<name>`. Presence of such a global is an unambiguous
+//       "this function is an exported kernel API surface".
+//
+//   S3  Syscall wrappers
+//       `_eil_addr_<name>` globals (kernel error injection list) hold
+//       `ptr @<syscall_wrapper>` and are emitted for every SYSCALL_DEFINE*.
+//       `__syscall_meta__<name>` globals also witness a syscall.
+//
+//   S4  Function-pointer membership in any struct global initializer
+//       (ops tables, notifier blocks, work_struct, nfnl_callback arrays,
+//        pernet_operations, file_operations, ...).
+//
+// A function is considered an entry iff ANY of S1..S4 holds for it.
+// This replaces name-based pattern matching (which caused false positives
+// like `sema_init`, `list_head_init`, `list_lru_walk` being picked as
+// entries) AND catches previously-missed entries in modules that had no
+// name-matching hits (e.g. led-triggers.c, blk-rq-qos.c, ring.c).
+// ---------------------------------------------------------------------------
+
+enum StructuralSignal {
+    SIG_NONE          = 0,
+    SIG_SECTION_INIT  = 1 << 0,  // .init.text or .exit.text
+    SIG_EXPORT_SYMBOL = 1 << 1,  // EXPORT_SYMBOL[_GPL]
+    SIG_SYSCALL       = 1 << 2,  // _eil_addr_ / __syscall_meta__
+    SIG_OPS_MEMBER    = 1 << 3,  // function pointer in struct global
+};
+
+// Scan a single (already stripped of casts / wrapper constants) Constant
+// and, for every Function reference inside, OR the bit-set `sig` onto the
+// per-function map.
+static void tagFunctionRefs(const llvm::Constant* C,
+                            unsigned sig,
+                            std::unordered_map<const llvm::Function*, unsigned>& out) {
+    std::vector<const llvm::Function*> funcs;
+    std::set<const llvm::Constant*> visited;
+    collectFunctionPointersFromConstant(C, funcs, visited);
+    for (const llvm::Function* F : funcs) {
+        if (!F || F->isDeclaration()) continue;
+        out[F] |= sig;
+    }
+}
+
+// Core structural scan: compute the per-function signal bitmap for every
+// function defined in the module. The caller decides what to do with it.
+static std::unordered_map<const llvm::Function*, unsigned>
+computeStructuralEntrySignals(const llvm::Module* M) {
+    std::unordered_map<const llvm::Function*, unsigned> sigMap;
+    if (!M) return sigMap;
+
+    // S1: section attributes on functions.
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration()) continue;
+        if (F.hasSection()) {
+            llvm::StringRef sec = F.getSection();
+            if (sec.startswith(".init.text") ||
+                sec.startswith(".exit.text") ||
+                sec == ".cpuidle.text" || sec == ".ref.text") {
+                sigMap[&F] |= SIG_SECTION_INIT;
+            }
+        }
+    }
+
+    // S2, S3, S4: scan all globals and classify by name prefix.
+    for (const llvm::GlobalVariable& GV : M->globals()) {
+        if (!GV.hasInitializer()) continue;
+        if (!GV.hasName()) continue;
+        llvm::StringRef n = GV.getName();
+
+        // LLVM internals and kernel metadata tables that don't represent
+        // real call-target lists.
+        if (n.startswith("llvm.")) continue;
+        if (n.startswith("__ksymtab") || n.startswith("__kstrtab") ||
+            n.startswith("____versions")) continue;
+
+        const llvm::Constant* Init = GV.getInitializer();
+
+        // S2: EXPORT_SYMBOL — `__UNIQUE_ID___addressable_<fn><num>`.
+        // These are single-pointer globals storing `ptr @fn`. They are
+        // the most trustworthy "this function is a public entry" marker.
+        if (n.startswith("__UNIQUE_ID___addressable_")) {
+            tagFunctionRefs(Init, SIG_EXPORT_SYMBOL, sigMap);
+            continue;
+        }
+
+        // S3a: syscall — `_eil_addr_<name>` holds ptr @__x64_sys_<name>.
+        if (n.startswith("_eil_addr_")) {
+            tagFunctionRefs(Init, SIG_SYSCALL, sigMap);
+            continue;
+        }
+        // S3b: syscall metadata global — presence witnesses that both
+        // `__x64_sys_<NAME>` and `__ia32_sys_<NAME>` (whichever is defined
+        // in this module) are syscall entries. Look them up by name.
+        if (n.startswith("__syscall_meta__")) {
+            std::string syscall_name = n.substr(std::strlen("__syscall_meta__")).str();
+            for (const char* prefix : {"__x64_sys_", "__ia32_sys_",
+                                       "__arm64_sys_", "__se_sys_",
+                                       "__do_sys_", "sys_"}) {
+                std::string cand = std::string(prefix) + syscall_name;
+                if (const llvm::Function* F = M->getFunction(cand)) {
+                    if (!F->isDeclaration()) sigMap[F] |= SIG_SYSCALL;
+                }
+            }
+            continue;
+        }
+
+        // Skip other book-keeping globals that happen to mention functions.
+        if (n.startswith("__param") || n.startswith("__mod_") ||
+            n.startswith("__initcall") || n.startswith("__exitcall")) {
+            // NOTE: some of these *do* hold pointers to init functions.
+            // For __initcall/__exitcall arrays specifically, the pointer
+            // target IS an init callback — but those targets are already
+            // caught by SIG_SECTION_INIT. For __param, the registered
+            // getters/setters are legitimate entries; tag them.
+            if (n.startswith("__param")) {
+                tagFunctionRefs(Init, SIG_OPS_MEMBER, sigMap);
+            }
+            continue;
+        }
+
+        // Linker section blacklist: globals relegated to discard/debug
+        // sections are not runtime call-target lists.
+        if (GV.hasSection()) {
+            llvm::StringRef sec = GV.getSection();
+            if (sec.startswith(".discard") ||
+                sec.startswith(".debug") ||
+                sec == ".modinfo" ||
+                sec.startswith(".note") ||
+                sec == "llvm.metadata") {
+                continue;
+            }
+        }
+
+        // S4: any other global whose initializer contains function
+        // pointers. Almost always an ops table / callback array.
+        tagFunctionRefs(Init, SIG_OPS_MEMBER, sigMap);
+    }
+
+    return sigMap;
+}
+
+// Pretty name for a signal bitset (debug output).
+static std::string signalsToString(unsigned s) {
+    std::string r;
+    auto add = [&](const char* n){ if (!r.empty()) r += "+"; r += n; };
+    if (s & SIG_SECTION_INIT)  add("section");
+    if (s & SIG_EXPORT_SYMBOL) add("export");
+    if (s & SIG_SYSCALL)       add("syscall");
+    if (s & SIG_OPS_MEMBER)    add("ops");
+    return r.empty() ? "-" : r;
+}
+
+// True if F's debug-info primary source file is a header (.h / .hh).
+// Inline helpers from headers are repeatedly "defined" in every .o that
+// includes them and, when picked as entry points, just pollute the
+// shared-object surface. We drop them unless they also carry a strong
+// structural signal (exported / ops member / in a section) which
+// indicates the kernel explicitly registered them.
+static bool isDefinedInHeader(const llvm::Function& F) {
+    if (auto* sp = F.getSubprogram()) {
+        llvm::StringRef fname = sp->getFilename();
+        if (fname.endswith(".h") || fname.endswith(".hh") ||
+            fname.endswith(".hpp") || fname.endswith(".hxx")) {
+            return true;
+        }
+    }
+    return false;
 }
 
 PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
@@ -65,32 +293,138 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
         entryPoints.push_back("main");
         std::cout << "Found 'main' function as entry point." << std::endl;
     } else {
-        // No 'main' found - look for Linux kernel entry points
-        std::cout << "No 'main' function found. Searching for kernel entry points..." << std::endl;
-        
+        // No 'main' found — discover kernel entry points STRUCTURALLY.
+        //
+        // We compute, for every function defined in the module, a bitmap of
+        // the structural signals that mark it as an entry point:
+        //   * placed in .init.text / .exit.text (module_init, subsys_init…)
+        //   * referenced by __UNIQUE_ID___addressable_* (EXPORT_SYMBOL[_GPL])
+        //   * referenced by _eil_addr_* / __syscall_meta__* (syscalls)
+        //   * stored into any struct global (ops tables, notifier_block,
+        //     work_struct, file_operations, pernet_operations, …)
+        //
+        // Any function with ≥1 signal becomes an entry. This is strictly
+        // more precise than the old `_init/_exit/_work/_handler/_callback/
+        // _thread` substring match, which mis-classified inline helpers
+        // like `sema_init` and `list_head_init` as entries.
+        std::cout << "No 'main' function found. Auto-discovering kernel entry points..." << std::endl;
+        std::set<std::string> entrySet;
+
         if (DB) {
-            // Collect entries with their priorities
-            std::vector<std::pair<int, std::string>> prioritizedEntries;
-            for (const llvm::Function *F : DB->getAllFunctions()) {
-                if (F->isDeclaration()) continue;
-                std::string funcName = F->getName().str();
-                int priority = getKernelEntryPriority(funcName);
-                if (priority > 0) {
-                    prioritizedEntries.push_back({priority, funcName});
+            const llvm::Module* M = DB->getModule();
+            auto sigMap = computeStructuralEntrySignals(M);
+
+            // Counters for reporting.
+            int nSection = 0, nExport = 0, nSyscall = 0, nOps = 0;
+
+            for (const auto& [F, sig] : sigMap) {
+                if (!F || sig == SIG_NONE) continue;
+
+                // Drop inline-in-header definitions that only made it into
+                // this .o by duplication and carry no explicit "registered
+                // with the kernel" signal. They pollute the surface.
+                if (isDefinedInHeader(*F) &&
+                    (sig & (SIG_EXPORT_SYMBOL | SIG_SYSCALL |
+                            SIG_SECTION_INIT)) == 0) {
+                    // Only an ops-table reference — likely a spurious
+                    // match (address stored into a debug struct). Drop.
+                    if ((sig & SIG_OPS_MEMBER) && F->hasLocalLinkage()) continue;
+                }
+
+                std::string name = F->getName().str();
+                if (entrySet.insert(name).second) {
+                    entryPoints.push_back(name);
+                    if (sig & SIG_SECTION_INIT)  nSection++;
+                    if (sig & SIG_EXPORT_SYMBOL) nExport++;
+                    if (sig & SIG_SYSCALL)       nSyscall++;
+                    if (sig & SIG_OPS_MEMBER)    nOps++;
                 }
             }
-            
-            // Sort by priority (lower number = higher priority)
-            std::sort(prioritizedEntries.begin(), prioritizedEntries.end(),
-                      [](const auto& a, const auto& b) { return a.first < b.first; });
-            
-            for (const auto& pe : prioritizedEntries) {
-                entryPoints.push_back(pe.second);
+
+            std::cout << "[Auto-Entry Structural] "
+                      << nSection << " init/exit section, "
+                      << nExport  << " EXPORT_SYMBOL, "
+                      << nSyscall << " syscall wrapper, "
+                      << nOps     << " ops-table member"
+                      << " (" << entrySet.size() << " unique function(s))"
+                      << std::endl;
+
+            // Fallback — last resort. If the module happens to expose no
+            // structural entry signals at all (e.g. a pure userspace .bc
+            // somehow passed in), fall back to a very narrow name
+            // heuristic: only `main`, explicit SYSCALL wrappers, and
+            // `init_module`/`cleanup_module`. No more `_work` / `_handler`
+            // / arbitrary `_init` substring matching.
+            if (entrySet.empty()) {
+                std::cout << "[Auto-Entry Fallback] No structural signals; "
+                             "trying narrow name heuristic..." << std::endl;
+                for (const llvm::Function* F : DB->getAllFunctions()) {
+                    if (F->isDeclaration()) continue;
+                    std::string funcName = F->getName().str();
+                    if (getKernelEntryPriority(funcName) > 0 &&
+                        entrySet.insert(funcName).second) {
+                        entryPoints.push_back(funcName);
+                    }
+                }
+                std::cout << "[Auto-Entry Fallback] "
+                          << entryPoints.size()
+                          << " name-heuristic entry point(s)." << std::endl;
+            }
+
+            // Final fallback: single-file TUs (e.g. mm/ksm.c compiled
+            // standalone) expose NO structural signals because the real
+            // EXPORT_SYMBOL / syscall-meta / ops-table globals live in
+            // other translation units that were not part of this build.
+            // In that case, every externally-linkable `define` is a
+            // public entry point from the rest of the kernel's point of
+            // view. We gate this so we don't flood regular modules.
+            if (entrySet.empty()) {
+                std::cout << "[Auto-Entry Fallback] No structural or "
+                             "name-heuristic entries; promoting every "
+                             "externally-linkable function in this TU."
+                          << std::endl;
+                std::size_t nPromoted = 0;
+                for (const llvm::Function* F : DB->getAllFunctions()) {
+                    if (!F || F->isDeclaration()) continue;
+                    // Skip LLVM intrinsics and compiler-generated helpers.
+                    if (F->getName().startswith("llvm.") ||
+                        F->getName().startswith("__asan") ||
+                        F->getName().startswith("__kasan") ||
+                        F->getName().startswith("__ubsan") ||
+                        F->getName().startswith("__tsan") ||
+                        F->getName().startswith("__msan")) {
+                        continue;
+                    }
+                    // Externally-linkable = the linker can see it from
+                    // another TU. internal/private/linkonce_odr static
+                    // helpers do not qualify (they can only be reached
+                    // via in-TU calls, which will show up via the call
+                    // graph rooted at the other external entries we pick).
+                    auto L = F->getLinkage();
+                    const bool external =
+                        (L == llvm::GlobalValue::ExternalLinkage) ||
+                        (L == llvm::GlobalValue::WeakAnyLinkage) ||
+                        (L == llvm::GlobalValue::WeakODRLinkage) ||
+                        (L == llvm::GlobalValue::ExternalWeakLinkage) ||
+                        (L == llvm::GlobalValue::CommonLinkage) ||
+                        (L == llvm::GlobalValue::AppendingLinkage);
+                    if (!external) continue;
+                    std::string funcName = F->getName().str();
+                    if (entrySet.insert(funcName).second) {
+                        entryPoints.push_back(funcName);
+                        ++nPromoted;
+                    }
+                }
+                std::cout << "[Auto-Entry Fallback] Promoted "
+                          << nPromoted
+                          << " externally-linkable function(s) as pseudo-"
+                             "entries (single-file TU fallback)."
+                          << std::endl;
             }
         }
         
         if (entryPoints.empty()) {
-            std::cerr << "Error: LLVMProjectIRDB failed to load the bitcode file or could not find any entry points in: " 
+            std::cerr << "Error: Could not find any entry points in: " 
                       << bitcodeFilePath << std::endl;
             TH = std::make_unique<psr::DIBasedTypeHierarchy>(*DB);
             ICFG = std::make_unique<psr::LLVMBasedICFG>(DB.get(), psr::CallGraphAnalysisType::CHA, std::vector<std::string>{});
@@ -98,12 +432,12 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             return;
         }
         
-        std::cout << "Found " << entryPoints.size() << " kernel entry point(s), top 10:" << std::endl;
-        for (size_t i = 0; i < std::min(entryPoints.size(), size_t(10)); i++) {
+        std::cout << "[Auto-Entry] Total: " << entryPoints.size() << " kernel entry point(s):" << std::endl;
+        for (size_t i = 0; i < std::min(entryPoints.size(), size_t(20)); i++) {
             std::cout << "  - " << entryPoints[i] << std::endl;
         }
-        if (entryPoints.size() > 10) {
-            std::cout << "  ... and " << (entryPoints.size() - 10) << " more" << std::endl;
+        if (entryPoints.size() > 20) {
+            std::cout << "  ... and " << (entryPoints.size() - 20) << " more" << std::endl;
         }
     }
 
@@ -144,7 +478,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             for (const auto &I : BB) {
                 if (const auto &Loc = I.getDebugLoc()) {
 
-                    std::string File = Loc->getFilename().str();
+                    std::string File = PathUtils::extractBaseFileName(Loc->getFilename().str());
                     unsigned Line = Loc.getLine();
 
                     if (!File.empty() && Line > 0) {
@@ -165,20 +499,17 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
 }
 
 std::vector<const llvm::CallInst *> PhasarPointerAnalysis::getCallInstsByLoc(const NodeLoc &Loc) const {
-    NodeLoc Key(Loc.getFileName(), Loc.getLineNumber(), nullptr);
-    auto It = LocToCallInstsMap.find(Key);
+    auto It = LocToCallInstsMap.find(Loc);
     return (It != LocToCallInstsMap.end()) ? It->second : std::vector<const llvm::CallInst *>();
 }
 
 std::vector<const llvm::LoadInst *> PhasarPointerAnalysis::getLoadInstsByLoc(const NodeLoc &Loc) const {
-    NodeLoc Key(Loc.getFileName(), Loc.getLineNumber(), nullptr);
-    auto It = LocToLoadInstsMap.find(Key);
+    auto It = LocToLoadInstsMap.find(Loc);
     return (It != LocToLoadInstsMap.end()) ? It->second : std::vector<const llvm::LoadInst *>();
 }
 
 std::vector<const llvm::StoreInst *> PhasarPointerAnalysis::getStoreInstsByLoc(const NodeLoc &Loc) const {
-    NodeLoc Key(Loc.getFileName(), Loc.getLineNumber(), nullptr);
-    auto It = LocToStoreInstsMap.find(Key);
+    auto It = LocToStoreInstsMap.find(Loc);
     return (It != LocToStoreInstsMap.end()) ? It->second : std::vector<const llvm::StoreInst *>();
 }
 
@@ -320,6 +651,245 @@ std::vector<const llvm::GlobalVariable*> PhasarPointerAnalysis::getAllGlobalVari
         }
     }
     return globalVars;
+}
+
+std::vector<std::string> PhasarPointerAnalysis::discoverCallbackEntryPoints() const {
+    std::vector<std::string> callbacks;
+    if (!DB) return callbacks;
+
+    const llvm::Module* M = DB->getModule();
+    if (!M) return callbacks;
+
+    std::set<std::string> seen;
+
+    for (const auto& GV : M->globals()) {
+        if (!GV.hasInitializer()) continue;
+        if (!GV.hasName()) continue;
+
+        llvm::StringRef gvName = GV.getName();
+
+        // Skip LLVM internal globals and kernel metadata tables
+        if (gvName.startswith("llvm.") ||
+            gvName.startswith("__ksymtab") ||
+            gvName.startswith("__kstrtab") ||
+            gvName.startswith("__param") ||
+            gvName.startswith("__mod_") ||
+            gvName.startswith("____versions") ||
+            gvName.startswith("__initcall") ||
+            gvName.startswith("__exitcall"))
+            continue;
+
+        const llvm::Constant* Init = GV.getInitializer();
+
+        std::vector<const llvm::Function*> funcs;
+        std::set<const llvm::Constant*> visited;
+        collectFunctionPointersFromConstant(Init, funcs, visited);
+
+        if (funcs.size() >= 2) {
+            std::cout << "[Callback Discovery] Global '" << gvName.str()
+                      << "' contains " << funcs.size() << " function pointer(s):" << std::endl;
+
+            for (const llvm::Function* F : funcs) {
+                std::string name = F->getName().str();
+                if (seen.insert(name).second) {
+                    callbacks.push_back(name);
+                    std::cout << "  - " << name << std::endl;
+                }
+            }
+        }
+    }
+
+    return callbacks;
+}
+
+// Recursively collect non-local memory access pointers from a function and its callees
+static void collectMemoryPointers(const llvm::Function* F, int depth,
+                                  std::set<const llvm::Function*>& visited,
+                                  std::set<const llvm::Value*>& writePtrs,
+                                  std::set<const llvm::Value*>& readPtrs) {
+    if (!F || F->isDeclaration() || depth < 0 || !visited.insert(F).second)
+        return;
+
+    for (const auto& BB : *F) {
+        for (const auto& I : BB) {
+            if (auto* SI = llvm::dyn_cast<llvm::StoreInst>(&I)) {
+                auto* base = SI->getPointerOperand()->stripPointerCasts();
+                if (!llvm::isa<llvm::AllocaInst>(base))
+                    writePtrs.insert(SI->getPointerOperand());
+            } else if (auto* LI = llvm::dyn_cast<llvm::LoadInst>(&I)) {
+                auto* base = LI->getPointerOperand()->stripPointerCasts();
+                if (!llvm::isa<llvm::AllocaInst>(base))
+                    readPtrs.insert(LI->getPointerOperand());
+            } else if (auto* CI = llvm::dyn_cast<llvm::CallInst>(&I)) {
+                if (auto* callee = CI->getCalledFunction())
+                    collectMemoryPointers(callee, depth - 1, visited,
+                                          writePtrs, readPtrs);
+            }
+        }
+    }
+}
+
+void PhasarPointerAnalysis::computeEntryPointConflicts() {
+    if (!DB || discoveredEntryPoints_.size() < 2) return;
+    const llvm::Module* M = DB->getModule();
+    if (!M) return;
+
+    struct FuncFootprint {
+        std::set<const llvm::Value*> writePtrs;
+        std::set<const llvm::Value*> readPtrs;
+    };
+
+    std::map<std::string, FuncFootprint> footprints;
+
+    std::cout << "[Conflict Analysis] Computing memory footprints for "
+              << discoveredEntryPoints_.size() << " entry points..." << std::endl;
+
+    for (const auto& name : discoveredEntryPoints_) {
+        const llvm::Function* F = M->getFunction(name);
+        if (!F || F->isDeclaration()) continue;
+        FuncFootprint fp;
+        std::set<const llvm::Function*> visited;
+        collectMemoryPointers(F, 2, visited, fp.writePtrs, fp.readPtrs);
+        footprints[name] = std::move(fp);
+    }
+
+    size_t totalPairs = discoveredEntryPoints_.size() *
+                        (discoveredEntryPoints_.size() - 1) / 2;
+
+    for (size_t i = 0; i < discoveredEntryPoints_.size(); ++i) {
+        for (size_t j = i + 1; j < discoveredEntryPoints_.size(); ++j) {
+            const auto& n1 = discoveredEntryPoints_[i];
+            const auto& n2 = discoveredEntryPoints_[j];
+            auto it1 = footprints.find(n1);
+            auto it2 = footprints.find(n2);
+            if (it1 == footprints.end() || it2 == footprints.end()) continue;
+
+            bool conflict = false;
+
+            // Check writes of F1 against all accesses of F2
+            for (const auto* wp : it1->second.writePtrs) {
+                if (conflict) break;
+                for (const auto* rp : it2->second.writePtrs) {
+                    if (areAliases(wp, rp)) { conflict = true; break; }
+                }
+                if (conflict) break;
+                for (const auto* rp : it2->second.readPtrs) {
+                    if (areAliases(wp, rp)) { conflict = true; break; }
+                }
+            }
+            // Check writes of F2 against reads of F1
+            if (!conflict) {
+                for (const auto* wp : it2->second.writePtrs) {
+                    if (conflict) break;
+                    for (const auto* rp : it1->second.readPtrs) {
+                        if (areAliases(wp, rp)) { conflict = true; break; }
+                    }
+                }
+            }
+
+            if (conflict) {
+                auto key = (n1 < n2) ? std::make_pair(n1, n2)
+                                     : std::make_pair(n2, n1);
+                conflictingPairs_.insert(key);
+            }
+        }
+    }
+
+    std::cout << "[Conflict Analysis] " << conflictingPairs_.size()
+              << " conflicting pairs out of " << totalPairs
+              << " total (" << std::fixed << std::setprecision(1)
+              << (100.0 * conflictingPairs_.size() / std::max(totalPairs, size_t(1)))
+              << "% kept)" << std::endl;
+}
+
+bool PhasarPointerAnalysis::areEntryPointsConflicting(
+        const std::string& f1, const std::string& f2) const {
+    if (conflictingPairs_.empty()) return true; // no analysis done → conservative
+    auto key = (f1 < f2) ? std::make_pair(f1, f2) : std::make_pair(f2, f1);
+    return conflictingPairs_.count(key) > 0;
+}
+
+// Return the raw underlying Module owned by the Phasar IRDB, used by
+// field-level helpers (needs DataLayout etc.).
+const llvm::Module* PhasarPointerAnalysis::getModule() const {
+    return DB ? DB->getModule() : nullptr;
+}
+
+// -- Field-level conflict query ----------------------------------------------
+
+namespace {
+
+// Walk F (and up to `depth` levels of callees) and bucket each non-local
+// pointer by SharedFieldKey. Two parallel maps separate writes from reads
+// so the caller can enforce "at least one side writes" for conflict.
+static void collectFieldFootprint(const llvm::Function* F, int depth,
+                                  const llvm::Module& M,
+                                  std::set<const llvm::Function*>& visited,
+                                  std::set<query::SharedFieldKey>& writes,
+                                  std::set<query::SharedFieldKey>& reads) {
+    if (!F || F->isDeclaration() || depth < 0 || !visited.insert(F).second)
+        return;
+    for (const auto& BB : *F) {
+        for (const auto& I : BB) {
+            if (auto* SI = llvm::dyn_cast<llvm::StoreInst>(&I)) {
+                if (auto key = query::SharedFieldKey::fromValue(
+                        SI->getPointerOperand(), M)) {
+                    writes.insert(*key);
+                }
+            } else if (auto* LI = llvm::dyn_cast<llvm::LoadInst>(&I)) {
+                if (auto key = query::SharedFieldKey::fromValue(
+                        LI->getPointerOperand(), M)) {
+                    reads.insert(*key);
+                }
+            } else if (auto* CI = llvm::dyn_cast<llvm::CallInst>(&I)) {
+                if (auto* callee = CI->getCalledFunction())
+                    collectFieldFootprint(callee, depth - 1, M, visited,
+                                          writes, reads);
+            }
+        }
+    }
+}
+
+} // namespace
+
+std::vector<query::SharedFieldKey>
+PhasarPointerAnalysis::getFieldsConflictingBetween(
+        const std::string& e1, const std::string& e2) const {
+    std::vector<query::SharedFieldKey> out;
+    if (!DB) return out;
+    const llvm::Module* M = DB->getModule();
+    if (!M) return out;
+    const llvm::Function* F1 = M->getFunction(e1);
+    const llvm::Function* F2 = M->getFunction(e2);
+    if (!F1 || !F2 || F1->isDeclaration() || F2->isDeclaration()) return out;
+
+    std::set<query::SharedFieldKey> w1, r1, w2, r2;
+    {
+        std::set<const llvm::Function*> visited;
+        collectFieldFootprint(F1, 2, *M, visited, w1, r1);
+    }
+    {
+        std::set<const llvm::Function*> visited;
+        collectFieldFootprint(F2, 2, *M, visited, w2, r2);
+    }
+
+    // Conflict = same field touched by both, with at least one side writing.
+    auto add = [&](const query::SharedFieldKey& k) {
+        if (std::find(out.begin(), out.end(), k) == out.end())
+            out.push_back(k);
+    };
+    for (const auto& k : w1) {
+        if (w2.count(k) || r2.count(k)) add(k);
+    }
+    for (const auto& k : w2) {
+        if (r1.count(k)) add(k);
+    }
+    return out;
+}
+
+bool PhasarPointerAnalysis::doEntriesHaveSharedData(
+        const std::string& e1, const std::string& e2) const {
+    return !getFieldsConflictingBetween(e1, e2).empty();
 }
 
 bool PhasarPointerAnalysis::isGuardedByStaticInitializer(const llvm::StoreInst* storeInst) const {

@@ -90,8 +90,6 @@ Node * CPG::findMethodByLLVMFunction(const llvm::Function* llvmFunc) const {
         return findMethod(funcNameFromLLVM);
     }
 
-    fs::path llvmPath(pathFromLLVM);
-    std::string baseNameFromLLVM = llvmPath.filename().string();
     CPGNodeSet allMethodsInCPG = getNodesByType("Method");
     for (Node* methodNode : allMethodsInCPG) {
         if (funcNameFromLLVM.find(methodNode->getName()) == std::string::npos) {
@@ -101,8 +99,7 @@ Node * CPG::findMethodByLLVMFunction(const llvm::Function* llvmFunc) const {
         if (pathFromCPG.empty()) {
             continue;
         }
-        fs::path cpgPath(pathFromCPG);
-        if (baseNameFromLLVM != cpgPath.filename().string()) {
+        if (!PathUtils::arePathsLikelySameFile(pathFromLLVM, pathFromCPG)) {
             continue;
         }
         if (methodNode->getLineNumber() != -1 && 

@@ -4,7 +4,10 @@
 
 #include "PointerAnalysisInterface.h"
 #include "CCPG/CCPGNode.h"
+#include "Query/SharedFieldKey.h"
 #include <memory>
+#include <set>
+#include <map>
 
 // Forward-declare Phasar classes to reduce header dependencies
 namespace psr {
@@ -21,6 +24,7 @@ class Instruction;
 class CallInst;
 class LoadInst;
 class StoreInst;
+class Module;
 } // namespace llvm
 
 class PhasarPointerAnalysis : public PointerAnalysisInterface {
@@ -44,12 +48,30 @@ public:
     std::vector<const llvm::StoreInst *> getStoreInstsByLoc(const NodeLoc &Loc) const;
     
     psr::LLVMBasedICFG* getICFG() const  { return ICFG.get(); }
+    const llvm::Module* getModule() const;  // underlying LLVM Module (for DataLayout etc.)
     std::vector<const llvm::Function*> getCalleesOfCallAt(const llvm::Instruction* callInst) const override;
     std::vector<const llvm::GlobalVariable*> getAllGlobalVariables() const override;
     bool isGuardedByStaticInitializer(const llvm::StoreInst* storeInst) const override;
 
     // Get all discovered entry points (for kernel modules)
     const std::vector<std::string>& getDiscoveredEntryPoints() const { return discoveredEntryPoints_; }
+
+    // Callback-based entry point discovery and conflict analysis
+    std::vector<std::string> discoverCallbackEntryPoints() const;
+    void computeEntryPointConflicts();
+    bool areEntryPointsConflicting(const std::string& f1, const std::string& f2) const;
+
+    // Field-level conflict query: returns the SharedFieldKey values that are
+    // read/written by both e1 and e2 (with at least one side being a write).
+    // Used as a sharper replacement for the coarse-grained
+    // areEntryPointsConflicting count.
+    std::vector<query::SharedFieldKey> getFieldsConflictingBetween(
+        const std::string& e1, const std::string& e2) const;
+
+    // Quick boolean form of getFieldsConflictingBetween, used by
+    // ThreadCreationTree.mayHappenInParallel to filter out entry-point pairs
+    // that do not actually touch any common field.
+    bool doEntriesHaveSharedData(const std::string& e1, const std::string& e2) const;
 
 private:
     std::unique_ptr<psr::LLVMProjectIRDB> DB;
@@ -60,4 +82,5 @@ private:
     std::unordered_map<NodeLoc, std::vector<const llvm::LoadInst *>, NodeLocHash> LocToLoadInstsMap;
     std::unordered_map<NodeLoc, std::vector<const llvm::StoreInst *>, NodeLocHash> LocToStoreInstsMap;
     std::vector<std::string> discoveredEntryPoints_;  // Discovered kernel entry points
+    std::set<std::pair<std::string, std::string>> conflictingPairs_;
 };

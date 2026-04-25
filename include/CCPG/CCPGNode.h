@@ -8,6 +8,7 @@
 #include "CPG/CPG.h"
 #include "CCPG/ThreadAPIUtil.h"
 #include "Util/TargetPath.h"
+#include "Util/PathUtils.h"
 #include "Context.h"
 
 namespace llvm {
@@ -124,21 +125,34 @@ class NodeLoc {
     
         std::string getFileName() const { return fileName; }
         std::string getNormalizedFileName() const { return normalizedFileName; }
+        std::string getBaseFileName() const {
+            return extractBaseFileName(normalizedFileName);
+        }
         int getLineNumber() const { return lineNumber; }
 
         ccpg::Function* getFunction() const { return function; }
-    
-        bool operator==(const NodeLoc& other) const {
-            return arePathsLikelySameFile(normalizedFileName, other.normalizedFileName)
-                && lineNumber == other.lineNumber;
+
+        static std::string extractBaseFileName(const std::string& path) {
+            return PathUtils::extractBaseFileName(path);
         }
 
-            // 定义小于运算符，用于排序
+        static bool fileNamesMatch(const std::string& path1, const std::string& path2) {
+            return PathUtils::arePathsLikelySameFile(path1, path2);
+        }
+    
+        bool operator==(const NodeLoc& other) const {
+            if (lineNumber != other.lineNumber) return false;
+            if (arePathsLikelySameFile(normalizedFileName, other.normalizedFileName))
+                return true;
+            return getBaseFileName() == other.getBaseFileName();
+        }
+
         bool operator<(const NodeLoc& other) const {
-            if (normalizedFileName != other.normalizedFileName) {
-                return normalizedFileName < other.normalizedFileName;
-            }
-            return lineNumber < other.lineNumber;
+            std::string base1 = getBaseFileName();
+            std::string base2 = other.getBaseFileName();
+            if (base1 != base2) return base1 < base2;
+            if (lineNumber != other.lineNumber) return lineNumber < other.lineNumber;
+            return normalizedFileName < other.normalizedFileName;
         }
     
         std::string toString() const {
@@ -161,7 +175,7 @@ class NodeLoc {
     
     struct NodeLocHash {
         std::size_t operator()(const NodeLoc& nl) const {
-            std::size_t h1 = std::hash<std::string>()(nl.getNormalizedFileName());
+            std::size_t h1 = std::hash<std::string>()(nl.getBaseFileName());
             std::size_t h2 = std::hash<int>()(nl.getLineNumber());
             return h1 ^ (h2 << 1); 
         }

@@ -139,17 +139,11 @@ std::string FindingThreadEntryAgent::execute_tool(const std::string& tool_name, 
             }
 
             // Guardrail: do not allow premature failure (-1) without any real attempt.
-            // This prevents the model from immediately returning -1 and skipping the
-            // wrapper/caller analysis that is required for cases like create_worker(func,...).
-            if (found_entry_id_ == -1) {
-                const bool attempted_any_resolution =
-                    attempted_get_function_ &&
-                    (attempted_call_graph_ || attempted_name_lookup_ || attempted_cpg_lookup_);
-                if (!attempted_any_resolution) {
-                    found_entry_id_ = -1; // keep as -1, but do NOT finish the loop
-                    return "{\"error\":\"Do not report -1 yet. You must attempt resolution using tools first (get_function + get_callers/get_function_ops or get_function_by_name or get_cpg_method_by_name), then retry report_entry_point_id.\","
-                           "\"required_attempts\":[\"get_function\",\"one_of(get_callers|get_function_ops|get_function_by_name|get_cpg_method_by_name)\"]}";
-                }
+            // The model must at least call get_function to inspect the call-site context
+            // before giving up. Once it has seen the context, trust its judgement.
+            if (found_entry_id_ == -1 && !attempted_get_function_) {
+                return "{\"error\":\"Do not report -1 yet. You must call get_function first to inspect the call-site context, then retry report_entry_point_id.\","
+                       "\"hint\":\"Call get_function with the node_id to see the surrounding code.\"}";
             }
             return "finish"; 
         }

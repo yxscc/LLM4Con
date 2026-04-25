@@ -3,6 +3,7 @@
 #pragma once
 
 #include "LLMUtil/ThreadPair.h"
+#include "Query/HypothesisVerifier.h"
 #include <vector>
 #include <string>
 #include <sstream>
@@ -78,17 +79,20 @@ public:
         externalBugs.push_back(bug);
     }
 
-    // 将检测到的漏洞打印到文件
+    // Open-hypothesis mode: hypotheses already verified by HypothesisVerifier
+    void detectFromHypotheses(const std::vector<Hypothesis>& hypotheses, CCPG* ccpg);
+
     void printResults(const fs::path& outputDir) const;
     
-    // 获取总bug数量
     size_t getTotalBugCount() const {
-        return detectedBugs.size() + externalBugs.size();
+        return detectedBugs.size() + externalBugs.size() + confirmedHypotheses_.size();
     }
 
 private:
     std::vector<StatefulBug> detectedBugs;
     std::vector<ExternalBug> externalBugs;
+    std::vector<Hypothesis> confirmedHypotheses_;
+    CCPG* hypothesisCcpg_ = nullptr;
     std::set<std::pair<std::string, NodeLoc>> reported_bugs_locations;
 };
 

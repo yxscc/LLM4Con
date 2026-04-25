@@ -30,6 +30,12 @@ class TargetPath
 
         void setTargetAbsolutePath(const std::string& TargetAbsolutePath){
             fs::path targetAbsolutePath = fs::path(TargetAbsolutePath);
+            if (targetAbsolutePath.is_relative()) {
+                targetAbsolutePath = fs::absolute(targetAbsolutePath);
+            }
+            if (fs::exists(targetAbsolutePath)) {
+                targetAbsolutePath = fs::canonical(targetAbsolutePath);
+            }
             if(fs::is_directory(targetAbsolutePath)){
                 this->TargetAbsolutePath = targetAbsolutePath;
                 targetProjectName = targetAbsolutePath.filename();

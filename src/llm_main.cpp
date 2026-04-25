@@ -30,6 +30,7 @@
 #include "CPG/Node.h"
 #include "Query/LLMDataRaceDetector.h"
 #include "Query/StatefulBugDetector.h"
+#include "Query/HypothesisVerifier.h"
 #include "LLMUtil/Conversation.h"
 #include "LLMUtil/VerificationAgent.h"
 
@@ -165,6 +166,18 @@ static cl::opt<bool> OnlyThreadEntry(
     cl::init(false)
 );
 
+static cl::opt<bool> AgentMode(
+    "agent-mode",
+    cl::desc("Use the new hypothesis-driven DetectorAgent (single LLM session) instead of per-thread/per-pair workflow. Default: true."),
+    cl::init(true)
+);
+
+static cl::opt<bool> LegacyWorkflow(
+    "legacy-workflow",
+    cl::desc("Force legacy per-thread-contract + per-pair workflow (overrides --agent-mode)."),
+    cl::init(false)
+);
+
 // Global config structure
 struct AnalysisConfig {
     std::string input_src;
@@ -177,6 +190,8 @@ struct AnalysisConfig {
     bool only_thread_entry = false;
     bool print_trace = false;
     std::string call_graph_type = "OTF";  // Options: OTF, CHA, RTA, NORESOLVE
+    bool agent_mode = true;               // Use hypothesis-driven agent architecture
+    bool legacy_workflow = false;          // Fall back to per-thread-pair workflow
 };
 
 // Load config from JSON file
@@ -472,22 +487,39 @@ int main(int argc, char** argv) {
     writeCheckpoint("LLM_Analysis", "IN_PROGRESS");
     llm_client::AgentManager agentManager(ccpg.get());
     const auto candidateSharedObjects = ThreadCreationTree::getInstance()->collectCandidateSharedObjects();
-    auto thread_pairs_with_analysis = agentManager.runAnalysis();
-    writeCheckpoint("LLM_Analysis", "COMPLETED", "Thread pairs analyzed");
 
-    // VerificationAgent is temporarily disabled to reduce false positive filtering overhead.
-    // Enable it later if we find too many false positives on large projects.
-    // auto verificationAgent = std::make_unique<llm_client::VerificationAgent>(LLMClient::get_instance());
+    bool useAgentMode = config.agent_mode && !config.legacy_workflow;
+    std::cout << "\n[Analysis Mode] " << (useAgentMode ? "Agent (hypothesis-driven)" : "Legacy (per-thread contract)") << std::endl;
 
-    writeCheckpoint("Bug_Detection", "IN_PROGRESS");
-    query::StatefulBugDetector statefulDetector;
-    
-    // [DISABLED] Lazy-init race external bug addition - now detected through normal stateful bug flow
-    // for (const auto& race : lazyInitRaces) { ... }
-    
-    statefulDetector.detect(thread_pairs_with_analysis, candidateSharedObjects, nullptr);
-    statefulDetector.printResults(targetPath->getOutputDir()); // This now saves the result to a file
-    writeCheckpoint("Bug_Detection", "COMPLETED");
+    if (useAgentMode) {
+        agentManager.runAnalysisAgentMode();
+    } else {
+        auto thread_pairs_with_analysis = agentManager.runAnalysisLegacy();
+        writeCheckpoint("LLM_Analysis", "COMPLETED", "Thread pairs analyzed");
+
+        writeCheckpoint("Bug_Detection", "IN_PROGRESS");
+        query::StatefulBugDetector statefulDetector;
+        statefulDetector.detect(thread_pairs_with_analysis, candidateSharedObjects, nullptr);
+        statefulDetector.printResults(targetPath->getOutputDir());
+        writeCheckpoint("Bug_Detection", "COMPLETED");
+
+        std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
+        // Skip the hypothesis path below
+        goto analysis_done;
+    }
+
+    writeCheckpoint("LLM_Analysis", "COMPLETED", "Hypotheses verified");
+
+    {
+        writeCheckpoint("Bug_Detection", "IN_PROGRESS");
+        query::StatefulBugDetector statefulDetector;
+        const auto& hypotheses = agentManager.getConfirmedHypotheses();
+        statefulDetector.detectFromHypotheses(hypotheses, ccpg.get());
+        statefulDetector.printResults(targetPath->getOutputDir());
+        writeCheckpoint("Bug_Detection", "COMPLETED");
+    }
+
+    analysis_done:
     std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
 
     // Zero-shot analysis is temporarily disabled for efficiency on large projects.

@@ -262,17 +262,22 @@ public:
                 parameters_json["properties"] = nlohmann::json::object();
                 for( const auto& param : tool.parameters) {
                     nlohmann::json param_json;
-                    param_json["type"] = param.type;
-                    param_json["description"] = param.description;
 
-                    if (param.type == "array" && param.items.has_value() && param.items->get()) {
-                        nlohmann::json items_json;
-                        const auto& item_schema = **param.items;
-                        items_json["type"] = item_schema.type;
-                        if (!item_schema.description.empty()) {
-                            items_json["description"] = item_schema.description;
+                    if (param.raw_schema.has_value()) {
+                        param_json = *param.raw_schema;
+                    } else {
+                        param_json["type"] = param.type;
+                        param_json["description"] = param.description;
+
+                        if (param.type == "array" && param.items.has_value() && param.items->get()) {
+                            nlohmann::json items_json;
+                            const auto& item_schema = **param.items;
+                            items_json["type"] = item_schema.type;
+                            if (!item_schema.description.empty()) {
+                                items_json["description"] = item_schema.description;
+                            }
+                            param_json["items"] = items_json;
                         }
-                        param_json["items"] = items_json;
                     }
                     
                     if( param.required) {

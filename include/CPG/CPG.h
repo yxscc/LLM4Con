@@ -4,10 +4,12 @@
 
 #include "Node.h"
 #include "Edge.h"
+#include "Util/PathUtils.h"
 #include <vector>
 #include <memory>
 #include <filesystem>
 #include <iostream>
+#include <cstring>
 
 namespace fs = std::filesystem;
 
@@ -56,61 +58,81 @@ public:
     CPGNodeSet getMethodsByFileName(std::string fileName) const {
         std::string result = fileName;
     
-        // 规范化路径，删除开头的 ".." 或 "."
         if (result.compare(0, 2, "..") == 0) {
             result = result.substr(2);
         } else if (result.compare(0, 1, ".") == 0) {
             result = result.substr(1);
         }
     
-        // 如果直接匹配到，直接返回
         auto it = file2Methods.find(result);
         if (it != file2Methods.end()) {
             return it->second;
         }
 
-        // 提取查询路径的basename (最后一个/之后的部分)
-        std::string resultBasename = result;
-        size_t lastSlash = result.find_last_of("/");
-        if (lastSlash != std::string::npos) {
-            resultBasename = result.substr(lastSlash + 1);
-        }
-    
-        // 遍历 file2Methods，只匹配文件名完全相等的情况
         for (const auto& [key, methods] : file2Methods) {
-            if(key == "") {
-                continue;
-            }
-            // 提取key的basename
-            std::string keyBasename = key;
-            size_t keyLastSlash = key.find_last_of("/");
-            if (keyLastSlash != std::string::npos) {
-                keyBasename = key.substr(keyLastSlash + 1);
-            }
-            // 精确匹配basename
-            if (keyBasename == resultBasename) {
+            if(key.empty()) continue;
+            if (PathUtils::arePathsLikelySameFile(key, result)) {
                 return methods;
             }
         }
     
-        return CPGNodeSet(); // 没有匹配项，返回空集合
+        return CPGNodeSet();
+    }
+
+    // Generate the Linux syscall-entry naming variants for a given "base"
+    // name. The kernel's SYSCALL_DEFINE macro produces several alias
+    // functions in the IR (architecture-specific prefixes, internal helpers)
+    // that all refer to the same C-level body. The CPG, however, typically
+    // only contains the unprefixed base. This helper lets findMethod fall
+    // back through the common variants so the IR entry name can still be
+    // mapped to the CPG method node.
+    static std::vector<std::string> syscallNameVariants(const std::string& name) {
+        std::vector<std::string> out;
+        out.push_back(name);
+        // Well-known prefixes produced by SYSCALL_DEFINE* macro expansion.
+        static const char* kPrefixes[] = {
+            "__x64_sys_", "__ia32_sys_", "__arm64_sys_", "__arm_sys_",
+            "__riscv_sys_", "__powerpc_sys_", "__se_sys_", "__do_sys_",
+            "SyS_", "sys_"
+        };
+        std::string base = name;
+        for (const char* p : kPrefixes) {
+            std::size_t plen = std::strlen(p);
+            if (base.size() > plen && base.compare(0, plen, p) == 0) {
+                base = base.substr(plen);
+                break;
+            }
+        }
+        if (base != name) out.push_back(base);
+        // Also try each prefix applied to the stripped base, so that when
+        // the CPG has one form and the IR has another we can find either.
+        for (const char* p : kPrefixes) {
+            std::string candidate = std::string(p) + base;
+            if (candidate != name) out.push_back(candidate);
+        }
+        return out;
     }
 
     Node* findMethod(std::string name) const {
 
-        CPGNodeSet methodNodes = type2Nodes.at("Method");
+        auto it = type2Nodes.find("Method");
+        if (it == type2Nodes.end()) return nullptr;
+        const CPGNodeSet& methodNodes = it->second;
 
-        for(Node* methodNode : methodNodes){
-            if(methodNode->getName() == name && methodNode->properties["CODE"] != "<empty>"){
-                if(methodNode->outCFGEdges.size() == 1){
-                    std::unordered_set<Edge*> outEdges = methodNode->outCFGEdges;
-                    Edge* edge = *outEdges.begin();
-                    Node* nextNode = edge->getToNode();
-                    if(nextNode->getType() == "Method_return"){
-                        continue;
+        // Try each candidate name in order of descending specificity.
+        for (const std::string& candidate : syscallNameVariants(name)) {
+            for(Node* methodNode : methodNodes){
+                if(methodNode->getName() == candidate && methodNode->properties["CODE"] != "<empty>"){
+                    if(methodNode->outCFGEdges.size() == 1){
+                        std::unordered_set<Edge*> outEdges = methodNode->outCFGEdges;
+                        Edge* edge = *outEdges.begin();
+                        Node* nextNode = edge->getToNode();
+                        if(nextNode->getType() == "Method_return"){
+                            continue;
+                        }
                     }
+                    return methodNode;
                 }
-                return methodNode;
             }
         }
         return nullptr;
@@ -118,10 +140,18 @@ public:
 
     std::unordered_set<Node*> findMethodsByName(std::string name) const {
         std::unordered_set<Node*> methods;
-        CPGNodeSet methodNodes = type2Nodes.at("Method");
+        auto it = type2Nodes.find("Method");
+        if (it == type2Nodes.end()) return methods;
+        const CPGNodeSet& methodNodes = it->second;
+
+        // Try all syscall-style name variants so IR-side prefixed names
+        // (e.g. __x64_sys_foo) also match CPG nodes named sys_foo or foo.
+        std::vector<std::string> candidates = syscallNameVariants(name);
+        std::unordered_set<std::string> tried(candidates.begin(), candidates.end());
 
         for(Node* methodNode : methodNodes){
-            if(methodNode->getName() == name && methodNode->properties["CODE"] != "<empty>"){
+            const std::string& mname = methodNode->getName();
+            if(tried.count(mname) && methodNode->properties["CODE"] != "<empty>"){
                 if(methodNode->outCFGEdges.size() == 1){
                     std::unordered_set<Edge*> outEdges = methodNode->outCFGEdges;
                     Edge* edge = *outEdges.begin();

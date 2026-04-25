@@ -148,8 +148,21 @@ void StatefulBugDetector::detect(const std::vector<llm_client::ThreadPair>& thre
 }
 
 
+void StatefulBugDetector::detectFromHypotheses(
+    const std::vector<Hypothesis>& hypotheses, CCPG* ccpg) {
+    std::cout << "\n[Phase 4: Detecting Violations (Open Hypothesis)]" << std::endl;
+
+    hypothesisCcpg_ = ccpg;
+
+    for (const auto& h : hypotheses) {
+        std::cout << "    [!!!] POTENTIAL " << h.bug_category
+                  << " VIOLATION FOUND: " << h.id << std::endl;
+        confirmedHypotheses_.push_back(h);
+    }
+}
+
 void StatefulBugDetector::printResults(const fs::path& outputDir) const {
-    size_t totalBugs = detectedBugs.size() + externalBugs.size();
+    size_t totalBugs = detectedBugs.size() + externalBugs.size() + confirmedHypotheses_.size();
     
     if (totalBugs == 0) {
         std::cout << "No bugs detected." << std::endl;
@@ -164,15 +177,18 @@ void StatefulBugDetector::printResults(const fs::path& outputDir) const {
     std::ofstream file(bugsOutputDir / "bugs.txt");
     int i = 1;
     
-    // Output external bugs first (e.g., lazy-init races from API discovery)
     for (const auto& bug : externalBugs) {
         file << bug.toString() << "\n\n";
         file << "count  " << i++ << " ----------------------------------------" << std::endl;
     }
     
-    // Output stateful protocol violations
     for (const auto& bug : detectedBugs) {
         file << bug.toString() << "\n\n";
+        file << "count  " << i++ << " ----------------------------------------" << std::endl;
+    }
+
+    for (const auto& h : confirmedHypotheses_) {
+        file << h.toReportString(hypothesisCcpg_) << "\n\n";
         file << "count  " << i++ << " ----------------------------------------" << std::endl;
     }
     
@@ -180,10 +196,13 @@ void StatefulBugDetector::printResults(const fs::path& outputDir) const {
     
     std::cout << "Bug detection complete. " << totalBugs << " potential bug(s) found." << std::endl;
     if (!externalBugs.empty()) {
-        std::cout << "  - Lazy-Init Race: " << externalBugs.size() << std::endl;
+        std::cout << "  - External Bugs: " << externalBugs.size() << std::endl;
     }
     if (!detectedBugs.empty()) {
         std::cout << "  - Stateful Protocol Violations: " << detectedBugs.size() << std::endl;
+    }
+    if (!confirmedHypotheses_.empty()) {
+        std::cout << "  - Hypothesis-Based Violations: " << confirmedHypotheses_.size() << std::endl;
     }
     std::cout << "Results saved to: " << (bugsOutputDir / "bugs.txt") << std::endl;
 }

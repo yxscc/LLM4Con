@@ -22,6 +22,7 @@ struct Parameter {
     std::string description;
     bool required = false;
     std::optional<std::unique_ptr<Parameter>> items;
+    std::optional<nlohmann::json> raw_schema;
 
     // Default constructor
     Parameter() = default;
@@ -38,12 +39,17 @@ struct Parameter {
         }
     }
 
+    // Constructor for raw JSON schema override
+    Parameter(std::string n, nlohmann::json schema, bool req = false)
+        : name(std::move(n)), required(req), raw_schema(std::move(schema)) {}
+
     // Custom copy constructor and assignment to handle unique_ptr
     Parameter(const Parameter& other)
         : name(other.name),
           type(other.type),
           description(other.description),
-          required(other.required) {
+          required(other.required),
+          raw_schema(other.raw_schema) {
         if (other.items) {
             items = std::make_unique<Parameter>(**other.items);
         }
@@ -57,6 +63,7 @@ struct Parameter {
         type = other.type;
         description = other.description;
         required = other.required;
+        raw_schema = other.raw_schema;
         if (other.items) {
             items = std::make_unique<Parameter>(**other.items);
         } else {
@@ -87,18 +94,23 @@ struct Tool {
         std::vector<std::string> required_params;
         for (const auto& p : parameters) {
             nlohmann::json param_details;
-            param_details["type"] = p.type;
-            if (!p.description.empty()) {
-                param_details["description"] = p.description;
-            }
 
-            if (p.type == "array" && p.items) {
-                nlohmann::json items_json;
-                items_json["type"] = (*p.items)->type;
-                if (!(*p.items)->description.empty()) {
-                    items_json["description"] = (*p.items)->description;
+            if (p.raw_schema.has_value()) {
+                param_details = *p.raw_schema;
+            } else {
+                param_details["type"] = p.type;
+                if (!p.description.empty()) {
+                    param_details["description"] = p.description;
                 }
-                param_details["items"] = items_json;
+
+                if (p.type == "array" && p.items) {
+                    nlohmann::json items_json;
+                    items_json["type"] = (*p.items)->type;
+                    if (!(*p.items)->description.empty()) {
+                        items_json["description"] = (*p.items)->description;
+                    }
+                    param_details["items"] = items_json;
+                }
             }
             
             properties_obj[p.name] = param_details;

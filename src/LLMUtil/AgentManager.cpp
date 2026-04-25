@@ -9,6 +9,8 @@
 #include "LLMUtil/ConcurrencyContract.h"
 #include "CCPG/ThreadCreationTree.h"
 #include "LLMUtil/ThreadPair.h"
+#include "LLMUtil/DetectorAgent.h"
+#include "Query/VulnerabilitySurfaceGenerator.h"
 
 namespace llm_client {
 
@@ -23,21 +25,113 @@ AgentManager::AgentManager(CCPG* cpg)
     }
 }
 
-std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
+std::vector<llm_client::ThreadPair> AgentManager::runAnalysisAgentMode() {
     if (!llmClient || !ccpg) {
         std::cerr << "LLM Client or CCPG not initialized. Aborting analysis.";
         return {};
     }
 
-    std::cout << "\n--- Starting LLM-based Concurrency Analysis ---" << std::endl;
+    std::cout << "\n--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---" << std::endl;
+
+    ThreadCreationTree* tct = ThreadCreationTree::getInstance();
+
+    // Phase 1: Generate vulnerability surface (pure static, no LLM)
+    std::cout << "\n[Phase 1: Generating Vulnerability Surface (static)]" << std::endl;
+    query::VulnerabilitySurfaceGenerator surfaceGen(ccpg, tct);
+    auto surface = surfaceGen.generate();
+
+    fs::path surface_path = TargetPath::getInstance()->getOutputDir() / "vulnerability_surface.json";
+    std::ofstream surface_file(surface_path);
+    if (surface_file.is_open()) {
+        surface_file << surface.toJson().dump(2);
+        surface_file.close();
+        std::cout << "Vulnerability surface saved to: " << surface_path << std::endl;
+    }
+
+    size_t high_risk_count = 0;
+    for (const auto& obj : surface.shared_objects) {
+        if (obj.risk_score > 0) high_risk_count++;
+    }
+
+    std::cout << "\n  Threads: " << surface.total_thread_count
+              << ", Conflicting pairs: " << surface.conflicting_pair_count
+              << ", Shared objects: " << surface.shared_objects.size()
+              << ", High-risk objects: " << high_risk_count
+              << std::endl;
+
+    if (surface.shared_objects.empty()) {
+        std::cout << "No shared objects found. Skipping LLM analysis." << std::endl;
+        return {};
+    }
+
+    // Phase 2: DetectorAgent with open-hypothesis verification
+    std::cout << "\n[Phase 2: DetectorAgent (open hypothesis, single LLM session)]" << std::endl;
+    DetectorAgent detector(llmClient, ccpg);
+    DetectorAgent::DetectionResult detectionResult;
+    try {
+        detectionResult = detector.runDetection(surface);
+    } catch (const std::exception& e) {
+        std::cerr << "\n[Phase 2 ERROR] LLM API call failed: " << e.what() << std::endl;
+        std::cerr << "Vulnerability surface was saved successfully. Re-run when LLM API is available." << std::endl;
+        return {};
+    }
+
+    confirmedHypotheses_ = std::move(detectionResult.confirmed);
+
+    std::cout << "\n[Phase 2 Complete] " << confirmedHypotheses_.size()
+              << " hypotheses confirmed by constraint verification." << std::endl;
+
+    // Log confirmed hypotheses
+    fs::path hyp_log_path = TargetPath::getInstance()->getOutputDir() / "confirmed_hypotheses.log";
+    std::ofstream hyp_file(hyp_log_path);
+    if (hyp_file.is_open()) {
+        hyp_file << "========= Open-Hypothesis Detection Results =========\n\n";
+        for (const auto& h : confirmedHypotheses_) {
+            nlohmann::json hj = h.toJson();
+            if (hj.contains("nodes") && hj["nodes"].is_object()) {
+                nlohmann::json nodes_with_code;
+                for (auto& [role, node_id] : hj["nodes"].items()) {
+                    nlohmann::json node_info;
+                    node_info["id"] = node_id;
+                    CCPGNode* ccpg_node = ccpg->getNodeByID(node_id.get<int>());
+                    if (ccpg_node && ccpg_node->getCPGNode()) {
+                        node_info["code"] = ccpg_node->getCPGNode()->getCode();
+                    } else {
+                        node_info["code"] = "[Code not found]";
+                    }
+                    nodes_with_code[role] = node_info;
+                }
+                hj["nodes"] = nodes_with_code;
+            }
+            hyp_file << hj.dump(4) << "\n\n";
+        }
+        hyp_file.close();
+        std::cout << "Hypotheses logged to: " << hyp_log_path << std::endl;
+    }
+
+    std::cout << "\n--- Agent-Mode Analysis Finished ---\n" << std::endl;
+
+    // Return empty vector; caller should use getConfirmedHypotheses() instead
+    return {};
+}
+
+std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
+    return runAnalysisLegacy();
+}
+
+std::vector<llm_client::ThreadPair> AgentManager::runAnalysisLegacy() {
+    if (!llmClient || !ccpg) {
+        std::cerr << "LLM Client or CCPG not initialized. Aborting analysis.";
+        return {};
+    }
+
+    std::cout << "\n--- Starting Legacy LLM-based Concurrency Analysis ---" << std::endl;
 
     ThreadCreationTree* tct = ThreadCreationTree::getInstance();
     std::unordered_set<Thread*> threads = tct->getThreads();
     
-    // Phase 1, Step A: Identify candidate shared objects once at the beginning.
     const auto candidateSharedObjects = tct->collectCandidateSharedObjects();
 
-    // Phase 1, Step B: Generate Concurrency Contracts for all threads
     std::cout << "\n[Phase 1: Generating Concurrency Contracts]" << std::endl;
     std::map<Thread*, LLM::ConcurrencyContract> contractMap;
     for(Thread* thread : threads) {
@@ -56,9 +150,6 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
         }
     }
 
-    // Phase 2: Analyze parallelism for each pair of threads
-    // Note: We rely on LLM's Stage 1 judgment to filter out non-concurrent pairs,
-    // instead of expensive static alias analysis which can be slow on large projects.
     std::cout << "\n[Phase 2: Analyzing Thread Pairs (LLM-based filtering)]" << std::endl;
     std::vector<ThreadPair> analysisResults;
     std::vector<Thread*> thread_vec(threads.begin(), threads.end());
@@ -67,10 +158,16 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
     int current_pair = 0;
     int skipped_by_llm = 0;
     
+    int skipped_by_static = 0;
     for (size_t i = 0; i < thread_vec.size(); ++i) {
         for (size_t j = i + 1; j < thread_vec.size(); ++j) {
             Thread* thread1 = thread_vec[i];
             Thread* thread2 = thread_vec[j];
+
+            if (!tct->mayHappenInParallel(thread1, thread2)) {
+                skipped_by_static++;
+                continue;
+            }
 
             auto it1 = contractMap.find(thread1);
             auto it2 = contractMap.find(thread2);
@@ -88,7 +185,6 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
                 std::cout << "  - Actually Concurrent: " << (pair.analysis.actually_concurrent ? "Yes" : "No") << std::endl;
                 std::cout << "    Reasoning: " << pair.analysis.concurrency_reasoning << std::endl;
 
-                // Skip pairs that LLM determined cannot run concurrently
                 if (!pair.analysis.actually_concurrent) {
                     skipped_by_llm++;
                     std::cout << "  -> Skipped by LLM (no concurrency risk identified)" << std::endl;
@@ -100,7 +196,9 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
         }
     }
     
-    std::cout << "  -> Total pairs: " << total_pairs << ", Skipped by LLM: " << skipped_by_llm 
+    std::cout << "  -> Total pairs: " << total_pairs 
+              << ", Skipped by static analysis: " << skipped_by_static
+              << ", Skipped by LLM: " << skipped_by_llm 
               << ", Proceeding with: " << analysisResults.size() << std::endl;
 
     fs::path rules_log_path = TargetPath::getInstance()->getOutputDir() / "temporal_rules.log";
@@ -115,32 +213,22 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
                 rules_file << "  No rules generated for this pair.\n\n";
             } else {
                 for (const auto& rule_ptr : pair.analysis.temporal_rules) {
-                    // Get the initial JSON object for the rule
                     nlohmann::json rule_json = rule_ptr->to_json();
-
-                    // Check if the "nodes" key exists and is an object
                     if (rule_json.contains("nodes") && rule_json["nodes"].is_object()) {
                         nlohmann::json nodes_with_code;
-                        // Iterate over each node role (e.g., "state_check_operation")
                         for (auto& [role, node_id] : rule_json["nodes"].items()) {
                             nlohmann::json node_info;
                             node_info["id"] = node_id;
-
-                            // Look up the CCPGNode by its ID
                             CCPGNode* ccpg_node = ccpg->getNodeByID(node_id.get<int>());
                             if (ccpg_node && ccpg_node->getCPGNode()) {
-                                // Add the code to our new node_info object
                                 node_info["code"] = ccpg_node->getCPGNode()->getCode();
                             } else {
                                 node_info["code"] = "[Code not found for this node ID]";
                             }
                             nodes_with_code[role] = node_info;
                         }
-                        // Replace the old "nodes" object with our new, more detailed one
                         rule_json["nodes"] = nodes_with_code;
                     }
-                    
-                    // Write the modified JSON to the file
                     rules_file << rule_json.dump(4) << "\n\n"; 
                 }
             }
@@ -149,7 +237,7 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysis() {
         std::cout << "Temporal rules have been logged to: " << rules_log_path << std::endl;
     }
 
-    std::cout << "\n--- LLM-based Analysis Finished ---\n" << std::endl;
+    std::cout << "\n--- Legacy LLM-based Analysis Finished ---\n" << std::endl;
     return analysisResults;
 }
 

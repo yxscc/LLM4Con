@@ -29,8 +29,55 @@ fs::path CPGGenerator::generateCPG(std::string dir){
         return outputDir;
     }
 
-    // 调整命令以使用新的输出目录路径,joern在该项目的joern-cli目录下
-    std::string generateCPGCommand =  std::string("joern-parse") + " -J-Xmx40G " + dir ;
+    // Joern's C frontend (c2cpg) does not know kernel-specific GCC attributes.
+    // We define them away via --frontend-args --define so the parser treats them
+    // as empty tokens.  This does NOT modify the source files on disk.
+    static const std::vector<std::string> kernelDefines = {
+        "__user", "__kernel", "__iomem", "__rcu", "__percpu",
+        "__force", "__cold", "__read_mostly", "__ro_after_init",
+        "__init", "__exit", "__initdata", "__exitdata", "__initconst",
+        "__net_init", "__net_exit", "__net_initdata",
+        "__devinit", "__devexit", "__devinitdata",
+        "__acquires", "__releases", "__must_hold",
+        "__maybe_unused", "__always_inline",
+        "asmlinkage", "notrace", "noinline",
+        "__bitwise", "__randomize_layout", "__aligned",
+        "__cacheline_aligned", "__cacheline_aligned_in_smp",
+        "__packed", "__weak", "__visible",
+    };
+    // Function-like macros that expand into a real C function body so that
+    // Joern's c2cpg creates a proper Method node with a predictable name.
+    // SYSCALL_DEFINEn(name, t1, a1, ...)     -> long sys_##name(t1 a1, ...)
+    // COMPAT_SYSCALL_DEFINEn(name, t1, a1, ...) -> long compat_sys_##name(t1 a1, ...)
+    // Without these, the kernel uses multi-level macros that Joern won't
+    // resolve, leaving the syscall bodies invisible to CPG::findMethod.
+    static const std::vector<std::string> kernelFuncMacros = {
+        "SYSCALL_DEFINE0(name)=long sys_##name(void)",
+        "SYSCALL_DEFINE1(name,t1,a1)=long sys_##name(t1 a1)",
+        "SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long sys_##name(t1 a1, t2 a2)",
+        "SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long sys_##name(t1 a1, t2 a2, t3 a3)",
+        "SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4)",
+        "SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5)",
+        "SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)",
+        "COMPAT_SYSCALL_DEFINE0(name)=long compat_sys_##name(void)",
+        "COMPAT_SYSCALL_DEFINE1(name,t1,a1)=long compat_sys_##name(t1 a1)",
+        "COMPAT_SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long compat_sys_##name(t1 a1, t2 a2)",
+        "COMPAT_SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long compat_sys_##name(t1 a1, t2 a2, t3 a3)",
+        "COMPAT_SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4)",
+        "COMPAT_SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5)",
+        "COMPAT_SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)",
+    };
+    std::string defineArgs;
+    for (const auto& def : kernelDefines) {
+        defineArgs += " --define " + def;
+    }
+    for (const auto& m : kernelFuncMacros) {
+        // Each macro must be quoted because it contains parentheses and
+        // commas which would otherwise be chewed up by the shell.
+        defineArgs += " --define \"" + m + "\"";
+    }
+    std::string generateCPGCommand = std::string("joern-parse") + " -J-Xmx40G " + dir
+                                     + " --frontend-args" + defineArgs;
     // 生成dot格式的CPG
     std::string drawCPGCommand = std::string("joern-export") + " -J-Xmx40G cpg.bin --repr=all --format=dot --out " + outputDir.string();
     

@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <sstream>
 #include <limits>
+#include <cstring>
+#include <vector>
 
 #include "CCPG/HB.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
@@ -112,6 +114,52 @@ void CCPG::build(){
                 if (methodNode == nullptr) {
                     // Try original mangled name as last resort
                     methodNode = cpg->findMethod(entryInfo.functionName);
+                }
+                // Kernel syscall / interrupt wrapper name fallback:
+                // LLVM bitcode for `SYSCALL_DEFINE*(foo,...)` carries arch-
+                // decorated symbols like `__x64_sys_foo`, `__arm64_sys_foo`,
+                // `__ia32_sys_foo`, `__se_sys_foo`, `__do_sys_foo`,
+                // `__sys_foo`, but Joern's CPG (which parses preprocessed C)
+                // sees the un-decorated `sys_foo` or even just `foo`.
+                // Try progressively stripping the arch/ABI prefix until we
+                // find a match so the syscall becomes reachable as an entry.
+                if (methodNode == nullptr) {
+                    static const char* const kSyscallPrefixes[] = {
+                        "__x64_sys_", "__x32_sys_", "__ia32_sys_",
+                        "__arm64_sys_", "__arm_sys_", "__mips_sys_",
+                        "__riscv_sys_", "__s390_sys_", "__s390x_sys_",
+                        "__powerpc_sys_", "__powerpc64_sys_",
+                        "__se_sys_", "__se_compat_sys_",
+                        "__do_sys_", "__do_compat_sys_",
+                        "__sys_"
+                    };
+                    std::vector<std::string> candidates;
+                    for (const char* pfx : kSyscallPrefixes) {
+                        std::size_t plen = std::strlen(pfx);
+                        if (shortName.size() > plen &&
+                            shortName.compare(0, plen, pfx) == 0) {
+                            std::string stripped = shortName.substr(plen);
+                            candidates.push_back("sys_" + stripped);
+                            candidates.push_back(stripped);
+                            break;
+                        }
+                    }
+                    // Also try adding/removing a leading "sys_" on the
+                    // shortName so e.g. `sys_move_pages` vs `move_pages`
+                    // can cross-match.
+                    if (shortName.rfind("sys_", 0) == 0) {
+                        candidates.push_back(shortName.substr(4));
+                    } else {
+                        candidates.push_back("sys_" + shortName);
+                    }
+                    for (const auto& cand : candidates) {
+                        methodNode = cpg->findMethod(cand);
+                        if (methodNode != nullptr) {
+                            std::cout << "  - Kernel syscall name fallback: "
+                                      << shortName << " -> " << cand << std::endl;
+                            break;
+                        }
+                    }
                 }
                 if (methodNode == nullptr) {
                     std::cout << "  - Not found in CPG: " << shortName << " (tried: " << demangledName << ")" << std::endl;
@@ -310,18 +358,15 @@ CCPGNodeSet CCPG::getEntries(){
             continue; // 跳过无效的入口点信息
         }
 
-        std::string fileName_last = fileName.substr(fileName.find_last_of("/") + 1);
-
         CPGNodeSet methods = cpg->getMethodsByFileName(fileName);
-        if(methods.size() == 0){
-            methods = cpg->getMethodsByFileName(fileName_last);
-            if(methods.size() == 0){
+        if(methods.empty()){
+            methods = cpg->getMethodsByFileName(NodeLoc::extractBaseFileName(fileName));
+            if(methods.empty()){
                 continue;
             }
         }
 
-        for(auto it = methods.begin(); it != methods.end(); it++){
-            Node * methodNode = *it;
+        for(Node* methodNode : methods){
             if( methodNode->getLineNumber() != -1 && abs(methodNode->getLineNumber() - lineNumberFromPhasar) <= 3){
                 entries.insert(createCCPGNode(methodNode));
             }
@@ -341,7 +386,7 @@ CCPGNode* CCPG::getMain() {
     const std::string& mainFuncName = mainInfo.functionName;
     std::string fileName = mainInfo.fileName;
     int lineNumber = mainInfo.lineNumber;
-    std::string fileName_last = fileName.substr(fileName.find_last_of("/") + 1);
+    std::string fileName_last = NodeLoc::extractBaseFileName(fileName);
 
     std::cerr << "[DEBUG getMain] Looking for: funcName=" << mainFuncName 
               << ", fileName=" << fileName << ", fileName_last=" << fileName_last 

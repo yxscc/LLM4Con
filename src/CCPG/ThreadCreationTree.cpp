@@ -371,11 +371,27 @@ Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
     }
 
     if(method == nullptr){
-        // Fallback to LLM-assisted entry resolution for indirect cases
-        // (e.g., wrappers like create_worker(func, arg) where pthread_create's
-        // third argument is a variable/parameter).
         std::cerr << "[Thread Entry] " << apiName << " - direct arg lookup failed, trying LLM..." << std::endl;
-        method = findThreadEntryByLLM(forkNode);
+        // The LLM helper can throw (timeout, quota exhaustion, malformed
+        // response etc.). A thrown exception inside this early pipeline
+        // stage crashes the whole detector (SIGABRT), which wipes out
+        // all the vulnerability-surface work we had already done. Treat
+        // any LLM-side failure as "unable to resolve entry" and keep
+        // going — downstream code already handles a null return here.
+        try {
+            method = findThreadEntryByLLM(forkNode);
+        } catch (const std::exception& e) {
+            std::cerr << "[Thread Entry] LLM fallback for " << apiName
+                      << " threw: " << e.what()
+                      << " — treating as unresolved and continuing."
+                      << std::endl;
+            method = nullptr;
+        } catch (...) {
+            std::cerr << "[Thread Entry] LLM fallback for " << apiName
+                      << " threw an unknown exception — treating as "
+                         "unresolved and continuing." << std::endl;
+            method = nullptr;
+        }
     }    
 
     return method;
@@ -602,6 +618,78 @@ bool  isReachable(CCPGNode* start, CCPGNode* end, Thread* thread) {
 }
 
 
+// Classify a kernel entry-point name into a coarse lifecycle phase.
+// Callers from two incompatible phases (e.g. init vs exit) cannot run
+// concurrently on a single module instance, so they should be pruned
+// from the "mayHappenInParallel" relation. Returning "" means "unknown
+// phase": we conservatively allow parallelism in that case.
+static std::string entryLifecyclePhase(const std::string& name) {
+    if (name.empty()) return "";
+    // Module load / driver attach phase.
+    if (name.find("_init") != std::string::npos ||
+        name == "init_module" ||
+        name.find("_probe") != std::string::npos ||
+        name.find("_open") != std::string::npos ||
+        name.find("_attach") != std::string::npos ||
+        name.find("_bind") != std::string::npos ||
+        name.find("_alloc") != std::string::npos) {
+        // Reject false positives where e.g. "x_init_foo" really is an
+        // ongoing syscall by requiring _init as a suffix-like token.
+        if (name.find("_init") != std::string::npos &&
+            name.find("_init") == name.size() - 5) return "init";
+        if (name == "init_module") return "init";
+        if (name.find("_probe") == name.size() - 6 && name.size() >= 6) return "init";
+        if (name.find("_open") == name.size() - 5 && name.size() >= 5) return "init";
+        if (name.find("_attach") == name.size() - 7 && name.size() >= 7) return "init";
+        if (name.find("_bind") == name.size() - 5 && name.size() >= 5) return "init";
+    }
+    if (name.find("_exit") != std::string::npos) {
+        if (name.find("_exit") == name.size() - 5) return "exit";
+    }
+    if (name == "cleanup_module") return "exit";
+    if (name.find("_remove") != std::string::npos) {
+        if (name.find("_remove") == name.size() - 7) return "exit";
+    }
+    if (name.find("_release") != std::string::npos) {
+        if (name.find("_release") == name.size() - 8) return "exit";
+    }
+    if (name.find("_close") != std::string::npos) {
+        if (name.find("_close") == name.size() - 6) return "exit";
+    }
+    if (name.find("_detach") != std::string::npos) {
+        if (name.find("_detach") == name.size() - 7) return "exit";
+    }
+    if (name.find("_destroy") != std::string::npos) {
+        if (name.find("_destroy") == name.size() - 8) return "exit";
+    }
+    return "";
+}
+
+static std::string threadEntryName(Thread* t) {
+    if (!t) return "";
+    ccpg::Function* mf = t->getThreadMainFunction();
+    if (!mf) return "";
+    if (const llvm::Function* llvmF = mf->getLLVMFunction()) {
+        return llvmF->getName().str();
+    }
+    // Fallback: CPG method name
+    if (CCPGNode* fn = mf->getFuncNode()) {
+        if (fn->getCPGNode()) return fn->getCPGNode()->getName();
+    }
+    return "";
+}
+
+// Two entries are lifecycle-incompatible if one is clearly init-phase and
+// the other is clearly exit-phase. Everything else (e.g. two syscalls,
+// or one syscall + one probe) remains possibly concurrent because the
+// kernel actually allows those to race.
+static bool isEntryLifecycleIncompatible(Thread* t1, Thread* t2) {
+    std::string p1 = entryLifecyclePhase(threadEntryName(t1));
+    std::string p2 = entryLifecyclePhase(threadEntryName(t2));
+    if (p1.empty() || p2.empty()) return false;
+    return (p1 == "init" && p2 == "exit") || (p1 == "exit" && p2 == "init");
+}
+
 bool ThreadCreationTree::mayHappenInParallel(Thread * t1, Thread * t2) {
     // Generate an ordered pair for the cache key
     auto cacheKey = (t1 <= t2) ? std::make_pair(t1, t2) : std::make_pair(t2, t1);
@@ -614,8 +702,38 @@ bool ThreadCreationTree::mayHappenInParallel(Thread * t1, Thread * t2) {
     assert(t1->getParent() == t2->getParent() && "mayHappenInParallel should only be called on sibling threads");
     Thread* parent = t1->getParent();
     if (!parent) {
-        mayHappenInParallelCache[cacheKey] = false;
-        return false;
+        bool bothKernelEntry = t1->isKernelEntry() && t2->isKernelEntry();
+        if (!bothKernelEntry) {
+            mayHappenInParallelCache[cacheKey] = false;
+            return false;
+        }
+
+        // Filter 1: lifecycle incompatibility. init/probe vs exit/remove
+        // on the same module cannot be concurrent.
+        if (isEntryLifecycleIncompatible(t1, t2)) {
+            mayHappenInParallelCache[cacheKey] = false;
+            return false;
+        }
+
+        // Filter 2: data-sharing. Use the Phase-1 field-level conflict
+        // query to reject pairs with no shared SharedFieldKey. This
+        // cheaply collapses "parallel-but-harmless" entry pairs that
+        // inflate the downstream analysis.
+        auto* pta = dynamic_cast<PhasarPointerAnalysis*>(
+            AnalysisManager::getInstance()->getPointerAnalyzer());
+        if (pta) {
+            std::string n1 = threadEntryName(t1);
+            std::string n2 = threadEntryName(t2);
+            if (!n1.empty() && !n2.empty() &&
+                !pta->doEntriesHaveSharedData(n1, n2)) {
+                mayHappenInParallelCache[cacheKey] = false;
+                return false;
+            }
+        }
+
+        // Kernel entry points without fork/join are conservatively parallel
+        mayHappenInParallelCache[cacheKey] = true;
+        return true;
     }
 
     CCPGNode * forkNode1 = t1->getForkNode();
@@ -706,13 +824,11 @@ bool ThreadCreationTree::mayThreadsRunConcurrently(Thread* t1, Thread* t2) {
         Thread* p1 = t1->getParent();
         Thread* p2 = t2->getParent();
         
-        if (p1 && p1 == p2) { // 直接兄弟
+        if (p1 == p2) { // 直接兄弟（包括 parent == nullptr 的内核入口线程）
             result = mayHappenInParallel(t1, t2);
         } else if (p1 && p2) { // 间接兄弟（堂兄弟等）
-            // 递归地检查它们的父线程是否并发
             result = mayThreadsRunConcurrently(p1, p2);
         }
-        // 如果没有共同的父节点（例如，两个主线程），则它们不并发
     }
 
     concurrencyCache[cacheKey] = result;
