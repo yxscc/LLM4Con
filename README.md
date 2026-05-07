@@ -1,5 +1,9 @@
 # Lace: LLM-Enhanced Concurrency Vulnerability Detector
 
+> **🚧 Picking up an in-progress experiment? Start here:**
+> [`kernel_experiment/HANDOFF.md`](./kernel_experiment/HANDOFF.md)
+> — TL;DR of current state, every pitfall the previous LLM/engineer hit, and exact next steps for the kernel-CVE detection experiment (M7).
+
 Lace is a static analysis tool for C/C++ designed to detect complex concurrency vulnerabilities. It integrates Code Property Graphs (CPG), precise pointer analysis via Phasar, and Large Language Models (LLMs) to enhance traditional static analysis with semantic understanding.
 
 ## Core Features
