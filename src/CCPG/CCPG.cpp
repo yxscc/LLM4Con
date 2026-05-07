@@ -399,18 +399,35 @@ CCPGNode* CCPG::getMain() {
         std::cerr << "[DEBUG getMain] methods from filename only: " << methods.size() << std::endl;
         if(methods.empty()){
             std::cerr << "Warning: No methods found in file " << fileName << " or " << fileName_last << std::endl;
+            // Layer 5 diagnostic: list closest-name methods so it is
+            // obvious whether the entry exists under a different file
+            // path or a slightly different name (LLVM mangling, ops_table
+            // members renamed by the optimizer, etc.).
+            auto suggestions = cpg->findMethodSuggestions(mainFuncName, 5);
+            if (!suggestions.empty()) {
+                std::cerr << "[DEBUG getMain] Closest method names in CPG:";
+                for (const auto& s : suggestions) std::cerr << " " << s;
+                std::cerr << std::endl;
+            }
             return nullptr;
         }
     }
 
     std::cerr << "[DEBUG getMain] Iterating " << methods.size() << " methods" << std::endl;
+    // Pre-compute the demangle/syscall name variants once so each method
+    // node only does an O(K) lookup instead of O(K*M). Only used after
+    // the strict equality check fails, preserving the baseline path.
+    std::vector<std::string> nameCandidates = CPG::allNameCandidates(mainFuncName);
+    std::unordered_set<std::string> nameCandidateSet(nameCandidates.begin(),
+                                                     nameCandidates.end());
     Node* bestMatch = nullptr;
     int bestDelta = std::numeric_limits<int>::max();
     for(auto it = methods.begin(); it != methods.end(); it++){
         Node * methodNode = *it;
         std::cerr << "[DEBUG getMain] Checking method: name=" << methodNode->getName()
                   << ", line=" << methodNode->getLineNumber() << std::endl;
-        if (methodNode->getName() != mainFuncName) {
+        if (methodNode->getName() != mainFuncName &&
+            nameCandidateSet.count(methodNode->getName()) == 0) {
             continue;
         }
         if(methodNode->getLineNumber() != -1) {
@@ -435,6 +452,12 @@ CCPGNode* CCPG::getMain() {
     }
 
     std::cerr << "[DEBUG getMain] Main not found after iteration" << std::endl;
+    auto suggestions = cpg->findMethodSuggestions(mainFuncName, 5);
+    if (!suggestions.empty()) {
+        std::cerr << "[DEBUG getMain] Closest method names in CPG:";
+        for (const auto& s : suggestions) std::cerr << " " << s;
+        std::cerr << std::endl;
+    }
     return nullptr;
 }
 

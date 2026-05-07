@@ -274,7 +274,7 @@ rm -rf /home/LLM4Con/cpg_dot/CVE-*
 # 2. 后台启动批量检测
 cd /home/LLM4Con/kernel_experiment
 nohup bash /home/LLM4Con/scripts/batch_detect.sh \
-    --api-key "sk-wKEEyinejgvwWzQQrS5FCXxWvRJvpPRnPmbOAVCNkmKN4Cul" \
+    --api-key "$LLM_API_KEY" \
     --model "claude-sonnet-4-6" \
     > batch_run.log 2>&1 &
 echo $! > batch_run.pid
@@ -285,7 +285,7 @@ echo $! > batch_run.pid
 | 项 | 值 |
 |---|---|
 | 模型 | `claude-sonnet-4-6` |
-| API Key | `sk-wKEEyinejgvwWzQQrS5FCXxWvRJvpPRnPmbOAVCNkmKN4Cul` |
+| API Key | `$LLM_API_KEY` |
 | 接入方式 | LLM4Con 内置的 OpenAI 兼容接口（`src/LLMUtil/LLMClient.cpp`） |
 
 ### 日志与结果位置
@@ -399,13 +399,13 @@ cd /home/LLM4Con/Debug-build && cmake --build . -j$(nproc)
 
 cd /home/LLM4Con/kernel_experiment
 nohup bash /home/LLM4Con/scripts/batch_detect.sh \
-    --api-key "sk-wKEEyinejgvwWzQQrS5FCXxWvRJvpPRnPmbOAVCNkmKN4Cul" \
+    --api-key "$LLM_API_KEY" \
     --model "claude-sonnet-4-6" \
     > batch_run.log 2>&1 &
 
 # 批量跑完后用 LLM-as-judge + 三维评分
 python3 /home/LLM4Con/scripts/evaluate_recall.py \
-    --api-key "sk-wKEEyinejgvwWzQQrS5FCXxWvRJvpPRnPmbOAVCNkmKN4Cul" \
+    --api-key "$LLM_API_KEY" \
     --base-url "https://jeniya.cn/v1" \
     --model "claude-sonnet-4-6"
 ```
@@ -597,11 +597,20 @@ in_thread / may_run_concurrently / reachable / not_lock_protected / same_lock / 
 
 ### 推荐落点（按 ROI 排序）
 
-1. **加一类"缺存在性 / 上下文检查" hypothesis 模板** —— 覆盖 NULL deref、`*_FREED` flag check、`local_bh_disable / rcu_read_lock_bh` 等上下文要求。**收益最大（≈ 50% 的 MISS）**。
-2. **修 CCPG 入口点解析** —— 让 `findMethod` 容忍 `static` 名、ops-table 成员名、文件路径前缀差异；A 类立刻全恢复。
-3. **VulnerabilitySurface 排序加权** —— 给"同字段写少读多 + 缺 READ_ONCE"的标量加权，缓解 C 类。
-4. **解除"最多 5 hypothesis"硬上限**，按 token 预算自适应；解决 E 类系统性截断。
-5. **`prepare_cve.sh` 切片以 patch 涉及的所有文件为种子展开依赖**，而不是单文件 + 邻接拼接；解决 D 类。
+> 状态图标：✅ 已落地于 M7；🟡 部分落地；❌ 未落地。详见 §M7。
+
+1. 🟡 **重构 `HypothesisVerifier` 为 happens-before / 原子性最小 DSL** —— 详细设计见 [`HYPOTHESIS_DSL_DESIGN.md`](./HYPOTHESIS_DSL_DESIGN.md)。
+   - 理论起点：并发正确性 = HB 顺序 + 原子性（暂不含死锁）
+   - 谓词词汇表：**5 个原语 + 3 个糖**（`same_location` / `op_kind` / `in_thread` / `reachable` / `hb`，糖 `conflicts` / `concurrent` / `unsafe_atomic_block`）
+   - 框架特定知识（kfree / refcount / RCU / `*_FREED` flag / `local_bh_disable`/...）**全部沉到同步图的边构造**，不进入 DSL；新加 helper 只增表项不改谓词
+   - 8 个 bug 家族都规约为 3 种判定模板：`conflicts ∧ concurrent`（F1-F4）/ `conflicts ∧ ¬hb` 单向（F5/F8）/ `unsafe_atomic_block`（F6/F7）
+   - 表达力上限：现 6 谓词 ≈ 25% → 新 5+3 谓词 ≈ 94%
+   每个谓词都能落到一次 CCPG / CFG / 同步图查询；LLM 认知负担最小化。**收益最大（≈ 70% MISS 可解）**。
+   - **当前进度**：M7 Phase A MVP 已建出 HBGraph 同步图骨架（含 PROGRAM_ORDER / CALL_RETURN / LOCK_RELEASE_ACQUIRE / FORK_TO_ENTRY / JOIN_FROM_EXIT / COMPLETION 六类边），但 Phase B（Verifier 加 5+3 新谓词）与 Phase C（Prompt 切到新 DSL）**尚未落地**——HBGraph 暂时是死代码，对 recall/precision 还没贡献。
+2. ✅ **修 CCPG 入口点解析** —— 让 `findMethod` 容忍 `static` 名、ops-table 成员名、文件路径前缀差异；A 类立刻全恢复。 *(M7 Phase E：`include/CPG/CPG.h::demangleVariants` Layer 3 + `findMethodSuggestions` Layer 5；`src/CCPG/CCPG.cpp::getMain` 失败时打印 closest-method suggestions。)*
+3. ✅ **VulnerabilitySurface 排序加权** —— 给"同字段写少读多 + 缺 `READ_ONCE`"的标量加权，缓解 C 类。 *(M7 Phase D：`computeRiskScores` 新增 `has_scalar_torn_access` (+28)、`has_read_dominated_lone_writer` (+22)、`has_missing_atomic_annotation` (+18) 三类信号。)*
+4. ✅ **解除"最多 5 hypothesis"硬上限**，按 token 预算自适应；解决 E 类系统性截断。 *(M7 Phase D：`VulnerabilitySurface::toPromptString(top_n, token_budget)` 双参数化，render 过程按 token budget 提前截断。)*
+5. ✅ **`prepare_cve.sh` 切片以 patch 涉及的所有文件为种子展开依赖**，而不是单文件 + 邻接拼接；解决 D 类。 *(M7 Phase F：`scripts/patch_expander.py` 281 行，`prepare_cve.sh` step 0 + `batch_prepare.sh` 透传 `EXPAND_PATCH=1` 默认开启；产出 `expansion_report.json` 审计文件。)*
 
 ### 报告与日志
 
@@ -612,6 +621,134 @@ in_thread / may_run_concurrently / reachable / not_lock_protected / same_lock / 
 | LLM judge 实时进度 | `/tmp/entry_scan/eval_v2.log`、`/tmp/entry_scan/eval_recheck10.log` |
 | Detection 全量重跑日志 | `/tmp/entry_scan/batch_full.log`、`/tmp/entry_scan/batch_retry.log` |
 | 隔离的 CVE 与原因 | `_skipped_compile_issues/README.md` |
+
+## M7 进度快照（2026-04-30，进行中）
+
+> **目标提醒**：M7 的最终验收是 **HIT 数量** 与 **precision_strict**（M6 基线 13/50 = 26% recall，9.09% precision_strict，71.97% precision_lenient）。Phase 完成数是过程指标，不是验收指标。任何只增加基础设施却没接到 LLM 输出端的改动，对最终目标的贡献都是零。
+>
+> 实施计划详见 [`M7_IMPLEMENTATION_PLAN.md`](./M7_IMPLEMENTATION_PLAN.md)；DSL 设计详见 [`HYPOTHESIS_DSL_DESIGN.md`](./HYPOTHESIS_DSL_DESIGN.md)。
+
+### Phase 落地状态 ↔ 对最终目标的实际贡献
+
+| Phase | 内容 | 代码状态 | 对 recall/precision 的实际贡献 |
+|---|---|---|---|
+| **D** Surface 加权 + token-budget Top-N | risk_score 新增 3 类信号；`toPromptString(top_n, token_budget)` | ✅ 已落地 | 直接进入 LLM 输入，可缓解根因 C（≈ 5 个 surface 淹没 MISS）；待重跑验证 |
+| **E** CPG `findMethod` 多层兜底 | `demangleVariants` (LLVM mangling)、`findMethodSuggestions` 相似度兜底；`getMain` 失败诊断 | ✅ 已落地 | 直接影响是否能进入分析；可解根因 A 的 2 个 zero_reports CVE；待重跑验证 |
+| **F** patch-driven 跨文件展开 | `scripts/patch_expander.py` + `prepare_cve.sh` step 0 + `EXPAND_PATCH=1` 默认开启 | ✅ 已落地 | 影响 ≈ 6-8 个 ≥3 文件的 patch CVE；需重制实验目录后才显现，**当前 50 CVE 数据集仍是旧切片** |
+| **A** HBGraph 同步图 | 6/10 类边已实现（PROGRAM_ORDER / CALL_RETURN / LOCK_RELEASE_ACQUIRE / FORK_TO_ENTRY / JOIN_FROM_EXIT / COMPLETION）；RCU / Refcount / 上下文区间 / Lifecycle flag 4 类边仍是空函数桩 | 🟡 MVP 已落地 | 已被 B/C 接入 `concurrent` / `hb` 求解；kernel module mode 下 PO+CALL 两类边已足够支撑跨线程 `concurrent` 判定（详见单 CVE canary） |
+| **B** Verifier 新谓词 | `same_location` / `op_kind` / `eval_hb` / `eval_conflicts` / `eval_concurrent` / `eval_unsafe_atomic_block` | ✅ **已落地** (2026-05-01) | `HypothesisVerifier` 构造函数已注入 `HBGraph*`；6 个新 eval 全部实现，旧 6 谓词保留；canary 通过 |
+| **C** DetectorAgent prompt + schema | system prompt 切到 5+3 谓词；`propose_hypothesis` schema enum 扩 8 项；移除 "stop at 5" 硬上限 | ✅ **已落地** (2026-05-01) | system prompt 重写为三模板（race / lifetime / atomicity_break）+ 三个 few-shot；schema 描述涵盖 14 谓词；canary 中 LLM 100% 切换到新 DSL |
+| 编译 | Release 二进制 | ✅ 最新 | `Release-build/llm_detector` 时间戳 2026-05-01 23:53；含 D + E + F + A MVP + B + C |
+
+### 已突破的局部最优陷阱
+
+按工时算，M7 已投入约 5 天（D/E/F + A MVP + **B + C**）。截至 2026-05-01：
+- ✅ 单 CVE canary（`CVE-2017-15265`）已验证 Phase B+C 完全生效——LLM 100% 切换到新 DSL，核心 CVE 命中扩展
+- ⚠️ **M6 的 13/50 HIT、9.09% TP_MATCH、71.97% lenient precision 仍是当前已知的 SOTA**——M7 全量数字尚未实测
+- 🔜 下一步：全 50 CVE 重跑 + `evaluate_recall.py` 三类判定，给出**第一组 M7 实测**
+
+### 下一步优先级（按 ROI 重排）
+
+1. ✅ ~~**Phase B + C**~~（已完成 2026-05-01，canary 通过）
+2. ✅ ~~**重新编译 Release** + **canary 跑通**~~（已完成）
+3. 🔜 **全 50 CVE 重跑 + LLM judge**（约 0.5 天 + LLM 调用时间）—— **当前下一步**。这一步给出第一组 M7 实测数字，并据此决定后续走向。命令：
+
+   ```bash
+   rm -f /home/LLM4Con/kernel_experiment/CVE-*/detection_hypothesis_batch.log
+   cd /home/LLM4Con/kernel_experiment
+   nohup bash /home/LLM4Con/scripts/batch_detect.sh \
+       --api-key "<KEY>" --model "claude-sonnet-4-6" \
+       > batch_run.log 2>&1 &
+
+   python3 /home/LLM4Con/scripts/evaluate_recall.py \
+       --api-key "<KEY>" --model "claude-opus-4-6" \
+       --base-url "https://jeniya.cn/v1" \
+       --output /home/LLM4Con/kernel_experiment/evaluation_report.m7.json
+   ```
+
+4. **看 M7 实测 MISS 残留**，再决定 A 完整版 4 类边里**哪些有性价比**——比如：
+   - 若 lifetime 类 MISS 已经被 D 的 LIFECYCLE_FLAG_CANDIDATE + 现有 `¬hb(use, free)` 解决，§3.7 lifecycle flag 边**不必做**
+   - 若 BH/IRQ 类 MISS（CVE-2024-41081 等）仍在，则补 §3.5 BH_IRQ_INTERVAL 边
+   - 若 RCU 同步缺失类 MISS 仍在（rare），再补 §3.3 RCU_SYNC 边
+   - **不要无差别把 4 类边都做**——每一类边有 100-200 行，只在数据要求时才上
+5. **看 LLM 模板偏差**：canary 中 LLM 把所有 UAF 都包装成 `conflicts ∧ concurrent`（Template 1）而不用 Template 2 的 `hb` expected:false——可能压住 UAF 类的 TP_MATCH。若 M7 全量数据显示 UAF 类 strict precision 没改善，需要在 prompt 中把 Template 2 的 few-shot 提到最前面、或在 system prompt 加一条"UAF 类必须使用 hb expected:false 表达"的硬约束
+6. **Phase F 重跑**（已落地但仅对**新制备**的 CVE 目录生效）：选 6-8 个 ≥3 文件 patch 的 CVE 重跑 `prepare_cve.sh` 让 `merged.ll` 包含全部 patch 函数，再单独跑这一批的 detector + LLM judge 看 D 类根因消除情况
+
+### M7 验收条件（量化）
+
+下次重跑全 50 CVE 后，README 应在此处填入下表：
+
+| 指标 | M6 基线 | M7 目标（M7_IMPLEMENTATION_PLAN.md §5） | M7 实测 |
+|---|---|---|---|
+| HIT 数 | 13/50 (26%) | ≥ 25/50 (50%) | _待重跑_ |
+| TP_MATCH | 24/264 (9.09%) | ≥ 50/300 (17%) | _待重跑_ |
+| lenient precision | 71.97% | ≥ 78% | _待重跑_ |
+| FP rate | 28.03% | ≤ 22% | _待重跑_ |
+| 跨 ≥ 2 文件的 hypothesis 数 | ~0（无视野） | ≥ 1 / 跨文件 patch CVE | _待重跑_ |
+
+### 报告与日志（M7 阶段新增）
+
+| 内容 | 路径 |
+|---|---|
+| HBGraph dump（每 CVE 一份） | `<output_dir>/hb-graph.dot` |
+| Patch 展开报告 | `kernel_experiment/CVE-*/expansion_report.json` |
+| M7 完整重跑预留 | `kernel_experiment/evaluation_report.m7.json`（重跑后写入） |
+
+### 单 CVE 回归基线（CVE-2017-15265）
+
+#### 第一次跑（2026-04-30 11:44，仅 D + E + F + A MVP，旧 prompt + 旧谓词）
+
+| 指标 | M5 baseline | M7 D+E+F+A MVP | 解读 |
+|---|---|---|---|
+| 总耗时 | 93s | **876s** | LLM 探索面变广导致调用次数增加 |
+| LLM API 调用 | 12 | 40 | Phase D 的 surface 加权 + token-budget 让 LLM 看到更多对象 |
+| Total tokens | ~378K | 1.14M | 同上 |
+| Confirmed hypotheses | 5 | 3 | 数量下降 |
+| 真实 CVE 命中 (`port_uaf_create_delete_race`) | ✅ | ✅ 保留 | 核心命中没退化 |
+
+**HBGraph 实测边数（同次跑）**：
+
+| 边类型 | 数量 | 解读 |
+|---|---|---|
+| `PROGRAM_ORDER` | 624 | 来自 CCPG `EdgeType::ORDER` |
+| `CALL_RETURN` | 53 | 来自 CCPG `EdgeType::CALL` |
+| `LOCK_RELEASE_ACQUIRE` | 0 | LSAnalysis 抓到锁但 release 端配对失败（kernel module 多为 acquire-only） |
+| `FORK_TO_ENTRY` | 0 | kernel module mode 下 entry_points.txt 直接指定并行线程，**根本没有 fork node** |
+| `JOIN_FROM_EXIT` | 0 | 同上，无 join node |
+| `COMPLETION` | 0 | LSAnalysis 没识别到 `complete()`/`wait_for_completion()` |
+
+> 即使锁/fork/join/completion 边都为 0，`hb(a, b)` 当 `a` 与 `b` 跨线程时**正确地返回 false**（两线程之间没有任何 PO/CALL 路径），所以糖 `concurrent(a, b)` 在 kernel module mode 下**仍能正确判定并发关系**。锁边的价值是**消除 FP**（双方都拿锁时把 race 排除），不产出 recall。
+
+#### 第二次跑（2026-05-01 23:55，**完整 M7 = D + E + F + A + B + C**）
+
+| 指标 | M5 baseline | A+D+E+F only (04-30) | **完整 M7 (05-01)** | 解读 |
+|---|---|---|---|---|
+| 总耗时 | 93s | 876s | **399s** ✅ | 比 Phase A-only 还快——新 prompt 紧凑 |
+| LLM API 调用 | 12 | 40 | 36 | 与上次相当 |
+| Total tokens | ~378K | 1.14M | 1.13M | |
+| **Confirmed hypotheses** | 5 | 3 | **14** | DSL 上限解除 + 新谓词增加表达力 |
+| 真实 CVE 命中（port + pool） | ✅ | 🟡 1 条 | ✅ **多条** (`port_private_free_uaf_race`, `port_private_data_race`, `port_event_input_race`, `cell_ext_len_chained_race`) | 全面命中 |
+| 新 DSL 模板使用 | n/a | n/a | ✅ `atomicity_break` 类别 (`grp_count_nonatomic_rmw`) | Template 3 真的被采用 |
+
+**LLM 实际使用的谓词分布**（69 个 constraint）：
+
+| 谓词 | 次数 | 类型 |
+|---|---|---|
+| `in_thread` | 29 | 通用原语 |
+| `op_kind` | 13 | **M7 新原语** |
+| `conflicts` | 13 | **M7 新糖** (Template 1 / 2) |
+| `concurrent` | 13 | **M7 新糖** (Template 1) |
+| `unsafe_atomic_block` | 1 | **M7 新糖** (Template 3) |
+| 旧谓词 (`may_run_concurrently`/`not_lock_protected`/`same_lock`/`alias`) | **0** | LLM 完全切换 |
+
+**关键观察**：
+- ✅ **Phase B+C 完全生效**：69 个 constraint 全部使用 M7 新 DSL，零旧谓词
+- ✅ **核心 CVE 命中扩展**：M5 5 条里有 3 个 port_uaf_* 命中真 CVE；M7 14 条里覆盖 port_private_*, port_event_input_*, cell_ext_len_* 三个不同维度的 race，且加入 atomicity_break 模板首次出现
+- ✅ **耗时反而下降**（876s → 399s）：新 prompt 更结构化，LLM 不再来回试错
+- 🟡 **Template 2 (`hb` expected:false UAF) 没被用**：所有 UAF 类 hypothesis 仍被包装成 `conflicts ∧ concurrent`（Template 1）；这个偏差需要在 prompt 中加强引导，但不影响本次 canary 通过
+- 🚧 **Hypothesis 数量 5 → 14**：可能让 precision_strict 略降，需要全 50 CVE 重跑后才能用 LLM judge 量化
+
+**结论**：Phase A+B+C 全部接通成功。此 canary 不退化、新 DSL 全部启用、耗时反而下降。**满足进入全 50 CVE 重跑的条件**。
 
 ## CVE-2017-15265 验证结果（代表性单例）
 
@@ -659,9 +796,13 @@ in_thread / may_run_concurrently / reachable / not_lock_protected / same_lock / 
 - Joern 无法解析内核注解丢失入口点 → 修复（`--define` 非侵入）
 - NodeLoc 路径对齐失败（IR 与 CPG 前缀不同）→ 修复（basename fallback）
 
+### 检测期（已部分缓解，详见 §M5 与 §M7）
+- M5 五阶段优化已修：Syscall 宏入口归一化（部分）、`SharedFieldKey` 字段级聚合统一了 conflicting pairs / sharedObjects 口径、`getArgOperand` 加固使 core dump 5 → 2
+- M7 D/E/F 已修：surface 排序加权、CPG `findMethod` 多层兜底、跨文件 patch 自动展开（详见 §M7）
+
 ### 检测期（仍在观察）
-- 复杂模块（线程数 50+）LLM 单会话 token 消耗较大
-- 部分 CVE 的真正 bug 发生在非 shared object（如局部对象跨线程传递），当前 surface 生成会漏掉
-- Syscall 宏（`SYSCALL_DEFINE*`）展开后 IR / CPG 名称不一致，入口映射失败（类别 A CLEAN 的主因）
-- `conflicting pairs` 与 `sharedObjects` 的聚合口径不一致（类别 B CLEAN 的主因）
-- CCPG 分析阶段仍有 5 个 CVE 触发运行时崩溃（需 gdb 复现）
+- **LLM 仍只能用旧 6 谓词**（B/C 未落地）—— 这是当前 recall 26% 的主要上限；M7 Phase B/C 完成后预期解 ≈ 70% MISS
+- 复杂模块（线程数 50+）LLM 单会话 token 消耗较大；M7 Phase D 的 token-budget 截断已部分缓解，但 prompt 仍可能在 surface ≥ 100 obj 时偏大
+- 部分 CVE 的真正 bug 发生在非 shared object（如局部对象跨线程传递），当前 surface 生成仍会漏掉
+- Joern 对 `SYSCALL_DEFINE*` + `#ifdef CONFIG_NUMA` 组合在孤立源文件下展开不全；部分 CVE-2024-42234 等仍 CLEAN
+- CCPG 分析阶段仍有 2 个 CVE（`CVE-2025-22050`、`CVE-2025-37772`）触发 PhasarPointerAnalysis 断言（需 gdb 复现）

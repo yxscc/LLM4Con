@@ -13,6 +13,7 @@
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "CCPG/HBGraph.h"
 #include "llvm/Support/CommandLine.h"
 #include "Util/ExecutionTimer.h"
 #include "PhasarUtil/AnalysisManager.h"
@@ -159,6 +160,10 @@ int main(int argc, char** argv) {
     ExecutionTimer::getInstance()->start("CCPG Analysis");
     auto ccpg = std::make_unique<CCPG>(cpg.get());
     ccpg->build();
+    ExecutionTimer::getInstance()->start("HBGraph");
+    HBGraph::getInstance()->build(ccpg.get());
+    ExecutionTimer::getInstance()->stop("HBGraph");
+    HBGraph::getInstance()->dumpDot(targetPath->getOutputDir());
     ExecutionTimer::getInstance()->stop("CCPG Analysis");
     ccpg->dump(targetPath->getOutputDir());
 
@@ -268,9 +273,16 @@ void runLlmComparisonEvaluation(const std::string& cve_source_code_path, const f
     };
 
     // --- 3. 使用 GPT-5 配置重新初始化全局 LLMClient ---
+    // API key + base URL come from env vars to avoid leaking secrets in git history.
     const std::string gpt5_model = "gpt-5-2025-08-07";
-    const std::string gpt5_api_key = "sk-Y5PXhElM2NobgKPelwlHFaXPeQrSzm4WJYOnHYn0QafbVRoK";
-    const std::string gpt5_base_url = "https://jeniya.cn/v1/chat/completions";
+    const char* env_key = std::getenv("LLM_EVAL_API_KEY");
+    const char* env_url = std::getenv("LLM_EVAL_BASE_URL");
+    const std::string gpt5_api_key = env_key ? env_key : "";
+    const std::string gpt5_base_url = env_url ? env_url : "https://jeniya.cn/v1/chat/completions";
+    if (gpt5_api_key.empty()) {
+        std::cerr << "LLM_EVAL_API_KEY not set; skipping GPT-5 LLM-judge comparison." << std::endl;
+        return;
+    }
 
     try {
         // 按照您的建议：先销毁旧实例，再创建新实例

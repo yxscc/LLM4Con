@@ -16,6 +16,7 @@
 #include "CPG/CPGGenerator.h"
 #include "CPG/CPG.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "CCPG/HBGraph.h"
 #include "llvm/Support/CommandLine.h"
 #include "Util/ExecutionTimer.h"
 #include "PhasarUtil/AnalysisManager.h"
@@ -469,6 +470,10 @@ int main(int argc, char** argv) {
     ExecutionTimer::getInstance()->start("CCPG Analysis");
     auto ccpg = std::make_unique<CCPG>(cpg.get());
     ccpg->build();
+    ExecutionTimer::getInstance()->start("HBGraph");
+    HBGraph::getInstance()->build(ccpg.get());
+    ExecutionTimer::getInstance()->stop("HBGraph");
+    HBGraph::getInstance()->dumpDot(targetPath->getOutputDir());
     ExecutionTimer::getInstance()->stop("CCPG Analysis");
     ccpg->dump(targetPath->getOutputDir());
     writeCheckpoint("CCPG_Analysis", "COMPLETED");

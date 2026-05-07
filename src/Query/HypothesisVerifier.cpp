@@ -2,7 +2,14 @@
 #include "CCPG/CCPGNode.h"
 #include "CCPG/AliasChecker.h"
 #include "CCPG/LSAnalysis.h"
+#include "CCPG/HBGraph.h"
 #include "CPG/Node.h"
+#include "PhasarUtil/AnalysisManager.h"
+#include "PhasarUtil/PhasarPointerAnalysis.h"
+#include "Query/SharedFieldKey.h"
+
+#include "llvm/IR/Instructions.h"
+
 #include <queue>
 #include <set>
 #include <sstream>
@@ -10,6 +17,27 @@
 #include <algorithm>
 
 namespace query {
+
+// ---- OpKind helpers (M7 Phase B) -------------------------------------------
+
+const char* opKindName(OpKind k) {
+    switch (k) {
+        case OpKind::READ:  return "READ";
+        case OpKind::WRITE: return "WRITE";
+        case OpKind::RMW:   return "RMW";
+        case OpKind::CALL:  return "CALL";
+        case OpKind::OTHER: return "OTHER";
+    }
+    return "?";
+}
+
+OpKind opKindFromString(const std::string& s) {
+    if (s == "READ"  || s == "read"  || s == "load")  return OpKind::READ;
+    if (s == "WRITE" || s == "write" || s == "store") return OpKind::WRITE;
+    if (s == "RMW"   || s == "rmw"   || s == "atomic_rmw") return OpKind::RMW;
+    if (s == "CALL"  || s == "call")  return OpKind::CALL;
+    return OpKind::OTHER;
+}
 
 // --- Hypothesis serialization ---
 
@@ -94,8 +122,9 @@ nlohmann::json VerificationResult::toFeedbackJson() const {
 
 // --- HypothesisVerifier ---
 
-HypothesisVerifier::HypothesisVerifier(CCPG* ccpg, ThreadCreationTree* tct)
-    : ccpg_(ccpg), tct_(tct) {}
+HypothesisVerifier::HypothesisVerifier(CCPG* ccpg, ThreadCreationTree* tct,
+                                       HBGraph* hb)
+    : ccpg_(ccpg), tct_(tct), hb_(hb) {}
 
 int HypothesisVerifier::resolveNodeRef(const nlohmann::json& val, const Hypothesis& h) {
     if (val.is_number_integer()) {
@@ -148,6 +177,55 @@ VerificationResult HypothesisVerifier::verify(const Hypothesis& h) {
             int n1 = resolveNodeRef(c.args.value("node1", nlohmann::json()), h);
             int n2 = resolveNodeRef(c.args.value("node2", nlohmann::json()), h);
             cr.satisfied = eval_alias(n1, n2, cr.detail);
+
+        // ---- M7 Phase B: 5 primitives + 3 sugars ---------------------------
+        // The new vocabulary accepts both {"a","b"} and the legacy
+        // {"node1","node2"} arg shapes so existing prompts keep working
+        // while the new prompt cleans up to {a,b}.
+        } else if (c.predicate == "same_location") {
+            int n1 = resolveNodeRef(
+                c.args.contains("a") ? c.args.at("a") : c.args.value("node1", nlohmann::json()), h);
+            int n2 = resolveNodeRef(
+                c.args.contains("b") ? c.args.at("b") : c.args.value("node2", nlohmann::json()), h);
+            cr.satisfied = eval_same_location(n1, n2, cr.detail);
+
+        } else if (c.predicate == "op_kind") {
+            int node_id = resolveNodeRef(c.args.value("node", nlohmann::json()), h);
+            std::string kindStr = c.args.value("kind", std::string());
+            if (kindStr.empty()) kindStr = c.args.value("expected", std::string());
+            OpKind expected = opKindFromString(kindStr);
+            cr.satisfied = eval_op_kind(node_id, expected, cr.detail);
+
+        } else if (c.predicate == "hb") {
+            int n1 = resolveNodeRef(
+                c.args.contains("a") ? c.args.at("a") : c.args.value("from", nlohmann::json()), h);
+            int n2 = resolveNodeRef(
+                c.args.contains("b") ? c.args.at("b") : c.args.value("to", nlohmann::json()), h);
+            // expected defaults to true (the typical "X happens-before Y"
+            // assertion). Set "expected": false to assert the absence of an
+            // hb path (used by F5/F8 UAF / NULL-deref templates).
+            bool expected = c.args.value("expected", true);
+            cr.satisfied = eval_hb(n1, n2, expected, cr.detail);
+
+        } else if (c.predicate == "conflicts") {
+            int n1 = resolveNodeRef(
+                c.args.contains("a") ? c.args.at("a") : c.args.value("node1", nlohmann::json()), h);
+            int n2 = resolveNodeRef(
+                c.args.contains("b") ? c.args.at("b") : c.args.value("node2", nlohmann::json()), h);
+            cr.satisfied = eval_conflicts(n1, n2, cr.detail);
+
+        } else if (c.predicate == "concurrent") {
+            int n1 = resolveNodeRef(
+                c.args.contains("a") ? c.args.at("a") : c.args.value("node1", nlohmann::json()), h);
+            int n2 = resolveNodeRef(
+                c.args.contains("b") ? c.args.at("b") : c.args.value("node2", nlohmann::json()), h);
+            cr.satisfied = eval_concurrent(n1, n2, cr.detail);
+
+        } else if (c.predicate == "unsafe_atomic_block") {
+            int s_id = resolveNodeRef(c.args.value("start", nlohmann::json()), h);
+            int e_id = resolveNodeRef(c.args.value("end", nlohmann::json()), h);
+            int w_id = resolveNodeRef(c.args.value("witness", nlohmann::json()), h);
+            cr.satisfied = eval_unsafe_atomic_block(s_id, e_id, w_id, cr.detail);
 
         } else {
             cr.detail = "Unknown predicate: " + c.predicate;
@@ -417,6 +495,352 @@ bool HypothesisVerifier::eval_alias(int n1, int n2, std::string& detail) {
     detail = "Memory operations at node " + std::to_string(n1) +
              " and node " + std::to_string(n2) + " are NOT aliases";
     return false;
+}
+
+// =============================================================================
+// M7 Phase B: 5 primitives + 3 sugars (HYPOTHESIS_DSL_DESIGN.md §2)
+// =============================================================================
+
+namespace {
+
+// Helper: pick the first (canonical) Context for a CCPGNode's function. The
+// project's other predicates (alias, lockset) follow the same convention, so
+// the new ones do too — keeping behavioural parity even when a node has
+// multiple call contexts.
+Context firstContext(CCPGNode* n) {
+    if (!n) return Context();
+    auto* f = n->getFunction();
+    if (!f) return Context();
+    const auto& ctxs = f->getContextSet();
+    if (ctxs.empty()) return Context();
+    return **ctxs.begin();
+}
+
+// Helper: collect all MemoryAccesses tied to a CCPGNode, walking every
+// context the node's function appears in. Without this we miss accesses
+// that only show up under a non-canonical entry path (e.g. when a helper
+// is reached from multiple syscall entry points).
+std::vector<MemoryAccess> gatherAccesses(CCPGNode* n) {
+    std::vector<MemoryAccess> out;
+    if (!n) return out;
+    AliasChecker* ac = AliasChecker::getInstance();
+    auto* f = n->getFunction();
+    if (!f || f->getContextSet().empty()) {
+        auto v = ac->getMemoryAccessesFromLocation(n->getNodeLoc(), Context());
+        out.insert(out.end(), v.begin(), v.end());
+        return out;
+    }
+    for (Context* ctx : f->getContextSet()) {
+        auto v = ac->getMemoryAccessesFromLocation(
+            n->getNodeLoc(), ctx ? *ctx : Context());
+        out.insert(out.end(), v.begin(), v.end());
+    }
+    return out;
+}
+
+// Map a single LLVM Instruction to an OpKind. Order matters: AtomicRMW /
+// AtomicCmpXchg are technically StoreInst-like, but we want them reported
+// as RMW so the LLM can distinguish "non-atomic RMW" (= F7) from plain
+// "WRITE" hypotheses.
+OpKind classifyInstruction(const llvm::Instruction* I) {
+    if (!I) return OpKind::OTHER;
+    if (llvm::isa<llvm::AtomicRMWInst>(I) ||
+        llvm::isa<llvm::AtomicCmpXchgInst>(I)) {
+        return OpKind::RMW;
+    }
+    if (llvm::isa<llvm::StoreInst>(I)) return OpKind::WRITE;
+    if (llvm::isa<llvm::LoadInst>(I))  return OpKind::READ;
+    if (llvm::isa<llvm::CallInst>(I) ||
+        llvm::isa<llvm::InvokeInst>(I)) return OpKind::CALL;
+    return OpKind::OTHER;
+}
+
+const llvm::Module* getLLVMModule() {
+    auto* pa = dynamic_cast<PhasarPointerAnalysis*>(
+        AnalysisManager::getInstance()->getPointerAnalyzer());
+    return pa ? pa->getModule() : nullptr;
+}
+
+}  // namespace
+
+// ---- eval_same_location ----------------------------------------------------
+//
+// Field-level aliasing: two nodes operate on the same memory cell. Strictly
+// stronger than legacy `alias`: we first try SharedFieldKey equality (which
+// distinguishes between e.g. `obj->refcnt` and `obj->next` even when Phasar
+// puts them in the same alias set), then fall back to coarse pointer alias
+// when SharedFieldKey can't be derived (stack-local, opaque casts, etc.).
+bool HypothesisVerifier::eval_same_location(int n1, int n2, std::string& detail) {
+    CCPGNode* node1 = ccpg_->getNodeByID(n1);
+    CCPGNode* node2 = ccpg_->getNodeByID(n2);
+    if (!node1 || !node2) {
+        detail = "Node(s) not found: " + std::to_string(n1) + ", " + std::to_string(n2);
+        return false;
+    }
+    auto accs1 = gatherAccesses(node1);
+    auto accs2 = gatherAccesses(node2);
+    if (accs1.empty() || accs2.empty()) {
+        detail = "No memory accesses recorded for node " + std::to_string(n1) +
+                 " or " + std::to_string(n2) +
+                 " (try eval_alias for a coarser check)";
+        return false;
+    }
+
+    const llvm::Module* M = getLLVMModule();
+    if (M) {
+        for (const auto& a1 : accs1) {
+            auto k1 = SharedFieldKey::fromValue(a1.pointerOperand, *M);
+            if (!k1) continue;
+            for (const auto& a2 : accs2) {
+                auto k2 = SharedFieldKey::fromValue(a2.pointerOperand, *M);
+                if (!k2) continue;
+                if (*k1 == *k2) {
+                    detail = "same field: " + k1->toString();
+                    return true;
+                }
+            }
+        }
+    }
+
+    AliasChecker* ac = AliasChecker::getInstance();
+    for (const auto& a1 : accs1) {
+        for (const auto& a2 : accs2) {
+            if (ac->isAlias(a1.pointerOperand, a2.pointerOperand)) {
+                detail = "phasar-alias (field-level disagrees or unavailable)";
+                return true;
+            }
+        }
+    }
+    detail = "no shared field nor pointer alias between node " +
+             std::to_string(n1) + " and " + std::to_string(n2);
+    return false;
+}
+
+// ---- eval_op_kind ----------------------------------------------------------
+//
+// Read the LLVM IR Instruction(s) that materialised this CCPGNode and check
+// whether *any* of them matches `expected`. We accept multiple matches
+// because a single source line can lower to several IR ops (e.g. `x++` =>
+// load + add + store), and we want any of them to satisfy the predicate.
+//
+// CALL is also satisfied by CCPGNode::isCallSite() so the LLM can write
+// {predicate:"op_kind", node:N, kind:"CALL"} on call-site CCPG nodes whose
+// llvmCallInst was attached during CCPG build.
+bool HypothesisVerifier::eval_op_kind(int node_id, OpKind expected,
+                                      std::string& detail) {
+    CCPGNode* node = ccpg_->getNodeByID(node_id);
+    if (!node) {
+        detail = "Node " + std::to_string(node_id) + " not found";
+        return false;
+    }
+
+    if (expected == OpKind::CALL && node->isCallSite() &&
+        node->getLLVMCallInst()) {
+        detail = "CCPG marks node " + std::to_string(node_id) +
+                 " as call site (matches CALL)";
+        return true;
+    }
+
+    auto accesses = gatherAccesses(node);
+    std::set<OpKind> seen;
+    for (const auto& a : accesses) {
+        OpKind k = classifyInstruction(a.instruction);
+        seen.insert(k);
+        if (k == expected) {
+            std::string ks = opKindName(k);
+            detail = "Node " + std::to_string(node_id) +
+                     " has at least one IR access of kind " + ks;
+            return true;
+        }
+    }
+
+    if (expected == OpKind::CALL && node->isCallSite()) {
+        // No memory access map (e.g. void-returning helper) but CCPG still
+        // tagged it as a call site; accept the predicate.
+        detail = "Node " + std::to_string(node_id) +
+                 " is a CCPG call site (no IR memory access recorded)";
+        return true;
+    }
+
+    std::string seenStr;
+    for (OpKind k : seen) {
+        if (!seenStr.empty()) seenStr += ", ";
+        seenStr += opKindName(k);
+    }
+    if (seenStr.empty()) seenStr = "<none>";
+    detail = "Node " + std::to_string(node_id) +
+             " has no IR access of kind " + opKindName(expected) +
+             "; observed kinds: " + seenStr;
+    return false;
+}
+
+// ---- eval_hb ---------------------------------------------------------------
+//
+// `expected` lets the LLM assert *both* directions of a happens-before
+// relation:
+//   * expected=true  => "n1 must happen-before n2"   (the typical use case)
+//   * expected=false => "no hb chain from n1 to n2"  (used by F5/F8 UAF
+//                                                     and NULL-deref templates)
+//
+// When the HBGraph is unavailable (legacy mode) we conservatively report
+// success only when a coarse intra-thread reachability check agrees with
+// the assertion; this preserves backward compatibility for hypotheses that
+// happen to use the same primitive name through transition.
+bool HypothesisVerifier::eval_hb(int n1, int n2, bool expected,
+                                 std::string& detail) {
+    CCPGNode* a = ccpg_->getNodeByID(n1);
+    CCPGNode* b = ccpg_->getNodeByID(n2);
+    if (!a || !b) {
+        detail = "Node(s) not found: " + std::to_string(n1) + ", " + std::to_string(n2);
+        return false;
+    }
+    bool actual;
+    std::string source;
+    if (hb_) {
+        actual = hb_->hbReachable(a, b);
+        source = "HBGraph";
+    } else {
+        std::string r;
+        actual = const_cast<HypothesisVerifier*>(this)
+                     ->eval_reachable(n1, n2, r);
+        source = "fallback(reachable, no HBGraph)";
+    }
+    bool ok = (actual == expected);
+    detail = "hb(" + std::to_string(n1) + "," + std::to_string(n2) + ")=" +
+             (actual ? "true" : "false") +
+             " expected=" + (expected ? "true" : "false") +
+             " [" + source + "]";
+    return ok;
+}
+
+// ---- eval_conflicts (sugar) ------------------------------------------------
+//
+// conflicts(a,b) := same_location(a,b) ∧ (op_kind(a)∈{WRITE,RMW} ∨
+//                                         op_kind(b)∈{WRITE,RMW})
+//
+// We don't reuse eval_op_kind / eval_same_location verbatim because we want
+// a single concise `detail` string for the LLM. We do reuse SharedFieldKey
+// + AliasChecker semantics directly to keep the contract identical.
+bool HypothesisVerifier::eval_conflicts(int n1, int n2, std::string& detail) {
+    std::string locDetail;
+    bool sameLoc = eval_same_location(n1, n2, locDetail);
+    if (!sameLoc) {
+        detail = "conflicts: same_location FAILED — " + locDetail;
+        return false;
+    }
+
+    CCPGNode* node1 = ccpg_->getNodeByID(n1);
+    CCPGNode* node2 = ccpg_->getNodeByID(n2);
+    auto accs1 = gatherAccesses(node1);
+    auto accs2 = gatherAccesses(node2);
+
+    auto hasWriteOrRMW = [](const std::vector<MemoryAccess>& v) {
+        for (const auto& a : v) {
+            OpKind k = classifyInstruction(a.instruction);
+            if (k == OpKind::WRITE || k == OpKind::RMW) return true;
+            if (a.isWrite) return true;  // belt-and-braces
+        }
+        return false;
+    };
+    bool w1 = hasWriteOrRMW(accs1);
+    bool w2 = hasWriteOrRMW(accs2);
+    if (!(w1 || w2)) {
+        detail = "conflicts: same field but neither side writes (" + locDetail + ")";
+        return false;
+    }
+    detail = "conflicts: " + locDetail +
+             "; write side(s)=" + (w1 ? "n1" : std::string()) +
+             (w1 && w2 ? "+" : std::string()) + (w2 ? "n2" : std::string());
+    return true;
+}
+
+// ---- eval_concurrent (sugar) -----------------------------------------------
+//
+// concurrent(a,b) := ¬hb(a,b) ∧ ¬hb(b,a)
+//
+// In kernel-module mode (where entry_points are taken as parallel threads
+// without an explicit fork node), this reduces to "neither node is reachable
+// from the other in the synchronization graph", which is exactly what we
+// want to model two unconnected concurrent execution contexts.
+bool HypothesisVerifier::eval_concurrent(int n1, int n2, std::string& detail) {
+    CCPGNode* a = ccpg_->getNodeByID(n1);
+    CCPGNode* b = ccpg_->getNodeByID(n2);
+    if (!a || !b) {
+        detail = "Node(s) not found: " + std::to_string(n1) + ", " + std::to_string(n2);
+        return false;
+    }
+    bool ab, ba;
+    std::string source;
+    if (hb_) {
+        ab = hb_->hbReachable(a, b);
+        ba = hb_->hbReachable(b, a);
+        source = "HBGraph";
+    } else {
+        std::string r1, r2;
+        ab = const_cast<HypothesisVerifier*>(this)->eval_reachable(n1, n2, r1);
+        ba = const_cast<HypothesisVerifier*>(this)->eval_reachable(n2, n1, r2);
+        source = "fallback(reachable, no HBGraph)";
+    }
+    bool ok = !ab && !ba;
+    detail = "concurrent: hb(" + std::to_string(n1) + "," + std::to_string(n2) + ")=" +
+             (ab ? "T" : "F") + ", hb(" + std::to_string(n2) + "," + std::to_string(n1) +
+             ")=" + (ba ? "T" : "F") + " [" + source + "]";
+    return ok;
+}
+
+// ---- eval_unsafe_atomic_block (sugar) --------------------------------------
+//
+// unsafe_atomic_block(start, end, witness) ≡
+//     reachable(start, end)
+//   ∧ conflicts(witness, start)
+//   ∧ ¬hb(witness, start)
+//   ∧ ¬hb(end, witness)
+//
+// Used for TOCTOU (F6) and non-atomic RMW (F7): the block start..end is
+// supposed to be atomic w.r.t. `witness`; the predicate fires when
+// `witness` is concurrent with the *interior* of the block.
+//
+// Note: per HYPOTHESIS_DSL_DESIGN §2.2 the definition uses
+// `conflicts(witness, start)`, but most TOCTOU patches actually mutate the
+// shared field at any point inside the block (start/end/middle). We accept
+// `conflicts(witness, start) ∨ conflicts(witness, end)` so the LLM does
+// not have to pick the exact internal node that aliases, which is
+// over-constrained for kernel-style patterns.
+bool HypothesisVerifier::eval_unsafe_atomic_block(int start_id, int end_id,
+                                                  int witness_id,
+                                                  std::string& detail) {
+    std::string r;
+    if (!eval_reachable(start_id, end_id, r)) {
+        detail = "unsafe_atomic_block: reachable(start,end) FAILED — " + r;
+        return false;
+    }
+
+    std::string c1, c2;
+    bool confStart = eval_conflicts(witness_id, start_id, c1);
+    bool confEnd   = eval_conflicts(witness_id, end_id,   c2);
+    if (!(confStart || confEnd)) {
+        detail = "unsafe_atomic_block: witness does not conflict with start "
+                 "nor end (" + c1 + " | " + c2 + ")";
+        return false;
+    }
+
+    // eval_hb(.., expected=false, ..) returns true *iff* the actual
+    // happens-before relation does NOT hold. So `ok_ws` = "¬hb(witness,start)"
+    // and `ok_ew` = "¬hb(end,witness)" — exactly what the DSL asks for.
+    std::string h1, h2;
+    bool ok_ws = eval_hb(witness_id, start_id, /*expected=*/false, h1);
+    bool ok_ew = eval_hb(end_id,     witness_id, /*expected=*/false, h2);
+    if (!(ok_ws && ok_ew)) {
+        detail = "unsafe_atomic_block: witness is hb-ordered around the "
+                 "block (" + h1 + " | " + h2 + ")";
+        return false;
+    }
+
+    detail = "unsafe_atomic_block: start->end reachable; witness conflicts "
+             "with " + std::string(confStart ? "start" : "end") +
+             "; ¬hb(witness,start) ∧ ¬hb(end,witness) [" +
+             (hb_ ? "HBGraph" : "fallback") + "]";
+    return true;
 }
 
 } // namespace query

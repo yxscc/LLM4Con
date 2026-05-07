@@ -18,6 +18,14 @@ LAST_PREPARED_COMMIT=""
 TOTAL_PATCH=0
 CURRENT=0
 
+# Phase F (M7): patch-driven file expansion (set EXPAND_PATCH=0 to disable).
+# patch_expander reads via `git show $commit:path` so it works without
+# touching the worktree, hence safe for our batched checkout flow.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+EXPAND_PATCH=${EXPAND_PATCH:-1}
+EXPANDED=0
+EXPAND_FAIL=0
+
 log() { echo "[$(date +%H:%M:%S)] $*" | tee -a "$LOGFILE"; }
 
 checkout_and_prepare() {
@@ -132,7 +140,38 @@ do_compile() {
         return 0
     fi
 
-    IFS=';' read -ra SRC_FILES <<< "$files_str"
+    IFS=';' read -ra USER_SRC_FILES <<< "$files_str"
+    local SRC_FILES=("${USER_SRC_FILES[@]}")
+
+    if [ "$EXPAND_PATCH" = "1" ] && [ -x "$SCRIPT_DIR/patch_expander.py" ]; then
+        local seed_args=()
+        for f in "${USER_SRC_FILES[@]}"; do
+            f=$(echo "$f" | xargs)
+            [ -n "$f" ] && seed_args+=("$f")
+        done
+        local exp_dir_pre="$EXPERIMENT_BASE/$cve"
+        mkdir -p "$exp_dir_pre"
+        local _expansion_log="$exp_dir_pre/expansion.log"
+        mapfile -t EXPANDED_FILES < <(
+            "$SCRIPT_DIR/patch_expander.py" \
+                --kernel-dir "$KERNEL_DIR" \
+                --commit "$commit" \
+                --seeds "${seed_args[@]}" \
+                --output "$exp_dir_pre" 2>"$_expansion_log"
+        )
+        if [ ${#EXPANDED_FILES[@]} -gt 0 ]; then
+            local seed_count=${#seed_args[@]}
+            local final_count=${#EXPANDED_FILES[@]}
+            if [ "$final_count" -gt "$seed_count" ]; then
+                log "    patch expansion: $seed_count -> $final_count files"
+                EXPANDED=$((EXPANDED + 1))
+            fi
+            SRC_FILES=("${EXPANDED_FILES[@]}")
+        else
+            EXPAND_FAIL=$((EXPAND_FAIL + 1))
+        fi
+    fi
+
     local c_files=() seen=()
     for f in "${SRC_FILES[@]}"; do
         f=$(echo "$f" | xargs)
@@ -291,5 +330,6 @@ done < "$SURVEY_FILE"
 log ""
 log "============================================"
 log " DONE: $SUCCESS OK, $FAIL failed, $SKIP skipped"
+log " Patch expansion: $EXPANDED CVEs expanded, $EXPAND_FAIL failed (set EXPAND_PATCH=0 to disable)"
 [ -n "$FAIL_LIST" ] && log " Failed:$FAIL_LIST"
 log "============================================"

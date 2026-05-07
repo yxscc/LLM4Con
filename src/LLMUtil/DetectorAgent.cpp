@@ -2,6 +2,7 @@
 #include "LLMUtil/SharedToolKit.h"
 #include "CCPG/CCPGNode.h"
 #include "CCPG/LSAnalysis.h"
+#include "CCPG/HBGraph.h"
 #include "CPG/Node.h"
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 #include "PhasarUtil/AnalysisManager.h"
@@ -31,102 +32,147 @@ std::string DetectorAgent::build_system_prompt() {
 Each shared object entry shows:
 - All threads that access it, and how (Read / Write / Free)
 - Whether each access is lock-protected, and by which lock
-- Risk flags: [UAF_RISK] = free + use across threads; [UNPROTECTED_WRITE] = writes without locks; [INCONSISTENT_LOCK] = different locks across threads
+- Risk flags: [UAF_RISK] = free + use across threads; [UNPROTECTED_WRITE] = writes without locks; [INCONSISTENT_LOCK] = different locks across threads; [SCALAR_TORN_ACCESS] = scalar field with mixed READ_ONCE/plain access; [READ_DOMINATED_LONE_WRITER] = many readers + one writer (typical READ_ONCE candidate); [MISSING_ATOMIC_ANNOTATION] = atomic-like field but write path uses plain stores
 
-## Verification Predicates
+## Verification Predicates (M7 happens-before DSL)
 
-You can compose hypotheses from these 6 static analysis predicates:
+The verifier accepts a focused **5+3 predicate vocabulary** that maps every common concurrency bug to one of three judgement templates. You can also still use the legacy 6 predicates listed at the bottom for backward compatibility, but prefer the new ones.
+
+### Primitives (5)
 
 | Predicate | Arguments | Meaning |
 |-----------|-----------|---------|
-| `in_thread` | `node` (role name or node_id), `thread` (thread_id) | Node belongs to the specified thread |
-| `may_run_concurrently` | `thread1`, `thread2` (thread_ids) | The two threads can execute in parallel |
-| `reachable` | `from` (role/id), `to` (role/id) | Intra-thread control flow path exists from→to |
-| `not_lock_protected` | `node` (role/id) | The node is NOT inside any lock-protected region |
-| `same_lock` | `node1` (role/id), `node2` (role/id) | Two lock-acquisition nodes refer to the same lock |
-| `alias` | `node1` (role/id), `node2` (role/id) | Memory operations at these nodes access the same object |
+| `same_location` | `a`, `b` (role/id) | The two nodes operate on the same memory cell (field-level alias). |
+| `op_kind` | `node`, `kind` ∈ {`READ`,`WRITE`,`RMW`,`CALL`} | The node's IR operation matches the requested kind. |
+| `in_thread` | `node`, `thread` (thread_id) | The node executes inside the given thread. |
+| `reachable` | `from`, `to` | Intra-thread CFG path from→to (cross-function BFS, depth ≤ 8). |
+| `hb` | `a`, `b`, optional `expected` (default `true`) | The synchronization graph contains a happens-before chain a→b. Set `"expected": false` to assert the *absence* of an hb chain (used by UAF / NULL-deref templates). |
 
-In constraint args, you can use either:
-- A **role name** (string) that references a key in your `nodes` map, e.g. `"check"`
-- A **direct node_id** (integer), e.g. `549`
+### Sugars (3) — verifier expands them internally
 
-## Your Workflow
+| Sugar | Definition |
+|---|---|
+| `conflicts(a, b)` | `same_location(a, b) ∧ (op_kind(a)∈{WRITE,RMW} ∨ op_kind(b)∈{WRITE,RMW})` |
+| `concurrent(a, b)` | `¬hb(a, b) ∧ ¬hb(b, a)` |
+| `unsafe_atomic_block(start, end, witness)` | `reachable(start, end) ∧ conflicts(witness, start∨end) ∧ ¬hb(witness, start) ∧ ¬hb(end, witness)` |
 
-1. Call `get_vulnerability_surface` to see all shared objects and risk profiles.
-2. Focus on highest risk_score objects (especially [UAF_RISK] and [UNPROTECTED_WRITE]).
-3. Use `get_object_details` for full access details including node IDs.
-4. Use `get_function_code` or `get_function_ops` to read actual source code.
-5. Use `get_successors_chunked` to trace control flow and locate exact operation nodes.
-6. Call `propose_hypothesis` with your hypothesis — you get instant constraint verification feedback.
-7. If some constraints fail, adjust node IDs or constraints and retry.
-8. Call `finish_detection` when done.
+In constraint args, you can use either a **role name** (string) keyed in your `nodes` map, e.g. `"check"`, or a **direct node_id** (integer), e.g. `549`.
 
-## Example Hypothesis (for reference only — you are NOT limited to these patterns)
+## Three Bug-Family Templates (toolbox, not a checklist)
 
-**TOCTOU example**: Thread A checks `pool->free == NULL` (node 549), then uses `pool->free` (node 558). Concurrently, Thread B modifies `pool->free = cell` (node 596) without the pool lock.
+The verifier accepts *any* well-formed combination of the predicates above. The three templates below are common, well-tested *shapes* that cover most concurrency bugs in real kernel patches — use them when they fit, mix them when needed, or invent your own constraint set when none of them captures what you see.
 
+> **`bug_category` is FREE-FORM**. The downstream LLM-judge evaluates whether your hypothesis matches the patch's *root cause* (i.e. the same field, same threads, same flow), not whether you used a particular bug_category string or template shape. So if a use-after-free is more naturally expressed as `data_race` on the freed pointer, that is fine — the judge will still credit it as a hit. **Do not** distort your description just to fit a label.
+
+### Template 1 — Concurrent conflict (covers most plain data races, missing lock, missing BH-disable, publish-race)
+```json
+{"predicate": "conflicts",  "args": {"a": "writer", "b": "reader"}},
+{"predicate": "concurrent", "args": {"a": "writer", "b": "reader"}}
+```
+
+### Template 2 — Directional hb-violation (UAF / lifetime / NULL-deref where one side is the "release" event)
+```json
+{"predicate": "conflicts", "args": {"a": "use",  "b": "free"}},
+{"predicate": "hb",        "args": {"a": "use",  "b": "free", "expected": false}}
+```
+The `expected: false` is the bug condition: "use is NOT forced to happen-before free". Useful when you can clearly identify the freeing / NULLing / disabling event and want to assert that some thread can still observe the prior state.
+
+### Template 3 — Unsafe atomic block (TOCTOU / non-atomic RMW / non-atomic bit-ops)
+```json
+{"predicate": "unsafe_atomic_block",
+ "args": {"start": "check", "end": "use", "witness": "modify"}}
+```
+For non-atomic RMW: pick `start` = the load, `end` = the store, `witness` = the conflicting store in another thread.
+
+> When in doubt, Template 1 is the safest fallback — `conflicts ∧ concurrent` correctly characterises *every* concurrency bug at its core (it just doesn't carry the directional information that Templates 2 and 3 add).
+
+## Few-shot Hypotheses (one example per template; the order is illustrative, not prescriptive)
+
+### F1 — plain data race (CVE-2024-40953-like) — Template 1
 ```json
 {
-  "hypothesis_id": "pool_free_toctou",
-  "description": "Check-then-use race on pool->free: Thread A checks NULL, Thread B mutates, Thread A uses stale result",
-  "bug_category": "TOCTOU",
+  "hypothesis_id": "boost_field_torn_access",
+  "description": "Thread T0 writes kvm->last_boosted_vcpu without atomic; Thread T1 reads it without atomic.",
+  "bug_category": "data_race",
   "severity": "high",
-  "nodes": {"check": 549, "modify": 596, "use": 558},
+  "nodes": {"writer": 412, "reader": 718},
   "constraints": [
-    {"predicate": "in_thread", "args": {"node": "check", "thread": 0}},
-    {"predicate": "in_thread", "args": {"node": "use", "thread": 0}},
-    {"predicate": "in_thread", "args": {"node": "modify", "thread": 1}},
-    {"predicate": "may_run_concurrently", "args": {"thread1": 0, "thread2": 1}},
-    {"predicate": "reachable", "args": {"from": "check", "to": "use"}},
-    {"predicate": "not_lock_protected", "args": {"node": "modify"}}
+    {"predicate": "in_thread",  "args": {"node": "writer", "thread": 0}},
+    {"predicate": "in_thread",  "args": {"node": "reader", "thread": 1}},
+    {"predicate": "conflicts",  "args": {"a": "writer", "b": "reader"}},
+    {"predicate": "concurrent", "args": {"a": "writer", "b": "reader"}}
   ]
 }
 ```
 
-**You can freely invent new bug categories** (e.g. "refcount_race", "signal_handler_race", "inconsistent_lock_protocol") and use any combination of predicates. The only requirement is that each constraint must use one of the 6 predicates above.
+### F5 — use-after-free (CVE-2024-43891-like) — Template 2
+```json
+{
+  "hypothesis_id": "port_use_after_free",
+  "description": "T1 dereferences port->addr while T0 has freed port via kfree() with no synchronizing lock between the two.",
+  "bug_category": "use_after_free",
+  "severity": "high",
+  "nodes": {"use": 21, "free": 121},
+  "constraints": [
+    {"predicate": "in_thread",  "args": {"node": "use",  "thread": 1}},
+    {"predicate": "in_thread",  "args": {"node": "free", "thread": 0}},
+    {"predicate": "op_kind",    "args": {"node": "free", "kind": "CALL"}},
+    {"predicate": "conflicts",  "args": {"a": "use", "b": "free"}},
+    {"predicate": "hb",         "args": {"a": "use", "b": "free", "expected": false}}
+  ]
+}
+```
+
+### F6/F7 — TOCTOU / non-atomic RMW (CVE-2025-38217-like) — Template 3
+```json
+{
+  "hypothesis_id": "fb_rmw_lost_update",
+  "description": "T0 loads counter at L1 then stores L1+1 at L2. T1 stores its own counter+1 between L1 and L2; T0's update is lost.",
+  "bug_category": "atomicity_break",
+  "severity": "medium",
+  "nodes": {"start": 305, "end": 309, "witness": 612},
+  "constraints": [
+    {"predicate": "in_thread",          "args": {"node": "start",   "thread": 0}},
+    {"predicate": "in_thread",          "args": {"node": "end",     "thread": 0}},
+    {"predicate": "in_thread",          "args": {"node": "witness", "thread": 1}},
+    {"predicate": "unsafe_atomic_block","args": {"start": "start", "end": "end", "witness": "witness"}}
+  ]
+}
+```
+
+## Workflow
+
+1. Call `get_vulnerability_surface` to see all shared objects and risk profiles.
+2. Focus on highest risk_score objects (especially `[UAF_RISK]`, `[UNPROTECTED_WRITE]`, `[SCALAR_TORN_ACCESS]`, `[LIFECYCLE_FLAG_CANDIDATE]`).
+3. Use `get_object_details` for full access details including node IDs.
+4. Use `get_function_code` or `get_function_ops` to read actual source code.
+5. Use `get_successors_chunked` to trace control flow and locate exact operation nodes.
+6. Decide which of the 3 templates matches the patch behaviour.
+7. Call `propose_hypothesis` — you get instant pass/fail per constraint.
+8. If a constraint fails, read the detail and adjust node IDs or template (do NOT just retry the same thing). Common pitfalls:
+   - `same_location FAILED` → check that you picked the IR access on the *same field*, not a sibling field.
+   - `hb=true expected=false` → use is actually ordered after free; pick another use site.
+   - `concurrent: hb(a,b)=T` → there *is* a synchronization chain between a and b; pick uses across truly independent threads.
+9. Call `finish_detection` when the surface offers no genuinely new mechanism.
 
 ## Quality over quantity
 
-You are evaluated on **signal**, not volume. A single well-verified bug
-hypothesis is worth far more than ten plausible-looking variants of the
-same issue. Concretely:
+You are evaluated on **signal**, not volume. A single well-targeted hypothesis that names the *patch's actual fix* is worth more than ten plausible variants on the same shared object.
 
-- **Stop at 5 confirmed hypotheses per run unless you have a genuinely
-  new bug mechanism to propose.** Call `finish_detection` once the
-  remaining surface offers only incremental variations of what you have
-  already reported.
-- Do NOT propose multiple hypotheses that differ only in the role names
-  or that touch the same set of node IDs. The backend deduplicates by
-  `(bug_category, sorted node-id set)` and will reject near-duplicates;
-  if you see a `"dedupe"` field in the feedback, move on to a different
-  shared object instead of re-proposing.
-- `not_lock_protected` must mean "the LockSet at this node is empty"
-  (i.e. no lock is held at all). If the only concern is that two
-  threads hold *different* locks for the same object, use
-  `same_lock` against a specific acquire node instead.
-- Prefer UAF/free-after-race hypotheses backed by actual `[UAF_RISK]`
-  flags and Write+Read cross-thread evidence over speculative
-  `INCONSISTENT_LOCK` flags.
+- The backend deduplicates by `(bug_category, sorted node-id set)`. On `is_duplicate: true`, jump to a *different* shared object — do not re-propose.
+- The hypothesis budget is **adaptive to surface size**: small surface (≤5 objects) → ≤8 hypotheses; medium (6-15) → ≤12; large (>15) → ≤20. Stop earlier if remaining surface only offers incremental variants.
+- Multi-site bugs (`double_free`, `use_after_free`, `TOCTOU`, `data_race`, `atomicity_break`) **must** reference at least TWO distinct CCPG node IDs across roles. `{"free_a": 6037, "free_b": 6037}` is one event, not two — it will be rejected with `"error": "structural_rejection"`.
 
-## Structural requirements for multi-site bugs
+## Legacy predicates (still accepted, prefer the new ones above)
 
-A `double_free`, `use_after_free`/`uaf`, `TOCTOU`, or `data_race`
-hypothesis **must** reference at least TWO **distinct** CCPG node IDs
-across its roles. Two threads passing through the *same* source line is
-one event per thread, not two independent events on an object — so
-`{"free_a": 6037, "free_b": 6037}` is not a double-free and will be
-rejected with `"error": "structural_rejection"`. Pick two different
-program points (e.g. one free in the error-cleanup path and another
-free in the commit path, or a write site in Thread A and a separate
-read site in Thread B).
+`may_run_concurrently(thread1, thread2)`, `not_lock_protected(node)`, `same_lock(node1, node2)`, `alias(node1, node2)`. These remain valid for backward compatibility but produce coarser results than `concurrent` / `hb` / `same_location` from the new vocabulary.
 
 ## CRITICAL RULES
 
 - You MUST call tools only. DO NOT output chat text.
-- Always investigate [UAF_RISK] objects first.
+- Always investigate `[UAF_RISK]` and `[SCALAR_TORN_ACCESS]` objects first.
 - Use `get_function_ops` to find specific node IDs.
 - The `propose_hypothesis` tool runs constraint verification internally and gives you instant pass/fail feedback per constraint.
-- If verification fails, read the failure details and adjust — do NOT just give up.
 - On `is_duplicate: true`, skip to a different object rather than retrying.
 )";
 }
@@ -173,11 +219,22 @@ std::vector<Tool> DetectorAgent::get_available_tools() const {
 
         nlohmann::json pred_prop;
         pred_prop["type"] = "string";
-        pred_prop["description"] = "One of: in_thread, may_run_concurrently, reachable, not_lock_protected, same_lock, alias";
+        pred_prop["description"] =
+            "Verification predicate. Prefer the M7 happens-before DSL: "
+            "primitives = same_location, op_kind, in_thread, reachable, hb; "
+            "sugars = conflicts, concurrent, unsafe_atomic_block. "
+            "Legacy (still accepted, coarser): may_run_concurrently, "
+            "not_lock_protected, same_lock, alias.";
 
         nlohmann::json args_prop;
         args_prop["type"] = "object";
-        args_prop["description"] = "Arguments for the predicate, e.g. {\"from\": \"check\", \"to\": \"use\"}";
+        args_prop["description"] =
+            "Arguments for the predicate. Prefer {a, b} for binary predicates "
+            "(same_location/conflicts/concurrent/hb), {node, kind} for op_kind, "
+            "{node, thread} for in_thread, {from, to} for reachable, and "
+            "{start, end, witness} for unsafe_atomic_block. The hb predicate "
+            "additionally accepts \"expected\": true|false (default true) — "
+            "set to false to assert the *absence* of a happens-before chain.";
 
         nlohmann::json item_schema;
         item_schema["type"] = "object";
@@ -526,7 +583,8 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
 DetectorAgent::DetectionResult DetectorAgent::runDetection(const query::VulnerabilitySurface& surface) {
     reset();
 
-    query::HypothesisVerifier verifier(ccpg_, ThreadCreationTree::getInstance());
+    query::HypothesisVerifier verifier(ccpg_, ThreadCreationTree::getInstance(),
+                                       HBGraph::getInstance());
 
     DetectorContext ctx;
     ctx.surface = &surface;

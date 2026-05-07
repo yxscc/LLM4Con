@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <iostream>
 #include <cstring>
+#include <regex>
 
 namespace fs = std::filesystem;
 
@@ -75,8 +76,28 @@ public:
                 return methods;
             }
         }
-    
-        return CPGNodeSet();
+
+        // Layer 4 fallback: basename-only match. The existing
+        // arePathsLikelySameFile is too strict because it walks segments
+        // from the tail and rejects as soon as a parent directory differs.
+        // For kernel CVEs the IR debug-info path (e.g. "block/blk-ioc.c")
+        // and the CPG path (e.g. "src/blk-ioc.c") share only the base
+        // filename, so both Layer 1 (exact) and the segment fuzzy match
+        // miss. We accept basename equality as a last-resort alias and
+        // collect every CPG entry whose filename ends with the requested
+        // basename. This only runs after Layer 1/2/3 have all failed, so
+        // the existing baseline behaviour is preserved.
+        std::string base = std::filesystem::path(result).filename().string();
+        if (base.empty()) return CPGNodeSet();
+        CPGNodeSet aggregated;
+        for (const auto& [key, methods] : file2Methods) {
+            if (key.empty()) continue;
+            std::string keyBase = std::filesystem::path(key).filename().string();
+            if (keyBase == base) {
+                aggregated.insert(methods.begin(), methods.end());
+            }
+        }
+        return aggregated;
     }
 
     // Generate the Linux syscall-entry naming variants for a given "base"
@@ -86,6 +107,27 @@ public:
     // only contains the unprefixed base. This helper lets findMethod fall
     // back through the common variants so the IR entry name can still be
     // mapped to the CPG method node.
+    // Generate fall-back name variants for LLVM-mangled / decorated symbols.
+    // LLVM passes (and certain GCC compatibility layers) decorate function
+    // names with suffixes that the C-level CPG never sees. Examples:
+    //   foo.123, foo.llvm.7BAD1234, foo.part.0, foo.isra.5,
+    //   foo.constprop.1, foo.cold, __llvm.foo, local_foo
+    // After Layer 1 (exact) and Layer 2 (syscall prefix) miss, try each
+    // demangled candidate so the IR-side decorated name still maps to the
+    // bare CPG method.
+    static std::vector<std::string> demangleVariants(const std::string& name) {
+        std::vector<std::string> out;
+        out.push_back(name);
+        static const std::regex kSuffix(
+            R"((\.(?:llvm\.\w+|part\.\d+|isra\.\d+|constprop\.\d+|cold|\d+))+$)");
+        static const std::regex kPrefix(R"(^(?:__llvm\.|local_))");
+        std::string s = std::regex_replace(name, kSuffix, "");
+        if (s != name) out.push_back(s);
+        std::string p = std::regex_replace(s, kPrefix, "");
+        if (p != s) out.push_back(p);
+        return out;
+    }
+
     static std::vector<std::string> syscallNameVariants(const std::string& name) {
         std::vector<std::string> out;
         out.push_back(name);
@@ -113,6 +155,19 @@ public:
         return out;
     }
 
+    // Build the full ordered candidate list across Layer 1 (exact),
+    // Layer 2 (syscall variants) and Layer 3 (LLVM-mangling demangle).
+    // Layer 3 candidates are appended AFTER Layer 1/2 so the existing
+    // baseline name resolution is never overruled.
+    static std::vector<std::string> allNameCandidates(const std::string& name) {
+        std::vector<std::string> out = syscallNameVariants(name);
+        std::unordered_set<std::string> seen(out.begin(), out.end());
+        for (const std::string& v : demangleVariants(name)) {
+            if (seen.insert(v).second) out.push_back(v);
+        }
+        return out;
+    }
+
     Node* findMethod(std::string name) const {
 
         auto it = type2Nodes.find("Method");
@@ -120,7 +175,7 @@ public:
         const CPGNodeSet& methodNodes = it->second;
 
         // Try each candidate name in order of descending specificity.
-        for (const std::string& candidate : syscallNameVariants(name)) {
+        for (const std::string& candidate : allNameCandidates(name)) {
             for(Node* methodNode : methodNodes){
                 if(methodNode->getName() == candidate && methodNode->properties["CODE"] != "<empty>"){
                     if(methodNode->outCFGEdges.size() == 1){
@@ -144,9 +199,10 @@ public:
         if (it == type2Nodes.end()) return methods;
         const CPGNodeSet& methodNodes = it->second;
 
-        // Try all syscall-style name variants so IR-side prefixed names
-        // (e.g. __x64_sys_foo) also match CPG nodes named sys_foo or foo.
-        std::vector<std::string> candidates = syscallNameVariants(name);
+        // Try all syscall + demangle name variants so IR-side decorated
+        // names (e.g. __x64_sys_foo, foo.llvm.7BAD1234) also match CPG
+        // nodes named sys_foo / foo.
+        std::vector<std::string> candidates = allNameCandidates(name);
         std::unordered_set<std::string> tried(candidates.begin(), candidates.end());
 
         for(Node* methodNode : methodNodes){
@@ -164,6 +220,55 @@ public:
             }
         }
         return methods;
+    }
+
+    // Layer 5: when all lookups fail, surface the "closest" known method
+    // names as suggestions for diagnostic logs / LLM feedback. Distance
+    // metric is the simpler "common substring" + length-delta proxy
+    // (full Levenshtein is overkill here and much slower over large CPGs).
+    std::vector<std::string> findMethodSuggestions(const std::string& name,
+                                                   std::size_t k = 5) const {
+        auto it = type2Nodes.find("Method");
+        if (it == type2Nodes.end()) return {};
+        const CPGNodeSet& methodNodes = it->second;
+
+        auto score = [](const std::string& a, const std::string& b) -> int {
+            if (a.empty() || b.empty()) return -1;
+            // Substring containment is the strongest signal.
+            if (a.find(b) != std::string::npos) return 1000 - (int)(a.size() - b.size());
+            if (b.find(a) != std::string::npos) return 1000 - (int)(b.size() - a.size());
+            // Otherwise count shared prefix and shared suffix as a cheap
+            // approximation of edit distance.
+            int prefix = 0, suffix = 0;
+            for (std::size_t i = 0; i < std::min(a.size(), b.size()); ++i) {
+                if (a[i] == b[i]) ++prefix; else break;
+            }
+            for (std::size_t i = 0; i < std::min(a.size(), b.size()); ++i) {
+                if (a[a.size()-1-i] == b[b.size()-1-i]) ++suffix; else break;
+            }
+            int delta = (int)std::abs((int)a.size() - (int)b.size());
+            return prefix * 4 + suffix * 4 - delta;
+        };
+
+        std::vector<std::pair<int, std::string>> scored;
+        scored.reserve(methodNodes.size());
+        std::unordered_set<std::string> seen;
+        for (Node* m : methodNodes) {
+            const std::string& mname = m->getName();
+            if (mname.empty() || !seen.insert(mname).second) continue;
+            if (m->properties.count("CODE") && m->properties.at("CODE") == "<empty>") continue;
+            int s = score(mname, name);
+            if (s > 0) scored.emplace_back(s, mname);
+        }
+        std::sort(scored.begin(), scored.end(),
+                  [](const auto& a, const auto& b){ return a.first > b.first; });
+
+        std::vector<std::string> out;
+        for (auto& p : scored) {
+            if (out.size() >= k) break;
+            out.push_back(std::move(p.second));
+        }
+        return out;
     }
 
     Node* findMethod(Node* node) const {

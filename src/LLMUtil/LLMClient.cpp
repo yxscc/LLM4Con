@@ -208,15 +208,118 @@ static void sanitize_json_utf8(nlohmann::json& j) {
     }
 }
 
+// Repair an OpenAI-style message history so that:
+//   (a) every ASSISTANT.tool_call has a matching following TOOL response, and
+//       conversely every TOOL has a matching preceding ASSISTANT.tool_call;
+//   (b) every tool_call.id is globally unique across the entire conversation.
+//
+// (a) is needed because Conversation::prune_history() can drop ASSISTANT or TOOL
+// messages mid-stream when history exceeds max_history.
+// (b) is needed because some LLMs (notably Claude) sometimes generate the same
+// tool_use_id for repeated calls of the same tool with the same args, and
+// upstream gateways (OpenAI -> Anthropic translators) reject duplicates with
+// "unexpected `tool_use_id` found in `tool_result` blocks: tooluse_xxx".
+//
+// The function rewrites every tool_call.id to a fresh "lacecall_<N>" id and
+// rewrites the matching TOOL.tool_call_id (FIFO match against the most recent
+// ASSISTANT's tool_calls). Orphan TOOLs are dropped; orphan ASSISTANT.tool_calls
+// are filled with placeholder TOOL responses so the wire format is self-consistent.
+static std::vector<ChatMessage> sanitize_messages_for_tool_calls(
+    const std::vector<ChatMessage>& messages) {
+    std::vector<ChatMessage> result;
+    result.reserve(messages.size() + 4);
+
+    // FIFO of (original_id, rewritten_id) pairs the most recent ASSISTANT
+    // requested and have not yet seen a matching TOOL response.
+    std::vector<std::pair<std::string, std::string>> pending_renames;
+    long long call_counter = 0;
+    long long renames_count = 0;
+    long long orphans_dropped = 0;
+    long long placeholders_injected = 0;
+
+    auto flush_pending = [&](const char* reason) {
+        if (pending_renames.empty()) return;
+        placeholders_injected += pending_renames.size();
+        for (const auto& p : pending_renames) {
+            ChatMessage placeholder;
+            placeholder.role = MessageRole::TOOL;
+            placeholder.content = "[Tool result missing due to history pruning; treat as no-op.]";
+            placeholder.tool_call_id = p.second;
+            result.push_back(std::move(placeholder));
+        }
+        pending_renames.clear();
+        (void)reason;
+    };
+
+    for (const auto& msg_in : messages) {
+        ChatMessage msg = msg_in;  // mutable copy for id rewrites
+        switch (msg.role) {
+            case MessageRole::TOOL: {
+                if (!msg.tool_call_id.has_value()) {
+                    orphans_dropped++;
+                    break;
+                }
+                const std::string& orig_id = *msg.tool_call_id;
+                auto it = std::find_if(pending_renames.begin(), pending_renames.end(),
+                    [&](const std::pair<std::string, std::string>& p) {
+                        return p.first == orig_id;
+                    });
+                if (it == pending_renames.end()) {
+                    orphans_dropped++;
+                    break;
+                }
+                msg.tool_call_id = it->second;  // rewrite to fresh id
+                pending_renames.erase(it);
+                result.push_back(msg);
+                break;
+            }
+            case MessageRole::ASSISTANT: {
+                flush_pending("new assistant message");
+                if (msg.tool_calls.has_value()) {
+                    for (auto& tc : *msg.tool_calls) {
+                        std::string fresh = "lacecall_" + std::to_string(call_counter++);
+                        if (tc.id != fresh) renames_count++;
+                        pending_renames.push_back({tc.id, fresh});
+                        tc.id = fresh;
+                    }
+                }
+                result.push_back(msg);
+                break;
+            }
+            case MessageRole::USER:
+            case MessageRole::SYSTEM:
+            default: {
+                flush_pending(msg.role_to_string().c_str());
+                result.push_back(msg);
+                break;
+            }
+        }
+    }
+    flush_pending("end of history");
+
+    if (renames_count || orphans_dropped || placeholders_injected) {
+        Logger::getInstance()->log(
+            "[sanitize] tool_calls rewritten=" + std::to_string(renames_count) +
+            ", orphans_dropped=" + std::to_string(orphans_dropped) +
+            ", placeholders_injected=" + std::to_string(placeholders_injected));
+    }
+    return result;
+}
+
 // --- OpenAIHandler (handles OpenAI-compatible APIs) ---
 class OpenAIHandler : public APIHandler {
 public:
     nlohmann::json build_request_body(
         const std::string& model,
-        const std::vector<ChatMessage>& messages,
+        const std::vector<ChatMessage>& messages_raw,
         const std::vector<Tool>& tools,
         const std::string& tool_choice
     ) override {
+        // Repair tool_use/tool_result pairing before serialization so upstream
+        // gateways (incl. OpenAI->Anthropic translators) cannot reject us for
+        // orphan tool_use_id / tool_result mismatches.
+        const std::vector<ChatMessage> messages = sanitize_messages_for_tool_calls(messages_raw);
+
         nlohmann::json request_body;
         request_body["model"] = model;
         request_body["temperature"] = 1.0;

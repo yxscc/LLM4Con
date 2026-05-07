@@ -36,6 +36,12 @@ memcached/
 # Generated bitcode and logs
 **/*.bc
 **/*.log
+**/*.log.prev
+**/*.log.m5_baseline
+**/*.log.m6_baseline
+**/*.log.m7_phaseA_only
+**/detection_hypothesis_batch.prev.log
+**/batch_run.pid
 **/entry_config*
 *.log
 

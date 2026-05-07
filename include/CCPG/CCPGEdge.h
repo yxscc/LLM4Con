@@ -1,3 +1,5 @@
+#pragma once
+
 #include "CCPG/CCPGNode.h"
 
 class CCPGEdge {

@@ -7,11 +7,17 @@ set -e
 CVE_ID="$1"
 FIX_COMMIT="$2"
 shift 2
-SOURCE_FILES=("$@")
+USER_SOURCE_FILES=("$@")
 
 KERNEL_DIR="/home/ConCord/targets/linux.git"
 EXPERIMENT_DIR="/home/LLM4Con/kernel_experiment/$CVE_ID"
 CLANG=${CLANG:-clang}
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+# Phase F (M7): set EXPAND_PATCH=0 to disable patch-driven file expansion.
+# Default ON because every CVE we audited benefits or is unchanged
+# (single-file patches have no siblings to add).
+EXPAND_PATCH=${EXPAND_PATCH:-1}
+SOURCE_FILES=("${USER_SOURCE_FILES[@]}")
 
 echo "========================================="
 echo "Preparing $CVE_ID"
@@ -20,6 +26,30 @@ echo "Source files: ${SOURCE_FILES[*]}"
 echo "========================================="
 
 mkdir -p "$EXPERIMENT_DIR/src"
+
+# Step 0 (Phase F, M7): expand SOURCE_FILES via the fix commit so multi-
+# file kernel patches (e.g. CVE-2024-43891 across 5 files) are not
+# silently truncated. patch_expander.py reads patch content via
+# `git show $commit:path` so it does NOT require checking out the
+# commit's worktree first.
+if [ "$EXPAND_PATCH" = "1" ] && [ -x "$SCRIPT_DIR/patch_expander.py" ]; then
+    echo "[0/5] Expanding source-file list from patch ${FIX_COMMIT:0:12}..."
+    mapfile -t EXPANDED_FILES < <(
+        "$SCRIPT_DIR/patch_expander.py" \
+            --kernel-dir "$KERNEL_DIR" \
+            --commit "$FIX_COMMIT" \
+            --seeds "${USER_SOURCE_FILES[@]}" \
+            --output "$EXPERIMENT_DIR" 2>"$EXPERIMENT_DIR/expansion.log"
+    )
+    if [ ${#EXPANDED_FILES[@]} -gt 0 ]; then
+        SOURCE_FILES=("${EXPANDED_FILES[@]}")
+        echo "  Seeds: ${#USER_SOURCE_FILES[@]} -> Expanded: ${#SOURCE_FILES[@]} files"
+        echo "  Report: $EXPERIMENT_DIR/expansion_report.json"
+    else
+        echo "  ! Expansion produced 0 files; falling back to user seeds (${#USER_SOURCE_FILES[@]})"
+        cat "$EXPERIMENT_DIR/expansion.log" 2>/dev/null | head -3
+    fi
+fi
 
 # Step 1: Checkout vulnerable version (parent of fix commit)
 echo "[1/5] Checking out vulnerable version (${FIX_COMMIT}~1)..."
