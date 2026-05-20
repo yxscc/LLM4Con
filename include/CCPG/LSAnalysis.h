@@ -62,6 +62,12 @@ public:
     void build();
 
     std::vector<Lock*> getLockSet(NodeLoc loc, Context ctx);
+    // Overload that uses a SPECIFIC CCPGNode for the base lockset rather
+    // than picking `*(getNodesByLoc(loc).begin())` (which is non-deterministic
+    // when several CCPG nodes share a NodeLoc — a common situation for
+    // macro-expanded sites and synthesised list-helper accesses). This
+    // is the form used by the v19 verifier.
+    std::vector<Lock*> getLockSet(CCPGNode * node, Context ctx);
     bool isProtectedBySameLock(CCPGNode * node1, CCPGNode * node2);
     bool isProtectedBySameLock(NodeLoc loc1, Context ctx1, NodeLoc loc2, Context ctx2);
     bool isDeadLock(NodeLoc loc1, Context ctx1, NodeLoc loc2, Context ctx2);

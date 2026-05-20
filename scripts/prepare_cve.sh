@@ -9,8 +9,9 @@ FIX_COMMIT="$2"
 shift 2
 USER_SOURCE_FILES=("$@")
 
-KERNEL_DIR="/home/ConCord/targets/linux.git"
-EXPERIMENT_DIR="/home/LLM4Con/kernel_experiment/$CVE_ID"
+LLM4CON_HOME="${LLM4CON_HOME:-/home/LLM4Con}"
+KERNEL_DIR="${LINUX_REPO:-${KERNEL_DIR:-/home/ConCord/targets/linux.git}}"
+EXPERIMENT_DIR="${EXPERIMENT_BASE:-${LLM4CON_HOME}/kernel_experiment}/$CVE_ID"
 CLANG=${CLANG:-clang}
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 # Phase F (M7): set EXPAND_PATCH=0 to disable patch-driven file expansion.
@@ -59,9 +60,22 @@ git checkout "${FIX_COMMIT}~1" --quiet 2>/dev/null || git checkout "${FIX_COMMIT
 echo "  Kernel: $(git log --oneline -1)"
 
 # Step 1.5: Generate headers for this version
-echo "[1.5/5] Running make prepare..."
-make defconfig CC=gcc KBUILD_CFLAGS="-fno-PIE -fno-pic" > /dev/null 2>&1
-make prepare KBUILD_CFLAGS="-fno-PIE -fno-pic" > /dev/null 2>&1 || echo "  ! make prepare had warnings (may be ok)"
+# NOTE: use KCFLAGS (append) not KBUILD_CFLAGS (replace). KBUILD_CFLAGS clobbers
+# the kernel's own default flags, including -fcf-protection=branch, which v6.x
+# kernels rely on for IBT-related attributes (__nocf_check). We add -fno-PIE/-fno-pic
+# on top to work around Debian 12 GCC 12's hardened defaults that conflict with
+# -mcmodel=kernel.
+# All make invocations are made non-fatal: very old kernels (Linux 3.x) often
+# fail to build with modern GCC/binutils. We tolerate that and rely on the
+# bounds.h / autoconf.h shims further down to keep clang's compile of the
+# single .c file working anyway.
+echo "[1.5/5] Running make modules_prepare..."
+KPREP_KCFLAGS="-fno-PIE -fno-pic"
+make defconfig CC=gcc HOSTCC=gcc > /dev/null 2>&1 || \
+    echo "  ! make defconfig failed (old kernel + new toolchain); continuing with shims"
+make modules_prepare CC=gcc HOSTCC=gcc KCFLAGS="$KPREP_KCFLAGS" -j"$(nproc)" > /dev/null 2>&1 || \
+make prepare         CC=gcc HOSTCC=gcc KCFLAGS="$KPREP_KCFLAGS" -j"$(nproc)" > /dev/null 2>&1 || \
+    echo "  ! make modules_prepare had warnings (may be ok)"
 
 # Step 2: Collect source files and their headers
 echo "[2/4] Collecting source files..."
@@ -88,13 +102,12 @@ for f in "${SOURCE_FILES[@]}"; do
     done
 done
 
-# Step 2.9: shim for missing generated/bounds.h on very old kernels.
-# Pre-2.6.40 trees require these constants which are normally produced
-# by kernel/bounds.c. When `make prepare` fails, synthesize a minimal
-# header so downstream compilation can proceed.
+# Step 2.9: shim for missing kernel-build-system generated headers.
+# When `make prepare` fails (very old kernels, missing tools, etc.) we
+# synthesize the minimum set so single-TU clang compilation can proceed.
 GEN_DIR="$KERNEL_DIR/include/generated"
+mkdir -p "$GEN_DIR"
 if [ ! -f "$GEN_DIR/bounds.h" ]; then
-    mkdir -p "$GEN_DIR"
     cat > "$GEN_DIR/bounds.h" <<'BOUNDS_EOF'
 /* Auto-generated shim - prepare_cve.sh fallback */
 #ifndef __LINUX_BOUNDS_H__
@@ -105,6 +118,31 @@ if [ ! -f "$GEN_DIR/bounds.h" ]; then
 #endif
 BOUNDS_EOF
     echo "  ! installed fallback include/generated/bounds.h"
+fi
+if [ ! -f "$GEN_DIR/autoconf.h" ]; then
+    cat > "$GEN_DIR/autoconf.h" <<'AUTOCONF_EOF'
+/* Auto-generated shim - prepare_cve.sh fallback */
+#ifndef __LINUX_AUTOCONF_H__
+#define __LINUX_AUTOCONF_H__
+/* Minimum CONFIG_ defines so that headers compile.
+   Real kbuild fills in hundreds; we keep just enough for the single-TU
+   compile to succeed. */
+#define CONFIG_64BIT 1
+#define CONFIG_X86_64 1
+#define CONFIG_SMP 1
+#define CONFIG_PRINTK 1
+#define CONFIG_BUG 1
+#define CONFIG_BASE_SMALL 0
+#define CONFIG_LOG_BUF_SHIFT 17
+#endif
+AUTOCONF_EOF
+    echo "  ! installed fallback include/generated/autoconf.h"
+fi
+if [ ! -f "$GEN_DIR/utsrelease.h" ]; then
+    echo '#define UTS_RELEASE "shim"' > "$GEN_DIR/utsrelease.h"
+fi
+if [ ! -f "$GEN_DIR/timeconst.h" ]; then
+    echo '/* shim */' > "$GEN_DIR/timeconst.h"
 fi
 
 # Step 3: Compile each .c to LLVM bitcode
@@ -130,12 +168,52 @@ NEUTER_INITCALL=(
     '-Dmodule_exit(fn)=static void __mx_##fn(void) __attribute__((used,unused));static void __mx_##fn(void){(fn)();}'
 )
 
+# Build subsystem-specific extra include paths. Some kernel subsystems (most
+# infamously drivers/gpu/drm/amd) cross-include headers across many sibling
+# directories that aren't on the default kernel include path. We probe the
+# source file path against a small dispatch table and append matching -I dirs.
+#
+# This is a build-system workaround driven purely by the file path layout in
+# the kernel tree; it does NOT affect what code clang compiles, so it cannot
+# bias detection results.
+build_extra_includes() {
+    local src="$1"
+    local -a extra=()
+    case "$src" in
+        drivers/gpu/drm/amd/*)
+            # AMD GPU driver does aggressive cross-tree quoted-include
+            # ("foo/bar.h" relative to many sibling dirs). Listing every
+            # known dir is whack-a-mole; just collect every directory
+            # under drivers/gpu/drm/amd that contains at least one .h
+            # and add it as an -I. Cheap (~250 dirs) and fully covers
+            # any future kernel-version churn.
+            while IFS= read -r d; do
+                extra+=("-I$d")
+            done < <(find "$KERNEL_DIR/drivers/gpu/drm/amd" -type d 2>/dev/null)
+            # DRM/DRM-helper headers also live one level up.
+            for sub in include drm; do
+                local d="$KERNEL_DIR/include/$sub"
+                [ -d "$d" ] && extra+=("-I$d")
+            done
+            # AMD headers branch on CONFIG_DEBUG_FS for type signatures
+            # (debug_evictions etc.). Without it the public
+            # kfd_priv.h `extern` clashes with the static placeholder
+            # in amdgpu.h. Enabling it gives a single consistent type.
+            extra+=("-DCONFIG_DEBUG_FS=1" "-DCONFIG_DRM_AMD_DC=1")
+            ;;
+    esac
+    printf '%s\n' "${extra[@]}"
+}
+
 BC_FILES=()
 for f in "${SOURCE_FILES[@]}"; do
     if [[ "$f" == *.c ]]; then
         base=$(basename "$f" .c)
         bcfile="$EXPERIMENT_DIR/${base}.ll"
         echo "  Compiling $f -> ${base}.ll"
+
+        mapfile -t EXTRA_INC < <(build_extra_includes "$f")
+
         $CLANG -S -emit-llvm -g -O0 \
             -Wno-everything \
             -D__KERNEL__ -DMODULE -DKBUILD_MODNAME='"test"' \
@@ -149,6 +227,7 @@ for f in "${SOURCE_FILES[@]}"; do
             -I"$KERNEL_DIR/arch/x86/include/uapi" \
             -I"$KERNEL_DIR/arch/x86/include/generated" \
             -I"$KERNEL_DIR/arch/x86/include/generated/uapi" \
+            "${EXTRA_INC[@]}" \
             -include "$KERNEL_DIR/include/linux/kconfig.h" \
             "$KERNEL_DIR/$f" -o "$bcfile" 2>"$EXPERIMENT_DIR/${base}_compile.log" || {
                 echo "  ! Compile failed for $f (see ${base}_compile.log)"

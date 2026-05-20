@@ -31,7 +31,15 @@ static std::string sanitize_utf8(const std::string& input) {
 }
 
 VerificationAgent::VerificationAgent(std::shared_ptr<LLMClient> client)
-    : Conversation(client, "", 20), 
+    // Cap at 6 LLM round trips per verification. Original budget was 12 but
+    // empirical attribution on 62 CVE / 244 confirmed hypotheses showed the
+    // judge tends to use the extra rounds to "shop" for any matching FP idiom
+    // (often by misapplying a caller-held-lock or RCU-publish pattern that
+    // isn't actually relevant), dropping ~38% of confirmed bugs. A tighter
+    // budget combined with the "KEEP on silence" default biases the agent
+    // toward preserving recall — false positives are still caught by the
+    // FP idiom catalog when truly applicable.
+    : Conversation(client, "", 6),
       ccpg_(ThreadCreationTree::getInstance()->getCCPG()) {
       
     set_system_prompt(buildVerificationSystemPrompt());
@@ -42,6 +50,9 @@ bool VerificationAgent::verifyBug(const query::StatefulBug& bug) {
     current_bug_ = &bug;
     has_verdict_ = false;
     verdict_ = false;
+    seen_tool_calls_.clear();
+    dup_call_count_ = 0;
+    total_tool_calls_ = 0;
 
     std::string prompt = buildBugReportPrompt(bug);
     std::cout << "    [VerificationAgent] Starting interactive verification..." << std::endl;
@@ -65,21 +76,142 @@ This report includes a "Violation Path" - a sequence of operations (e.g., READ, 
 
 **Your Task:**
 Verify if this is a REAL bug (True Positive) or a False Positive.
-Static analysis often misses context like:
-1.  **Guards**: Is the access protected by a mutex, check, or flag?
-2.  **Reachability**: Are the paths actually executable?
-3.  **Benign Patterns**: Is this a known benign race?
-4.  **Concurrency**: Can these threads actually run concurrently in a way that triggers the bug?
+The hypothesis has ALREADY passed a static constraint engine that checked
+`in_thread`, `op_kind`, `conflicts` (same memory location), `concurrent`
+(no hb edge, no shared lock). Your job is a NARROW second-pass: only drop
+the hypothesis if you find ground-truth evidence of an ordering or guard
+that the static layer demonstrably missed. The default is **KEEP**.
+
+**STRICT FALSE_POSITIVE policy — read carefully.**
+
+A FALSE_POSITIVE verdict will ONLY be honoured when ALL of the following hold:
+
+1. `confidence = "High"`. Medium / Low confidence FP verdicts are
+   automatically downgraded to KEEP by the runtime. Do not bother
+   submitting them.
+2. `reasoning` is at least 40 characters AND names BOTH:
+   - the specific kernel idiom from the catalog below, AND
+   - the **concrete lock variable / synchronising call** you observed in
+     `get_function_code` output (e.g. "mutex_lock(&wq_pool_mutex) on line 5800
+     of destroy_workqueue").
+3. The idiom you cite actually applies to **both sides** of the race. A lock
+   held by the caller of ONE access does not make the race FP unless the
+   OTHER access is also protected by the SAME lock variable, or the
+   ordering you cite (registration / publication / refcount / drain)
+   actually serialises the two operations.
+
+If you cannot make this case crisply, submit TRUE_POSITIVE (or stay
+silent → defaults to KEEP).
+
+**FP idiom catalog (only valid when their preconditions hold).**
+
+Each idiom has a **precondition** (when it applies) and an **anti-pattern**
+(when it does NOT apply — common mistake mode). Match BOTH carefully.
+
+- **Caller-held lock.**
+  - Precondition: `get_call_chain_to_node` on BOTH violation points
+    yields callers that, in their function body, take the SAME lock
+    variable (e.g. both reach the access while holding `&q->mtx`).
+  - Anti-pattern: only ONE side's caller holds a lock, or the two sides
+    hold *different* locks that happen to have similar names. Different
+    locks ≠ mutual exclusion.
+
+- **Object-level lock acquired one frame up.**
+  - Precondition: SAME lock variable (e.g. `&xhci->lock`) acquired one
+    frame up on BOTH sides.
+  - Anti-pattern: one side runs in an interrupt / softirq / RCU reader
+    where the lock is not actually re-acquired — the "boundary function"
+    only matches one side.
+
+- **Callback enabled only after registration.**
+  - Precondition: the writer's enclosing function ends with a
+    registration call (`request_irq`, `*_register_*`, `queue_work`,
+    `wake_up_process`) AFTER the disputed write, AND the reader is
+    proven to be that callback.
+  - Anti-pattern: the reader can also run on a path that does NOT come
+    from this registration — typical for `sysfs` attributes, `proc`
+    seq_file callbacks, deferred work that was already scheduled.
+    Registration-ordering is NOT a global hb edge.
+
+- **Construction-before-publication.**
+  - Precondition: the writer's function writes only to a newly allocated
+    object before publishing it via `rcu_assign_pointer` /
+    `WRITE_ONCE(global, ...)` / `*p = state`, AND the reader
+    DEREFERENCES that pointer (not just reads the pointer field for an
+    independent purpose).
+  - Anti-pattern: writer publishes pointer A but ALSO writes back to
+    fields of A AFTER publication (e.g. fixing up flags / counters once
+    other code can see it). Those late writes are racy.
+
+- **Refcount-guarded lookup.**
+  - Precondition: the use-path holds a refcount obtained from `*_get`
+    on the same object, AND the free-path's free is gated by
+    `refcount_dec_and_test` / `kref_put`.
+  - Anti-pattern: the use path took `*_get` of a *different* object, or
+    the refcount is on a parent struct while the race is on a child
+    field whose lifetime is independent.
+
+- **Serialising primitive before free.**
+  - Precondition: free is preceded by `kthread_stop` / `cancel_work_sync`
+    / `flush_work` / `cancel_delayed_work_sync` / `synchronize_rcu` /
+    `synchronize_srcu` / `synchronize_irq`, AND the use path runs in the
+    worker / RCU reader that primitive drains.
+  - Anti-pattern: the use path is on a DIFFERENT subsystem
+    (sysfs/procfs/ioctl) that the drain primitive does not cover. RCU
+    only drains rcu_read_lock readers; sysfs attribute show/store are
+    not RCU readers.
+
+- **RCU reader / writer pair — NOT an FP unless rcu_assign_pointer +
+  synchronize_rcu both present.**
+  - Anti-pattern: caller of the read side holds `rcu_read_lock()` but
+    the write side does plain `list_del`/store (no `list_del_rcu` /
+    `rcu_assign_pointer`). This is exactly the race RCU is supposed to
+    *prevent*; the absence of `_rcu` helpers on the write side means
+    the static report is real. Do NOT classify this as FP.
+
+- **commit_creds publish / Queue freeze / quiesce** (kept verbatim).
+  Same precondition / anti-pattern logic applies: matched only when the
+  serialising primitive observably covers BOTH sides.
+
+**Common mistakes that produce wrong FP verdicts (do NOT do these):**
+
+- Quoting "caller-held lock" after only inspecting ONE side's call
+  chain. You MUST verify the SAME lock variable on the OTHER side.
+- Asserting that "RCU traversal is safe" when the write side does not
+  use `rcu_assign_pointer` / `list_*_rcu`.
+- Claiming "registration ordering" when the reader path is reachable
+  via a *different* registration (sysfs, procfs, debugfs, sysctl).
+- Conflating two different locks (e.g. `xhci->lock` vs `xhci->cmd_lock`)
+  by name similarity.
 
 **Your Capability:**
-You CANNOT see the full codebase initially. You MUST use the provided tools to "investigate" the crime scene.
+You CANNOT see the full codebase initially. You MUST use the provided tools to investigate.
 Do not guess. Explore the code using the tools.
 
 **Process:**
-1.  **Inspect the Path**: Use `get_violation_path_context` first to see the code around the reported violation points.
-2.  **Trace Back**: Use `get_call_chain_to_node` to understand how the thread reached these points. This helps in checking reachability conditions.
-3.  **Check Details**: Use `get_function_code` to see full function bodies for local guards (locks, if-checks). Use `get_variable_definition` to understand variable types.
-4.  **Verdict**: Once you have gathered enough evidence, submit your verdict.
+1.  **Inspect the Path**: `get_violation_path_context` first.
+2.  **If you suspect caller-held locking**: `get_call_chain_to_node` on
+    BOTH violation points; then `get_function_code` on the suspected
+    locking ancestor of EACH side. Confirm the SAME `&...->lock_field`.
+3.  **If you suspect registration ordering**: `get_function_code` on the
+    writer's enclosing function, find the registration call line,
+    confirm the writer writes only BEFORE that line, and confirm the
+    reader is only reachable as that callback.
+4.  **Verdict**: submit your verdict.
+
+**Round-trip discipline (CRITICAL):**
+- Budget is 6 LLM round trips per hypothesis. Submit a verdict by round 4.
+- NEVER call the same tool with the same arguments twice — duplicates
+  trigger a hard stop with default KEEP.
+- External / declared-only kernel functions (e.g. `prepare_creds`,
+  `commit_creds`, `kfree`, `kmalloc`, all `pthread_*`, `printk` / `dev_*`,
+  every libc / `__builtin_*`, every `arch_*` intrinsic) are NOT in the
+  IR — `get_function_by_name` / `get_function_code` will return empty.
+  Reason about them from their well-known kernel semantics.
+- **The default verdict on silence is KEEP.** Only call
+  `submit_verdict(FALSE_POSITIVE)` with `confidence="High"` and concrete
+  reasoning (≥40 chars, naming the specific lock variable / registration
+  call you observed). Otherwise just stay silent or submit TRUE_POSITIVE.
 )";
 }
 
@@ -150,15 +282,10 @@ std::vector<Tool> VerificationAgent::get_available_tools() const {
             {"function_id", "number", "The ID of the function.", true}
         }
     });
-    
-    tools.push_back({
-        "get_variable_definition",
-        "Attempts to find the definition of a variable used at a specific location.",
-        {
-            {"variable_name", "string", "The name of the variable.", true},
-            {"node_id", "number", "The ID of the node where the variable is used.", true}
-        }
-    });
+
+    // NOTE: get_variable_definition is intentionally NOT exposed — its
+    // implementation always returns a "not implemented" placeholder, and
+    // the LLM kept retrying it in loops, exhausting the round-trip budget.
 
     tools.push_back({
         "submit_verdict", 
@@ -174,11 +301,92 @@ std::vector<Tool> VerificationAgent::get_available_tools() const {
 }
 
 std::string VerificationAgent::execute_tool(const std::string& tool_name, const nlohmann::json& arguments) {
-    // Try shared tools first
+    // The verdict tool is idempotent by design and never counts toward
+    // dedup / total caps.
+    if (tool_name == "finalize_verdict") {
+        // fall through
+    } else {
+        ++total_tool_calls_;
+
+        // Hard cap: total tool calls in a single verification turn. Once
+        // exceeded, bail out via the magic "finish" return — this is the
+        // sentinel Conversation::send_message uses to exit its inner loop.
+        // has_verdict_ stays false, so verifyHypothesis defaults to KEEP
+        // (preserving recall when the verifier can't make up its mind).
+        if (total_tool_calls_ > MAX_TOTAL_TOOL_CALLS) {
+            std::cout << "    [VerificationAgent] HARD STOP: tool-call cap ("
+                      << MAX_TOTAL_TOOL_CALLS << ") exceeded; defaulting to KEEP."
+                      << std::endl;
+            return "finish";
+        }
+
+        // Canonicalise (object key order in dump is stable in nlohmann::json).
+        std::string key = tool_name + "::" + arguments.dump();
+        auto [_, inserted] = seen_tool_calls_.insert(key);
+        if (!inserted) {
+            ++dup_call_count_;
+            // Hard cap: once the LLM ignores enough duplicate warnings,
+            // we give up and let the conversation finish.
+            if (dup_call_count_ > MAX_DUP_CALLS) {
+                std::cout << "    [VerificationAgent] HARD STOP: duplicate-call cap ("
+                          << MAX_DUP_CALLS << ") exceeded; defaulting to KEEP."
+                          << std::endl;
+                return "finish";
+            }
+            nlohmann::json warn;
+            warn["warning"] =
+                "DUPLICATE_CALL: you already invoked this exact tool with "
+                "these exact arguments earlier in this conversation. The "
+                "result has not changed. Submit finalize_verdict NOW; "
+                "further duplicate calls will hard-stop the verifier.";
+            warn["tool_name"] = tool_name;
+            warn["arguments"] = arguments;
+            warn["duplicate_count"] = dup_call_count_;
+            warn["remaining_before_hard_stop"] = MAX_DUP_CALLS - dup_call_count_;
+            return warn.dump();
+        }
+    }
+
     auto shared_result = SharedToolKit::handle_shared_tool(tool_name, arguments, ccpg_);
     if (shared_result) { return *shared_result; }
 
     if (tool_name == "get_violation_path_context") {
+        // Hypothesis mode: fabricate the path from the hypothesis nodes
+        // map so the same tool/prompt machinery works for both StatefulBug
+        // and Hypothesis flows.
+        if (current_hypothesis_) {
+            nlohmann::json path_info = nlohmann::json::array();
+            for (const auto& [role, nid] : current_hypothesis_->nodes) {
+                CCPGNode* node = ccpg_->getNodeByID(nid);
+                if (!node || !node->getCPGNode()) continue;
+                nlohmann::json step_info;
+                step_info["role"] = role;
+                step_info["node_id"] = node->getId();
+                step_info["location"] = node->getNodeLoc().toString();
+                ccpg::Function* func = node->getFunction();
+                if (func) {
+                    step_info["function_id"] = func->getId();
+                    step_info["function_name"] =
+                        func->getFuncNode()->getCPGNode()->getName();
+                    std::string full_code = sanitize_utf8(
+                        func->getFuncNode()->getCPGNode()->getCode());
+                    std::string line_code =
+                        sanitize_utf8(node->getCPGNode()->getCode());
+                    size_t pos = full_code.find(line_code);
+                    if (pos != std::string::npos) {
+                        full_code.insert(pos,
+                            " /* <<< VIOLATION POINT */ ");
+                    }
+                    step_info["function_code_snippet"] = full_code;
+                } else {
+                    step_info["function_name"] = "Unknown";
+                    step_info["code_snippet"] =
+                        sanitize_utf8(node->getCPGNode()->getCode());
+                }
+                path_info.push_back(step_info);
+            }
+            return path_info.dump();
+        }
         if (!current_bug_) return R"({"error": "No active bug report."})";
 
         nlohmann::json path_info = nlohmann::json::array();
@@ -227,15 +435,24 @@ std::string VerificationAgent::execute_tool(const std::string& tool_name, const 
         ccpg::Function* target_func = target_node->getFunction();
         if (!target_func) return R"({"error": "Node does not belong to a valid function."})";
 
-        // Simple BFS/DFS on Call Graph from Thread Entry
-        // Since we don't store the exact call stack in the node, we search for *a* path from Thread Entry to this function.
-        // We need to know which thread this node belongs to.
-        
+        // Find which thread owns this node. For StatefulBug we restrict
+        // to the bug's thread pair; for Hypothesis mode we scan the full
+        // ThreadCreationTree (any thread that contains the node).
         Thread* relevant_thread = nullptr;
         if (current_bug_) {
             const auto& pair = current_bug_->getThreadPair();
             if (pair.thread1->getNodes().count(target_node)) relevant_thread = pair.thread1;
             else if (pair.thread2->getNodes().count(target_node)) relevant_thread = pair.thread2;
+        } else if (current_hypothesis_) {
+            auto* tct = ThreadCreationTree::getInstance();
+            if (tct) {
+                for (Thread* t : tct->getThreads()) {
+                    if (t && t->getNodes().count(target_node)) {
+                        relevant_thread = t;
+                        break;
+                    }
+                }
+            }
         }
 
         if (!relevant_thread) return R"({"error": "Could not determine thread for this node."})";
@@ -301,12 +518,121 @@ std::string VerificationAgent::execute_tool(const std::string& tool_name, const 
 
     if (tool_name == "submit_verdict") {
         std::string verdict_str = arguments.at("verdict").get<std::string>();
-        verdict_ = (verdict_str == "TRUE_POSITIVE");
+        std::string confidence =
+            arguments.value("confidence", std::string("Medium"));
+
+        // Recall-preserving confidence gate: a FALSE_POSITIVE drop is only
+        // honoured when the agent claims **High** confidence AND submits a
+        // non-empty reasoning. Anything else (Medium/Low FP, or an
+        // unreasoned FP) is downgraded to KEEP. Attribution against the
+        // 2026-05-12 batch showed the judge happily drops legitimate
+        // hypotheses at Medium confidence by misapplying the FP idiom
+        // catalog (CVE-2024-43830, CVE-2024-46704, CVE-2025-37882, ...).
+        // True positives are always honoured.
+        bool is_fp = (verdict_str == "FALSE_POSITIVE");
+        bool is_tp = (verdict_str == "TRUE_POSITIVE");
+        std::string reasoning = arguments.value("reasoning", std::string());
+
+        if (is_fp && (confidence != "High" || reasoning.size() < 40)) {
+            verdict_ = true;  // KEEP
+            has_verdict_ = true;
+            std::cout << "    [VerificationAgent] FALSE_POSITIVE downgraded "
+                         "to KEEP (confidence='"
+                      << confidence << "', reasoning_len="
+                      << reasoning.size()
+                      << "). Need confidence=High AND reasoning>=40 chars to drop."
+                      << std::endl;
+            return "Verdict noted but DOWNGRADED to KEEP: dropping a "
+                   "constraint-engine-confirmed hypothesis requires "
+                   "confidence=High and a substantive reasoning (>=40 chars). "
+                   "Analysis session ending.";
+        }
+
+        verdict_ = is_tp || (!is_fp);  // unknown verdict -> KEEP
         has_verdict_ = true;
         return "Verdict recorded. Analysis session ending.";
     }
 
     return R"({"error": "Tool not found."})";
+}
+
+// -------------------------------------------------------------------------
+// Hypothesis-mode entry point. Mirrors verifyBug() but accepts an open
+// Hypothesis (id, description, bug_category, role->node-id map). Used as
+// the agent-mode Phase 4.5 LLM verifier filter on top of the constraint-
+// engine-confirmed list.
+// -------------------------------------------------------------------------
+
+bool VerificationAgent::verifyHypothesis(const query::Hypothesis& h, CCPG* ccpg) {
+    reset();
+    current_hypothesis_ = &h;
+    current_bug_ = nullptr;
+    has_verdict_ = false;
+    verdict_ = false;
+    seen_tool_calls_.clear();
+    dup_call_count_ = 0;
+    total_tool_calls_ = 0;
+    if (ccpg) ccpg_ = ccpg;
+
+    std::string prompt = buildHypothesisReportPrompt(h, ccpg_);
+    std::cout << "    [VerificationAgent] Verifying hypothesis '"
+              << h.id << "' ..." << std::endl;
+
+    send_message(prompt, (void*)this);
+
+    // Default-on-no-verdict is **KEEP**, not DROP. The hypothesis already
+    // passed the static constraint engine (Phase 2's HypothesisVerifier),
+    // so silence from the LLM verifier means "no contradicting evidence
+    // found" — preserve recall, leave precision-loss to the explicit
+    // FALSE_POSITIVE path. Flipping the default to DROP destroys recall
+    // for any CVE where the LLM exhausts its round-trip budget.
+    bool kept = has_verdict_ ? verdict_ : true;
+    std::cout << "    [VerificationAgent] '"
+              << h.id << "' -> "
+              << (kept ? (has_verdict_ ? "KEEP (true positive)"
+                                       : "KEEP (no verdict; default-trust static layer)")
+                       : "DROP (false positive)")
+              << std::endl;
+
+    current_hypothesis_ = nullptr;
+    return kept;
+}
+
+std::string VerificationAgent::buildHypothesisReportPrompt(
+    const query::Hypothesis& h, CCPG* ccpg) {
+    std::stringstream ss;
+    ss << "## Suspected Bug Report (open hypothesis)\n\n";
+    ss << "**Hypothesis id:** " << h.id << "\n";
+    ss << "**Bug category:** " << h.bug_category << "\n";
+    ss << "**Severity:** " << h.severity << "\n";
+    ss << "**Description:** " << sanitize_utf8(h.description) << "\n\n";
+
+    ss << "**Roles → CCPG nodes (write/read sites of interest):**\n";
+    for (const auto& [role, nid] : h.nodes) {
+        ss << "  - " << role << ": node_id=" << nid;
+        CCPGNode* n = ccpg ? ccpg->getNodeByID(nid) : nullptr;
+        if (n && n->getCPGNode()) {
+            ss << "  | code: `" << sanitize_utf8(n->getCPGNode()->getCode())
+               << "`  | location: " << n->getNodeLoc().toString();
+        }
+        ss << "\n";
+    }
+
+    ss << "\n**Constraint-engine verdict:** all "
+       << h.constraints.size()
+       << " static constraints PASSED. Your job is the second-pass review:\n"
+       << "decide whether the static analysis missed an ordering or guard "
+       << "that would make this a false positive. The constraint-engine's "
+       << "happens-before graph is incomplete and frequently misses "
+       << "registration-callback, refcount-paired, RCU-publish, and "
+       << "caller-held-lock orderings — those are exactly what the catalog "
+       << "in your system prompt enumerates.\n\n"
+       << "Use `get_violation_path_context` first to inspect the role "
+       << "nodes' source, then `get_call_chain_to_node` and "
+       << "`get_function_code` on each callers to look for any of the "
+       << "happens-before idioms in the catalog. Submit your verdict via "
+       << "`submit_verdict`.\n";
+    return ss.str();
 }
 
 } // namespace llm_client

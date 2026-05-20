@@ -5,8 +5,9 @@
 set -o pipefail
 shopt -s nullglob
 
-DETECTOR="${DETECTOR:-/home/LLM4Con/Release-build/llm_detector}"
-EXPERIMENT_BASE="/home/LLM4Con/kernel_experiment"
+LLM4CON_HOME="${LLM4CON_HOME:-/home/LLM4Con}"
+DETECTOR="${DETECTOR:-${LLM4CON_HOME}/Release-build/llm_detector}"
+EXPERIMENT_BASE="${EXPERIMENT_BASE:-${LLM4CON_HOME}/kernel_experiment}"
 API_KEY=""
 MODEL="claude-sonnet-4-6"
 BASE_URL="${LLM_BASE_URL:-https://jeniya.cn/v1/chat/completions}"
@@ -40,14 +41,26 @@ echo " Key:      $masked_key  (len=${#API_KEY})"
 echo "============================================"
 
 # --- Preflight: 1 small chat call to fail fast on bad key/url/model -----------
+# Retry a few times so a single transient network blip doesn't kill a multi-
+# hour batch (we hit exactly that on 2026-05-09: curl timed out once and
+# the entire batch aborted, wasting the overnight slot).
 echo "[Preflight] Probing $BASE_URL ..."
-preflight_resp=$(curl -sS -X POST "$BASE_URL" \
-    -H "Authorization: Bearer $API_KEY" \
-    -H "Content-Type: application/json" \
-    -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}],\"max_tokens\":4}" \
-    --max-time 20 2>&1)
-if ! echo "$preflight_resp" | grep -q '"choices"'; then
-    echo "[Preflight FAIL] Aborting batch. Response excerpt:"
+preflight_ok=0
+for attempt in 1 2 3 4 5; do
+    preflight_resp=$(curl -sS -X POST "$BASE_URL" \
+        -H "Authorization: Bearer $API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "{\"model\":\"$MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"ping\"}],\"max_tokens\":4}" \
+        --max-time 30 2>&1)
+    if echo "$preflight_resp" | grep -q '"choices"'; then
+        preflight_ok=1
+        break
+    fi
+    echo "[Preflight] attempt $attempt failed; backing off ${attempt}0s before retry..."
+    sleep $((attempt * 10))
+done
+if [ "$preflight_ok" -ne 1 ]; then
+    echo "[Preflight FAIL] 5 attempts exhausted. Aborting batch. Last response excerpt:"
     echo "$preflight_resp" | head -c 500
     echo ""
     exit 1
@@ -55,7 +68,10 @@ fi
 echo "[Preflight OK] API reachable, key + model accepted."
 echo ""
 
-for cve_dir in "$EXPERIMENT_BASE"/CVE-*/; do
+# Iterate both CVE-* and SYZBOT-* prepared cases.
+shopt -s nullglob
+all_dirs=("$EXPERIMENT_BASE"/CVE-*/ "$EXPERIMENT_BASE"/SYZBOT-*/)
+for cve_dir in "${all_dirs[@]}"; do
     cve_id=$(basename "$cve_dir")
     src_dir="$cve_dir/src"
 
@@ -113,6 +129,8 @@ for cve_dir in "$EXPERIMENT_BASE"/CVE-*/; do
         --input-src src \
         $entry_flag \
         --agent-mode \
+        --llm-provider openai \
+        --llm-url "$BASE_URL" \
         --llm-key "$API_KEY" \
         --llm-model "$MODEL" \
         > "$log_file" 2>&1 \

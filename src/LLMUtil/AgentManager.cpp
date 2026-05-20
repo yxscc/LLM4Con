@@ -64,6 +64,17 @@ std::vector<llm_client::ThreadPair> AgentManager::runAnalysisAgentMode() {
         return {};
     }
 
+    // v23 P9a smoke aid: when LACE_EARLY_EXIT_AFTER_SURFACE is set, exit
+    // right after Phase 1 so we can collect [P9a] stats and surface JSON
+    // across many CVEs without spending any LLM tokens.
+    if (const char* early = std::getenv("LACE_EARLY_EXIT_AFTER_SURFACE")) {
+        if (early[0] != '\0' && early[0] != '0') {
+            std::cout << "[LACE_EARLY_EXIT_AFTER_SURFACE] exiting after Phase 1"
+                      << std::endl;
+            return {};
+        }
+    }
+
     // Phase 2: DetectorAgent with open-hypothesis verification
     std::cout << "\n[Phase 2: DetectorAgent (open hypothesis, single LLM session)]" << std::endl;
     DetectorAgent detector(llmClient, ccpg);

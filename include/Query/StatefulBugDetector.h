@@ -79,8 +79,13 @@ public:
         externalBugs.push_back(bug);
     }
 
-    // Open-hypothesis mode: hypotheses already verified by HypothesisVerifier
-    void detectFromHypotheses(const std::vector<Hypothesis>& hypotheses, CCPG* ccpg);
+    // Open-hypothesis mode: hypotheses already verified by HypothesisVerifier.
+    // If verificationAgent is non-null, each hypothesis is additionally run
+    // past an LLM second-pass to filter false positives (HBG-missing-edge,
+    // caller-held-lock, refcount-protected lookup, etc).
+    void detectFromHypotheses(const std::vector<Hypothesis>& hypotheses,
+                              CCPG* ccpg,
+                              llm_client::VerificationAgent* verificationAgent = nullptr);
 
     void printResults(const fs::path& outputDir) const;
     

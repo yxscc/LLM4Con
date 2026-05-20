@@ -519,7 +519,21 @@ int main(int argc, char** argv) {
         writeCheckpoint("Bug_Detection", "IN_PROGRESS");
         query::StatefulBugDetector statefulDetector;
         const auto& hypotheses = agentManager.getConfirmedHypotheses();
-        statefulDetector.detectFromHypotheses(hypotheses, ccpg.get());
+
+        // Phase 4.5 LLM hypothesis-verifier filter — second-pass FP triage
+        // for everything the static constraint engine confirmed. Skip with
+        // LACE_DISABLE_LLM_VERIFIER=1 (e.g. when running offline).
+        std::unique_ptr<llm_client::VerificationAgent> hyp_verifier;
+        const char* disable = std::getenv("LACE_DISABLE_LLM_VERIFIER");
+        if (!hypotheses.empty() && (!disable || disable[0] == '0' || disable[0] == '\0')) {
+            auto client = agentManager.getLLMClient();
+            if (client) {
+                hyp_verifier = std::make_unique<llm_client::VerificationAgent>(client);
+            }
+        }
+
+        statefulDetector.detectFromHypotheses(hypotheses, ccpg.get(),
+                                              hyp_verifier.get());
         statefulDetector.printResults(targetPath->getOutputDir());
         writeCheckpoint("Bug_Detection", "COMPLETED");
     }

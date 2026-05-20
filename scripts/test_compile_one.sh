@@ -2,8 +2,9 @@
 set -o pipefail
 
 CVE="${1:?Usage: $0 CVE-YYYY-NNNNN}"
-KERNEL_DIR="/home/ConCord/targets/linux.git"
-EXPERIMENT_BASE="/home/LLM4Con/kernel_experiment"
+LLM4CON_HOME="${LLM4CON_HOME:-/home/LLM4Con}"
+KERNEL_DIR="${LINUX_REPO:-${KERNEL_DIR:-/home/ConCord/targets/linux.git}}"
+EXPERIMENT_BASE="${EXPERIMENT_BASE:-${LLM4CON_HOME}/kernel_experiment}"
 CLANG=${CLANG:-clang}
 SURVEY_FILE="${SURVEY_FILE:-/tmp/cve_survey.csv}"
 
@@ -67,8 +68,11 @@ if ! make allyesconfig CC=gcc HOSTCC=gcc >/dev/null 2>&1; then
 fi
 
 echo "  running make modules_prepare..."
-make modules_prepare CC=gcc HOSTCC=gcc -j$(nproc) >/dev/null 2>&1 || \
-make prepare CC=gcc HOSTCC=gcc -j$(nproc) >/dev/null 2>&1 || true
+# KCFLAGS append (preserve kernel's -fcf-protection=branch); -fno-PIE/-fno-pic
+# avoids Debian 12 GCC 12 hardened defaults colliding with -mcmodel=kernel.
+KPREP_KCFLAGS="-fno-PIE -fno-pic"
+make modules_prepare CC=gcc HOSTCC=gcc KCFLAGS="$KPREP_KCFLAGS" -j$(nproc) >/dev/null 2>&1 || \
+make prepare         CC=gcc HOSTCC=gcc KCFLAGS="$KPREP_KCFLAGS" -j$(nproc) >/dev/null 2>&1 || true
 
 echo "  checking generated headers:"
 [ -f include/generated/autoconf.h ] && echo "    autoconf.h: YES" || echo "    autoconf.h: NO"

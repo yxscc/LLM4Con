@@ -48,8 +48,42 @@ struct SharedFieldKey {
 
     // Returns std::nullopt when v is stack-allocated (alloca-rooted) and
     // therefore not a legitimate cross-thread sharing candidate.
+    //
+    // `is_whole_object_access` should be set when `v` represents an access
+    // that consumes the *entire* underlying object as a unit (currently:
+    // the pointer arg to a free-like call such as kfree/kmem_cache_free).
+    // In opaque-pointer LLVM IR the call site loses the struct type, so
+    // for those cases we additionally consult the GEP users of `v` in
+    // order to recover the most likely struct type and emit a
+    // (StructField, T, 0) key. This lets a `kfree(nlk)` aggregate with
+    // every `nlk->fieldX` field access of the same struct in another
+    // thread (without it the free is keyed as Unknown and stays orphan).
     static std::optional<SharedFieldKey> fromValue(const llvm::Value* v,
-                                                   const llvm::Module& M);
+                                                   const llvm::Module& M,
+                                                   bool is_whole_object_access = false);
+
+    // Like `fromValue` but also returns alias keys for inner non-generic
+    // structs in an embedding chain. For example, if `v` GEPs through
+    // `wq_barrier { work_struct work; ... }` to access `&barr->work.data`,
+    // the GEP chain actually pins TWO valid C-level identities for the
+    // same byte:
+    //
+    //   * `field:struct.wq_barrier+0` (canonical, what `fromValue` returns)
+    //   * `field:struct.work_struct+0`  (alias — another thread that
+    //     receives a `struct work_struct *` and reads `work->data` keys
+    //     as this)
+    //
+    // Without alias emission the writer-side memcpy(barr->work.data, ...)
+    // and the reader-side load(*work_data_bits(work)) end up in disjoint
+    // shared-object buckets and the race is invisible to the surface.
+    // Used by IR-level synthesis paths (memcpy/memset/atomicrmw/list
+    // helpers) — the regular Phasar-LocToInst access path keeps using
+    // `fromValue` because there each instruction already names its
+    // struct type unambiguously.
+    static std::vector<SharedFieldKey>
+    fromValueAllAliases(const llvm::Value* v,
+                        const llvm::Module& M,
+                        bool is_whole_object_access = false);
 
     bool operator==(const SharedFieldKey& o) const {
         return kind == o.kind &&

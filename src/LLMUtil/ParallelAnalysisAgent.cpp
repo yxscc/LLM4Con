@@ -110,6 +110,16 @@ std::string ParallelAnalysisAgent::build_system_prompt() {
   * Happens-before relationship (e.g., thread1 joins thread2, or sequential execution)
   * One thread only runs during initialization, the other only during shutdown
   * The threads operate on completely independent resources
+
+- **Common kernel happens-before idioms (HBG often misses these — check before declaring concurrent).** If any of the patterns below applies between the *specific* writes and reads on the shared object, set `actually_concurrent = false`, OR proceed but skip rule generation for that particular access pair:
+  * **Callback enabled only after registration**: thread A is a callback (irq handler / rx handler / work function / kthread main / fileops) and thread B is the probe/init that does the writes. If B contains a registration call (`request_irq`, `serdev_device_set_client_ops`, `register_*`, `devm_*_register_device`, `queue_work`, `wake_up_process`) AFTER all the racing writes, those writes are happens-before any callback fire — NOT racing. Use `get_function_code` on B's entry function to find the registration site.
+  * **Construction-before-publication**: thread A constructs an object in a local variable and publishes it at the end (`*ts = state`, `rcu_assign_pointer(p, q)`, `WRITE_ONCE(global, new)`); the construction stores happen-before any other thread's deref through that pointer.
+  * **commit_creds / cred publish**: writes to a `prepare_creds()` result (`new->field = ...`) happen-before any reader of `current_cred()->field` AFTER `commit_creds(new)`. Until `commit_creds`, no other thread sees `new`.
+  * **Queue freeze / quiesce / RCU sync before publish or free**: `blk_mq_freeze_queue(q)`, `blk_mq_quiesce_queue(q)`, `synchronize_rcu()`, `synchronize_srcu()`, `synchronize_irq()` BEFORE publishing/freeing means in-flight readers have already drained.
+  * **kthread_stop / cancel_work_sync before free**: free of a struct used by a kthread/work, when preceded by `kthread_stop()`, `cancel_work_sync()`, `flush_work()`, `cancel_delayed_work_sync()` on the worker that owns the use, is NOT a UAF — those calls wait for the user to exit.
+  * **Module init / driver probe sequencing**: writes inside `module_init`, `*_probe`, `*_init` complete-before any syscall handler / ioctl / fileops invocation, because the device/file is only exposed to userspace after probe returns 0. Init-vs-handler is NOT racing unless the handler can be invoked DURING probe (rare; only true for split-probe drivers).
+  * **Refcount-protected lookup**: both threads access the object via paired `*_get`/`*_put` API (`kref_*`, `refcount_*`). Free in `*_put`'s 0-ref branch is mutually exclusive with a `*_get` that successfully returned a ref — provided the lookup itself is under an RCU read section or spinlock. Look for `*_get(...)` calls before the use and a paired `*_put(...)` before the free; if both exist, treat as NOT racing.
+
 - You MUST call `confirm_parallelism` with your assessment.
 - If `actually_concurrent` is false, the analysis will END IMMEDIATELY (no further steps needed).
 

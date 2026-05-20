@@ -183,6 +183,12 @@ private:
     ccpg::Function * threadMainFunction = nullptr;
     bool isMain = false;
     bool isKernelEntryPoint = false;  // NEW: Mark as kernel entry point (for multi-entry analysis)
+    // M7 P2: a thread whose entry function is reentrant (syscall handler,
+    // ioctl handler, sysfs show/store, proc seq_file callback, blk_mq op,
+    // softirq/timer handler). Two task contexts can enter this entry
+    // concurrently on different CPUs, so we permit self-race
+    // (`mayThreadsRunConcurrently(t,t)`) for such threads.
+    bool isReentrantEntry = false;
 
 public:
     Thread() {}
@@ -238,6 +244,10 @@ public:
     // NEW: Kernel entry point support for multi-entry parallel analysis
     bool isKernelEntry() const { return isKernelEntryPoint; }
     void setKernelEntry(bool isKernel) { this->isKernelEntryPoint = isKernel; }
+
+    // M7 P2: self-race support.
+    bool isReentrant() const { return isReentrantEntry; }
+    void setReentrant(bool reentrant) { this->isReentrantEntry = reentrant; }
 
     void addFunction(ccpg::Function* function);
     FunctionSet getFunctions() { return functions; }

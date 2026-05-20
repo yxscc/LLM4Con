@@ -208,7 +208,22 @@ std::vector<Lock*> LSAnalysis::getLockSet(NodeLoc loc, Context ctx) {
     CCPG * ccpg = LSAnalysis::getInstance()->getCCPG();
     std::vector<Lock*> ctxlockSet;
 
-    ctxlockSet.insert(ctxlockSet.begin(), nodeLockSets[*(ccpg->getNodesByLoc(loc).begin())].begin(), nodeLockSets[*(ccpg->getNodesByLoc(loc).begin())].end());
+    // v19 P3: union the locksets of EVERY CCPG node at this location
+    // rather than picking `getNodesByLoc(loc).begin()` (which is the
+    // non-deterministic first iterator of an unordered_set). When a
+    // macro-expanded line or a synthesised helper site produces several
+    // CCPG nodes that share a NodeLoc, the previous code would silently
+    // drop any caller-held lock that happened to live in the OTHER
+    // node's CFG-built lockset — that was a major source of v18
+    // `lockset_wrong` false positives (caller mutex_lock(&X) followed
+    // by helper(): the helper's NodeLoc node sees no lock, the
+    // caller's NodeLoc node does, and `.begin()` could pick either).
+    auto siblings = ccpg->getNodesByLoc(loc);
+    for (CCPGNode* sib : siblings) {
+        if (!sib) continue;
+        const auto& sl = nodeLockSets[sib];
+        ctxlockSet.insert(ctxlockSet.begin(), sl.begin(), sl.end());
+    }
 
     const std::vector<CCPGNode*>& callStack = ctx.getCallStack();
     for(auto it = callStack.rbegin(); it != callStack.rend(); it++){
@@ -217,6 +232,38 @@ std::vector<Lock*> LSAnalysis::getLockSet(NodeLoc loc, Context ctx) {
         ctxlockSet.insert(ctxlockSet.begin(), locks.begin(), locks.end());
     }
 
+    // Dedup so downstream loop is O(unique-locks).
+    std::sort(ctxlockSet.begin(), ctxlockSet.end());
+    ctxlockSet.erase(std::unique(ctxlockSet.begin(), ctxlockSet.end()),
+                     ctxlockSet.end());
+    return ctxlockSet;
+}
+
+std::vector<Lock*> LSAnalysis::getLockSet(CCPGNode * node, Context ctx) {
+    std::vector<Lock*> ctxlockSet;
+    if (!node) return ctxlockSet;
+
+    // Base lockset: the specific CFG-built lockset at THIS node. Avoids
+    // the unordered-set `.begin()` ambiguity that the NodeLoc overload
+    // suffers from.
+    {
+        const auto& sl = nodeLockSets[node];
+        ctxlockSet.insert(ctxlockSet.begin(), sl.begin(), sl.end());
+    }
+
+    // Walk the call stack like the NodeLoc overload, accumulating
+    // caller-held locks at every frame.
+    const std::vector<CCPGNode*>& callStack = ctx.getCallStack();
+    for (auto it = callStack.rbegin(); it != callStack.rend(); ++it) {
+        CCPGNode * cn = *it;
+        if (!cn) continue;
+        const auto& locks = nodeLockSets[cn];
+        ctxlockSet.insert(ctxlockSet.begin(), locks.begin(), locks.end());
+    }
+
+    std::sort(ctxlockSet.begin(), ctxlockSet.end());
+    ctxlockSet.erase(std::unique(ctxlockSet.begin(), ctxlockSet.end()),
+                     ctxlockSet.end());
     return ctxlockSet;
 }
 

@@ -71,3 +71,4 @@ LinConVul_facts.tar.gz
 
 # Plan/scratch files
 *.plan.md
+kernel_experiment/cve_survey.csv

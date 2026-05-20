@@ -21,12 +21,216 @@
 #include "PhasarUtil/AnalysisManager.h"
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Operator.h"
+
 using namespace ccpg;
 using namespace psr;
 
 namespace fs = std::filesystem;
 
 void handleContext(CCPGNode * caller, ccpg::Function * f);
+
+namespace {
+
+// P8a helpers: walk constant initializers to harvest llvm::Function
+// pointers stored in kernel callback tables (device_attribute,
+// attribute_group, file_operations, ...).
+constexpr int kP8aMaxConstDepth = 8;
+constexpr unsigned kP8aMaxOperands = 256;
+
+void p8aCollectFns(const llvm::Constant* c,
+                   std::vector<const llvm::Function*>& out,
+                   std::unordered_set<const llvm::Constant*>& visited,
+                   int depth) {
+    if (!c || depth > kP8aMaxConstDepth) return;
+    if (!visited.insert(c).second) return;
+    const llvm::Value* stripped = c->stripPointerCasts();
+    if (!stripped) return;
+    if (const auto* fn = llvm::dyn_cast<llvm::Function>(stripped)) {
+        out.push_back(fn);
+        return;
+    }
+    const auto* cAfter = llvm::dyn_cast<llvm::Constant>(stripped);
+    if (!cAfter) return;
+    unsigned n = cAfter->getNumOperands();
+    if (n > kP8aMaxOperands) n = kP8aMaxOperands;
+    for (unsigned i = 0; i < n; ++i) {
+        if (const auto* sub =
+                llvm::dyn_cast<llvm::Constant>(cAfter->getOperand(i))) {
+            p8aCollectFns(sub, out, visited, depth + 1);
+        }
+    }
+}
+
+// Whether a (possibly anonymous-suffixed) struct type-name looks like a
+// known kernel callback / ops table whose function-pointer members
+// should be promoted to thread entries. We match both the canonical
+// name and `<name>.<digits>` LLVM-internal anonymized variants.
+bool p8aIsCallbackTableTypeName(const std::string& sname) {
+    static const std::vector<std::string> kPatterns = {
+        // sysfs / kobject attribute groups and individual attributes
+        "struct.attribute_group",
+        "struct.device_attribute",
+        "struct.driver_attribute",
+        "struct.bus_attribute",
+        "struct.class_attribute",
+        "struct.kobj_attribute",
+        "struct.bin_attribute",
+        // VFS / chardev / procfs / debugfs callback tables
+        "struct.file_operations",
+        "struct.kernfs_ops",
+        "struct.proc_ops",
+        "struct.seq_operations",
+        // PM / power management callback tables
+        "struct.dev_pm_ops",
+        "struct.platform_driver",
+        // Driver / bus / class registration tables containing callbacks
+        "struct.bus_type",
+        "struct.device_driver",
+        "struct.notifier_block",
+        // Networking
+        "struct.net_proto_family",
+        "struct.proto_ops",
+        "struct.ethtool_ops",
+        "struct.net_device_ops",
+        "struct.tty_operations",
+        // Subsystem-specific
+        "struct.iio_info",
+        "struct.regmap_bus",
+        "struct.nft_object_type",
+        "struct.nft_expr_ops",
+        "struct.nft_chain_type",
+    };
+    for (const auto& p : kPatterns) {
+        if (sname == p) return true;
+        // LLVM appends ".<n>" to anonymized struct types from C; allow it.
+        if (sname.size() > p.size() + 1 &&
+            sname[p.size()] == '.' &&
+            sname.compare(0, p.size(), p) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Walk through array wrappers down to the first non-array element
+// type. Many ops globals are declared as arrays of attribute structs.
+const llvm::Type* p8aPeelArray(const llvm::Type* t) {
+    while (t) {
+        if (auto* arr = llvm::dyn_cast<llvm::ArrayType>(t)) {
+            t = arr->getElementType();
+            continue;
+        }
+        break;
+    }
+    return t;
+}
+
+// ---------------------------------------------------------------------------
+// v23 P9a — Dynamic callback registration scan.
+//
+// P8a covers callbacks installed via STATIC kernel globals (`.data`
+// constant initializers). But many subsystem callbacks are installed at
+// runtime by storing a function pointer into a member of a
+// dynamically-allocated struct, then handing that struct off to a
+// register_*_notifier / INIT_WORK / timer_setup / hrtimer_init helper.
+// E.g.:
+//
+//     tusb->psy_nb.notifier_call = tusb1210_psy_notifier;
+//     power_supply_reg_notifier(&tusb->psy_nb);
+//
+// Phasar's entry detector doesn't see `tusb1210_psy_notifier` as a
+// thread, ThreadCreationTree doesn't model `power_supply_reg_notifier`
+// as a fork API, so the callback's accesses on the patched object
+// (`tusb->charger`) never make it into the surface and we lose the bug
+// even though the IR is right there.
+//
+// Fix: walk every StoreInst in the module; if it stores a defined
+// function pointer into a GEP whose source-element type is one of the
+// known kernel callback-host structs, promote that function to an
+// entry. We match on the OWNING struct type (not field index), which is
+// robust to LLVM GEP fusion / opaque pointers and covers nested
+// containers like delayed_work (struct.delayed_work.work.func).
+bool p9aIsCallbackHostTypeName(llvm::StringRef sname) {
+    static const char* const kPatterns[] = {
+        "struct.notifier_block",         // .notifier_call
+        "struct.work_struct",            // .func
+        "struct.delayed_work",           // .work.func
+        "struct.rcu_work",               // wraps work_struct
+        "struct.timer_list",             // .function
+        "struct.hrtimer",                // .function
+        "struct.tasklet_struct",         // .func / .callback
+        "struct.tasklet_hrtimer",
+        "struct.wait_queue_entry",       // .func (wake_up_func_t)
+        "struct.callback_head",          // .func (RCU)
+        "struct.irq_work",               // .func
+        "struct.completion",             // no .func; harmless skip
+    };
+    for (const char* p : kPatterns) {
+        llvm::StringRef pref(p);
+        if (sname == pref) return true;
+        // Accept "<pattern>.<digits>" LLVM-anonymous-disambiguator variant.
+        if (sname.size() > pref.size() + 1 &&
+            sname[pref.size()] == '.' &&
+            sname.startswith(pref)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Walk back through bitcasts/pointer-equivalences and return the first
+// GEPOperator we find, or nullptr if the pointer doesn't look like a
+// GEP into a known struct.
+const llvm::GEPOperator* p9aFindOwningGEP(const llvm::Value* p) {
+    if (!p) return nullptr;
+    for (int guard = 0; guard < 8 && p != nullptr; ++guard) {
+        if (auto* gep = llvm::dyn_cast<llvm::GEPOperator>(p)) {
+            return gep;
+        }
+        if (auto* bc = llvm::dyn_cast<llvm::BitCastOperator>(p)) {
+            p = bc->getOperand(0);
+            continue;
+        }
+        if (auto* asc = llvm::dyn_cast<llvm::AddrSpaceCastOperator>(p)) {
+            p = asc->getOperand(0);
+            continue;
+        }
+        break;
+    }
+    return nullptr;
+}
+
+// Returns the local llvm::Function whose address is stored by `SI`,
+// when the destination memory is a GEP into a known callback-host
+// struct. Returns nullptr when this isn't a callback installation.
+const llvm::Function* p9aExtractCallback(const llvm::StoreInst* SI) {
+    if (!SI) return nullptr;
+    const llvm::Value* val = SI->getValueOperand();
+    if (!val) return nullptr;
+    val = val->stripPointerCasts();
+    const auto* fn = llvm::dyn_cast<llvm::Function>(val);
+    if (!fn || fn->isDeclaration()) return nullptr;
+    // Skip llvm.dbg.* and asm helpers.
+    llvm::StringRef fname = fn->getName();
+    if (fname.startswith("llvm.") || fname.empty()) return nullptr;
+
+    const llvm::GEPOperator* gep = p9aFindOwningGEP(SI->getPointerOperand());
+    if (!gep) return nullptr;
+    const auto* srcTy =
+        llvm::dyn_cast_or_null<llvm::StructType>(gep->getSourceElementType());
+    if (!srcTy || !srcTy->hasName()) return nullptr;
+    if (!p9aIsCallbackHostTypeName(srcTy->getName())) return nullptr;
+    return fn;
+}
+
+}  // namespace
 
 CCPGEdge * CCPG::hasCallEdge(CCPGNode * node){
     for(CCPGEdge * edge : node->getOutEdges()){
@@ -188,7 +392,174 @@ void CCPG::build(){
             std::cout << "[Kernel Module Mode] Total entry functions: " << entryFunctions.size() << std::endl;
         }
     }
-    
+
+    // P8a: Sysfs / file_operations / driver-ops callback discovery.
+    //
+    // Many kernel callbacks (sysfs show/store, fops .read/.write/.poll,
+    // chardev/procfs/debugfs ops, driver_pm callbacks, …) are static
+    // helpers that are only referenced through function pointers stored
+    // in well-known ops tables. Phasar's entry-point heuristic only
+    // promotes EXPORT_SYMBOL'd / externally-visible functions, so these
+    // static helpers never become threads and the surface generator
+    // never sees the user-space side of any field they touch.
+    //
+    // We walk the LLVM module looking for globals whose type matches a
+    // known callback table (or an array of such), descend into the
+    // constant initializer to collect every llvm::Function pointer it
+    // contains, then add any function we can map back into the CPG as
+    // an additional entry. Downstream ThreadCreationTree::build() picks
+    // them up automatically as kernel-entry threads (concurrent with
+    // every other entry that shares data, exactly the model we want).
+    if (pointerAnalyzer) {
+        const llvm::Module* M = pointerAnalyzer->getModule();
+        if (M) {
+            std::vector<const llvm::Function*> harvested;
+            std::unordered_set<const llvm::Constant*> visited;
+            int globalsScanned = 0;
+            for (const llvm::GlobalVariable& gv : M->globals()) {
+                if (!gv.hasInitializer()) continue;
+                const llvm::Type* ty = p8aPeelArray(gv.getValueType());
+                const auto* st = llvm::dyn_cast_or_null<llvm::StructType>(ty);
+                if (!st || !st->hasName()) continue;
+                std::string structName = st->getName().str();
+                if (!p8aIsCallbackTableTypeName(structName)) continue;
+                ++globalsScanned;
+                visited.clear();
+                p8aCollectFns(gv.getInitializer(), harvested, visited, 0);
+            }
+
+            std::unordered_set<const llvm::Function*> uniq(
+                harvested.begin(), harvested.end());
+            int added = 0, alreadyKnown = 0, notInCPG = 0, isDecl = 0;
+            for (const llvm::Function* fn : uniq) {
+                if (!fn || fn->isDeclaration()) {
+                    if (fn) ++isDecl;
+                    continue;
+                }
+                std::string name = fn->getName().str();
+                if (name.empty()) continue;
+
+                Node* methodNode = cpg->findMethod(name);
+                if (methodNode == nullptr) {
+                    for (const std::string& v : CPG::demangleVariants(name)) {
+                        methodNode = cpg->findMethod(v);
+                        if (methodNode) break;
+                    }
+                }
+                if (methodNode == nullptr) {
+                    ++notInCPG;
+                    continue;
+                }
+                if (containsCPGNode(methodNode)) {
+                    ++alreadyKnown;
+                    continue;
+                }
+                CCPGNode* entryNode = createCCPGNode(methodNode);
+                if (entryNode == nullptr) continue;
+                ccpg::Function* f = createFunction(entryNode);
+                if (f == nullptr) continue;
+                entryFunctions.insert(f);
+                functionQueue.push(f);
+                ++added;
+            }
+
+            if (globalsScanned > 0 || added > 0) {
+                std::cout << "[P8a] Sysfs/callback discovery: scanned "
+                          << globalsScanned << " ops globals, harvested "
+                          << uniq.size() << " functions, added " << added
+                          << " new entries (" << alreadyKnown
+                          << " already known, " << notInCPG
+                          << " not in CPG, " << isDecl << " declarations)"
+                          << std::endl;
+            }
+        }
+    }
+
+    // P9a: Dynamic callback registration discovery.
+    //
+    // Scan every StoreInst in the module for installations of the form
+    //     gep into struct.{notifier_block|work_struct|delayed_work|
+    //                       timer_list|hrtimer|tasklet_struct|...} = @fn
+    // and promote @fn to an entry function. This covers the runtime
+    // INIT_WORK / timer_setup / register_*_notifier / etc. paths that
+    // P8a misses because their callback pointer never sits in a static
+    // global.
+    if (pointerAnalyzer) {
+        const llvm::Module* M = pointerAnalyzer->getModule();
+        if (M) {
+            std::unordered_set<const llvm::Function*> harvested;
+            long instsScanned = 0;
+            for (const llvm::Function& F : *M) {
+                if (F.isDeclaration()) continue;
+                for (const llvm::BasicBlock& BB : F) {
+                    for (const llvm::Instruction& I : BB) {
+                        const auto* SI = llvm::dyn_cast<llvm::StoreInst>(&I);
+                        if (!SI) continue;
+                        ++instsScanned;
+                        if (const llvm::Function* fn = p9aExtractCallback(SI)) {
+                            harvested.insert(fn);
+                        }
+                    }
+                }
+            }
+
+            int added = 0, alreadyKnown = 0, notInCPG = 0;
+            std::vector<std::string> notInCPGNames;  // first 10 for debug
+            for (const llvm::Function* fn : harvested) {
+                if (!fn) continue;
+                std::string name = fn->getName().str();
+                if (name.empty()) continue;
+                // Layer 1: exact name + demangle variants (matches P8a).
+                Node* methodNode = cpg->findMethod(name);
+                if (methodNode == nullptr) {
+                    for (const std::string& v : CPG::demangleVariants(name)) {
+                        methodNode = cpg->findMethod(v);
+                        if (methodNode) break;
+                    }
+                }
+                // Layer 2: fall back to (file, line) matching via DWARF
+                // debug info, which can find a method even when its NAME
+                // attribute in the CPG dot file has been mangled or when
+                // LLVM-side suffix decoration differs from the C-side name.
+                if (methodNode == nullptr) {
+                    methodNode = cpg->findMethodByLLVMFunction(fn);
+                }
+                if (methodNode == nullptr) {
+                    ++notInCPG;
+                    if (notInCPGNames.size() < 10) {
+                        notInCPGNames.push_back(name);
+                    }
+                    continue;
+                }
+                if (containsCPGNode(methodNode)) {
+                    ++alreadyKnown;
+                    continue;
+                }
+                CCPGNode* entryNode = createCCPGNode(methodNode);
+                if (entryNode == nullptr) continue;
+                ccpg::Function* f = createFunction(entryNode);
+                if (f == nullptr) continue;
+                entryFunctions.insert(f);
+                functionQueue.push(f);
+                ++added;
+            }
+
+            if (!harvested.empty() || added > 0) {
+                std::cout << "[P9a] Dynamic callback discovery: scanned "
+                          << instsScanned << " stores, harvested "
+                          << harvested.size() << " unique callbacks, added "
+                          << added << " new entries ("
+                          << alreadyKnown << " already known, "
+                          << notInCPG << " not in CPG)" << std::endl;
+                if (!notInCPGNames.empty()) {
+                    std::cout << "[P9a-DBG] not-in-CPG sample:";
+                    for (const auto& s : notInCPGNames) std::cout << " " << s;
+                    std::cout << std::endl;
+                }
+            }
+        }
+    }
+
     int i = 0;
     // create function for each call node
     while (!functionQueue.empty()) {

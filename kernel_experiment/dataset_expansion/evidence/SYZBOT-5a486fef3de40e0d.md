@@ -1,0 +1,118 @@
+# Evidence: SYZBOT-5a486fef3de40e0d  (tier A, score 200)
+
+- source archive: **syzbot**
+- title: KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)
+- mainline fix commit: `e358e09a894dbcd51fdbbcf62bec1df249915834`
+- candidate JSON: `A_SYZBOT-5a486fef3de40e0d.json`
+- thread_hint: `{"kind": "kcsan", "fn_a": "__se_sys_io_uring_register", "fn_b": "io_sqe_files_register"}`
+
+## Commit message
+
+```
+e358e09a894dbcd51fdbbcf62bec1df249915834
+io_uring: protect register tracing
+
+Syz reports:
+
+BUG: KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register
+
+read-write to 0xffff8881021940b8 of 4 bytes by task 5923 on cpu 1:
+ io_sqe_files_register+0x2c4/0x3b0 io_uring/rsrc.c:713
+ __io_uring_register io_uring/register.c:403 [inline]
+ __do_sys_io_uring_register io_uring/register.c:611 [inline]
+ __se_sys_io_uring_register+0x8d0/0x1280 io_uring/register.c:591
+ __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591
+ x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428
+ do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+ do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+
+read to 0xffff8881021940b8 of 4 bytes by task 5924 on cpu 0:
+ __do_sys_io_uring_register io_uring/register.c:613 [inline]
+ __se_sys_io_uring_register+0xe4a/0x1280 io_uring/register.c:591
+ __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591
+ x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428
+ do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+ do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83
+ entry_SYSCALL_64_after_hwframe+0x77/0x7f
+
+Which should be due to reading the table size after unlock. We don't
+care much as it's just to print it in trace, but we might as well do it
+under the lock.
+
+Reported-by: syzbot+5a486fef3de40e0d8c76@syzkaller.appspotmail.com
+Signed-off-by: Pavel Begunkov <asml.silence@gmail.com>
+Link: https://lore.kernel.org/r/8233af2886a37b57f79e444e3db88fcfda1817ac.1731942203.git.asml.silence@gmail.com
+Signed-off-by: Jens Axboe <axboe@kernel.dk>
+```
+
+## CVE / bug description
+
+```
+KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)
+```
+
+## Full mainline patch
+
+```diff
+commit e358e09a894dbcd51fdbbcf62bec1df249915834
+Author: Pavel Begunkov <asml.silence@gmail.com>
+Date:   Mon Nov 18 15:14:50 2024 +0000
+
+    io_uring: protect register tracing
+    
+    Syz reports:
+    
+    BUG: KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register
+    
+    read-write to 0xffff8881021940b8 of 4 bytes by task 5923 on cpu 1:
+     io_sqe_files_register+0x2c4/0x3b0 io_uring/rsrc.c:713
+     __io_uring_register io_uring/register.c:403 [inline]
+     __do_sys_io_uring_register io_uring/register.c:611 [inline]
+     __se_sys_io_uring_register+0x8d0/0x1280 io_uring/register.c:591
+     __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591
+     x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428
+     do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+     do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83
+     entry_SYSCALL_64_after_hwframe+0x77/0x7f
+    
+    read to 0xffff8881021940b8 of 4 bytes by task 5924 on cpu 0:
+     __do_sys_io_uring_register io_uring/register.c:613 [inline]
+     __se_sys_io_uring_register+0xe4a/0x1280 io_uring/register.c:591
+     __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591
+     x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428
+     do_syscall_x64 arch/x86/entry/common.c:52 [inline]
+     do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83
+     entry_SYSCALL_64_after_hwframe+0x77/0x7f
+    
+    Which should be due to reading the table size after unlock. We don't
+    care much as it's just to print it in trace, but we might as well do it
+    under the lock.
+    
+    Reported-by: syzbot+5a486fef3de40e0d8c76@syzkaller.appspotmail.com
+    Signed-off-by: Pavel Begunkov <asml.silence@gmail.com>
+    Link: https://lore.kernel.org/r/8233af2886a37b57f79e444e3db88fcfda1817ac.1731942203.git.asml.silence@gmail.com
+    Signed-off-by: Jens Axboe <axboe@kernel.dk>
+
+diff --git a/io_uring/register.c b/io_uring/register.c
+index 1a60f4916649..1e99c783abdf 100644
+--- a/io_uring/register.c
++++ b/io_uring/register.c
+@@ -905,9 +905,10 @@ SYSCALL_DEFINE4(io_uring_register, unsigned int, fd, unsigned int, opcode,
+ 
+ 	mutex_lock(&ctx->uring_lock);
+ 	ret = __io_uring_register(ctx, opcode, arg, nr_args);
+-	mutex_unlock(&ctx->uring_lock);
++
+ 	trace_io_uring_register(ctx, opcode, ctx->file_table.data.nr,
+ 				ctx->buf_table.nr, ret);
++	mutex_unlock(&ctx->uring_lock);
+ 	if (!use_registered_ring)
+ 		fput(file);
+ 	return ret;
+
+```
+
+## File: `io_uring/register.c`
+
+- changed old-lines: [908]

@@ -125,6 +125,12 @@ enum StructuralSignal {
     SIG_EXPORT_SYMBOL = 1 << 1,  // EXPORT_SYMBOL[_GPL]
     SIG_SYSCALL       = 1 << 2,  // _eil_addr_ / __syscall_meta__
     SIG_OPS_MEMBER    = 1 << 3,  // function pointer in struct global
+    // M7 P2: function passed to a known indirect-fork / callback-registration
+    // sink such as kthread_create / kthread_run / request_irq /
+    // request_threaded_irq / single_open / seq_open / proc_create_seq*.
+    // Catches threads that the kernel actually spawns but that are not
+    // stored in any struct global (e.g. io_wq_worker, kthread bodies).
+    SIG_INDIRECT_FORK = 1 << 4,
 };
 
 // Scan a single (already stripped of casts / wrapper constants) Constant
@@ -237,6 +243,120 @@ computeStructuralEntrySignals(const llvm::Module* M) {
         tagFunctionRefs(Init, SIG_OPS_MEMBER, sigMap);
     }
 
+    // S5: indirect-fork / callback-registration sinks. For each call
+    // instruction whose callee name matches a known sink, tag the
+    // function-pointer argument as an indirect-fork entry. The sink
+    // table below covers the kernel APIs that take a callback as an
+    // argument *outside* of any struct global (otherwise S4 already
+    // catches it). Keeps the surface tight: only direct
+    // ConstantExpr/Function arguments are tagged, no aliasing chase.
+    struct SinkSpec {
+        const char* name;
+        // bit i set ⇒ argument i is a callback function pointer to tag.
+        unsigned argMask;
+    };
+    static const SinkSpec kSinks[] = {
+        // kthread_create / kthread_run family: first arg is the thread fn.
+        {"kthread_create",              1u << 0},
+        {"kthread_create_on_node",      1u << 0},
+        {"kthread_create_on_cpu",       1u << 0},
+        {"kthread_create_worker",       0},          // workers, not fn
+        {"kthread_run",                 1u << 0},
+        {"kthread_run_on_cpu",          1u << 0},
+        // single_open / seq_open variants: arg 1 is the show callback.
+        {"single_open",                 1u << 1},
+        {"single_open_size",            1u << 1},
+        {"single_open_net",             1u << 1},
+        {"seq_open",                    1u << 1},
+        {"seq_open_private",            1u << 1},
+        // proc_create variants that take a callback directly.
+        // proc_create_single*(name, mode, parent, show)
+        {"proc_create_single",          1u << 3},
+        {"proc_create_single_data",     1u << 3},
+        // request_irq(irq, handler, flags, name, dev)
+        {"request_irq",                 1u << 1},
+        {"request_any_context_irq",     1u << 1},
+        // request_threaded_irq(irq, handler, thread_fn, flags, name, dev)
+        {"request_threaded_irq",        (1u << 1) | (1u << 2)},
+        // tasklet / timer init: callback is arg 1.
+        {"tasklet_init",                1u << 1},
+        {"tasklet_setup",               1u << 1},
+        {"timer_setup",                 1u << 1},
+        // workqueue: INIT_WORK / queue_work_on take a work_struct, but
+        // the bare callback variant exists too.
+        {"create_singlethread_workqueue", 0},  // no direct callback arg
+        // RCU callbacks: callback is arg 1.
+        {"call_rcu",                    1u << 1},
+        {"call_srcu",                   1u << 2},
+        {"call_rcu_tasks",              1u << 1},
+    };
+
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration()) continue;
+        for (const auto& BB : F) {
+            for (const auto& I : BB) {
+                const auto* CI = llvm::dyn_cast<llvm::CallBase>(&I);
+                if (!CI) continue;
+                const llvm::Function* callee = CI->getCalledFunction();
+                if (!callee || !callee->hasName()) continue;
+                llvm::StringRef name = callee->getName();
+                for (const SinkSpec& spec : kSinks) {
+                    if (spec.argMask == 0) continue;
+                    if (name != spec.name) continue;
+                    for (unsigned i = 0;
+                         i < CI->arg_size() && i < 32; ++i) {
+                        if (((spec.argMask >> i) & 1u) == 0) continue;
+                        const llvm::Value* arg =
+                            CI->getArgOperand(i)->stripPointerCasts();
+                        if (const auto* CF = llvm::dyn_cast<llvm::Function>(arg)) {
+                            if (!CF->isDeclaration()) {
+                                sigMap[CF] |= SIG_INDIRECT_FORK;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    // S6: function address stored into any pointer — i.e. the function
+    // is captured as a callback in a stack-allocated struct (which
+    // never appears in a global initializer, so S4 misses it). This
+    // catches the kernel waitqueue / completion / tasklet pattern
+    // where the callback is stored into a stack-local struct whose
+    // address is then published via `add_wait_queue` / `tasklet_init`
+    // / etc. CVE-2024-50082's `data.wq.func = rq_qos_wake_function`
+    // is the canonical example. We deliberately accept a small amount
+    // of imprecision here (any address-taken function counts) because
+    // address-taken functions in kernel code are overwhelmingly
+    // callbacks — the false-positive cost of analysing a few extra
+    // entries is bounded by entry-pair pruning further down the line,
+    // whereas missing the actual callback is a hard recall loss.
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration()) continue;
+        bool addressTaken = false;
+        for (const llvm::User* U : F.users()) {
+            if (const auto* CB = llvm::dyn_cast<llvm::CallBase>(U)) {
+                // F is being CALLED directly — not an address-take.
+                if (CB->getCalledOperand() == &F) continue;
+                // F is passed as an argument: this IS an address-take,
+                // and S5 has already covered the well-known sinks.
+                // Still mark, in case the sink isn't in our list.
+                addressTaken = true;
+                break;
+            }
+            if (llvm::isa<llvm::StoreInst>(U)) {
+                addressTaken = true;
+                break;
+            }
+            // ConstantExpr / Constant uses: already covered by S4 if
+            // they end up inside a global initializer. Skip here to
+            // avoid double-tagging.
+        }
+        if (addressTaken) sigMap[&F] |= SIG_INDIRECT_FORK;
+    }
+
     return sigMap;
 }
 
@@ -248,6 +368,7 @@ static std::string signalsToString(unsigned s) {
     if (s & SIG_EXPORT_SYMBOL) add("export");
     if (s & SIG_SYSCALL)       add("syscall");
     if (s & SIG_OPS_MEMBER)    add("ops");
+    if (s & SIG_INDIRECT_FORK) add("indirect_fork");
     return r.empty() ? "-" : r;
 }
 
@@ -315,7 +436,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             auto sigMap = computeStructuralEntrySignals(M);
 
             // Counters for reporting.
-            int nSection = 0, nExport = 0, nSyscall = 0, nOps = 0;
+            int nSection = 0, nExport = 0, nSyscall = 0, nOps = 0, nIndirect = 0;
 
             for (const auto& [F, sig] : sigMap) {
                 if (!F || sig == SIG_NONE) continue;
@@ -325,7 +446,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                 // with the kernel" signal. They pollute the surface.
                 if (isDefinedInHeader(*F) &&
                     (sig & (SIG_EXPORT_SYMBOL | SIG_SYSCALL |
-                            SIG_SECTION_INIT)) == 0) {
+                            SIG_SECTION_INIT | SIG_INDIRECT_FORK)) == 0) {
                     // Only an ops-table reference — likely a spurious
                     // match (address stored into a debug struct). Drop.
                     if ((sig & SIG_OPS_MEMBER) && F->hasLocalLinkage()) continue;
@@ -338,6 +459,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                     if (sig & SIG_EXPORT_SYMBOL) nExport++;
                     if (sig & SIG_SYSCALL)       nSyscall++;
                     if (sig & SIG_OPS_MEMBER)    nOps++;
+                    if (sig & SIG_INDIRECT_FORK) nIndirect++;
                 }
             }
 
@@ -345,30 +467,36 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                       << nSection << " init/exit section, "
                       << nExport  << " EXPORT_SYMBOL, "
                       << nSyscall << " syscall wrapper, "
-                      << nOps     << " ops-table member"
+                      << nOps     << " ops-table member, "
+                      << nIndirect << " indirect-fork sink"
                       << " (" << entrySet.size() << " unique function(s))"
                       << std::endl;
 
-            // Fallback — last resort. If the module happens to expose no
-            // structural entry signals at all (e.g. a pure userspace .bc
-            // somehow passed in), fall back to a very narrow name
-            // heuristic: only `main`, explicit SYSCALL wrappers, and
-            // `init_module`/`cleanup_module`. No more `_work` / `_handler`
-            // / arbitrary `_init` substring matching.
-            if (entrySet.empty()) {
-                std::cout << "[Auto-Entry Fallback] No structural signals; "
-                             "trying narrow name heuristic..." << std::endl;
-                for (const llvm::Function* F : DB->getAllFunctions()) {
-                    if (F->isDeclaration()) continue;
-                    std::string funcName = F->getName().str();
-                    if (getKernelEntryPriority(funcName) > 0 &&
-                        entrySet.insert(funcName).second) {
-                        entryPoints.push_back(funcName);
-                    }
+            // Name-heuristic pass — ADDITIVE on top of the structural
+            // signals (previously this only ran when entrySet was
+            // empty, which broke modules that produced 1-2 structural
+            // hits and missed dozens of obvious name-heuristic entries:
+            // e.g. CVE-2024-50082 went from 16 entries to 1 the moment
+            // SIG_INDIRECT_FORK added rq_qos_wake_function alone). The
+            // `getKernelEntryPriority(...) > 0` filter is narrow enough
+            // (`main`, explicit SYSCALL wrappers, `init_module` /
+            // `cleanup_module`) that unioning it never floods the
+            // surface.
+            const size_t structuralCount = entrySet.size();
+            for (const llvm::Function* F : DB->getAllFunctions()) {
+                if (F->isDeclaration()) continue;
+                std::string funcName = F->getName().str();
+                if (getKernelEntryPriority(funcName) > 0 &&
+                    entrySet.insert(funcName).second) {
+                    entryPoints.push_back(funcName);
                 }
-                std::cout << "[Auto-Entry Fallback] "
-                          << entryPoints.size()
-                          << " name-heuristic entry point(s)." << std::endl;
+            }
+            const size_t nameAdded = entrySet.size() - structuralCount;
+            if (nameAdded > 0) {
+                std::cout << "[Auto-Entry Name-Heuristic] +"
+                          << nameAdded
+                          << " entry point(s) on top of structural signals."
+                          << std::endl;
             }
 
             // Final fallback: single-file TUs (e.g. mm/ksm.c compiled
@@ -378,7 +506,19 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             // In that case, every externally-linkable `define` is a
             // public entry point from the rest of the kernel's point of
             // view. We gate this so we don't flood regular modules.
-            if (entrySet.empty()) {
+            //
+            // M7 P2: relax the gate from `entrySet.empty()` to
+            // `entrySet.size() < 5`. With the SIG_INDIRECT_FORK signal
+            // we now pick up isolated callbacks (e.g. rq_qos_wake_function
+            // in CVE-2024-50082) which previously left entrySet empty;
+            // those single-callback hits would silently disable the
+            // externally-linkable supplement, which is precisely what
+            // makes a single-TU module analysable. Threshold 5 is well
+            // below any real kernel module's structural-entry count
+            // (the smallest real-module run on the benchmark surfaces
+            // 13 entries; the next smallest 22) so we don't promote
+            // any module that already has a healthy structural surface.
+            if (entrySet.size() < 5) {
                 std::cout << "[Auto-Entry Fallback] No structural or "
                              "name-heuristic entries; promoting every "
                              "externally-linkable function in this TU."

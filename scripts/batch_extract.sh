@@ -1,5 +1,5 @@
 #!/bin/bash
-CLANG="/usr/local/llvm-15/bin/clang"
+CLANG="${CLANG:-clang-15}"
 EXTRACTOR="./Debug-build/facts_extractor"
 LINCONVUL="./LinConVul"
 RESULTS=()

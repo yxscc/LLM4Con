@@ -30,8 +30,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-EXPERIMENT_BASE = "/home/LLM4Con/kernel_experiment"
-DUMP_BASE = "/home/LLM4Con/LLM_dump"
+_LLM4CON_HOME = os.environ.get("LLM4CON_HOME", "/home/LLM4Con")
+EXPERIMENT_BASE = os.environ.get(
+    "EXPERIMENT_BASE", f"{_LLM4CON_HOME}/kernel_experiment")
+DUMP_BASE = os.environ.get("DUMP_BASE", f"{_LLM4CON_HOME}/LLM_dump")
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -270,24 +272,37 @@ def call_llm(prompt: str, api_key: str, model: str, base_url: str,
     import urllib.request
     import urllib.error
 
-    payload = {
+    payload: Dict[str, Any] = {
         "model": model,
         "messages": [
             {"role": "system", "content": JUDGE_SYSTEM},
             {"role": "user", "content": prompt},
         ],
-        "temperature": 0.1,
         "max_tokens": 4000,
     }
+    # GPT-5 / GPT-5.5 reasoning models reject any temperature != 1.
+    # Skip the field for them; non-reasoning models default to 1 anyway,
+    # so the determinism loss is negligible for a one-shot judge call.
+    if not re.match(r"^gpt-?5", model, re.IGNORECASE):
+        payload["temperature"] = 0.1
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
     }
+    # If the caller passes an already-complete endpoint (anything containing
+    # `?` or ending in `/chat/completions` / `/crawl`), use it as-is. Only the
+    # canonical OpenAI-style root URL gets `/chat/completions` appended.
+    if "?" in base_url or base_url.rstrip("/").endswith(
+            ("/chat/completions", "/crawl", "/completions")):
+        endpoint = base_url
+    else:
+        endpoint = f"{base_url.rstrip('/')}/chat/completions"
+
     last_err: Optional[str] = None
     for attempt in range(retries + 1):
         try:
             req = urllib.request.Request(
-                f"{base_url.rstrip('/')}/chat/completions",
+                endpoint,
                 data=json.dumps(payload).encode(),
                 headers=headers,
                 method="POST",
@@ -331,7 +346,10 @@ def evaluate_all(api_key: str, model: str, base_url: str,
                  max_reports_per_cve: int = 25) -> Dict[str, Any]:
     results: List[Dict[str, Any]] = []
 
-    cve_dirs = sorted(glob.glob(os.path.join(EXPERIMENT_BASE, "CVE-*")))
+    cve_dirs: List[str] = []
+    for pat in ("CVE-*", "SYZBOT-*"):
+        cve_dirs.extend(glob.glob(os.path.join(EXPERIMENT_BASE, pat)))
+    cve_dirs = sorted(cve_dirs)
     print(f"\n{'='*64}")
     print(f" LLM-only Recall + FP Evaluation ({len(cve_dirs)} CVE dirs)")
     print(f" Model: {model}   base_url: {base_url}")
@@ -485,14 +503,23 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description="LLM-only recall + FP evaluation for Lace.")
     ap.add_argument("--api-key",
-                    default=os.environ.get("OPENAI_API_KEY")
+                    default=os.environ.get("LLM_API_KEY")
+                    or os.environ.get("API_KEY")
+                    or os.environ.get("OPENAI_API_KEY")
                     or os.environ.get("DEFAULT_KEY"),
-                    help="LLM API key (defaults to $OPENAI_API_KEY / $DEFAULT_KEY).")
-    ap.add_argument("--model", default="gpt-4o",
-                    help="Judge model (default: gpt-4o).")
+                    help="LLM API key (defaults to $LLM_API_KEY / $API_KEY / "
+                         "$OPENAI_API_KEY / $DEFAULT_KEY).")
+    ap.add_argument("--model",
+                    default=os.environ.get("LLM_MODEL", "gpt-4o"),
+                    help="Judge model (default: $LLM_MODEL or gpt-4o).")
     ap.add_argument("--base-url",
-                    default="https://api.chatanywhere.tech/v1",
-                    help="OpenAI-compatible base URL.")
+                    default=os.environ.get("LLM_BASE_URL",
+                                           "https://api.chatanywhere.tech/v1"),
+                    help="LLM API endpoint. If it already points at a "
+                         "complete chat-completion path (contains ?ak= or "
+                         "ends in /chat/completions /crawl /completions), "
+                         "it is used verbatim; otherwise /chat/completions "
+                         "is appended.")
     ap.add_argument("--cve", nargs="*", help="Evaluate specific CVEs only.")
     ap.add_argument("--max-reports", type=int, default=25,
                     help="Cap on bug reports per CVE in the judge prompt "

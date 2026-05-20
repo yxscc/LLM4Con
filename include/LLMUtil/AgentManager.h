@@ -30,6 +30,10 @@ public:
         return confirmedHypotheses_;
     }
 
+    // Exposed so downstream phases (Phase 4 LLM hypothesis-verifier filter)
+    // can reuse the same client/connection without re-reading credentials.
+    std::shared_ptr<LLMClient> getLLMClient() const { return llmClient; }
+
 private:
     std::shared_ptr<LLMClient> llmClient;
     FindingThreadEntryAgent entryFinder;

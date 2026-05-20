@@ -1,0 +1,217 @@
+# Evidence: SYZBOT-250cfd1a3cbded62  (tier A, score 200)
+
+- source archive: **syzbot**
+- title: KCSAN: data-race in __skb_wait_for_more_packets / __sock_queue_rcv_skb
+- mainline fix commit: `7c422d0ce97552dde4a97e6290de70ec6efb0fc6`
+- candidate JSON: `A_SYZBOT-250cfd1a3cbded62.json`
+- thread_hint: `{"kind": "kcsan", "fn_a": "__skb_wait_for_more_packets", "fn_b": "__sock_queue_rcv_skb"}`
+
+## Commit message
+
+```
+7c422d0ce97552dde4a97e6290de70ec6efb0fc6
+net: add READ_ONCE() annotation in __skb_wait_for_more_packets()
+
+__skb_wait_for_more_packets() can be called while other cpus
+can feed packets to the socket receive queue.
+
+KCSAN reported :
+
+BUG: KCSAN: data-race in __skb_wait_for_more_packets / __udp_enqueue_schedule_skb
+
+write to 0xffff888102e40b58 of 8 bytes by interrupt on cpu 0:
+ __skb_insert include/linux/skbuff.h:1852 [inline]
+ __skb_queue_before include/linux/skbuff.h:1958 [inline]
+ __skb_queue_tail include/linux/skbuff.h:1991 [inline]
+ __udp_enqueue_schedule_skb+0x2d7/0x410 net/ipv4/udp.c:1470
+ __udp_queue_rcv_skb net/ipv4/udp.c:1940 [inline]
+ udp_queue_rcv_one_skb+0x7bd/0xc70 net/ipv4/udp.c:2057
+ udp_queue_rcv_skb+0xb5/0x400 net/ipv4/udp.c:2074
+ udp_unicast_rcv_skb.isra.0+0x7e/0x1c0 net/ipv4/udp.c:2233
+ __udp4_lib_rcv+0xa44/0x17c0 net/ipv4/udp.c:2300
+ udp_rcv+0x2b/0x40 net/ipv4/udp.c:2470
+ ip_protocol_deliver_rcu+0x4d/0x420 net/ipv4/ip_input.c:204
+ ip_local_deliver_finish+0x110/0x140 net/ipv4/ip_input.c:231
+ NF_HOOK include/linux/netfilter.h:305 [inline]
+ NF_HOOK include/linux/netfilter.h:299 [inline]
+ ip_local_deliver+0x133/0x210 net/ipv4/ip_input.c:252
+ dst_input include/net/dst.h:442 [inline]
+ ip_rcv_finish+0x121/0x160 net/ipv4/ip_input.c:413
+ NF_HOOK include/linux/netfilter.h:305 [inline]
+ NF_HOOK include/linux/netfilter.h:299 [inline]
+ ip_rcv+0x18f/0x1a0 net/ipv4/ip_input.c:523
+ __netif_receive_skb_one_core+0xa7/0xe0 net/core/dev.c:5010
+ __netif_receive_skb+0x37/0xf0 net/core/dev.c:5124
+ process_backlog+0x1d3/0x420 net/core/dev.c:5955
+
+read to 0xffff888102e40b58 of 8 bytes by task 13035 on cpu 1:
+ __skb_wait_for_more_packets+0xfa/0x320 net/core/datagram.c:100
+ __skb_recv_udp+0x374/0x500 net/ipv4/udp.c:1683
+ udp_recvmsg+0xe1/0xb10 net/ipv4/udp.c:1712
+ inet_recvmsg+0xbb/0x250 net/ipv4/af_inet.c:838
+ sock_recvmsg_nosec+0x5c/0x70 net/socket.c:871
+ ___sys_recvmsg+0x1a0/0x3e0 net/socket.c:2480
+ do_recvmmsg+0x19a/0x5c0 net/socket.c:2601
+ __sys_recvmmsg+0x1ef/0x200 net/socket.c:2680
+ __do_sys_recvmmsg net/socket.c:2703 [inline]
+ __se_sys_recvmmsg net/socket.c:2696 [inline]
+ __x64_sys_recvmmsg+0x89/0xb0 net/socket.c:2696
+ do_syscall_64+0xcc/0x370 arch/x86/entry/common.c:290
+ entry_SYSCALL_64_after_hwframe+0x44/0xa9
+
+Reported by Kernel Concurrency Sanitizer on:
+CPU: 1 PID: 13035 Comm: syz-executor.3 Not tainted 5.4.0-rc3+ #0
+Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: syzbot <syzkaller@googlegroups.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+```
+
+## CVE / bug description
+
+```
+KCSAN: data-race in __skb_wait_for_more_packets / __sock_queue_rcv_skb
+```
+
+## Full mainline patch
+
+```diff
+commit 7c422d0ce97552dde4a97e6290de70ec6efb0fc6
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Wed Oct 23 22:44:52 2019 -0700
+
+    net: add READ_ONCE() annotation in __skb_wait_for_more_packets()
+    
+    __skb_wait_for_more_packets() can be called while other cpus
+    can feed packets to the socket receive queue.
+    
+    KCSAN reported :
+    
+    BUG: KCSAN: data-race in __skb_wait_for_more_packets / __udp_enqueue_schedule_skb
+    
+    write to 0xffff888102e40b58 of 8 bytes by interrupt on cpu 0:
+     __skb_insert include/linux/skbuff.h:1852 [inline]
+     __skb_queue_before include/linux/skbuff.h:1958 [inline]
+     __skb_queue_tail include/linux/skbuff.h:1991 [inline]
+     __udp_enqueue_schedule_skb+0x2d7/0x410 net/ipv4/udp.c:1470
+     __udp_queue_rcv_skb net/ipv4/udp.c:1940 [inline]
+     udp_queue_rcv_one_skb+0x7bd/0xc70 net/ipv4/udp.c:2057
+     udp_queue_rcv_skb+0xb5/0x400 net/ipv4/udp.c:2074
+     udp_unicast_rcv_skb.isra.0+0x7e/0x1c0 net/ipv4/udp.c:2233
+     __udp4_lib_rcv+0xa44/0x17c0 net/ipv4/udp.c:2300
+     udp_rcv+0x2b/0x40 net/ipv4/udp.c:2470
+     ip_protocol_deliver_rcu+0x4d/0x420 net/ipv4/ip_input.c:204
+     ip_local_deliver_finish+0x110/0x140 net/ipv4/ip_input.c:231
+     NF_HOOK include/linux/netfilter.h:305 [inline]
+     NF_HOOK include/linux/netfilter.h:299 [inline]
+     ip_local_deliver+0x133/0x210 net/ipv4/ip_input.c:252
+     dst_input include/net/dst.h:442 [inline]
+     ip_rcv_finish+0x121/0x160 net/ipv4/ip_input.c:413
+     NF_HOOK include/linux/netfilter.h:305 [inline]
+     NF_HOOK include/linux/netfilter.h:299 [inline]
+     ip_rcv+0x18f/0x1a0 net/ipv4/ip_input.c:523
+     __netif_receive_skb_one_core+0xa7/0xe0 net/core/dev.c:5010
+     __netif_receive_skb+0x37/0xf0 net/core/dev.c:5124
+     process_backlog+0x1d3/0x420 net/core/dev.c:5955
+    
+    read to 0xffff888102e40b58 of 8 bytes by task 13035 on cpu 1:
+     __skb_wait_for_more_packets+0xfa/0x320 net/core/datagram.c:100
+     __skb_recv_udp+0x374/0x500 net/ipv4/udp.c:1683
+     udp_recvmsg+0xe1/0xb10 net/ipv4/udp.c:1712
+     inet_recvmsg+0xbb/0x250 net/ipv4/af_inet.c:838
+     sock_recvmsg_nosec+0x5c/0x70 net/socket.c:871
+     ___sys_recvmsg+0x1a0/0x3e0 net/socket.c:2480
+     do_recvmmsg+0x19a/0x5c0 net/socket.c:2601
+     __sys_recvmmsg+0x1ef/0x200 net/socket.c:2680
+     __do_sys_recvmmsg net/socket.c:2703 [inline]
+     __se_sys_recvmmsg net/socket.c:2696 [inline]
+     __x64_sys_recvmmsg+0x89/0xb0 net/socket.c:2696
+     do_syscall_64+0xcc/0x370 arch/x86/entry/common.c:290
+     entry_SYSCALL_64_after_hwframe+0x44/0xa9
+    
+    Reported by Kernel Concurrency Sanitizer on:
+    CPU: 1 PID: 13035 Comm: syz-executor.3 Not tainted 5.4.0-rc3+ #0
+    Hardware name: Google Google Compute Engine/Google Compute Engine, BIOS Google 01/01/2011
+    
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Reported-by: syzbot <syzkaller@googlegroups.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
+
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 03515e46a49a..da3c24ed129c 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -97,7 +97,7 @@ int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+ 	if (error)
+ 		goto out_err;
+ 
+-	if (sk->sk_receive_queue.prev != skb)
++	if (READ_ONCE(sk->sk_receive_queue.prev) != skb)
+ 		goto out;
+ 
+ 	/* Socket shut down? */
+
+```
+
+## File: `net/core/datagram.c`
+
+- changed old-lines: [100]
+
+### Function `__skb_wait_for_more_packets` (L87–L133, 47 lines)
+
+```c
+int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
+				const struct sk_buff *skb)
+{
+	int error;
+	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
+
+	prepare_to_wait_exclusive(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+
+	/* Socket errors? */
+	error = sock_error(sk);
+	if (error)
+		goto out_err;
+
+	if (sk->sk_receive_queue.prev != skb)
+		goto out;
+
+	/* Socket shut down? */
+	if (sk->sk_shutdown & RCV_SHUTDOWN)
+		goto out_noerr;
+
+	/* Sequenced packets can come disconnected.
+	 * If so we report the problem
+	 */
+	error = -ENOTCONN;
+	if (connection_based(sk) &&
+	    !(sk->sk_state == TCP_ESTABLISHED || sk->sk_state == TCP_LISTEN))
+		goto out_err;
+
+	/* handle signals */
+	if (signal_pending(current))
+		goto interrupted;
+
+	error = 0;
+	*timeo_p = schedule_timeout(*timeo_p);
+out:
+	finish_wait(sk_sleep(sk), &wait);
+	return error;
+interrupted:
+	error = sock_intr_errno(*timeo_p);
+out_err:
+	*err = error;
+	goto out;
+out_noerr:
+	*err = 0;
+	error = 1;
+	goto out;
+}
+```
+
+**External callers of `__skb_wait_for_more_packets` at parent**
+
+- `include/linux/skbuff.h:3460` — `int __skb_wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,`
+- `net/ipv4/udp.c:1683` — `		 !__skb_wait_for_more_packets(sk, &error, &timeo,`
+- `net/unix/af_unix.c:2061` — `		 !__skb_wait_for_more_packets(sk, &err, &timeo, last));`

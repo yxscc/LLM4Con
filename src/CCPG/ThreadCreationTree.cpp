@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <queue>
 #include <limits>
+#include <cstring>
 
 using namespace ccpg;
 using namespace psr;
@@ -21,6 +22,9 @@ using namespace psr;
 std::unordered_map<std::pair<const ccpg::Function*, const ccpg::Function*>, std::vector<std::vector<const ccpg::Function*>>, pair_hash> callPathCache;
 
 ThreadCreationTree* ThreadCreationTree::instance = nullptr;
+
+// Forward decl: see definition further down in this TU.
+static bool isReentrantEntryName(const std::string& name);
 
 void ThreadCreationTree::addThread(Thread* thread) {
     threads.insert(thread);
@@ -45,12 +49,23 @@ void ThreadCreationTree::build(){
     for(ccpg::Function * entry : entries){
         Thread * entryThread = createThread(entry->getFuncNode(), nullptr);
         entryThread->setMainThread(true);
-        
+
         // In kernel module mode, mark threads for special handling
         if (isKernelModuleMode) {
             entryThread->setKernelEntry(true);  // NEW: Mark as kernel entry
         }
-        
+
+        // M7 P2: tag reentrant-style entries (syscall/ioctl/show/store/
+        // proc-seq/blk_mq/...) so the verifier can validate `concurrent`
+        // hypotheses where both nodes live in the SAME thread (the
+        // canonical kvm_vcpu_on_spin / jbd2_journal_dirty_metadata
+        // self-race pattern).
+        if (const llvm::Function* llvmF = entry->getLLVMFunction()) {
+            if (isReentrantEntryName(llvmF->getName().str())) {
+                entryThread->setReentrant(true);
+            }
+        }
+
         auto forkNodes = entryThread->getNodesByType(ThreadAPIUtil::TYPE::FORK);
         for(CCPGNode* forkNode : forkNodes){
             forkQueue.push(std::make_pair(forkNode, entryThread));
@@ -679,6 +694,83 @@ static std::string threadEntryName(Thread* t) {
     return "";
 }
 
+// M7 P2: heuristically classify a kernel entry function as "reentrant"
+// — i.e. multiple concurrent invocations of the SAME function on
+// different CPUs / different tasks is the norm rather than the
+// exception. We use this to permit self-race detection
+// (`mayThreadsRunConcurrently(t, t)`) for syscall handlers, ioctls,
+// sysfs callbacks, proc seq_file ops, blk_mq ops, etc.
+//
+// A short curated allow-list of strong suffix / substring markers is
+// deliberately preferred over a large catch-all to avoid making every
+// thread reentrant.
+static bool isReentrantEntryName(const std::string& name) {
+    if (name.empty()) return false;
+    auto contains = [&](const char* s) {
+        return name.find(s) != std::string::npos;
+    };
+    auto endsWith = [&](const char* s) {
+        size_t n = std::strlen(s);
+        return name.size() >= n &&
+               name.compare(name.size() - n, n, s) == 0;
+    };
+
+    // Syscall handlers (and the ioctl/read/write/poll family).
+    if (contains("__do_sys_") || contains("__se_sys_") ||
+        contains("__x64_sys_") || contains("__arm64_sys_") ||
+        contains("__ia32_sys_") || endsWith("_ioctl") ||
+        endsWith("_compat_ioctl") || endsWith("_unlocked_ioctl") ||
+        endsWith("_read") || endsWith("_write") || endsWith("_pread") ||
+        endsWith("_pwrite") || endsWith("_readv") || endsWith("_writev") ||
+        endsWith("_poll") || endsWith("_mmap") || endsWith("_fsync") ||
+        endsWith("_flush") || endsWith("_release") || endsWith("_open")) {
+        return true;
+    }
+
+    // sysfs / debugfs attribute handlers and procfs seq_file ops.
+    if (endsWith("_show") || endsWith("_store") ||
+        endsWith("_start") || endsWith("_next") || endsWith("_stop") ||
+        endsWith("_seq_show") || endsWith("_seq_start") ||
+        endsWith("_seq_next") || endsWith("_seq_stop")) {
+        return true;
+    }
+
+    // Network protocol handlers: rcv / dorcv / sendmsg / recvmsg / output.
+    if (endsWith("_sendmsg") || endsWith("_recvmsg") ||
+        endsWith("_do_rcv") || endsWith("_dorcv") || endsWith("_rcv") ||
+        endsWith("_output") || endsWith("_input") || endsWith("_xmit")) {
+        return true;
+    }
+
+    // blk_mq / scsi op callbacks.
+    if (contains("queue_rq") || endsWith("_queue_rq") ||
+        endsWith("_complete_rq") || endsWith("_timeout") ||
+        endsWith("_done") || endsWith("_handler")) {
+        return true;
+    }
+
+    // VFS file_operations / iter_ops.
+    if (endsWith("_iterate") || endsWith("_iterate_shared") ||
+        endsWith("_lookup") || endsWith("_readdir")) {
+        return true;
+    }
+
+    // Softirq / timer / tasklet callbacks.
+    if (endsWith("_softirq") || endsWith("_timer_fn") ||
+        endsWith("_tasklet") || endsWith("_action") || endsWith("_work") ||
+        endsWith("_work_fn") || endsWith("_irq")) {
+        return true;
+    }
+
+    // KVM and friends — common self-race targets.
+    if (contains("kvm_vcpu_") || contains("kvm_arch_vcpu_") ||
+        contains("vcpu_run")) {
+        return true;
+    }
+
+    return false;
+}
+
 // Two entries are lifecycle-incompatible if one is clearly init-phase and
 // the other is clearly exit-phase. Everything else (e.g. two syscalls,
 // or one syscall + one probe) remains possibly concurrent because the
@@ -807,7 +899,13 @@ bool ThreadCreationTree::isDescendant(Thread* t1, Thread* t2) {
 }
 
 bool ThreadCreationTree::mayThreadsRunConcurrently(Thread* t1, Thread* t2) {
-    if (t1 == t2) return false;
+    // M7 P2: a reentrant kernel entry (syscall/ioctl/show/store/proc-seq/
+    // softirq/blk_mq op) can race with another invocation of itself on a
+    // different CPU. Permit self-concurrency in that case so the verifier
+    // can confirm `concurrent(node_in_T, other_node_in_T)` hypotheses.
+    if (t1 == t2) {
+        return t1 != nullptr && t1->isReentrant();
+    }
 
     auto cacheKey = (t1 <= t2) ? std::make_pair(t1, t2) : std::make_pair(t2, t1);
     if (concurrencyCache.count(cacheKey)) {

@@ -7,8 +7,11 @@
 #include "PhasarUtil/AnalysisManager.h"
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 #include "Query/SharedFieldKey.h"
+#include "Query/VulnerabilitySurfaceGenerator.h"
 
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 #include <queue>
 #include <set>
@@ -379,10 +382,10 @@ bool HypothesisVerifier::eval_not_lock_protected(int node_id, std::string& detai
     ccpg::Function* nodeFunc = node->getFunction();
     ccpg::ContextSet ctxs;
     if (nodeFunc) ctxs = nodeFunc->getContextSet();
-    NodeLoc nodeLoc = node->getNodeLoc();
 
     if (ctxs.empty()) {
-        auto lockSet = ls->getLockSet(nodeLoc, Context());
+        // v19 P3: node-driven lookup (see eval_same_lock for rationale).
+        auto lockSet = ls->getLockSet(node, Context());
         if (lockSet.empty()) {
             detail = "Node " + std::to_string(node_id) +
                      " is NOT lock-protected (empty LockSet)";
@@ -407,7 +410,7 @@ bool HypothesisVerifier::eval_not_lock_protected(int node_id, std::string& detai
     std::vector<std::string> allLockStrs;
     bool anyUnprotected = false;
     for (Context* ctx : ctxs) {
-        auto lockSet = ls->getLockSet(nodeLoc, ctx ? *ctx : Context());
+        auto lockSet = ls->getLockSet(node, ctx ? *ctx : Context());
         if (lockSet.empty()) {
             anyUnprotected = true;
             break;
@@ -449,17 +452,138 @@ bool HypothesisVerifier::eval_same_lock(int n1, int n2, std::string& detail) {
         return false;
     }
 
-    // The project's LSAnalysis already implements a path-sensitive "same lock
-    // protects both nodes" predicate; use it directly. This replaces the
-    // previous coarse AliasChecker-based lookup which compared lock *pointer*
-    // identity and missed re-acquisitions or wrappers.
+    // Path-sensitive interprocedural same-lock check.
+    //
+    // The 2-arg `isProtectedBySameLock(node1, node2)` overload only inspects
+    // each node's *function-local* LockSet — it cannot see locks acquired by
+    // an ancestor caller (`mutex_lock(&X); call F();` where the access lives
+    // in F or deeper). That underapproximation accounted for the bulk of the
+    // verifier's "lockset_wrong" false positives (e.g. proc->inner_lock in
+    // binder, xhci->lock in xhci, vxlan->hash_lock in vxlan, etc.).
+    //
+    // Instead, mirror what `eval_not_lock_protected` already does: walk every
+    // Context in which each node's enclosing function is reached and union in
+    // the LockSet at every frame on the way down. If ANY pair of contexts
+    // (ctx1, ctx2) carries an aliased common lock, the two accesses can be
+    // proven mutually exclusive on at least that pair of paths — sufficient
+    // to reject the same_lock=false hypothesis.
     LSAnalysis* ls = LSAnalysis::getInstance();
-    bool same = ls->isProtectedBySameLock(node1, node2);
-    detail = "Node " + std::to_string(n1) +
-             (same ? " and node " : " and node ") + std::to_string(n2) +
-             (same ? " are protected by a common lock (path-sensitive LockSet intersection)."
-                   : " do NOT share any common lock across their LockSets.");
-    return same;
+    AliasChecker* ac = AliasChecker::getInstance();
+
+    ccpg::ContextSet ctxs1, ctxs2;
+    if (node1->getFunction()) ctxs1 = node1->getFunction()->getContextSet();
+    if (node2->getFunction()) ctxs2 = node2->getFunction()->getContextSet();
+
+    // v19 P3: drive the lockset query off the SPECIFIC CCPGNode rather
+    // than its NodeLoc. The NodeLoc overload of `getLockSet` picks an
+    // unordered `getNodesByLoc(loc).begin()`, which silently drops the
+    // caller-held lock when a synthesised list-helper / IR-fallback /
+    // macro-expanded site has several siblings at the same line. That
+    // accounted for the v18 cluster of `lockset_wrong` FPs (76 cases:
+    // proc->inner_lock in binder, hash_lock in vxlan, xhci->lock, etc.).
+    auto allLocksetsFor = [&](CCPGNode* n, const ccpg::ContextSet& ctxs)
+            -> std::vector<std::vector<Lock*>> {
+        std::vector<std::vector<Lock*>> out;
+        if (ctxs.empty()) {
+            out.push_back(ls->getLockSet(n, Context()));
+        } else {
+            out.reserve(ctxs.size());
+            for (Context* ctx : ctxs) {
+                out.push_back(ls->getLockSet(n, ctx ? *ctx : Context()));
+            }
+        }
+        return out;
+    };
+
+    auto locksets1 = allLocksetsFor(node1, ctxs1);
+    auto locksets2 = allLocksetsFor(node2, ctxs2);
+
+    for (const auto& ls1 : locksets1) {
+        for (const auto& ls2 : locksets2) {
+            for (Lock* l1 : ls1) {
+                for (Lock* l2 : ls2) {
+                    if (l1 && l2 &&
+                        ac->isLockAlias(l1->getAcquire(), l2->getAcquire())) {
+                        std::string lockCode = "?";
+                        if (CCPGNode* acq = l1->getAcquire()) {
+                            if (acq->getCPGNode()) lockCode = acq->getCPGNode()->getCode();
+                        }
+                        detail = "Node " + std::to_string(n1) + " and node " +
+                                 std::to_string(n2) +
+                                 " share a common lock '" + lockCode +
+                                 "' (path-sensitive, includes caller-held locks).";
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- v23 Fix #3c: surface-level lock-string fallback ------------------
+    //
+    // Symmetric to Fix #3b (surface-level same_location for list-helper synth
+    // accesses): when LSAnalysis-based lock comparison fails to establish a
+    // common lock — typically because (a) the access is a list-helper synth
+    // access whose underlying CCPGNode is the call site and the lock acquired
+    // by an ancestor caller isn't carried through, or (b) `isLockAlias`
+    // can't normalise two distinct AcquireNodes referring to the same global
+    // lock object — fall back to the surface's pre-computed
+    // ThreadAccess.protecting_lock string. The surface generator uses the
+    // NodeLoc-based getLockSet overload (a different lookup path from the
+    // CCPGNode-based query used above) and additionally formats the lock by
+    // its CPG source-text, so the string comparison normalises aliased
+    // global locks textually.
+    //
+    // Conservative semantics: we only declare same_lock=true when BOTH sides
+    // carry a non-empty protecting_lock string AND those strings are
+    // *identical*. Empty strings (truly unprotected) and asymmetric
+    // protection (one side has a lock, the other doesn't) both keep the
+    // pre-existing negative verdict, preserving the prior behaviour for the
+    // bulk of hypotheses. The dominant cluster of D4.same_lock_check
+    // false-positives in the v23 sanity (binder_dead_nodes_lock, xhci->lock,
+    // binder_inner_proc_lock, binder_dead_nodes_lock) all show both sides
+    // with the same surface-level protecting_lock string, so this fallback
+    // is sufficient without being over-aggressive.
+    if (surface_) {
+        std::string lock1, lock2;
+        std::string objName1, objName2;
+        bool found1 = false, found2 = false;
+        for (const auto& obj : surface_->shared_objects) {
+            for (const auto& a : obj.accesses) {
+                if (a.node_id == n1 && a.is_lock_protected && !a.protecting_lock.empty()) {
+                    if (!found1 || lock1.empty()) {
+                        lock1 = a.protecting_lock;
+                        objName1 = obj.name;
+                        found1 = true;
+                    }
+                }
+                if (a.node_id == n2 && a.is_lock_protected && !a.protecting_lock.empty()) {
+                    if (!found2 || lock2.empty()) {
+                        lock2 = a.protecting_lock;
+                        objName2 = obj.name;
+                        found2 = true;
+                    }
+                }
+            }
+        }
+        if (found1 && found2 && lock1 == lock2) {
+            detail = "Node " + std::to_string(n1) + " and node " +
+                     std::to_string(n2) +
+                     " share surface-level protecting lock '" + lock1 +
+                     "' (objects: " + objName1 +
+                     (objName1 == objName2 ? "" : (", " + objName2)) +
+                     "); accepted via v23 Fix #3c surface-lock fallback "
+                     "after LSAnalysis-based isLockAlias failed.";
+            return true;
+        }
+    }
+
+    detail = "Node " + std::to_string(n1) + " and node " + std::to_string(n2) +
+             " do NOT share any common lock across " +
+             std::to_string(locksets1.size()) + "x" +
+             std::to_string(locksets2.size()) +
+             " context pair(s) (interprocedural LockSet).";
+    return false;
 }
 
 bool HypothesisVerifier::eval_alias(int n1, int n2, std::string& detail) {
@@ -520,6 +644,17 @@ Context firstContext(CCPGNode* n) {
 // context the node's function appears in. Without this we miss accesses
 // that only show up under a non-canonical entry path (e.g. when a helper
 // is reached from multiple syscall entry points).
+//
+// M7 P1 extension: when the per-location MemoryAccess index is empty for
+// a call-site node, synthesise pseudo-accesses from the call's pointer
+// arguments. This covers list helpers (`list_del_rcu(&head)`,
+// `list_for_each_entry`, `hlist_*`), free helpers (`kfree(p)`),
+// container detach helpers (`device_remove_groups`, `__flush_work`),
+// and any other kernel helper that performs the actual store/load
+// inside the callee. Without this, `eval_same_location` returns false
+// for the very common pattern where the LLM proposes "list_del_rcu vs
+// list_for_each_entry on the same head", which is the dominant root
+// cause of `shared_object_missed` MISSes (CVE-2024-27019/43830/46704...).
 std::vector<MemoryAccess> gatherAccesses(CCPGNode* n) {
     std::vector<MemoryAccess> out;
     if (!n) return out;
@@ -528,12 +663,65 @@ std::vector<MemoryAccess> gatherAccesses(CCPGNode* n) {
     if (!f || f->getContextSet().empty()) {
         auto v = ac->getMemoryAccessesFromLocation(n->getNodeLoc(), Context());
         out.insert(out.end(), v.begin(), v.end());
-        return out;
+    } else {
+        for (Context* ctx : f->getContextSet()) {
+            auto v = ac->getMemoryAccessesFromLocation(
+                n->getNodeLoc(), ctx ? *ctx : Context());
+            out.insert(out.end(), v.begin(), v.end());
+        }
     }
-    for (Context* ctx : f->getContextSet()) {
-        auto v = ac->getMemoryAccessesFromLocation(
-            n->getNodeLoc(), ctx ? *ctx : Context());
-        out.insert(out.end(), v.begin(), v.end());
+
+    if (!out.empty()) return out;
+
+    // ---- M7 P1 fallback: synthesize accesses from call-site pointer args ----
+    const llvm::CallInst* CI = n->getLLVMCallInst();
+    if (!n->isCallSite() || !CI) return out;
+
+    Context ctx;
+    if (f && !f->getContextSet().empty()) {
+        Context* c = *f->getContextSet().begin();
+        if (c) ctx = *c;
+    }
+
+    // Heuristic: classify the call as a write if the callee name strongly
+    // implies mutation of the underlying object (`*_del*`, `*_set*`,
+    // `*_clear*`, `*_add*`, `*_insert*`, `kfree*`, `*_free*`, `*_remove*`,
+    // `*_destroy*`, `*_unregister*`). Otherwise treat as a read. This is
+    // only used by op-kind classification when the caller asks for
+    // READ/WRITE; for the more common CALL path (op_kind=CALL or the
+    // sugar `conflicts`/`unsafe_atomic_block`) it doesn't matter.
+    auto inferIsWrite = [](const llvm::CallInst* CI) -> bool {
+        const llvm::Function* callee = CI->getCalledFunction();
+        if (!callee || !callee->hasName()) return false;
+        llvm::StringRef name = callee->getName();
+        static const char* const kWriteHints[] = {
+            "_del", "_set", "_clear", "_add", "_insert", "_remove",
+            "_destroy", "_unregister", "_release", "_init", "_reset",
+            "_assign", "_store", "_write", "_put"};
+        // free-like:
+        if (name == "kfree" || name == "kvfree" ||
+            name == "kmem_cache_free" ||
+            name.startswith("kfree_") || name.endswith("_free") ||
+            name.contains("kfree_rcu")) {
+            return true;
+        }
+        for (const char* hint : kWriteHints) {
+            if (name.contains(hint)) return true;
+        }
+        return false;
+    };
+    bool isWrite = inferIsWrite(CI);
+
+    for (unsigned i = 0; i < CI->arg_size(); ++i) {
+        const llvm::Value* arg = CI->getArgOperand(i);
+        if (!arg || !arg->getType()->isPointerTy()) continue;
+        MemoryAccess ma{};
+        ma.pointerOperand = arg;
+        ma.isWrite = isWrite;
+        ma.location = n->getNodeLoc();
+        ma.context = ctx;
+        ma.instruction = CI;
+        out.push_back(ma);
     }
     return out;
 }
@@ -611,6 +799,92 @@ bool HypothesisVerifier::eval_same_location(int n1, int n2, std::string& detail)
             }
         }
     }
+
+    // ---- M7 P1 fallback: same underlying object ---------------------------
+    // When SharedFieldKey returned nullopt for both sides (typical for
+    // synthesised call-site accesses where the pointer is a function
+    // argument or a result of container_of/pointer-arithmetic) AND
+    // AliasChecker doesn't see them aliased, fall back to comparing the
+    // underlying objects directly. We only accept a match when both sides
+    // resolve to the SAME global variable or the SAME named struct +
+    // (relative) field offset — never two different function arguments
+    // (those legitimately denote independent objects).
+    for (const auto& a1 : accs1) {
+        if (!a1.pointerOperand) continue;
+        const llvm::Value* r1 = llvm::getUnderlyingObject(a1.pointerOperand);
+        if (!r1) continue;
+        // Only same-global is a safe coarse match: distinct allocas /
+        // distinct function args can never be the same object.
+        if (!llvm::isa<llvm::GlobalVariable>(r1)) continue;
+        for (const auto& a2 : accs2) {
+            if (!a2.pointerOperand) continue;
+            const llvm::Value* r2 = llvm::getUnderlyingObject(a2.pointerOperand);
+            if (r1 == r2) {
+                detail = std::string("same underlying global: ") +
+                         (r1->hasName() ? r1->getName().str() : "<anon>");
+                return true;
+            }
+        }
+    }
+
+    // ---- v23 Fix #3b: surface-level co-location for list-helper races ----
+    //
+    // The kernel community's single most common patched race shape is "one
+    // thread mutates a list/hlist (list_del* / list_splice* / hlist_del* /
+    // list_move*) while another iterates it (list_for_each_entry* /
+    // hlist_for_each_entry*) without RCU/lock". Statically deciding that
+    // the entry pointer passed to list_del(&entry->member) aliases the
+    // head loaded by list_for_each_entry(head, ...) requires reverse
+    // pointer aliasing across an arbitrary number of intermediate
+    // `list_add` call sites — fundamentally undecidable for any practical
+    // analysis. The SharedFieldKey / Phasar-alias / same-underlying-global
+    // checks above all fail on this pattern even when the LLM has
+    // correctly inferred from the source text that both sides operate on
+    // the same list head (e.g. binder_procs, hci_dev_list).
+    //
+    // The VulnerabilitySurfaceGenerator already performs the conceptual
+    // grouping we need: it folds list-helper synth accesses and iteration
+    // reads into the same SharedObject when they refer to the same list
+    // head, and it sets `has_list_mutation=true` precisely on those
+    // objects. We treat membership in such a list-mutation surface object
+    // as authoritative evidence of same_location, provided at least one
+    // of the two node ids participates as a list-helper access (either
+    // the "[list-helper] ..." synthesis tag on the mutator side, or a
+    // list iteration macro on the reader side). Pure scalar-field
+    // co-occurrence on the same object is NOT relaxed — it must still
+    // pass one of the strict checks above.
+    if (surface_) {
+        for (const auto& obj : surface_->shared_objects) {
+            if (!obj.has_list_mutation) continue;
+            bool has_n1 = false;
+            bool has_n2 = false;
+            bool any_list_helper = false;
+            std::string n1_snippet;
+            std::string n2_snippet;
+            for (const auto& a : obj.accesses) {
+                if (a.node_id == n1) { has_n1 = true; n1_snippet = a.code_snippet; }
+                if (a.node_id == n2) { has_n2 = true; n2_snippet = a.code_snippet; }
+            }
+            if (!(has_n1 && has_n2)) continue;
+            auto isListHelperSnippet = [](const std::string& code) {
+                return code.find("[list-helper]") != std::string::npos ||
+                       code.find("list_for_each_entry") != std::string::npos ||
+                       code.find("hlist_for_each_entry") != std::string::npos;
+            };
+            if (isListHelperSnippet(n1_snippet) ||
+                isListHelperSnippet(n2_snippet)) {
+                any_list_helper = true;
+            }
+            if (!any_list_helper) continue;
+            detail = "surface-co-located list-helper accesses on '" +
+                     obj.name +
+                     "' (has_list_mutation=true; static aliasing across "
+                     "list_del entry-ptr vs list_for_each_entry head-load "
+                     "is undecidable, relaxed via v23 Fix #3b)";
+            return true;
+        }
+    }
+
     detail = "no shared field nor pointer alias between node " +
              std::to_string(n1) + " and " + std::to_string(n2);
     return false;
@@ -744,10 +1018,56 @@ bool HypothesisVerifier::eval_conflicts(int n1, int n2, std::string& detail) {
     };
     bool w1 = hasWriteOrRMW(accs1);
     bool w2 = hasWriteOrRMW(accs2);
-    if (!(w1 || w2)) {
+
+    // v23 Fix #6: When same_location was relaxed via Fix #3b (surface-level
+    // list-helper co-location), the IR-level CALL node for a list mutator
+    // (`list_del_init(&entry->member)`, `list_add(&entry->member, head)`,
+    // `list_move*`, `list_splice*`, `hlist_del*`, …) is a Call instruction
+    // whose direct memory effects are inlined into the callee; the CCPG
+    // call-site node we surface for the LLM therefore classifies as
+    // READ/UNKNOWN under classifyInstruction even though semantically the
+    // list head is mutated. The VulnerabilitySurfaceGenerator already
+    // labels these synthetic accesses with access_type="Write" and emits a
+    // "[list-helper] list_del..." / "[list-helper] list_add..." code
+    // snippet, so we use that as the source of truth on the write side
+    // whenever Fix #3b accepted same_location.
+    auto isListMutatorSnippet = [](const std::string& code) {
+        if (code.find("[list-helper]") == std::string::npos) return false;
+        return code.find("list_del") != std::string::npos ||
+               code.find("list_add") != std::string::npos ||
+               code.find("list_move") != std::string::npos ||
+               code.find("list_splice") != std::string::npos ||
+               code.find("list_replace") != std::string::npos ||
+               code.find("list_swap") != std::string::npos ||
+               code.find("list_cut_") != std::string::npos ||
+               code.find("hlist_del") != std::string::npos ||
+               code.find("hlist_add") != std::string::npos ||
+               code.find("hlist_move") != std::string::npos ||
+               code.find("hlist_splice") != std::string::npos ||
+               code.find("hlist_replace") != std::string::npos;
+    };
+    bool surfaceWrite1 = false, surfaceWrite2 = false;
+    if (!(w1 || w2) && surface_ &&
+        locDetail.find("Fix #3b") != std::string::npos) {
+        for (const auto& obj : surface_->shared_objects) {
+            if (!obj.has_list_mutation) continue;
+            for (const auto& a : obj.accesses) {
+                if (a.node_id == n1 && a.access_type == "Write" &&
+                    isListMutatorSnippet(a.code_snippet))
+                    surfaceWrite1 = true;
+                if (a.node_id == n2 && a.access_type == "Write" &&
+                    isListMutatorSnippet(a.code_snippet))
+                    surfaceWrite2 = true;
+            }
+            if (surfaceWrite1 || surfaceWrite2) break;
+        }
+    }
+    if (!(w1 || w2) && !(surfaceWrite1 || surfaceWrite2)) {
         detail = "conflicts: same field but neither side writes (" + locDetail + ")";
         return false;
     }
+    if (surfaceWrite1) w1 = true;
+    if (surfaceWrite2) w2 = true;
     detail = "conflicts: " + locDetail +
              "; write side(s)=" + (w1 ? "n1" : std::string()) +
              (w1 && w2 ? "+" : std::string()) + (w2 ? "n2" : std::string());
@@ -756,12 +1076,20 @@ bool HypothesisVerifier::eval_conflicts(int n1, int n2, std::string& detail) {
 
 // ---- eval_concurrent (sugar) -----------------------------------------------
 //
-// concurrent(a,b) := ¬hb(a,b) ∧ ¬hb(b,a)
+// concurrent(a,b) := ¬hb(a,b) ∧ ¬hb(b,a) ∧ ¬same_lock(a,b)
 //
 // In kernel-module mode (where entry_points are taken as parallel threads
-// without an explicit fork node), this reduces to "neither node is reachable
-// from the other in the synchronization graph", which is exactly what we
-// want to model two unconnected concurrent execution contexts.
+// without an explicit fork node), the HB conjuncts reduce to "neither node
+// is reachable from the other in the synchronization graph". The
+// same_lock conjunct is the key bit: any common lock held over both
+// accesses serialises them at runtime, so they cannot race even though
+// the static HB graph leaves them unordered. Without this, every
+// lock-protected pair sitting in different Threads would slip past as
+// "concurrent" (which is exactly the bulk of the lockset_wrong FPs we
+// observed in the agent-mode evaluator: proc->inner_lock in binder,
+// xhci->lock in xhci, journal->j_state_lock in jbd2, vxlan->hash_lock,
+// etc.). The lockset analysis already walks the call stack, so caller-
+// held locks are honoured as well.
 bool HypothesisVerifier::eval_concurrent(int n1, int n2, std::string& detail) {
     CCPGNode* a = ccpg_->getNodeByID(n1);
     CCPGNode* b = ccpg_->getNodeByID(n2);
@@ -781,11 +1109,22 @@ bool HypothesisVerifier::eval_concurrent(int n1, int n2, std::string& detail) {
         ba = const_cast<HypothesisVerifier*>(this)->eval_reachable(n2, n1, r2);
         source = "fallback(reachable, no HBGraph)";
     }
-    bool ok = !ab && !ba;
-    detail = "concurrent: hb(" + std::to_string(n1) + "," + std::to_string(n2) + ")=" +
-             (ab ? "T" : "F") + ", hb(" + std::to_string(n2) + "," + std::to_string(n1) +
-             ")=" + (ba ? "T" : "F") + " [" + source + "]";
-    return ok;
+    if (ab || ba) {
+        detail = "concurrent: hb(" + std::to_string(n1) + "," + std::to_string(n2) +
+                 ")=" + (ab ? "T" : "F") + ", hb(" + std::to_string(n2) + "," +
+                 std::to_string(n1) + ")=" + (ba ? "T" : "F") + " [" + source + "]";
+        return false;
+    }
+
+    std::string lockDetail;
+    bool same = eval_same_lock(n1, n2, lockDetail);
+    if (same) {
+        detail = "concurrent: HB-unordered but " + lockDetail;
+        return false;
+    }
+    detail = "concurrent: ¬hb in either direction and " + lockDetail +
+             " [" + source + "]";
+    return true;
 }
 
 // ---- eval_unsafe_atomic_block (sugar) --------------------------------------
@@ -818,10 +1157,28 @@ bool HypothesisVerifier::eval_unsafe_atomic_block(int start_id, int end_id,
     std::string c1, c2;
     bool confStart = eval_conflicts(witness_id, start_id, c1);
     bool confEnd   = eval_conflicts(witness_id, end_id,   c2);
+    std::string locWS, locWE;
+    bool locOnlyStart = false, locOnlyEnd = false;
     if (!(confStart || confEnd)) {
-        detail = "unsafe_atomic_block: witness does not conflict with start "
-                 "nor end (" + c1 + " | " + c2 + ")";
-        return false;
+        // M7 P4 graceful degradation: many TOCTOU / non-atomic RMW
+        // patterns address the same conceptual field at all three roles
+        // but the *write* side lands on the start/end pair (the RMW),
+        // not on the witness. eval_conflicts requires "at least one
+        // side writes"; in those cases it returns false even though
+        // the witness genuinely sits in the same atomic-block region.
+        // Fall back to `same_location(witness, start|end)` (write-
+        // requirement dropped) so we still flag the block — the
+        // start/end pair is itself an RMW so the write requirement is
+        // satisfied at the block-level rather than per-leg.
+        locOnlyStart = eval_same_location(witness_id, start_id, locWS);
+        locOnlyEnd   = eval_same_location(witness_id, end_id,   locWE);
+        if (!(locOnlyStart || locOnlyEnd)) {
+            detail = "unsafe_atomic_block: witness does not conflict "
+                     "with start nor end (" + c1 + " | " + c2 +
+                     "); same_location also failed (" + locWS + " | " +
+                     locWE + ")";
+            return false;
+        }
     }
 
     // eval_hb(.., expected=false, ..) returns true *iff* the actual
@@ -836,8 +1193,13 @@ bool HypothesisVerifier::eval_unsafe_atomic_block(int start_id, int end_id,
         return false;
     }
 
-    detail = "unsafe_atomic_block: start->end reachable; witness conflicts "
-             "with " + std::string(confStart ? "start" : "end") +
+    std::string match;
+    if (confStart)        match = "start";
+    else if (confEnd)     match = "end";
+    else if (locOnlyStart) match = "start (same_location only; block-level RMW provides write)";
+    else                  match = "end (same_location only; block-level RMW provides write)";
+    detail = "unsafe_atomic_block: start->end reachable; witness aliases "
+             + match +
              "; ¬hb(witness,start) ∧ ¬hb(end,witness) [" +
              (hb_ ? "HBGraph" : "fallback") + "]";
     return true;

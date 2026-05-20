@@ -11,6 +11,11 @@ class HBGraph;  // forward decl: M7 Phase A happens-before graph
 
 namespace query {
 
+struct VulnerabilitySurface;  // forward decl: v23 Fix #3b uses surface-level
+                              // co-location as a fallback for same_location
+                              // when LLVM-level aliasing cannot bridge
+                              // list-helper synthetic accesses.
+
 struct VerificationConstraint {
     std::string predicate;
     nlohmann::json args;
@@ -62,12 +67,20 @@ public:
     // happens-before synchronization graph.
     HypothesisVerifier(CCPG* ccpg, ThreadCreationTree* tct, HBGraph* hb = nullptr);
 
+    // v23 Fix #3b: provide the surface so eval_same_location can fall back
+    // to surface-level co-location for list-helper synth accesses whose
+    // LLVM-level underlying pointers don't alias (entry-pointer vs head
+    // load — fundamentally undecidable via static aliasing). Optional;
+    // callers that don't set this keep legacy behaviour.
+    void setSurface(const VulnerabilitySurface* surface) { surface_ = surface; }
+
     VerificationResult verify(const Hypothesis& h);
 
 private:
     CCPG* ccpg_;
     ThreadCreationTree* tct_;
     HBGraph* hb_;  // M7 Phase A: nullable for legacy compatibility
+    const VulnerabilitySurface* surface_ = nullptr;  // v23 Fix #3b
 
     int resolveNodeRef(const nlohmann::json& val, const Hypothesis& h);
 
