@@ -168,27 +168,58 @@ public:
         return out;
     }
 
+    // Returns true when a method node is a pure forward declaration / stub:
+    // it carries a signature in CODE but no real body, which the CPG models as
+    // a single CFG edge straight to the Method_return.
+    static bool isStubMethodNode(Node* methodNode) {
+        if (methodNode->outCFGEdges.size() != 1) return false;
+        Edge* edge = *methodNode->outCFGEdges.begin();
+        Node* nextNode = edge->getToNode();
+        return nextNode && nextNode->getType() == "Method_return";
+    }
+
     Node* findMethod(std::string name) const {
 
         auto it = type2Nodes.find("Method");
         if (it == type2Nodes.end()) return nullptr;
         const CPGNodeSet& methodNodes = it->second;
 
-        // Try each candidate name in order of descending specificity.
+        // Pass 1 (preferred): a real definition with a CFG body. This is the
+        // original behaviour, so any case that already mapped is unchanged.
         for (const std::string& candidate : allNameCandidates(name)) {
             for(Node* methodNode : methodNodes){
-                if(methodNode->getName() == candidate && methodNode->properties["CODE"] != "<empty>"){
-                    if(methodNode->outCFGEdges.size() == 1){
-                        std::unordered_set<Edge*> outEdges = methodNode->outCFGEdges;
-                        Edge* edge = *outEdges.begin();
-                        Node* nextNode = edge->getToNode();
-                        if(nextNode->getType() == "Method_return"){
-                            continue;
-                        }
+                if(methodNode->getName() == candidate &&
+                   methodNode->properties["CODE"] != "<empty>"){
+                    if(isStubMethodNode(methodNode)){
+                        continue;
                     }
                     return methodNode;
                 }
             }
+        }
+
+        // Pass 2 (fallback): no full-CFG node exists for this name. This is the
+        // c2cpg-on-partial-kernel-source case — the function body is present in
+        // the AST but the CFG layer came back degenerate (single edge), so
+        // Pass 1 skipped it. Rather than dropping the entry entirely (which
+        // loses the whole thread and is the dominant "Not found in CPG" recall
+        // hole), accept the best AST-only node here. We pick the candidate with
+        // the longest CODE: a real definition embeds its full `{ … }` body in
+        // CODE, while a bare forward declaration only has the signature, so
+        // longest-CODE reliably prefers the definition over a prototype.
+        Node* bestAstOnly = nullptr;
+        std::size_t bestCodeLen = 0;
+        for (const std::string& candidate : allNameCandidates(name)) {
+            for(Node* methodNode : methodNodes){
+                if(methodNode->getName() != candidate) continue;
+                const std::string& code = methodNode->properties["CODE"];
+                if(code == "<empty>") continue;
+                if(code.size() > bestCodeLen){
+                    bestCodeLen = code.size();
+                    bestAstOnly = methodNode;
+                }
+            }
+            if (bestAstOnly) return bestAstOnly;
         }
         return nullptr;
     }

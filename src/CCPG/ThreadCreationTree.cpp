@@ -14,6 +14,7 @@
 #include <queue>
 #include <limits>
 #include <cstring>
+#include <cstdlib>
 
 using namespace ccpg;
 using namespace psr;
@@ -257,11 +258,30 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
 
     // create thread for fork 
     else{
-        parent->addChild(thread);
         Node * functionCPGNode = findThreadEntryInCPG(forkNode);
         if(functionCPGNode == nullptr){
             return nullptr;
         }
+        // Entry-function dedup. A kthread/work/timer/IRQ callback that the
+        // structural entry scan already promoted to a top-level thread root is
+        // re-discovered here through its *creation edge* (e.g. the
+        // kthread_run(worker, ...) inside probe). Instantiating a second Thread
+        // for the same entry fabricates a phantom "worker races a clone of
+        // itself" surface: on oa_tc6 the single SPI worker appeared as two
+        // thread ids and ~half of all shared objects were such [self,self]
+        // pairs. The structural root already represents this concurrent
+        // context (see findThreadEntryInCPG's static-only note), so drop the
+        // duplicate creation edge. Genuine self-races of reentrant entries
+        // (syscall/ioctl/...) are modeled via setReentrant(), not duplicated
+        // threads, so recall of intra-entry races is unaffected.
+        for (Thread* existing : threads) {
+            ccpg::Function* ef = existing->getThreadMainFunction();
+            if (ef && ef->getFuncNode() &&
+                ef->getFuncNode()->getCPGNode() == functionCPGNode) {
+                return nullptr;  // duplicate of an existing thread root
+            }
+        }
+        parent->addChild(thread);
         functionNode = ccpg->createCCPGNode(functionCPGNode);
     }
 
@@ -386,6 +406,26 @@ Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
     }
 
     if(method == nullptr){
+        // Static-only mode (LACE_EARLY_EXIT_AFTER_SURFACE) has no live LLM
+        // endpoint. The LLM fallback below would then spend the whole
+        // surface-generation budget on curl connect-retries with backoff
+        // (curl exit=7) for every unresolved fork site (schedule_work,
+        // queue_work, …), which is the dominant cause of "no surface"
+        // timeouts in static validation runs. Skip it: any work/timer
+        // callback is already discovered as an independent thread root by
+        // the structural entry scan, so dropping this fork->child edge does
+        // not lose the concurrent context.
+        static const bool kStaticOnly =
+            std::getenv("LACE_EARLY_EXIT_AFTER_SURFACE") != nullptr ||
+            std::getenv("LACE_NO_LLM_THREAD_ENTRY") != nullptr ||
+            std::getenv("LACE_ENABLE_LLM_THREAD_ENTRY") == nullptr;
+        if (kStaticOnly) {
+            std::cerr << "[Thread Entry] " << apiName
+                      << " - direct arg lookup failed; LLM fallback skipped "
+                         "(disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable)."
+                      << std::endl;
+            return nullptr;
+        }
         std::cerr << "[Thread Entry] " << apiName << " - direct arg lookup failed, trying LLM..." << std::endl;
         // The LLM helper can throw (timeout, quota exhaustion, malformed
         // response etc.). A thrown exception inside this early pipeline

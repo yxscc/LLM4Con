@@ -152,6 +152,10 @@ struct ChatMessage {
     std::optional<std::vector<ToolCallRequest>> tool_calls;
     std::optional<std::string> tool_call_id;
     std::optional<std::string> tool_name; 
+    // Client-side only: when true, Conversation::prune_history must never drop
+    // this message (used to keep task setup / contracts alive under a token
+    // budget). Not serialized into the API request.
+    bool pinned = false;
 
     std::string role_to_string() const {
         switch (role) {
@@ -216,8 +220,14 @@ public:
         size_t total_requests = 0;
     };
     
-    TokenStats get_token_stats() const { return token_stats_; }
-    void reset_token_stats() { token_stats_ = TokenStats{}; }
+    TokenStats get_token_stats() const {
+        std::lock_guard<std::mutex> lock(stats_mutex_);
+        return token_stats_;
+    }
+    void reset_token_stats() {
+        std::lock_guard<std::mutex> lock(stats_mutex_);
+        token_stats_ = TokenStats{};
+    }
 
 private:
     LLMProvider provider_;
@@ -228,6 +238,7 @@ private:
     size_t max_context_length_;
     long timeout_seconds_;
     TokenStats token_stats_;
+    mutable std::mutex stats_mutex_;
 
     static std::shared_ptr<LLMClient> instance;
     static std::mutex mutex;

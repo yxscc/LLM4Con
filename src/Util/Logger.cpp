@@ -41,6 +41,7 @@ Logger* Logger::getInstance() {
 }
 
 void Logger::log(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex);
     if (logFile.is_open()) {
         logFile << "[" << getCurrentTimestamp() << "] " << message << std::endl;
     }

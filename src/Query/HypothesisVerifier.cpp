@@ -61,9 +61,9 @@ nlohmann::json Hypothesis::toJson() const {
 
 std::string Hypothesis::toReportString(CCPG* ccpg) const {
     std::stringstream ss;
-    ss << "========== Hypothesis-Based Violation Detected ==========\n"
-       << "Hypothesis: " << id << "\n"
-       << "Category: " << bug_category << " (severity: " << severity << ")\n"
+    ss << "========== Mechanism-Rule Violation Detected ==========\n"
+       << "Rule: " << id << "\n"
+       << "Mechanism: " << bug_category << " (severity: " << severity << ")\n"
        << "Description: " << description << "\n\n"
        << "--- Involved Nodes ---\n";
 
@@ -84,7 +84,7 @@ std::string Hypothesis::toReportString(CCPG* ccpg) const {
         ss << "  [" << i << "] " << constraints[i].predicate
            << " " << constraints[i].args.dump() << "\n";
     }
-    ss << "==========================================================";
+    ss << "========================================================";
     return ss.str();
 }
 

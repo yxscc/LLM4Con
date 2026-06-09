@@ -5,6 +5,7 @@
 #include <vector>
 #include <stack>
 #include <filesystem>
+#include <memory>
 
 #include "CPG/Node.h"
 #include "CPG/CPG.h"
@@ -12,6 +13,7 @@
 
 namespace llvm {
     class CallInst;
+    class Function;
 }
 
 using namespace ccpg;
@@ -117,6 +119,13 @@ public:
         }
     }
     ccpg::Function * createFunction(CCPGNode * funcNode);
+    // LLVM-IR fallback: build a thread-root function anchored directly to an
+    // llvm::Function when Joern's CPG has no usable method node for it (c2cpg
+    // cannot fully parse partial kernel source, so recognized entries like
+    // shmem_getattr get dropped). The synthetic CPG method node is owned by
+    // this CCPG; the thread body/accesses are then recovered from the IR by the
+    // surface generator's existing IR call-graph fallback.
+    ccpg::Function * createIRAnchoredEntryFunction(const llvm::Function * llvmFn);
     ccpg::Function * getFunctionById(int id) const {
         auto it = IDToFunction.find(id);
         if (it != IDToFunction.end()) {
@@ -189,6 +198,11 @@ public:
 
     private:
     const CPG* cpg;
+
+    // Synthetic CPG method nodes created by createIRAnchoredEntryFunction().
+    // The real CPG is const and may be missing these functions entirely, so we
+    // own the placeholder nodes here for the lifetime of the analysis.
+    std::vector<std::unique_ptr<Node>> syntheticEntryNodes;
 
     CCPGNodeSet nodes;
     CCPGEdgeSet edges;

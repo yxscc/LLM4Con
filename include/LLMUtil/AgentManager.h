@@ -23,7 +23,15 @@ public:
     // New: open-hypothesis agent mode
     std::vector<ThreadPair> runAnalysisAgentMode();
 
-    // Legacy per-thread-contract + per-pair workflow
+    // Modernized thread-contract ("old story") entry: surface-driven lazy/dedup
+    // per-thread contracts + per-shared-object interleaving agent -> grounded
+    // hypotheses (stored in confirmedHypotheses_, consumed via
+    // getConfirmedHypotheses + StatefulBugDetector::detectFromHypotheses).
+    // useContracts=false is the headline ablation (reason from source only).
+    void runAnalysisContractMode(bool useContracts = true);
+
+    // Legacy per-thread-contract + per-pair + Rule-template workflow.
+    // Superseded by runAnalysisContractMode; kept for reference / off main path.
     std::vector<ThreadPair> runAnalysisLegacy();
 
     const std::vector<query::Hypothesis>& getConfirmedHypotheses() const {

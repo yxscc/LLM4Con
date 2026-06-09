@@ -32,6 +32,43 @@ FAIL=0
 SKIP=0
 CONSECUTIVE_API_ERR=0
 
+select_bitcode() {
+    local cve_dir="$1"
+    local selected=""
+
+    if [ -f "$cve_dir/flow_annotation.json" ]; then
+        selected=$(python3 - "$cve_dir/flow_annotation.json" <<'PY' 2>/dev/null
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    print((data.get("coverage") or {}).get("selected_bitcode") or "")
+except Exception:
+    print("")
+PY
+)
+        if [ -n "$selected" ] && [ -f "$cve_dir/$selected" ]; then
+            printf '%s\n' "$cve_dir/$selected"
+            return 0
+        fi
+    fi
+
+    if [ -f "$cve_dir/merged.ll" ]; then
+        printf '%s\n' "$cve_dir/merged.ll"
+    elif [ -f "$cve_dir/snd-seq.ll" ]; then
+        printf '%s\n' "$cve_dir/snd-seq.ll"
+    else
+        local ll_files=("$cve_dir"*.ll)
+        if [ ${#ll_files[@]} -eq 0 ]; then
+            return 1
+        fi
+        if [ ${#ll_files[@]} -eq 1 ]; then
+            printf '%s\n' "${ll_files[0]}"
+        else
+            ls -S "$cve_dir"/*.ll 2>/dev/null | head -1
+        fi
+    fi
+}
+
 masked_key="${API_KEY:0:7}…${API_KEY: -4}"
 echo "============================================"
 echo " Batch Detection Run"
@@ -75,25 +112,12 @@ for cve_dir in "${all_dirs[@]}"; do
     cve_id=$(basename "$cve_dir")
     src_dir="$cve_dir/src"
 
-    # Bitcode selection: merged.ll > snd-seq.ll (pre-linked ALSA) > largest .ll (often aggregate) > first
-    bc_file=""
-    if [ -f "$cve_dir/merged.ll" ]; then
-        bc_file="$cve_dir/merged.ll"
-    elif [ -f "$cve_dir/snd-seq.ll" ]; then
-        bc_file="$cve_dir/snd-seq.ll"
-    else
-        ll_files=("$cve_dir"*.ll)
-        if [ ${#ll_files[@]} -eq 0 ]; then
-            echo "[$cve_id] SKIP (no .ll files)"
-            SKIP=$((SKIP+1))
-            continue
-        fi
-        if [ ${#ll_files[@]} -eq 1 ]; then
-            bc_file="${ll_files[0]}"
-        else
-            # Multiple unmerged modules: largest file is usually the main / linked unit
-            bc_file=$(ls -S "$cve_dir"/*.ll 2>/dev/null | head -1)
-        fi
+    # Prefer annotation-selected bitcode; fall back to the historical heuristic.
+    bc_file=$(select_bitcode "$cve_dir")
+    if [ -z "$bc_file" ]; then
+        echo "[$cve_id] SKIP (no .ll files)"
+        SKIP=$((SKIP+1))
+        continue
     fi
 
     if [ ! -d "$src_dir" ] || [ -z "$(find "$src_dir" -name '*.c' -print -quit 2>/dev/null)" ]; then

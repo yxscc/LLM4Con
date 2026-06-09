@@ -715,15 +715,20 @@ LLMClient::LLMResponse LLMClient::chat(
     // 4. At this point response_json is parsed and has no top-level "error".
     Logger::getInstance()->log("<-- Response (" + provider_name + "):\n" + response_json.dump(4));
     
-    // Extract and accumulate token usage statistics
-    token_stats_.total_requests++;
-    if (response_json.contains("usage")) {
-        const auto& usage = response_json["usage"];
-        if (usage.contains("prompt_tokens")) {
-            token_stats_.total_prompt_tokens += usage["prompt_tokens"].get<size_t>();
-        }
-        if (usage.contains("completion_tokens")) {
-            token_stats_.total_completion_tokens += usage["completion_tokens"].get<size_t>();
+    // Extract and accumulate token usage statistics. Contract-generation Phase A
+    // can issue several independent chats concurrently, so this shared counter
+    // needs a small critical section.
+    {
+        std::lock_guard<std::mutex> lock(stats_mutex_);
+        token_stats_.total_requests++;
+        if (response_json.contains("usage")) {
+            const auto& usage = response_json["usage"];
+            if (usage.contains("prompt_tokens")) {
+                token_stats_.total_prompt_tokens += usage["prompt_tokens"].get<size_t>();
+            }
+            if (usage.contains("completion_tokens")) {
+                token_stats_.total_completion_tokens += usage["completion_tokens"].get<size_t>();
+            }
         }
     }
     

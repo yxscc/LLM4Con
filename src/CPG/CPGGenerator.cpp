@@ -3,6 +3,12 @@
 #include <filesystem>
 #include <string>
 #include <fstream>
+#include <algorithm>
+#include <sstream>
+#include <vector>
+#include <regex>
+#include <unordered_map>
+#include <unordered_set>
 #include <graphviz/cgraph.h>
 
 #include "CPG/CPGGenerator.h"
@@ -16,6 +22,181 @@ using json = nlohmann::json;
 //using namespace tinyxml2;
 namespace fs = std::filesystem;
 
+namespace {
+
+bool isCPGSourceFile(const fs::path& p) {
+    std::string ext = p.extension().string();
+    return ext == ".c" || ext == ".cc" || ext == ".cpp" ||
+           ext == ".h" || ext == ".hh" || ext == ".hpp";
+}
+
+std::string buildSourceManifest(const fs::path& sourceDir) {
+    std::vector<std::string> rows;
+    if (!fs::exists(sourceDir)) return "";
+
+    for (const auto& entry : fs::recursive_directory_iterator(sourceDir)) {
+        if (!entry.is_regular_file() || !isCPGSourceFile(entry.path())) {
+            continue;
+        }
+        std::error_code ec;
+        fs::path rel = fs::relative(entry.path(), sourceDir, ec);
+        if (ec) rel = entry.path().filename();
+        auto size = fs::file_size(entry.path(), ec);
+        if (ec) size = 0;
+        auto mtime = fs::last_write_time(entry.path(), ec);
+        auto ticks = ec ? 0 : mtime.time_since_epoch().count();
+
+        std::ostringstream row;
+        row << rel.generic_string() << "\t" << size << "\t" << ticks;
+        rows.push_back(row.str());
+    }
+
+    std::sort(rows.begin(), rows.end());
+    std::ostringstream manifest;
+    manifest << "source_dir=" << fs::absolute(sourceDir).generic_string() << "\n";
+    for (const auto& row : rows) manifest << row << "\n";
+    return manifest.str();
+}
+
+bool fileContentsEqual(const fs::path& path, const std::string& expected) {
+    std::ifstream in(path);
+    if (!in.is_open()) return false;
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    return buffer.str() == expected;
+}
+
+void writeTextFile(const fs::path& path, const std::string& content) {
+    std::ofstream out(path);
+    if (out.is_open()) out << content;
+}
+
+std::unordered_set<std::string> collectReferencedConfigMacros(
+    const fs::path& sourceDir) {
+    std::unordered_set<std::string> refs;
+    if (!fs::exists(sourceDir)) return refs;
+
+    static const std::regex configRe(R"(CONFIG_[A-Za-z0-9_]+)");
+    for (const auto& entry : fs::recursive_directory_iterator(sourceDir)) {
+        if (!entry.is_regular_file() || !isCPGSourceFile(entry.path())) {
+            continue;
+        }
+        std::ifstream in(entry.path());
+        if (!in.is_open()) continue;
+        std::string text((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+        for (std::sregex_iterator it(text.begin(), text.end(), configRe), end;
+             it != end; ++it) {
+            refs.insert((*it)[0].str());
+        }
+    }
+    return refs;
+}
+
+std::string normalizeConfigValue(std::string value) {
+    auto trim = [](std::string& s) {
+        const char* ws = " \t\r\n";
+        size_t first = s.find_first_not_of(ws);
+        if (first == std::string::npos) {
+            s.clear();
+            return;
+        }
+        size_t last = s.find_last_not_of(ws);
+        s = s.substr(first, last - first + 1);
+    };
+    trim(value);
+    if (value.empty()) return "1";
+
+    // Joern --define only needs truthiness for #ifdef/#if defined. Preserve
+    // simple numeric values for #if CONFIG_FOO > N, otherwise use 1 to avoid
+    // shell quoting problems with strings or compound expressions.
+    bool numeric = true;
+    for (char c : value) {
+        if (!std::isdigit(static_cast<unsigned char>(c)) &&
+            c != 'x' && c != 'X' &&
+            (c < 'a' || c > 'f') &&
+            (c < 'A' || c > 'F')) {
+            numeric = false;
+            break;
+        }
+    }
+    return numeric ? value : "1";
+}
+
+void loadAutoconfDefines(const fs::path& autoconf,
+                         const std::unordered_set<std::string>& refs,
+                         std::unordered_map<std::string, std::string>& out) {
+    std::ifstream in(autoconf);
+    if (!in.is_open()) return;
+
+    static const std::regex defineRe(
+        R"(^\s*#\s*define\s+(CONFIG_[A-Za-z0-9_]+)(?:\s+(.+))?\s*$)");
+    std::string line;
+    while (std::getline(in, line)) {
+        std::smatch m;
+        if (!std::regex_match(line, m, defineRe)) continue;
+        std::string name = m[1].str();
+        if (!refs.count(name)) continue;
+        out[name] = normalizeConfigValue(m.size() > 2 ? m[2].str() : "1");
+    }
+}
+
+std::unordered_map<std::string, std::string> collectCompileConfigDefines(
+    const fs::path& sourceDir,
+    const std::unordered_set<std::string>& refs) {
+    std::unordered_map<std::string, std::string> defines;
+    if (refs.empty()) return defines;
+
+    fs::path absSourceDir = fs::absolute(sourceDir);
+    fs::path caseDir = absSourceDir.filename() == "src"
+        ? absSourceDir.parent_path()
+        : absSourceDir;
+    if (!fs::exists(caseDir)) return defines;
+
+    static const std::regex dFlagRe(R"(-D(CONFIG_[A-Za-z0-9_]+)(?:=([^\s'"]+))?)");
+    static const std::regex autoconfRe(R"(-include\s+['"]?([^\s'"]*autoconf\.h)['"]?)");
+    for (const auto& entry : fs::directory_iterator(caseDir)) {
+        if (!entry.is_regular_file()) continue;
+        std::string filename = entry.path().filename().string();
+        if (filename.find("_compile.log") == std::string::npos &&
+            filename != "compile.log") {
+            continue;
+        }
+
+        std::ifstream in(entry.path());
+        if (!in.is_open()) continue;
+        std::string text((std::istreambuf_iterator<char>(in)),
+                         std::istreambuf_iterator<char>());
+
+        for (std::sregex_iterator it(text.begin(), text.end(), dFlagRe), end;
+             it != end; ++it) {
+            std::string name = (*it)[1].str();
+            if (!refs.count(name)) continue;
+            defines[name] = normalizeConfigValue(
+                (*it).size() > 2 ? (*it)[2].str() : "1");
+        }
+
+        for (std::sregex_iterator it(text.begin(), text.end(), autoconfRe), end;
+             it != end; ++it) {
+            loadAutoconfDefines(fs::path((*it)[1].str()), refs, defines);
+        }
+    }
+    return defines;
+}
+
+std::string renderConfigManifest(
+    const std::unordered_map<std::string, std::string>& defines) {
+    std::vector<std::string> rows;
+    for (const auto& [k, v] : defines) rows.push_back(k + "=" + v);
+    std::sort(rows.begin(), rows.end());
+    std::ostringstream out;
+    out << "config_defines=" << rows.size() << "\n";
+    for (const auto& row : rows) out << row << "\n";
+    return out.str();
+}
+
+} // namespace
+
 fs::path CPGGenerator::generateCPG(std::string dir){
     
     fs::path projectDir = fs::path(PROJECT_PATH);
@@ -25,8 +206,46 @@ fs::path CPGGenerator::generateCPG(std::string dir){
     }
     fs::path outputDir = projectDir / fs::path("cpg_dot/" + TargetPath::getInstance()->getTargetProjectName());
 
-    if(fs::exists(outputDir/ "export.dot")){
-        return outputDir;
+    const fs::path sourceDir = fs::path(dir);
+    const auto referencedConfigs = collectReferencedConfigMacros(sourceDir);
+    const auto compileConfigDefines =
+        collectCompileConfigDefines(sourceDir, referencedConfigs);
+    const fs::path manifestPath = outputDir / ".lace_cpg_manifest.txt";
+    // CPG frontend trade-off (measured on the kernel dataset):
+    //
+    //  * WITH the kernel `--define` flags (default): c2cpg/CDT runs strict
+    //    preprocessing and builds COMPLETE CFGs (needed for thread-body
+    //    expansion + access collection), but on an incomplete kernel header
+    //    tree it silently DROPS ~half the function bodies from the CPG
+    //    (shmem src: 2654 -> 1390 methods; shmem_getattr disappears entirely).
+    //
+    //  * WITHOUT any `--define` (LACE_CPG_FUZZY=1): the fuzzy parser keeps the
+    //    full method set (shmem_getattr is present) BUT only emits the AST —
+    //    methods come back with a degenerate single-edge CFG, which the
+    //    findMethod stub-filter (correctly) rejects, and which regresses cases
+    //    that currently map fine (e.g. keyctl 27 -> 16 threads).
+    //
+    // Neither mode is a clean win; both are symptoms of c2cpg not being able to
+    // fully parse a partial kernel source tree. Keep the COMPLETE-CFG define
+    // mode as the default so we never regress working cases. The fuzzy mode is
+    // retained behind LACE_CPG_FUZZY for experiments. The chosen mode is part
+    // of the cache key so flipping it forces a clean regeneration.
+    const bool useKernelDefines =
+        std::getenv("LACE_CPG_FUZZY") == nullptr;
+    // Keep the default (define) manifest BYTE-IDENTICAL to the historical format
+    // so existing caches stay valid; only the opt-in fuzzy mode tags the
+    // manifest, which forces a clean regeneration when toggled.
+    const std::string modeTag =
+        useKernelDefines ? std::string("") : std::string("cpg_define_mode=fuzzy\n");
+    const std::string sourceManifest =
+        modeTag + buildSourceManifest(sourceDir) + renderConfigManifest(compileConfigDefines);
+    if(fs::exists(outputDir / "export.dot")){
+        if (fileContentsEqual(manifestPath, sourceManifest)) {
+            return outputDir;
+        }
+        std::cout << "[CPG] Source tree changed or cache manifest missing; "
+                  << "regenerating CPG for current src." << std::endl;
+        fs::remove_all(outputDir);
     }
 
     // Joern's C frontend (c2cpg) does not know kernel-specific GCC attributes.
@@ -68,16 +287,35 @@ fs::path CPGGenerator::generateCPG(std::string dir){
         "COMPAT_SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)",
     };
     std::string defineArgs;
-    for (const auto& def : kernelDefines) {
-        defineArgs += " --define " + def;
+    if (useKernelDefines) {
+        for (const auto& def : kernelDefines) {
+            defineArgs += " --define " + def;
+        }
+        for (const auto& [name, value] : compileConfigDefines) {
+            defineArgs += " --define " + name + "=" + value;
+        }
+        if (!compileConfigDefines.empty()) {
+            std::cout << "[CPG] Synced " << compileConfigDefines.size()
+                      << " referenced CONFIG define(s) from compile logs/autoconf."
+                      << std::endl;
+        }
+        for (const auto& m : kernelFuncMacros) {
+            // Each macro must be quoted because it contains parentheses and
+            // commas which would otherwise be chewed up by the shell.
+            defineArgs += " --define \"" + m + "\"";
+        }
+    } else {
+        std::cout << "[CPG] Fuzzy mode (no --define): full method coverage; "
+                     "syscalls mapped via __x64_sys_ prefix fallback. "
+                     "Set LACE_CPG_KERNEL_DEFINES=1 to restore define mode."
+                  << std::endl;
     }
-    for (const auto& m : kernelFuncMacros) {
-        // Each macro must be quoted because it contains parentheses and
-        // commas which would otherwise be chewed up by the shell.
-        defineArgs += " --define \"" + m + "\"";
+    // In fuzzy mode we pass NO frontend-args at all, otherwise c2cpg enables
+    // strict CDT preprocessing and drops bodies it cannot fully resolve.
+    std::string generateCPGCommand = std::string("joern-parse") + " -J-Xmx40G " + dir;
+    if (!defineArgs.empty()) {
+        generateCPGCommand += " --frontend-args" + defineArgs;
     }
-    std::string generateCPGCommand = std::string("joern-parse") + " -J-Xmx40G " + dir
-                                     + " --frontend-args" + defineArgs;
     // 生成dot格式的CPG
     std::string drawCPGCommand = std::string("joern-export") + " -J-Xmx40G cpg.bin --repr=all --format=dot --out " + outputDir.string();
     
@@ -121,6 +359,7 @@ fs::path CPGGenerator::generateCPG(std::string dir){
 
     // 进一步处理Joern生成的数据（直接使用原始的 export.dot）
     std::cout << "CPG data generated at: " << outputDir.string() << endl;
+    writeTextFile(manifestPath, sourceManifest);
     return outputDir;
 }
 

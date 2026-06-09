@@ -278,7 +278,7 @@ void StatefulBugDetector::detect(const std::vector<llm_client::ThreadPair>& thre
 void StatefulBugDetector::detectFromHypotheses(
     const std::vector<Hypothesis>& hypotheses, CCPG* ccpg,
     llm_client::VerificationAgent* verificationAgent) {
-    std::cout << "\n[Phase 4: Detecting Violations (Open Hypothesis)]" << std::endl;
+    std::cout << "\n[Phase 4: Detecting Violations (Mechanism Rules)]" << std::endl;
 
     hypothesisCcpg_ = ccpg;
 
@@ -296,14 +296,14 @@ void StatefulBugDetector::detectFromHypotheses(
             confirmedHypotheses_.push_back(h);
             ++kept;
         } else {
-            std::cout << "    [Verification] Hypothesis filtered out by LLM Verification Agent."
+            std::cout << "    [Verification] Rule filtered out by LLM Verification Agent."
                       << std::endl;
             ++dropped;
         }
     }
 
     if (verificationAgent) {
-        std::cout << "[Phase 4.5] LLM hypothesis-verifier filter: kept "
+        std::cout << "[Phase 4.5] LLM rule-verifier filter: kept "
                   << kept << "/" << hypotheses.size()
                   << ", dropped " << dropped << " false-positive(s)."
                   << std::endl;
@@ -404,7 +404,7 @@ void StatefulBugDetector::printResults(const fs::path& outputDir) const {
         std::cout << "  - Stateful Protocol Violations: " << detectedBugs.size() << std::endl;
     }
     if (!confirmedHypotheses_.empty()) {
-        std::cout << "  - Hypothesis-Based Violations: " << mergedHypothesisBugs;
+        std::cout << "  - Mechanism-Rule Violations: " << mergedHypothesisBugs;
         if (totalRawHypotheses != mergedHypothesisBugs) {
             std::cout << " (merged from " << totalRawHypotheses
                       << " raw confirmed hypotheses; "

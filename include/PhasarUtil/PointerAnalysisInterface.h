@@ -17,13 +17,18 @@ struct EntryPointInfo {
     std::string functionName;
     std::string fileName;
     unsigned int lineNumber;
+    unsigned int signalMask = 0;
+    std::string signalSummary;
+    bool threadRoot = true;
 
     std::string toString() const {
         std::stringstream ss;
         ss << "EntryPointInfo { "
            << "functionName: \"" << functionName << "\", "
            << "fileName: \"" << fileName << "\", "
-           << "lineNumber: " << lineNumber
+           << "lineNumber: " << lineNumber << ", "
+           << "signals: \"" << signalSummary << "\", "
+           << "threadRoot: " << (threadRoot ? "true" : "false")
            << " }";
         return ss.str();
     }

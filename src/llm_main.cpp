@@ -169,14 +169,20 @@ static cl::opt<bool> OnlyThreadEntry(
 
 static cl::opt<bool> AgentMode(
     "agent-mode",
-    cl::desc("Use the new hypothesis-driven DetectorAgent (single LLM session) instead of per-thread/per-pair workflow. Default: true."),
+    cl::desc("Use the mechanism-rule DetectorAgent (single LLM session) instead of per-thread/per-pair workflow. Default: true."),
     cl::init(true)
 );
 
 static cl::opt<bool> LegacyWorkflow(
     "legacy-workflow",
-    cl::desc("Force legacy per-thread-contract + per-pair workflow (overrides --agent-mode)."),
+    cl::desc("Use the thread-contract entry (per-object interleaving agent) instead of the surface/mechanism agent (overrides --agent-mode)."),
     cl::init(false)
+);
+
+static cl::opt<std::string> AblContract(
+    "abl-contract",
+    cl::desc("Thread-contract mode ablation: 'on' (default) generates per-thread contracts; 'off' makes the interleaving agent reason from source only."),
+    cl::init("on")
 );
 
 // Global config structure
@@ -191,8 +197,9 @@ struct AnalysisConfig {
     bool only_thread_entry = false;
     bool print_trace = false;
     std::string call_graph_type = "OTF";  // Options: OTF, CHA, RTA, NORESOLVE
-    bool agent_mode = true;               // Use hypothesis-driven agent architecture
-    bool legacy_workflow = false;          // Fall back to per-thread-pair workflow
+    bool agent_mode = true;               // Use mechanism-rule agent architecture
+    bool legacy_workflow = false;          // Use thread-contract interleaving entry
+    bool abl_contract = true;              // Thread-contract mode: inject per-thread contracts
 };
 
 // Load config from JSON file
@@ -345,6 +352,9 @@ int main(int argc, char** argv) {
     config.llm_url = LLMBaseUrl.getValue();
     config.only_thread_entry = OnlyThreadEntry.getValue();
     config.print_trace = PrintTrace.getValue();
+    config.agent_mode = AgentMode.getValue();
+    config.legacy_workflow = LegacyWorkflow.getValue();
+    config.abl_contract = (AblContract.getValue() != "off");
     
     // Load config from JSON file if specified (overrides command line)
     if (!ConfigFile.getValue().empty()) {
@@ -441,6 +451,13 @@ int main(int argc, char** argv) {
     auto cpgGenerator = std::make_unique<CPGGenerator>();
     std::unique_ptr<CPG> cpg(cpgGenerator->buildCPGByDot(projectDir));
     std::string bcFile = config.input_bc == "-" ? convertToBC(projectDir) : config.input_bc;
+    if (!fs::exists(bcFile)) {
+        std::cerr << "Error: input bitcode/LLVM IR file does not exist: "
+                  << bcFile << std::endl;
+        writeCheckpoint("Phasar_analysis", "FAILED",
+                        "Missing bitcode file: " + bcFile);
+        return 2;
+    }
     
     writeCheckpoint("CPG_generation", "COMPLETED");
     checkMemoryAndMaybeExit(4096);  // Warn if less than 4GB available
@@ -491,26 +508,21 @@ int main(int argc, char** argv) {
 
     writeCheckpoint("LLM_Analysis", "IN_PROGRESS");
     llm_client::AgentManager agentManager(ccpg.get());
-    const auto candidateSharedObjects = ThreadCreationTree::getInstance()->collectCandidateSharedObjects();
 
+    // Two entries, one downstream pipeline. Both modes emit grounded
+    // query::Hypothesis objects consumed by StatefulBugDetector::detectFromHypotheses:
+    //   - Agent mode      : surface + mechanism-rule DetectorAgent (new story).
+    //   - Thread-contract : per-thread contracts + per-object interleaving (old story).
     bool useAgentMode = config.agent_mode && !config.legacy_workflow;
-    std::cout << "\n[Analysis Mode] " << (useAgentMode ? "Agent (hypothesis-driven)" : "Legacy (per-thread contract)") << std::endl;
+    std::cout << "\n[Analysis Mode] "
+              << (useAgentMode ? "Agent (mechanism rules / surface)"
+                               : "Thread-contract (per-object interleaving)")
+              << std::endl;
 
     if (useAgentMode) {
         agentManager.runAnalysisAgentMode();
     } else {
-        auto thread_pairs_with_analysis = agentManager.runAnalysisLegacy();
-        writeCheckpoint("LLM_Analysis", "COMPLETED", "Thread pairs analyzed");
-
-        writeCheckpoint("Bug_Detection", "IN_PROGRESS");
-        query::StatefulBugDetector statefulDetector;
-        statefulDetector.detect(thread_pairs_with_analysis, candidateSharedObjects, nullptr);
-        statefulDetector.printResults(targetPath->getOutputDir());
-        writeCheckpoint("Bug_Detection", "COMPLETED");
-
-        std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
-        // Skip the hypothesis path below
-        goto analysis_done;
+        agentManager.runAnalysisContractMode(config.abl_contract);
     }
 
     writeCheckpoint("LLM_Analysis", "COMPLETED", "Hypotheses verified");
@@ -523,9 +535,21 @@ int main(int argc, char** argv) {
         // Phase 4.5 LLM hypothesis-verifier filter — second-pass FP triage
         // for everything the static constraint engine confirmed. Skip with
         // LACE_DISABLE_LLM_VERIFIER=1 (e.g. when running offline).
+        //
+        // In thread-contract mode this per-hypothesis LLM pass is OFF by default:
+        // the per-thread-pair interleaving session already (a) statically grounds
+        // every hypothesis through the verifier and (b) self-filters benign races,
+        // so re-opening one LLM session per hypothesis is redundant and was a major
+        // cost (~one session and dozens of re-reads per hypothesis). Re-enable it
+        // with LACE_ENABLE_CONTRACT_VERIFIER=1.
         std::unique_ptr<llm_client::VerificationAgent> hyp_verifier;
         const char* disable = std::getenv("LACE_DISABLE_LLM_VERIFIER");
-        if (!hypotheses.empty() && (!disable || disable[0] == '0' || disable[0] == '\0')) {
+        bool verifier_on = !disable || disable[0] == '0' || disable[0] == '\0';
+        if (!useAgentMode) {
+            const char* en = std::getenv("LACE_ENABLE_CONTRACT_VERIFIER");
+            verifier_on = en && en[0] != '\0' && en[0] != '0';
+        }
+        if (!hypotheses.empty() && verifier_on) {
             auto client = agentManager.getLLMClient();
             if (client) {
                 hyp_verifier = std::make_unique<llm_client::VerificationAgent>(client);
@@ -538,7 +562,6 @@ int main(int argc, char** argv) {
         writeCheckpoint("Bug_Detection", "COMPLETED");
     }
 
-    analysis_done:
     std::cout << "LLM-guided analysis complete. Results are in the output directory." << std::endl;
 
     // Zero-shot analysis is temporarily disabled for efficiency on large projects.

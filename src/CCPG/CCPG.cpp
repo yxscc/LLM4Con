@@ -28,6 +28,7 @@
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 
 using namespace ccpg;
 using namespace psr;
@@ -99,6 +100,7 @@ bool p8aIsCallbackTableTypeName(const std::string& sname) {
         "struct.proto_ops",
         "struct.ethtool_ops",
         "struct.net_device_ops",
+        "struct.nfnl_callback",
         "struct.tty_operations",
         // Subsystem-specific
         "struct.iio_info",
@@ -272,10 +274,11 @@ void CCPG::build(){
     auto pointerAnalyzer = dynamic_cast<PhasarPointerAnalysis*>(
         AnalysisManager::getInstance()->getPointerAnalyzer());
     if (pointerAnalyzer) {
-        auto allEntries = pointerAnalyzer->getAllEntryPointInfos();
+        auto allEntries = pointerAnalyzer->getThreadRootEntryPointInfos();
         if (allEntries.size() > 1) {
             std::cout << "[Kernel Module Mode] Adding " << allEntries.size() 
-                      << " entry points as parallel entries" << std::endl;
+                      << " thread-root entry points as parallel entries"
+                      << std::endl;
             for (const auto& entryInfo : allEntries) {
                 // Skip the main entry point we already added
                 if (main != nullptr && main->getCPGNode()->getName() == entryInfo.functionName) {
@@ -307,7 +310,9 @@ void CCPG::build(){
                 
                 std::cout << "  - Looking for: " << entryInfo.functionName 
                           << " -> demangled: " << demangledName 
-                          << " -> shortName: " << shortName << std::endl;
+                          << " -> shortName: " << shortName
+                          << " [signals=" << entryInfo.signalSummary << "]"
+                          << std::endl;
                 
                 // Find the method node in CPG using short name
                 Node* methodNode = cpg->findMethod(shortName);
@@ -366,7 +371,43 @@ void CCPG::build(){
                     }
                 }
                 if (methodNode == nullptr) {
-                    std::cout << "  - Not found in CPG: " << shortName << " (tried: " << demangledName << ")" << std::endl;
+                    const llvm::Module* M = pointerAnalyzer->getModule();
+                    const llvm::Function* llvmFn =
+                        M ? M->getFunction(entryInfo.functionName) : nullptr;
+                    methodNode = cpg->findMethodByLLVMFunction(llvmFn);
+                    if (methodNode != nullptr) {
+                        std::cout << "  - LLVM debug-info fallback: "
+                                  << entryInfo.functionName << " -> "
+                                  << methodNode->getName() << std::endl;
+                    }
+                }
+                if (methodNode == nullptr) {
+                    // LLVM-IR fallback: Joern's CPG has no usable node for this
+                    // recognized entry (c2cpg dropped it from a partial kernel
+                    // source tree). Rather than losing the whole thread, anchor
+                    // a thread root directly to the llvm::Function; the surface
+                    // generator's IR call-graph fallback then recovers its body
+                    // and accesses. Without this, ~half the recognized roots in
+                    // header-incomplete modules (e.g. shmem: 47 roots → 5
+                    // threads) are silently dropped — the dominant BODY_MISS
+                    // recall hole.
+                    const llvm::Module* Mfb = pointerAnalyzer->getModule();
+                    const llvm::Function* llvmFnFb =
+                        Mfb ? Mfb->getFunction(entryInfo.functionName) : nullptr;
+                    ccpg::Function* irFn =
+                        createIRAnchoredEntryFunction(llvmFnFb);
+                    if (irFn != nullptr) {
+                        entryFunctions.insert(irFn);
+                        functionQueue.push(irFn);
+                        std::cout << "  - IR-anchored entry (not in CPG): "
+                                  << entryInfo.functionName << " @ "
+                                  << (llvmFnFb->getSubprogram()
+                                          ? llvmFnFb->getSubprogram()->getFilename().str()
+                                          : std::string("?"))
+                                  << std::endl;
+                    } else {
+                        std::cout << "  - Not found in CPG: " << shortName << " (tried: " << demangledName << ")" << std::endl;
+                    }
                     continue;
                 }
                 
@@ -878,6 +919,51 @@ CCPGEdge* CCPG::createCCPGEdge(CCPGNode* from, CCPGNode* to) {
     to->addInEdge(edge);
     addEdge(edge);
     return edge;
+}
+
+ccpg::Function * CCPG::createIRAnchoredEntryFunction(const llvm::Function * llvmFn) {
+    if (llvmFn == nullptr || llvmFn->isDeclaration()) {
+        return nullptr;
+    }
+    std::string rawName = llvmFn->getName().str();
+    std::string name = LLVMAnalyzer::getInstance()->demangle(rawName.c_str());
+
+    // Pull file/line from debug info so the synthetic node looks like a normal
+    // CPG method node to AliasChecker (name+file+line match) and NodeLoc.
+    std::string file;
+    int line = 0;
+    if (auto * SP = llvmFn->getSubprogram()) {
+        file = SP->getFilename().str();
+        line = static_cast<int>(SP->getLine());
+    }
+
+    std::unordered_map<std::string, std::string> props;
+    props["NAME"] = name;
+    props["FULL_NAME"] = name;
+    props["METHOD_FULL_NAME"] = name;
+    props["FILENAME"] = file;
+    props["LINE_NUMBER"] = (line > 0) ? std::to_string(line) : "";
+    // CODE must be non-"<empty>" so downstream filters treat it as a real body.
+    props["CODE"] = std::string("<ir-entry:") + name + ">";
+
+    auto owned = std::make_unique<Node>(
+        std::string("__ir_entry_") + rawName, std::string("METHOD"), props);
+    Node * synth = owned.get();
+    syntheticEntryNodes.push_back(std::move(owned));
+
+    CCPGNode * ccpgNode = createCCPGNode(synth);
+    if (ccpgNode == nullptr) {
+        return nullptr;
+    }
+    ccpg::Function * f = createFunction(ccpgNode);
+    if (f == nullptr) {
+        return nullptr;
+    }
+    // The synthetic node has no AST, so createFunction's name/file/line match may
+    // or may not have resolved the IR function; set it unconditionally since we
+    // already hold the exact llvm::Function.
+    f->setLLVMFunction(llvmFn);
+    return f;
 }
 
 ccpg::Function * CCPG::createFunction(CCPGNode * funcNode) {

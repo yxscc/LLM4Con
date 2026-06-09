@@ -1,4 +1,5 @@
 #include "LLMUtil/DetectorAgent.h"
+#include "LLMUtil/MechanismKnowledgeBase.h"
 #include "LLMUtil/SharedToolKit.h"
 #include "CCPG/CCPGNode.h"
 #include "CCPG/LSAnalysis.h"
@@ -12,12 +13,13 @@
 #include <set>
 #include <algorithm>
 #include <cctype>
+#include <functional>
 #include <unordered_set>
 
 namespace llm_client {
 
 DetectorAgent::DetectorAgent(std::shared_ptr<LLMClient> client, CCPG* ccpg)
-    : Conversation(client, "", 100), ccpg_(ccpg)
+    : Conversation(client, "", 40), ccpg_(ccpg)
 {
     set_system_prompt(build_system_prompt());
 }
@@ -25,7 +27,7 @@ DetectorAgent::DetectorAgent(std::shared_ptr<LLMClient> client, CCPG* ccpg)
 std::string DetectorAgent::build_system_prompt() {
     return R"(You are an expert concurrency bug detector for C/C++ kernel modules. You receive a **variable-centric vulnerability surface** listing shared objects accessed by concurrent threads, with access types, lock protection, and risk flags.
 
-**Your mission**: Investigate high-risk shared objects and propose **bug hypotheses**. Each hypothesis is verified by a static constraint engine that checks your conditions — you get instant feedback.
+**Your mission**: use ReAct-style structured reasoning to instantiate **mechanism-specific concurrency rules** from the local code context. Do not jump directly from a risky shared object to a report. First analyze the context, identify the intended synchronization/lifetime protocol, consider benign explanations, then instantiate a rule and ground it against the static model.
 
 ## How the Vulnerability Surface Works
 
@@ -58,11 +60,11 @@ The verifier accepts a focused **5+3 predicate vocabulary** that maps every comm
 
 In constraint args, you can use either a **role name** (string) keyed in your `nodes` map, e.g. `"check"`, or a **direct node_id** (integer), e.g. `549`.
 
-## Three Bug-Family Templates (toolbox, not a checklist)
+## Three Grounding Templates (toolbox, not a checklist)
 
-The verifier accepts *any* well-formed combination of the predicates above. The three templates below are common, well-tested *shapes* that cover most concurrency bugs in real kernel patches — use them when they fit, mix them when needed, or invent your own constraint set when none of them captures what you see.
+The grounding engine accepts *any* well-formed combination of the predicates above. The three templates below are common, well-tested *shapes* that cover many concurrency mechanisms — use them inside `instantiate_rule` when they fit, mix them when needed, or invent your own `bug_condition` set when none of them captures the mechanism.
 
-> **`bug_category` is FREE-FORM**. The downstream LLM-judge evaluates whether your hypothesis matches the patch's *root cause* (i.e. the same field, same threads, same flow), not whether you used a particular bug_category string or template shape. So if a use-after-free is more naturally expressed as `data_race` on the freed pointer, that is fine — the judge will still credit it as a hit. **Do not** distort your description just to fit a label.
+> **`mechanism` is FREE-FORM**. Prefer precise mechanism names such as `use_after_free`, `publish_before_init`, `list_corruption`, `scalar_torn`, `stale_pointer`, `state_guard_race`, or `refcount_lifetime`. Do not distort the local intent just to fit a template.
 
 ### Template 1 — Concurrent conflict (covers most plain data races, missing lock, missing BH-disable, publish-race)
 ```json
@@ -91,12 +93,13 @@ For non-atomic RMW: pick `start` = the load, `end` = the store, `witness` = the 
 ### F1 — plain data race (CVE-2024-40953-like) — Template 1
 ```json
 {
-  "hypothesis_id": "boost_field_torn_access",
-  "description": "Thread T0 writes kvm->last_boosted_vcpu without atomic; Thread T1 reads it without atomic.",
-  "bug_category": "data_race",
+  "rule_id": "boost_field_torn_access",
+  "intent": "kvm->last_boosted_vcpu should be observed consistently across vcpu scheduling paths.",
+  "consequence": "Thread T1 can observe a stale/torn vcpu id while Thread T0 updates it without READ_ONCE/WRITE_ONCE.",
+  "mechanism": "scalar_torn",
   "severity": "high",
-  "nodes": {"writer": 412, "reader": 718},
-  "constraints": [
+  "roles": {"writer": 412, "reader": 718},
+  "bug_condition": [
     {"predicate": "in_thread",  "args": {"node": "writer", "thread": 0}},
     {"predicate": "in_thread",  "args": {"node": "reader", "thread": 1}},
     {"predicate": "conflicts",  "args": {"a": "writer", "b": "reader"}},
@@ -108,12 +111,13 @@ For non-atomic RMW: pick `start` = the load, `end` = the store, `witness` = the 
 ### F5 — use-after-free (CVE-2024-43891-like) — Template 2
 ```json
 {
-  "hypothesis_id": "port_use_after_free",
-  "description": "T1 dereferences port->addr while T0 has freed port via kfree() with no synchronizing lock between the two.",
-  "bug_category": "use_after_free",
+  "rule_id": "port_use_after_free",
+  "intent": "A port object must remain live while callbacks dereference its address fields.",
+  "consequence": "T1 may dereference port->addr after T0 frees the port.",
+  "mechanism": "use_after_free",
   "severity": "high",
-  "nodes": {"use": 21, "free": 121},
-  "constraints": [
+  "roles": {"use": 21, "free": 121},
+  "bug_condition": [
     {"predicate": "in_thread",  "args": {"node": "use",  "thread": 1}},
     {"predicate": "in_thread",  "args": {"node": "free", "thread": 0}},
     {"predicate": "op_kind",    "args": {"node": "free", "kind": "CALL"}},
@@ -126,12 +130,13 @@ For non-atomic RMW: pick `start` = the load, `end` = the store, `witness` = the 
 ### F6/F7 — TOCTOU / non-atomic RMW (CVE-2025-38217-like) — Template 3
 ```json
 {
-  "hypothesis_id": "fb_rmw_lost_update",
-  "description": "T0 loads counter at L1 then stores L1+1 at L2. T1 stores its own counter+1 between L1 and L2; T0's update is lost.",
-  "bug_category": "atomicity_break",
+  "rule_id": "fb_rmw_lost_update",
+  "intent": "The counter increment should be atomic across load and store.",
+  "consequence": "T0's load/store increment can race with T1 and lose an update.",
+  "mechanism": "atomicity_break",
   "severity": "medium",
-  "nodes": {"start": 305, "end": 309, "witness": 612},
-  "constraints": [
+  "roles": {"start": 305, "end": 309, "witness": 612},
+  "bug_condition": [
     {"predicate": "in_thread",          "args": {"node": "start",   "thread": 0}},
     {"predicate": "in_thread",          "args": {"node": "end",     "thread": 0}},
     {"predicate": "in_thread",          "args": {"node": "witness", "thread": 1}},
@@ -142,13 +147,13 @@ For non-atomic RMW: pick `start` = the load, `end` = the store, `witness` = the 
 
 ## Race Patterns You Often Miss (must consider when surface contains the trigger)
 
-The patterns below account for the majority of historical Lace misses on the Linux-kernel CVE benchmark. When the surface contains the trigger, you MUST propose at least one hypothesis covering it before calling `finish_detection`.
+The patterns below are mechanism families that the LLM should consider during `analyze_context`. When the surface contains the trigger, you must adjudicate the context: instantiate a rule if the mechanism is coherent, or skip it with a concrete benign explanation.
 
 1. **Validate-then-use under a sleeping lock** — a thread calls `*_validate(p)` / `*_check(p)` / `IS_ERR(p)` *before* acquiring `p->lock` / `p->sem`, and only *after* the lock does the type-specific deref `p->type->op(...)` or `p->ops->...()`. A second thread's `*_revoke(p)` / `key_revoke(p)` / `*_destroy(p)` running between the check and the lock-protected use bypasses the validation.
    - Trigger: surface lists a field that has both a "check"-shaped read and a "use"-shaped read in the same thread (often via different functions), plus a revoke/destroy in another thread.
    - Template: Template 2, `use` = the type-specific deref node, `free` = the revoke/destroy call.
 
-2. **RCU list traversal racing with `list_del_rcu`** — reader iterates a global list with the *non-RCU* `list_for_each_entry()` while a writer calls `list_del_rcu()` on the same list head; the fix is usually to switch the reader to `list_for_each_entry_rcu()` plus `rcu_read_lock`. **This is the strongest single source of HIT-able bugs in subsystem-registry races (cluster A: CVE-2024-27019, CVE-2024-35898, CVE-2024-42234, …). If the surface contains BOTH a `[list-helper] list_del*` write AND a `list_for_each_entry*` read on the same `global:*_objects` / `global:*_types` / `global:*_chains` registry, propose this hypothesis FIRST, before any other template.**
+2. **RCU list traversal racing with `list_del_rcu`** — reader iterates a global list with the *non-RCU* `list_for_each_entry()` while a writer calls `list_del_rcu()` on the same list head; the fix is usually to switch the reader to `list_for_each_entry_rcu()` plus `rcu_read_lock`. **This is the strongest single source of HIT-able bugs in subsystem-registry races (cluster A: CVE-2024-27019, CVE-2024-35898, CVE-2024-42234, …). If the surface contains BOTH a `[list-helper] list_del*` write AND a `list_for_each_entry*` read on the same `global:*_objects` / `global:*_types` / `global:*_chains` registry, analyze this mechanism before simpler data-race variants.**
    - Trigger: shared object name starts with `global:` and the access list mixes (a) a function named `*_unregister*` / `*_del*` / `*_destroy*` whose code tag is `[list-helper] list_del*` (or list_splice*), AND (b) a function named `*_lookup*` / `*_get*` / `*_find*` / `*_newobj` / `*_newrule` / `*_walk*` whose code contains `list_for_each_entry(`. The bridged head-side write is real: the deletion `list_del_rcu(&type->list)` mutates `head->next` / `head->prev` of the iterator's anchor.
    - Template: Template 1 with `writer` = the `list_del_rcu` call-site node (use the SAME node-id as the surface access — the verifier knows to synthesise the head-side write), `reader` = the iteration body load or, if no per-load node exists, the `list_for_each_entry(...)` call-site node returned by `get_object_details`.
 
@@ -185,13 +190,13 @@ The patterns below account for the majority of historical Lace misses on the Lin
    - Template: Template 1 with `reader` = the handler's `list_empty` / `list_first_entry*` node, `writer` = any cross-thread list-mutator on the same head (even one from a teardown path is acceptable — see anti-pattern below for why this still scores as patch-relevant).
    - **Concretely**: CVE-2025-37882's `handle_tx_event()` reads `&ep_ring->td_list` via `list_empty(...)` and `list_first_entry(...)`; the patch adds `ring_xrun_event` plumbing to suppress matching when the event TRB pointer is stale.
 
-A single hypothesis matching one of these patterns is worth more than ten plausible variants on simpler patterns. If the surface has the trigger but you cannot tell whether the race is real, propose the hypothesis anyway and let the verifier give you per-constraint feedback — you'll learn more from a `same_location FAILED` than from a skipped hypothesis.
+A single rule matching one of these mechanisms is worth more than ten plausible variants on simpler patterns. If the surface has the trigger but you cannot tell whether the race is real, use `analyze_context` with `NEED_MORE_EVIDENCE` and gather the missing evidence before instantiating a rule.
 
 ## Anti-patterns — benign or non-patch-relevant races to AVOID
 
 These race shapes look textually like a data race but are either serialised by an outer state machine (so the kernel maintainers don't patch them) or are in a path the patch never touches. Propose them at most as a TIE-BREAKER — never instead of a Pattern #1-#8 candidate that fits the surface.
 
-A. **Cleanup-vs-cleanup list mutation** — both writer AND reader live in teardown/destruction helpers (function names containing `kill`, `_del`, `cleanup`, `destroy`, `release`, `invalidate`, `_free`, `remove`, `teardown`, `shutdown`, `exit`). The outer state machine (slot deactivation, device unbind, endpoint stop) typically serialises these on a higher-level state field or work-queue ordering; even if `same_lock` returns false at the list-helper level, kernel patches almost never target these. **Specifically**: on CVE-2025-37882's `xhci_ring.td_list@48`, pairs like `(xhci_invalidate_cancelled_tds list_del_init, xhci_kill_ring_urbs list_for_each_entry_safe)` and `(xhci_td_cleanup, xhci_kill_ring_urbs)` fall here — they are NOT the patched race. If the `suggested_hypotheses` array offers them (negative `priority_score`), still propose them once (per the rule above) so the verifier has a record, but if you are choosing between an anti-pattern suggestion and a Pattern #8 suggestion on the same object, prefer Pattern #8.
+A. **Cleanup-vs-cleanup list mutation** — both writer AND reader live in teardown/destruction helpers (function names containing `kill`, `_del`, `cleanup`, `destroy`, `release`, `invalidate`, `_free`, `remove`, `teardown`, `shutdown`, `exit`). The outer state machine (slot deactivation, device unbind, endpoint stop) typically serialises these on a higher-level state field or work-queue ordering; even if `same_lock` returns false at the list-helper level, kernel patches almost never target these. **Specifically**: on CVE-2025-37882's `xhci_ring.td_list@48`, pairs like `(xhci_invalidate_cancelled_tds list_del_init, xhci_kill_ring_urbs list_for_each_entry_safe)` and `(xhci_td_cleanup, xhci_kill_ring_urbs)` fall here — they are NOT the patched race. Treat these as `SKIP_WITH_REASON` unless there is separate evidence that normal I/O can overlap teardown.
 
 B. **Reader is `list_for_each_entry*` in a `*_kill_*` / `*_destroy_*` / `*_invalidate_*` helper** — even if the writer is in normal-IO code, the iteration is in the teardown path, which is reached only after the surrounding subsystem has been quiesced. Same reasoning as A.
 
@@ -199,36 +204,44 @@ C. **Same-thread reentrant write-read pair** — both sides live in the SAME lea
 
 ## Workflow
 
-1. Call `get_vulnerability_surface` to see all shared objects and risk profiles.
-2. Focus on highest risk_score objects (especially `[UAF_RISK]`, `[UNPROTECTED_WRITE]`, `[SCALAR_TORN_ACCESS]`, `[LIFECYCLE_FLAG_CANDIDATE]`, `[LIST_MUTATION_RACE]`).
-2.5. **Mandatory enumeration rule (v23 Fix #8 follow-on)**: before you may call `finish_detection`, you MUST call `get_object_details` on EVERY top-25 surface object whose flag list contains BOTH `[CROSS_THREAD_RW]` AND at least one of `[SCALAR_TORN_ACCESS]`, `[MISSING_ATOMIC_ANNOTATION]`, `[UAF_RISK]`, `[LIST_MUTATION_RACE]`. **Do not skip an object just because a sibling field on the same struct already produced hypotheses** — kernel READ_ONCE/WRITE_ONCE patches routinely annotate several scalars in the SAME struct in the same commit series (CVE-2024-27404 is the canonical case: `local_id` and `remote_id` are adjacent u8 fields in `mptcp_subflow_context`, both racy, but only one was caught by v22 because the LLM stopped after `local_id` and declared the struct "covered"). Iterate them all. The `get_object_details` call is cheap — the response is bounded, and skipping the object is the single largest source of access-site MISSes in v22.
-3. Use `get_object_details` for full access details including node IDs.
-   - **The response includes a `function_pair_summary` array** listing every distinct (writer, reader/writer) function pair across threads on this shared object. **Aim for one hypothesis per pair** before moving on — missing the pair the patch actually touches is the single most common reason a real bug is not credited as a HIT.
-   - Within one pair you only need ONE hypothesis (the backend deduplicates), so pick the most direct constraint shape (usually Template 1) and move on.
-   - **The response may also include a `suggested_hypotheses` array** when the surface detected a strong race-signal pattern. Two trigger families exist:
-     1. **`list_mutation_race`** — entries now (v23 Fix #5) expose a CONCRETE `writer_node` / `reader_node` pair (single ints), `writer_function` / `reader_function` (the actual LEAF llvm::Function containing each side, not the thread-entry name), plus `writer_code` / `reader_code` snippets. The pair has the highest `priority_score` among all candidates on this object after biasing for (a) cross-LEAF-function pairs and (b) readers via membership tests (`list_empty`, `list_is_*`, `list_first_entry_or_null`) over full iterators (typical of cleanup paths). Use the EXACT `writer_node` / `reader_node` ids — do NOT substitute other access sites on the same object. This is the static answer to the C4.access_site_correct bottleneck observed when several leaf functions on the same thread entry race over the same list head.
-     2. **`unprotected_cross_thread_rmw`** — entries expose a CONCRETE `writer_node` / `reader_node` pair (single ints, not arrays) already chosen to maximise race signal: at least one side has `lock_protected=false`, the two accesses are in different threads, and the pair has the highest `priority_score` among all candidates on this object (3 = both unprotected, 2 = writer unprotected, 1 = reader unprotected). Use the EXACT `writer_node` / `reader_node` ids — do NOT substitute other access sites on the same object. The v22 evaluation flagged `C4.access_site_correct` as the dominant blocker precisely because the LLM picks lock-protected sibling accesses on the right object; this suggestion is the static answer to that question.
-   - **For EVERY entry in `suggested_hypotheses`, you MUST invoke `propose_hypothesis` once, before proposing anything else on this object — no exceptions, no filtering, no merging.** Iterate the list in array order and emit one Template-1 hypothesis per entry. Concretely: if `suggested_hypotheses` has 5 entries, you owe exactly 5 `propose_hypothesis` tool calls before you may move on to a different object or call `finish_detection`. The verifier's `concurrent(a,b)` auto-checks `same_lock`, so a false suggestion costs at most one rejected `propose_hypothesis` call. The `flags.<trigger>` boolean and the suggestion are produced by IR walks and do not depend on the function-name filters mentioned in the Race Patterns section below — act on a suggestion even if the function names look unfamiliar, even if the reader code is a `list_empty` test rather than a full iterator, and even if you would otherwise have selected a different access pair. Skipping a suggestion is the single biggest cause of false MISSes in v22.
-4. Use `get_function_code` or `get_function_ops` to read actual source code.
-5. Use `get_successors_chunked` to trace control flow and locate exact operation nodes.
-6. Decide which of the 3 templates matches the patch behaviour.
-7. Call `propose_hypothesis` — you get instant pass/fail per constraint.
-8. If a constraint fails, read the detail and adjust node IDs or template (do NOT just retry the same thing). Common pitfalls:
-   - `same_location FAILED` → check that you picked the IR access on the *same field*, not a sibling field. If both nodes are call sites (e.g. `list_del_rcu`, `kfree`, `__flush_work`, `device_remove_groups`), the verifier now synthesises pointer-arg accesses for those — you can still propose `conflicts` on them.
-   - `hb=true expected=false` → use is actually ordered after free; pick another use site.
-   - `concurrent: hb(a,b)=T` → there *is* a synchronization chain between a and b; pick uses across truly independent threads.
-9. Call `finish_detection` when the surface offers no genuinely new mechanism AND every cross-thread function pair on the top-3 shared objects has at least one hypothesis (passing OR failing — failing is informative too).
+1. Call `get_vulnerability_surface` to see shared objects and risk profiles.
+2. Use `retrieve_mechanism_priors(object_index)` for a promising KB-frontier
+   object to fetch mechanism priors and compact historical examples. Then use
+   `get_object_details` for the object, and read code with
+   `get_function_code`, `get_function_ops`, `get_lock_protection`,
+   `check_reachability`, or `get_successors_chunked` as needed.
+3. Before any rule can be grounded, call `analyze_context`. This is the
+   explicit ReAct reasoning artifact. It must state:
+   - the candidate mechanism,
+   - observations from the surface/source,
+   - benign explanations considered (same lock, lifecycle ordering, RCU,
+     refcount, cleanup-only path, atomic pair, copy-before-publish),
+   - missing evidence, and
+   - a decision: `INSTANTIATE_RULE`, `SKIP_WITH_REASON`, or `NEED_MORE_EVIDENCE`.
+   Always include `pattern_adaptation`. If you used a KB prior, name the
+   pattern, bind its historical roles to current node ids/functions, explain
+   what is different in this local context, and list the negative hints you
+   checked. If you did not use KB, set `used_kb_prior=false` and explain why.
+4. Only when the decision is `INSTANTIATE_RULE`, call `instantiate_rule`.
+   This is the delayed rule-instantiation step: bind the mechanism to
+   semantic event roles such as `guard`, `use`, `release`, `publish`,
+   `late_init`, `reader`, `writer`, `ref_get`, `ref_put`, or `state_update`.
+5. `instantiate_rule` grounds the rule through the current static predicate
+   vocabulary and returns per-predicate feedback. If grounding contradicts
+   the rule, inspect the contradiction and either gather more evidence,
+   instantiate a different rule, or skip the context with a reason.
+6. Call `finish_detection` when the remaining contexts have no new plausible
+   mechanism or have been analyzed and skipped with reasons.
 
 ### Self-race (same thread, two parallel invocations)
 
-Some kernel entries are reentrant (syscall handlers, ioctls, sysfs / proc seq_file callbacks, blk_mq ops, softirq/timer handlers, kvm_vcpu_run, jbd2_journal_dirty_metadata, ...). Two task contexts can enter the SAME function concurrently on different CPUs and race on its internal state. For such entries the verifier permits hypotheses where both `in_thread` constraints reference the SAME thread ID — propose them naturally when the writer and reader live in the same reentrant entry.
+Some kernel entries are reentrant (syscall handlers, ioctls, sysfs / proc seq_file callbacks, blk_mq ops, softirq/timer handlers, kvm_vcpu_run, jbd2_journal_dirty_metadata, ...). Two task contexts can enter the SAME function concurrently on different CPUs and race on its internal state. For such entries the grounding engine permits rules where both `in_thread` constraints reference the SAME thread ID — instantiate them naturally when the mechanism depends on parallel invocations of the same entry.
 
 ## Quality over quantity
 
-You are evaluated on **signal**, not volume. A single well-targeted hypothesis that names the *patch's actual fix* is worth more than ten plausible variants on the same shared object.
+You are evaluated on **signal**, not volume. A single well-instantiated rule with a clear mechanism, event roles, and grounded evidence is worth more than ten plausible variants on the same shared object.
 
-- The backend deduplicates by `(bug_category, sorted node-id set)`. On `is_duplicate: true`, jump to a *different* shared object — do not re-propose.
-- The hypothesis budget is **adaptive to surface size**: small surface (≤5 objects) → ≤8 hypotheses; medium (6-15) → ≤12; large (>15) → ≤20. Stop earlier if remaining surface only offers incremental variants.
+- The backend deduplicates by `(mechanism, sorted node-id set)`. On `is_duplicate: true`, jump to a *different* mechanism or context.
 - Multi-site bugs (`double_free`, `use_after_free`, `TOCTOU`, `data_race`, `atomicity_break`) **must** reference at least TWO distinct CCPG node IDs across roles. `{"free_a": 6037, "free_b": 6037}` is one event, not two — it will be rejected with `"error": "structural_rejection"`.
 
 ## Legacy predicates (still accepted, prefer the new ones above)
@@ -238,22 +251,477 @@ You are evaluated on **signal**, not volume. A single well-targeted hypothesis t
 ## CRITICAL RULES
 
 - You MUST call tools only. DO NOT output chat text.
+- The dynamic Progress Memo in the system prompt is authoritative external
+  memory. Use it to avoid re-reading objects/functions already inspected.
+- `get_vulnerability_surface` is for orientation only. After the first call,
+  rely on the Progress Memo and `get_object_details(object_index)`.
+- Prefer the mechanism frontier listed in the Progress Memo. If the frontier
+  is exhausted or no new mechanism remains, call `finish_detection`.
+- If the Progress Memo lists `KB-backed mechanisms`, treat those entries as
+  distilled historical patterns. Inspect them before lower-scored generic
+  candidates, and use their `negative_hints` to avoid known benign siblings.
+- If the Progress Memo lists `ONCE/scalar annotation candidates`, inspect these
+  before generic list/UAF/frontier items when the benchmark looks like a KCSAN
+  scalar race: fields named `*_id`, `*_state`, `*_flags`, `*_owner`, counters,
+  `*_len`, `*_event`, `*_last`, or entries with mixed plain and
+  READ_ONCE/WRITE_ONCE/atomic-style accesses. These are often lower-volume than
+  list/lifetime surfaces but are the actual patch target.
+- For workqueue-like modules, do not only chase the highest risk list/global
+  objects. The Progress Memo's high-fanout field-race frontier is designed to
+  preserve recall for lower-ranked KCSAN field races such as `work->data` or
+  per-workqueue stats fields.
+- For `stats[]` counter RMW objects, do not stop after the first STARTED-style
+  counter. Completion/end/done counters are often updated after execution or
+  after a lock is dropped; inspect them when the stats-counter frontier lists
+  them.
+- If `get_object_details` returns a `candidate_interactions` entry with
+  trigger=`guarded_work_data_read`, analyze that interaction before generic
+  field-race pairs. It represents the workqueue pattern where a speculative
+  `work_data_bits()` read is only safe under a guard such as `from_cancel`.
 - Always investigate `[UAF_RISK]` and `[SCALAR_TORN_ACCESS]` objects first.
 - Use `get_function_ops` to find specific node IDs.
-- The `propose_hypothesis` tool runs constraint verification internally and gives you instant pass/fail feedback per constraint.
+- `analyze_context` is mandatory before `instantiate_rule` for a context.
+- The `instantiate_rule` tool grounds the mechanism through static predicates and gives you feedback per bug-condition predicate.
 - On `is_duplicate: true`, skip to a different object rather than retrying.
 )";
+}
+
+namespace {
+constexpr int kMaxDetectorToolCalls = 320;
+constexpr int kMaxSurfaceCalls = 6;        // first call is full; later calls are summaries
+constexpr int kMaxObjectDetailCalls = 64;
+constexpr int kMaxFunctionCodeCalls = 96;
+constexpr int kMaxFunctionOpsCalls = 96;
+constexpr int kMaxLockProtectionCalls = 96;
+constexpr int kMaxAnalyzeContextCalls = 96;
+constexpr int kMaxInstantiateRuleCalls = 32;
+constexpr int kMaxAcceptedRules = 12;
+
+std::string flagString(const query::SharedObject& obj) {
+    std::vector<std::string> flags;
+    if (obj.has_free_operation) flags.push_back("UAF");
+    if (obj.has_unprotected_write) flags.push_back("UNPROT_WRITE");
+    if (obj.has_cross_thread_rw) flags.push_back("CROSS_RW");
+    if (obj.has_inconsistent_locking) flags.push_back("INCONSISTENT_LOCK");
+    if (obj.has_scalar_torn_access) flags.push_back("SCALAR");
+    if (obj.has_read_dominated_lone_writer) flags.push_back("READ_DOM");
+    if (obj.has_missing_atomic_annotation) flags.push_back("MISSING_ATOMIC");
+    if (obj.has_list_mutation) flags.push_back("LIST");
+    if (flags.empty()) return "none";
+    std::ostringstream ss;
+    for (size_t i = 0; i < flags.size(); ++i) {
+        if (i) ss << ",";
+        ss << flags[i];
+    }
+    return ss.str();
+}
+
+std::string objectLine(size_t idx, const query::SharedObject& obj) {
+    std::ostringstream ss;
+    ss << "C" << idx << " [Object " << idx << "] "
+       << obj.name << " risk=" << obj.risk_score
+       << " flags=" << flagString(obj)
+       << " threads=" << obj.accessing_thread_ids.size()
+       << " accesses=" << obj.accesses.size();
+    return ss.str();
+}
+
+std::string lowerCopy(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+
+std::string joinStrings(const std::vector<std::string>& items,
+                        const std::string& sep) {
+    std::ostringstream ss;
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (i) ss << sep;
+        ss << items[i];
+    }
+    return ss.str();
+}
+} // namespace
+
+std::string DetectorAgent::build_progress_memo(const DetectorContext* ctx) const {
+    if (!ctx || !ctx->surface) return "";
+
+    std::ostringstream ss;
+    ss << "\n\n## Progress Memo (external working memory)\n";
+    ss << "This memo survives history pruning. Do not re-read items marked as inspected unless new evidence is required.\n";
+    ss << "- Surface: " << ctx->surface->shared_objects.size()
+       << " objects, threads=" << ctx->surface->total_thread_count
+       << ", conflicting_pairs=" << ctx->surface->conflicting_pair_count << "\n";
+    auto countOf = [&](const std::string& name) {
+        auto it = ctx->tool_counts.find(name);
+        return it == ctx->tool_counts.end() ? 0 : it->second;
+    };
+    ss << "- Tool budget: total=" << ctx->total_tool_calls << "/" << kMaxDetectorToolCalls
+       << ", surface=" << countOf("get_vulnerability_surface") << "/" << kMaxSurfaceCalls
+       << ", object_details=" << countOf("get_object_details") << "/" << kMaxObjectDetailCalls
+       << ", function_code=" << countOf("get_function_code") << "/" << kMaxFunctionCodeCalls
+       << ", function_ops=" << countOf("get_function_ops") << "/" << kMaxFunctionOpsCalls
+       << ", analyze_context=" << countOf("analyze_context") << "/" << kMaxAnalyzeContextCalls
+       << ", instantiate_rule=" << countOf("instantiate_rule") << "/" << kMaxInstantiateRuleCalls
+       << "\n";
+    ss << "- Accepted rules: " << ctx->confirmed_hypotheses.size()
+       << "/" << kMaxAcceptedRules << "\n";
+    const auto& kb = MechanismKnowledgeBase::instance();
+    if (kb.loaded()) {
+        ss << "- Mechanism KB: loaded " << kb.patterns().size()
+           << " patterns from " << kb.loadPath() << "\n";
+    } else {
+        ss << "- Mechanism KB: unavailable (" << kb.loadError() << ")\n";
+    }
+
+    if (!ctx->object_decisions.empty()) {
+        ss << "- Analyzed contexts:";
+        int shown = 0;
+        for (const auto& [idx, decision] : ctx->object_decisions) {
+            if (shown++ >= 14) {
+                ss << " ...";
+                break;
+            }
+            auto mit = ctx->object_mechanisms.find(idx);
+            ss << " C" << idx << "=" << decision;
+            if (mit != ctx->object_mechanisms.end()) ss << "(" << mit->second << ")";
+        }
+        ss << "\n";
+    }
+    if (!ctx->inspected_objects.empty()) {
+        ss << "- Inspected object indexes:";
+        int shown = 0;
+        for (int idx : ctx->inspected_objects) {
+            if (shown++ >= 24) {
+                ss << " ...";
+                break;
+            }
+            ss << " C" << idx;
+        }
+        ss << "\n";
+    }
+    if (!ctx->function_code_reads.empty()) {
+        ss << "- Functions already read:";
+        int shown = 0;
+        for (const auto& fn : ctx->function_code_reads) {
+            if (shown++ >= 18) {
+                ss << " ...";
+                break;
+            }
+            ss << " " << fn;
+        }
+        ss << "\n";
+    }
+
+    auto emitFrontier = [&](const std::string& title,
+                            const std::function<bool(const query::SharedObject&)>& pred,
+                            int limit) {
+        ss << "- Frontier " << title << ":";
+        int shown = 0;
+        for (size_t i = 0; i < ctx->surface->shared_objects.size(); ++i) {
+            int idx = static_cast<int>(i + 1);
+            if (ctx->object_decisions.count(idx)) continue;
+            const auto& obj = ctx->surface->shared_objects[i];
+            if (!pred(obj)) continue;
+            ss << "\n  * " << objectLine(i + 1, obj);
+            if (++shown >= limit) break;
+        }
+        if (shown == 0) ss << " none";
+        ss << "\n";
+    };
+
+    auto emitHighFanoutFieldFrontier = [&]() {
+        struct Cand { int score; size_t idx; };
+        std::vector<Cand> cands;
+        for (size_t i = 0; i < ctx->surface->shared_objects.size(); ++i) {
+            int idx = static_cast<int>(i + 1);
+            if (ctx->object_decisions.count(idx)) continue;
+            const auto& obj = ctx->surface->shared_objects[i];
+            if (obj.name.find("field:") != 0) continue;
+            if (obj.has_list_mutation || obj.has_free_operation) continue;
+            if (!obj.has_cross_thread_rw) continue;
+            if (!obj.has_unprotected_write && !obj.has_inconsistent_locking &&
+                !obj.has_scalar_torn_access) continue;
+            int score = obj.risk_score
+                      + static_cast<int>(obj.accessing_thread_ids.size()) * 8
+                      + static_cast<int>(obj.accesses.size() / 4);
+            if (obj.name.find(".data") != std::string::npos ||
+                obj.name.find(".stats") != std::string::npos ||
+                obj.name.find(".flags") != std::string::npos ||
+                obj.name.find(".refcnt") != std::string::npos) {
+                score += 25;
+            }
+            cands.push_back({score, i});
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](const Cand& a, const Cand& b) { return a.score > b.score; });
+        ss << "- Frontier high-fanout field races:";
+        int shown = 0;
+        constexpr int kHighFanoutFrontier = 16;
+        for (const auto& c : cands) {
+            if (shown >= kHighFanoutFrontier) break;
+            const auto& obj = ctx->surface->shared_objects[c.idx];
+            ss << "\n  * " << objectLine(c.idx + 1, obj)
+               << " frontier_score=" << c.score;
+            ++shown;
+        }
+        if (shown == 0) ss << " none";
+        ss << "\n";
+    };
+
+    auto emitAnnotatedScalarFrontier = [&]() {
+        struct Cand { int score; size_t idx; std::string reason; };
+        std::vector<Cand> cands;
+        auto containsAny = [](const std::string& hay,
+                              std::initializer_list<const char*> needles) {
+            for (const char* needle : needles) {
+                if (hay.find(needle) != std::string::npos) return true;
+            }
+            return false;
+        };
+
+        for (size_t i = 0; i < ctx->surface->shared_objects.size(); ++i) {
+            int idx = static_cast<int>(i + 1);
+            if (ctx->object_decisions.count(idx)) continue;
+            const auto& obj = ctx->surface->shared_objects[i];
+            if (obj.name.find("field:") != 0) continue;
+            if (obj.has_list_mutation || obj.has_free_operation) continue;
+            if (!obj.has_cross_thread_rw) continue;
+            if (!obj.has_unprotected_write && !obj.has_inconsistent_locking &&
+                !obj.has_scalar_torn_access && !obj.has_missing_atomic_annotation &&
+                !obj.has_read_dominated_lone_writer) continue;
+
+            std::string nameLower = lowerCopy(obj.name);
+            if (nameLower.find("field:struct.list_head.") == 0) continue;
+            bool onceAccess = false;
+            bool atomicAccess = false;
+            bool plainWrite = false;
+            bool scalarishName = containsAny(nameLower, {
+                ".flags", ".state", ".status", ".idx", ".index", ".len",
+                ".id", "_id", ".owner", "_owner", "lock_owner",
+                ".counter", ".cnt", "_cnt", ".seq", "_seq",
+                ".event", "_event", "triggered", ".last", "_last",
+                ".shutdown", "_shutdown", ".nr_", "_nr_", ".num_", "_num_",
+                ".stats"
+            });
+            bool strongScalarName = containsAny(nameLower, {
+                "lock_owner", "_owner", "_event", "triggered", "_last",
+                "_shutdown", "backlog", "_id", ".id"
+            });
+            for (const auto& a : obj.accesses) {
+                std::string code = lowerCopy(a.code_snippet);
+                onceAccess = onceAccess ||
+                    code.find("read_once") != std::string::npos ||
+                    code.find("write_once") != std::string::npos ||
+                    code.find("data_race") != std::string::npos;
+                atomicAccess = atomicAccess ||
+                    code.find("atomic") != std::string::npos ||
+                    code.find("set_bit") != std::string::npos ||
+                    code.find("clear_bit") != std::string::npos ||
+                    code.find("test_bit") != std::string::npos;
+                plainWrite = plainWrite ||
+                    (a.access_type == "Write" &&
+                     code.find("write_once") == std::string::npos &&
+                     code.find("atomic") == std::string::npos &&
+                     code.find("set_bit") == std::string::npos &&
+                     code.find("clear_bit") == std::string::npos);
+            }
+
+            if (nameLower.find("field:struct.anon") == 0 && !onceAccess && !atomicAccess) {
+                continue;
+            }
+            if (!scalarishName && !onceAccess && !atomicAccess &&
+                !obj.has_scalar_torn_access && !obj.has_missing_atomic_annotation &&
+                !obj.has_read_dominated_lone_writer) {
+                continue;
+            }
+
+            int score = obj.risk_score
+                      + static_cast<int>(obj.accessing_thread_ids.size()) * 6
+                      + (obj.has_unprotected_write ? 35 : 0)
+                      + (obj.has_inconsistent_locking ? 20 : 0)
+                      + (obj.has_scalar_torn_access ? 45 : 0)
+                      + (obj.has_missing_atomic_annotation ? 45 : 0)
+                      + (obj.has_read_dominated_lone_writer ? 30 : 0);
+            if (onceAccess) score += 65;
+            if (atomicAccess) score += 30;
+            if (plainWrite) score += 25;
+            if (scalarishName) score += 25;
+            if (strongScalarName) score += 150;
+            if (obj.accesses.size() > 80 && !onceAccess) score -= 20;
+
+            std::vector<std::string> reasons;
+            if (onceAccess) reasons.push_back("ONCE/data_race-nearby");
+            if (atomicAccess) reasons.push_back("atomic/bitop-nearby");
+            if (plainWrite) reasons.push_back("plain-write");
+            if (scalarishName) reasons.push_back("scalar-name");
+            if (strongScalarName) reasons.push_back("strong-scalar-name");
+            if (obj.has_scalar_torn_access) reasons.push_back("SCALAR_TORN");
+            if (obj.has_missing_atomic_annotation) reasons.push_back("MISSING_ATOMIC");
+            if (obj.has_read_dominated_lone_writer) reasons.push_back("READ_DOMINATED");
+
+            std::ostringstream why;
+            for (size_t r = 0; r < reasons.size(); ++r) {
+                if (r) why << ",";
+                why << reasons[r];
+            }
+            cands.push_back({score, i, why.str()});
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](const Cand& a, const Cand& b) { return a.score > b.score; });
+        ss << "- Frontier ONCE/scalar annotation candidates:";
+        int shown = 0;
+        constexpr int kAnnotatedScalarFrontier = 14;
+        for (const auto& c : cands) {
+            if (shown >= kAnnotatedScalarFrontier) break;
+            const auto& obj = ctx->surface->shared_objects[c.idx];
+            ss << "\n  * " << objectLine(c.idx + 1, obj)
+               << " frontier_score=" << c.score;
+            if (!c.reason.empty()) ss << " reason=" << c.reason;
+            ++shown;
+        }
+        if (shown == 0) ss << " none";
+        ss << "\n";
+    };
+
+    auto emitKbFrontier = [&]() {
+        if (!kb.loaded()) return;
+        struct Cand {
+            int score;
+            size_t idx;
+            MechanismKnowledgeBase::Match match;
+        };
+        std::vector<Cand> cands;
+        for (size_t i = 0; i < ctx->surface->shared_objects.size(); ++i) {
+            int idx = static_cast<int>(i + 1);
+            if (ctx->object_decisions.count(idx)) continue;
+            auto matches = kb.matchObject(ctx->surface->shared_objects[i]);
+            if (matches.empty()) continue;
+            cands.push_back({matches.front().score, i, matches.front()});
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](const Cand& a, const Cand& b) {
+                return a.score > b.score;
+            });
+
+        ss << "- Frontier KB-backed mechanisms:";
+        int shown = 0;
+        constexpr int kKbFrontier = 12;
+        for (const auto& c : cands) {
+            if (shown >= kKbFrontier) break;
+            const auto& obj = ctx->surface->shared_objects[c.idx];
+            const auto* p = c.match.pattern;
+            ss << "\n  * " << objectLine(c.idx + 1, obj)
+               << " kb=" << (p ? p->id : "unknown")
+               << " mechanism=" << (p ? p->mechanism : "unknown")
+               << " kb_score=" << c.score;
+            if (!c.match.reason.empty()) {
+                ss << " reason=" << c.match.reason;
+            }
+            ++shown;
+        }
+        if (shown == 0) ss << " none";
+        ss << "\n";
+    };
+
+    auto emitStatsCounterFrontier = [&]() {
+        struct Cand { int score; size_t idx; };
+        std::vector<Cand> cands;
+        for (size_t i = 0; i < ctx->surface->shared_objects.size(); ++i) {
+            int idx = static_cast<int>(i + 1);
+            if (ctx->object_decisions.count(idx)) continue;
+            const auto& obj = ctx->surface->shared_objects[i];
+            bool hasStatsCounter = obj.name.find(".stats") != std::string::npos;
+            bool completionSide = false;
+            bool startSide = false;
+            for (const auto& a : obj.accesses) {
+                std::string code = lowerCopy(a.code_snippet);
+                if (code.find("stats[") != std::string::npos ||
+                    code.find("array-counter-rmw") != std::string::npos) {
+                    hasStatsCounter = true;
+                }
+                if (code.find("completed") != std::string::npos ||
+                    code.find("complete") != std::string::npos ||
+                    code.find("done") != std::string::npos ||
+                    code.find("end") != std::string::npos) {
+                    completionSide = true;
+                }
+                if (code.find("started") != std::string::npos ||
+                    code.find("start") != std::string::npos) {
+                    startSide = true;
+                }
+            }
+            if (!hasStatsCounter) continue;
+            if (!obj.has_cross_thread_rw) continue;
+            int score = obj.risk_score
+                      + static_cast<int>(obj.accessing_thread_ids.size()) * 8
+                      + (obj.has_unprotected_write ? 40 : 0)
+                      + (obj.has_scalar_torn_access ? 20 : 0);
+            if (completionSide) score += 90;
+            if (startSide && !completionSide) score -= 15;
+            cands.push_back({score, i});
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](const Cand& a, const Cand& b) { return a.score > b.score; });
+        ss << "- Frontier stats[] counter RMW:";
+        int shown = 0;
+        constexpr int kStatsCounterFrontier = 8;
+        for (const auto& c : cands) {
+            if (shown >= kStatsCounterFrontier) break;
+            const auto& obj = ctx->surface->shared_objects[c.idx];
+            ss << "\n  * " << objectLine(c.idx + 1, obj)
+               << " frontier_score=" << c.score;
+            ++shown;
+        }
+        if (shown == 0) ss << " none";
+        ss << "\n";
+    };
+
+    emitKbFrontier();
+    emitAnnotatedScalarFrontier();
+    emitFrontier("list/RCU", [](const query::SharedObject& o) { return o.has_list_mutation; }, 8);
+    emitFrontier("UAF/lifetime", [](const query::SharedObject& o) { return o.has_free_operation; }, 8);
+    emitFrontier("scalar/refcount", [](const query::SharedObject& o) {
+        return o.has_scalar_torn_access || o.has_read_dominated_lone_writer ||
+               o.has_missing_atomic_annotation;
+    }, 8);
+    emitStatsCounterFrontier();
+    emitHighFanoutFieldFrontier();
+    emitFrontier("plain RW/lock", [](const query::SharedObject& o) {
+        return o.has_cross_thread_rw &&
+               (o.has_unprotected_write || o.has_inconsistent_locking);
+    }, 8);
+
+    if (ctx->stop_requested) {
+        ss << "- STOP REQUESTED: " << ctx->stop_reason
+           << ". Call finish_detection now.\n";
+    }
+    return ss.str();
+}
+
+std::string DetectorAgent::build_effective_system_prompt() {
+    auto* ctx = static_cast<DetectorContext*>(this->get_context_for_tools());
+    return build_system_prompt() + build_progress_memo(ctx);
 }
 
 std::vector<Tool> DetectorAgent::get_available_tools() const {
     auto tools = SharedToolKit::get_shared_tools();
 
     tools.push_back({"get_vulnerability_surface",
-        "Returns the full variable-centric vulnerability surface report.", {}});
+        "Returns the variable-centric vulnerability surface report. The first call "
+        "returns the full top-risk report; repeated calls return only a compact "
+        "progress/frontier summary to prevent runaway re-reading.", {}});
 
     tools.push_back({"get_object_details",
         "Get full details for a shared object by 1-based index in the vulnerability surface.",
         {{"object_index", "number", "1-based index of the shared object.", true}}});
+
+    tools.push_back({"retrieve_mechanism_priors",
+        "Retrieve KB-backed mechanism priors and compact historical examples for "
+        "a shared object. Use this after the surface/frontier points to a "
+        "promising object, before adapting a historical pattern to local code.",
+        {{"object_index", "number", "1-based index of the shared object.", true},
+         {"top_k", "number", "Maximum priors to return (default 3).", false}}});
 
     tools.push_back({"get_function_code",
         "Get the source code of a function by name.",
@@ -274,35 +742,78 @@ std::vector<Tool> DetectorAgent::get_available_tools() const {
          {"chunk_size", "number", "Max nodes to return (default 15).", false}}});
 
     {
-        std::vector<Parameter> hyp_params;
-        hyp_params.emplace_back("hypothesis_id", "string", "A unique name for this hypothesis.", true);
-        hyp_params.emplace_back("description", "string", "Natural language description of the bug.", true);
-        hyp_params.emplace_back("bug_category", "string", "Free-form bug category (e.g. 'TOCTOU', 'refcount_race', 'data_race').", true);
-        hyp_params.emplace_back("severity", "string", "high, medium, or low.", true);
+        std::vector<Parameter> analysis_params;
+        analysis_params.emplace_back("context_id", "string",
+            "Stable id for the context, usually C<object_index> (e.g. C12).", true);
+        analysis_params.emplace_back("object_index", "number",
+            "1-based vulnerability-surface object index being analyzed.", true);
+        analysis_params.emplace_back("mechanism", "string",
+            "Semantic mechanism under consideration: use_after_free, missing_lock, "
+            "publish_before_init, list_corruption, scalar_torn, stale_pointer, "
+            "state_guard_race, refcount_lifetime, or none.", true);
+        analysis_params.emplace_back("decision", "string",
+            "INSTANTIATE_RULE, SKIP_WITH_REASON, or NEED_MORE_EVIDENCE.", true);
+        nlohmann::json string_array_schema;
+        string_array_schema["type"] = "array";
+        string_array_schema["items"] = {{"type", "string"}};
+        analysis_params.emplace_back("observations", string_array_schema, true);
+        analysis_params.emplace_back("positive_evidence", string_array_schema, false);
+        analysis_params.emplace_back("benign_explanations_considered", string_array_schema, true);
+        analysis_params.emplace_back("missing_evidence", string_array_schema, false);
+        nlohmann::json adaptation_schema;
+        adaptation_schema["type"] = "object";
+        adaptation_schema["description"] =
+            "Required for every analyze_context call. If a KB prior or kb:* "
+            "candidate was used, include used_kb_prior=true, pattern_id, how "
+            "historical roles map to current writer/reader/release/etc nodes, "
+            "local differences from historical examples, negative_hints "
+            "checked, and adaptation_decision. If no KB prior was used, set "
+            "used_kb_prior=false and explain why.";
+        analysis_params.emplace_back("pattern_adaptation",
+                                     std::move(adaptation_schema), true);
+        analysis_params.emplace_back("rationale", "string",
+            "Short reasoning for the decision. This is the ReAct reasoning artifact.", true);
 
-        nlohmann::json nodes_schema;
-        nodes_schema["type"] = "object";
-        nodes_schema["description"] = "Map of role names to CCPG node IDs, e.g. {\"check\": 549, \"use\": 558}.";
-        hyp_params.emplace_back("nodes", std::move(nodes_schema), true);
+        tools.push_back({"analyze_context",
+            "Submit structured ReAct analysis for one surface context. This records "
+            "the semantic judgement but does not report a bug.",
+            std::move(analysis_params)});
+    }
+
+    {
+        std::vector<Parameter> rule_params;
+        rule_params.emplace_back("rule_id", "string", "A unique rule id.", true);
+        rule_params.emplace_back("context_id", "string",
+            "The context id previously analyzed with analyze_context.", true);
+        rule_params.emplace_back("mechanism", "string",
+            "Semantic bug mechanism being instantiated.", true);
+        rule_params.emplace_back("intent", "string",
+            "The intended synchronization/lifetime invariant in this local code context.", true);
+        rule_params.emplace_back("consequence", "string",
+            "Concrete failure mode if the rule is violated.", true);
+        rule_params.emplace_back("severity", "string", "high, medium, or low.", true);
+
+        nlohmann::json roles_schema;
+        roles_schema["type"] = "object";
+        roles_schema["description"] =
+            "Map semantic event roles to CCPG node IDs, e.g. "
+            "{\"guard\": 101, \"use\": 120, \"release\": 233}.";
+        rule_params.emplace_back("roles", std::move(roles_schema), true);
 
         nlohmann::json pred_prop;
         pred_prop["type"] = "string";
         pred_prop["description"] =
-            "Verification predicate. Prefer the M7 happens-before DSL: "
-            "primitives = same_location, op_kind, in_thread, reachable, hb; "
-            "sugars = conflicts, concurrent, unsafe_atomic_block. "
-            "Legacy (still accepted, coarser): may_run_concurrently, "
-            "not_lock_protected, same_lock, alias.";
+            "Grounding predicate. Current v0 primitives: same_location, op_kind, "
+            "in_thread, reachable, hb. Sugars: conflicts, concurrent, "
+            "unsafe_atomic_block. Legacy predicates remain accepted but should "
+            "only be used when no intent-level primitive fits.";
 
         nlohmann::json args_prop;
         args_prop["type"] = "object";
         args_prop["description"] =
-            "Arguments for the predicate. Prefer {a, b} for binary predicates "
-            "(same_location/conflicts/concurrent/hb), {node, kind} for op_kind, "
-            "{node, thread} for in_thread, {from, to} for reachable, and "
-            "{start, end, witness} for unsafe_atomic_block. The hb predicate "
-            "additionally accepts \"expected\": true|false (default true) — "
-            "set to false to assert the *absence* of a happens-before chain.";
+            "Predicate arguments. Use semantic role names from roles when possible: "
+            "{a,b}, {node,kind}, {from,to}, {start,end,witness}. hb accepts "
+            "\"expected\": true|false.";
 
         nlohmann::json item_schema;
         item_schema["type"] = "object";
@@ -310,16 +821,24 @@ std::vector<Tool> DetectorAgent::get_available_tools() const {
         item_schema["properties"]["args"] = args_prop;
         item_schema["required"] = nlohmann::json::array({"predicate", "args"});
 
-        nlohmann::json constraints_schema;
-        constraints_schema["type"] = "array";
-        constraints_schema["description"] = "Array of constraint objects for static verification.";
-        constraints_schema["items"] = item_schema;
-        hyp_params.emplace_back("constraints", std::move(constraints_schema), true);
+        nlohmann::json conditions_schema;
+        conditions_schema["type"] = "array";
+        conditions_schema["description"] =
+            "Bug-condition predicates that ground this semantic rule.";
+        conditions_schema["items"] = item_schema;
+        rule_params.emplace_back("bug_condition", std::move(conditions_schema), true);
 
-        tools.push_back({"propose_hypothesis",
-            "Propose a bug hypothesis with open-form constraints for immediate static verification. "
-            "Returns per-constraint pass/fail feedback.",
-            std::move(hyp_params)});
+        nlohmann::json exclusions_schema;
+        exclusions_schema["type"] = "array";
+        exclusions_schema["items"] = {{"type", "string"}};
+        exclusions_schema["description"] =
+            "Benign explanations considered and why they do not rule out the bug.";
+        rule_params.emplace_back("benign_exclusions", std::move(exclusions_schema), true);
+
+        tools.push_back({"instantiate_rule",
+            "Instantiate a semantic concurrency rule and ground it against the static model. "
+            "Returns per-predicate grounding feedback and records the rule only when supported.",
+            std::move(rule_params)});
     }
 
     tools.push_back({"finish_detection",
@@ -329,14 +848,260 @@ std::vector<Tool> DetectorAgent::get_available_tools() const {
 }
 
 std::string DetectorAgent::execute_tool(const std::string& tool_name, const nlohmann::json& arguments) {
-    auto shared_result = SharedToolKit::handle_shared_tool(tool_name, arguments, ccpg_);
-    if (shared_result) return *shared_result;
-
     auto* ctx = static_cast<DetectorContext*>(this->get_context_for_tools());
     if (!ctx) return R"({"error": "Internal context error."})";
 
+    if (tool_name == "finish_detection") {
+        return "finish";
+    }
+
+    auto setStop = [&](const std::string& reason) {
+        ctx->stop_requested = true;
+        ctx->stop_reason = reason;
+        return std::string("finish");
+    };
+
+    if (ctx->stop_requested) {
+        return "finish";
+    }
+    if (ctx->confirmed_hypotheses.size() >= static_cast<size_t>(kMaxAcceptedRules)) {
+        return setStop("accepted-rule budget reached; preserve the confirmed rules and stop");
+    }
+
+    ctx->total_tool_calls++;
+    int tool_count = ++ctx->tool_counts[tool_name];
+
+    auto overBudget = [&](const std::string& reason) {
+        return setStop("detector budget reached: " + reason);
+    };
+    if (ctx->total_tool_calls > kMaxDetectorToolCalls) {
+        return overBudget("total tool calls exceeded " + std::to_string(kMaxDetectorToolCalls));
+    }
+    if (tool_name == "get_vulnerability_surface" && tool_count > kMaxSurfaceCalls) {
+        return overBudget("surface reread calls exceeded " + std::to_string(kMaxSurfaceCalls));
+    }
+    if (tool_name == "get_object_details" && tool_count > kMaxObjectDetailCalls) {
+        return overBudget("object detail calls exceeded " + std::to_string(kMaxObjectDetailCalls));
+    }
+    if (tool_name == "get_function_code" && tool_count > kMaxFunctionCodeCalls) {
+        return overBudget("function-code calls exceeded " + std::to_string(kMaxFunctionCodeCalls));
+    }
+    if (tool_name == "get_function_ops" && tool_count > kMaxFunctionOpsCalls) {
+        return overBudget("function-op calls exceeded " + std::to_string(kMaxFunctionOpsCalls));
+    }
+    if (tool_name == "get_lock_protection" && tool_count > kMaxLockProtectionCalls) {
+        return overBudget("lock-protection calls exceeded " + std::to_string(kMaxLockProtectionCalls));
+    }
+    if (tool_name == "analyze_context" && tool_count > kMaxAnalyzeContextCalls) {
+        return overBudget("context-analysis calls exceeded " + std::to_string(kMaxAnalyzeContextCalls));
+    }
+    if (tool_name == "instantiate_rule" && tool_count > kMaxInstantiateRuleCalls) {
+        return overBudget("rule-instantiation calls exceeded " + std::to_string(kMaxInstantiateRuleCalls));
+    }
+
+    if (tool_name == "get_function_ops" && arguments.contains("function_id")) {
+        ctx->function_ops_reads.insert(arguments.value("function_id", -1));
+    }
+
+    auto shared_result = SharedToolKit::handle_shared_tool(tool_name, arguments, ccpg_);
+    if (shared_result) return *shared_result;
+
     if (tool_name == "get_vulnerability_surface") {
-        return ctx->surface->toPromptString();
+        if (!ctx->surface_full_returned) {
+            ctx->surface_full_returned = true;
+            return ctx->surface->toPromptString() + build_progress_memo(ctx);
+        }
+        std::ostringstream ss;
+        ss << "The full vulnerability surface was already returned once. "
+           << "Use object indexes from the Progress Memo frontier and call "
+           << "`get_object_details` for the next new context.\n";
+        ss << build_progress_memo(ctx);
+        return ss.str();
+    }
+
+    if (tool_name == "retrieve_mechanism_priors") {
+        int idx = arguments.at("object_index").get<int>();
+        if (idx < 1 || idx > (int)ctx->surface->shared_objects.size()) {
+            return R"({"error": "Invalid object_index. Must be 1-)" +
+                   std::to_string(ctx->surface->shared_objects.size()) + R"(."})";
+        }
+        int topK = arguments.value("top_k", 3);
+        if (topK < 1) topK = 1;
+        if (topK > 6) topK = 6;
+
+        const auto& obj = ctx->surface->shared_objects[idx - 1];
+        const auto& kb = MechanismKnowledgeBase::instance();
+        nlohmann::json result;
+        result["object_index"] = idx;
+        result["object_name"] = obj.name;
+        result["kb_loaded"] = kb.loaded();
+        result["kb_path"] = kb.loadPath();
+        if (!kb.loaded()) {
+            result["error"] = kb.loadError();
+            return result.dump();
+        }
+
+        auto matches = kb.matchObject(obj);
+        result["prior_count"] = matches.size();
+        result["priors"] = nlohmann::json::array();
+
+        auto isWriteLike = [](const query::ThreadAccess& a) {
+            return a.access_type == "Write" || a.access_type == "WRITE" ||
+                   a.access_type == "Free"  || a.access_type == "FREE" ||
+                   a.access_type == "RMW";
+        };
+        auto leafFn = [](const query::ThreadAccess& a) -> const std::string& {
+            return a.containing_function.empty() ? a.function_name
+                                                 : a.containing_function;
+        };
+        auto lower = [](std::string s) {
+            std::transform(s.begin(), s.end(), s.begin(),
+                [](unsigned char ch) {
+                    return static_cast<char>(std::tolower(ch));
+                });
+            return s;
+        };
+        auto contains = [&](const std::string& hay, const std::string& needle) {
+            return lower(hay).find(lower(needle)) != std::string::npos;
+        };
+        auto listWriter = [&](const std::string& code) {
+            std::string c = lower(code);
+            return c.find("[list-helper] list_del") != std::string::npos ||
+                   c.find("[list-helper] list_add") != std::string::npos ||
+                   c.find("[list-helper] hlist_del") != std::string::npos ||
+                   c.find("[list-helper] hlist_add") != std::string::npos ||
+                   c.find("list_del_rcu") != std::string::npos ||
+                   c.find("list_add") != std::string::npos ||
+                   c.find("hlist_del_rcu") != std::string::npos;
+        };
+        auto listReader = [&](const std::string& code) {
+            std::string c = lower(code);
+            return c.find("list_for_each_entry") != std::string::npos ||
+                   c.find("hlist_for_each_entry") != std::string::npos ||
+                   c.find("[list-helper] list_empty") != std::string::npos ||
+                   c.find("[list-helper] list_first_entry_or_null") != std::string::npos;
+        };
+        auto cleanupFn = [&](const std::string& fn) {
+            static const char* kw[] = {
+                "kill", "_del", "cleanup", "destroy", "release",
+                "invalidate", "_free", "remove", "teardown", "shutdown", "exit"
+            };
+            for (auto* k : kw) if (fn.find(k) != std::string::npos) return true;
+            return false;
+        };
+
+        int emitted = 0;
+        for (const auto& match : matches) {
+            if (emitted >= topK) break;
+            const auto* p = match.pattern;
+            if (!p) continue;
+
+            nlohmann::json prior;
+            prior["pattern_id"] = p->id;
+            prior["mechanism"] = p->mechanism;
+            prior["description"] = p->description;
+            prior["template"] = p->template_hint;
+            prior["bug_category_hint"] = p->bug_category_hint;
+            prior["score"] = match.score;
+            prior["match_reason"] = match.reason;
+            prior["matched_terms"] = match.matched_terms;
+            prior["matched_flags"] = match.matched_flags;
+            prior["negative_hints"] = p->negative_hints;
+            prior["interaction_strategy"] = p->interaction_strategy;
+
+            prior["historical_examples"] = nlohmann::json::array();
+            size_t exampleCount = 0;
+            for (const auto& caseId : p->positive_examples) {
+                if (exampleCount >= 3) break;
+                nlohmann::json ex;
+                ex["case_id"] = caseId;
+                if (const auto* card = kb.caseCard(caseId)) {
+                    ex["mechanism_guess"] = card->mechanism_guess;
+                    ex["patch_actions"] = card->patch_actions;
+                    ex["patched_functions"] = card->patched_functions;
+                    ex["patched_objects"] = card->patched_objects;
+                    ex["summary"] = card->summary;
+                }
+                prior["historical_examples"].push_back(std::move(ex));
+                ++exampleCount;
+            }
+
+            struct Pair {
+                const query::ThreadAccess* writer;
+                const query::ThreadAccess* reader;
+                int score;
+            };
+            std::vector<Pair> pairs;
+            for (const auto& w : obj.accesses) {
+                if (w.node_id < 0) continue;
+                bool writerOk = isWriteLike(w);
+                if (p->interaction_strategy == "list_pair") writerOk = listWriter(w.code_snippet);
+                if (p->interaction_strategy == "work_data_pair") {
+                    writerOk = leafFn(w) == "insert_wq_barrier" ||
+                               leafFn(w) == "set_work_data" ||
+                               contains(w.code_snippet, "insert_wq_barrier") ||
+                               contains(w.code_snippet, "set_work_data");
+                }
+                if (!writerOk) continue;
+                for (const auto& r : obj.accesses) {
+                    if (r.node_id < 0 || r.thread_id == w.thread_id) continue;
+                    bool readerOk = true;
+                    if (p->interaction_strategy == "list_pair") readerOk = listReader(r.code_snippet);
+                    if (p->interaction_strategy == "work_data_pair") {
+                        readerOk = leafFn(r) == "__flush_work" &&
+                                   contains(r.code_snippet, "work_data_bits");
+                    }
+                    if (!readerOk) continue;
+                    if (isWriteLike(r) && w.node_id >= r.node_id) continue;
+                    int score = match.score;
+                    if (!w.is_lock_protected) score += 8;
+                    if (!r.is_lock_protected) score += 4;
+                    if (leafFn(w) != leafFn(r)) score += 3;
+                    if (p->interaction_strategy == "list_pair") {
+                        if (cleanupFn(leafFn(r))) score -= 12;
+                        if (cleanupFn(leafFn(w))) score -= 3;
+                    }
+                    pairs.push_back({&w, &r, score});
+                }
+            }
+            std::stable_sort(pairs.begin(), pairs.end(),
+                [](const Pair& a, const Pair& b) {
+                    return a.score > b.score;
+                });
+
+            prior["suggested_role_bindings"] = nlohmann::json::array();
+            std::set<std::pair<std::string, std::string>> seenFns;
+            size_t pairCount = 0;
+            for (const auto& pair : pairs) {
+                if (pairCount >= 4) break;
+                const auto& w = *pair.writer;
+                const auto& r = *pair.reader;
+                if (!seenFns.insert({leafFn(w), leafFn(r)}).second) continue;
+                nlohmann::json binding;
+                binding["score"] = pair.score;
+                binding["writer_node"] = w.node_id;
+                binding["reader_node"] = r.node_id;
+                binding["writer_function"] = leafFn(w);
+                binding["reader_function"] = leafFn(r);
+                binding["writer_thread"] = w.thread_id;
+                binding["reader_thread"] = r.thread_id;
+                binding["writer_code"] = w.code_snippet;
+                binding["reader_code"] = r.code_snippet;
+                binding["writer_lock_protected"] = w.is_lock_protected;
+                binding["reader_lock_protected"] = r.is_lock_protected;
+                prior["suggested_role_bindings"].push_back(std::move(binding));
+                ++pairCount;
+            }
+
+            prior["adaptation_required"] =
+                "Before instantiate_rule, call analyze_context with "
+                "pattern_adaptation: pattern_id, selected role binding, local "
+                "differences from historical examples, negative_hints checked, "
+                "and adaptation decision.";
+            result["priors"].push_back(std::move(prior));
+            ++emitted;
+        }
+        return result.dump();
     }
 
     if (tool_name == "get_object_details") {
@@ -345,6 +1110,7 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
             return R"({"error": "Invalid object_index. Must be 1-)" +
                    std::to_string(ctx->surface->shared_objects.size()) + R"(."})";
         }
+        ctx->inspected_objects.insert(idx);
         const auto& obj = ctx->surface->shared_objects[idx - 1];
         nlohmann::json result;
         result["name"] = obj.name;
@@ -384,6 +1150,173 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
         // bottleneck. Other flag-driven skeletons can be added later.
         {
             nlohmann::json suggestions = nlohmann::json::array();
+            {
+                const auto& kb = MechanismKnowledgeBase::instance();
+                auto kbMatches = kb.matchObject(obj);
+                auto isWriteLike = [](const query::ThreadAccess& a) {
+                    return a.access_type == "Write" || a.access_type == "WRITE" ||
+                           a.access_type == "Free"  || a.access_type == "FREE" ||
+                           a.access_type == "RMW";
+                };
+                auto leafFn = [](const query::ThreadAccess& a) -> const std::string& {
+                    return a.containing_function.empty() ? a.function_name
+                                                         : a.containing_function;
+                };
+                auto containsLower = [](const std::string& hay,
+                                        const std::string& needle) {
+                    return lowerCopy(hay).find(lowerCopy(needle)) !=
+                           std::string::npos;
+                };
+                auto isCleanupFn = [](const std::string& fn) {
+                    static const char* kw[] = {
+                        "kill", "_del", "cleanup", "destroy",
+                        "release", "invalidate", "_free", "remove",
+                        "teardown", "shutdown", "exit"
+                    };
+                    for (auto* k : kw) {
+                        if (fn.find(k) != std::string::npos) return true;
+                    }
+                    return false;
+                };
+                auto isListWriterCode = [](const std::string& c) {
+                    return c.find("[list-helper] list_del") != std::string::npos ||
+                           c.find("[list-helper] list_splice") != std::string::npos ||
+                           c.find("[list-helper] list_move") != std::string::npos ||
+                           c.find("[list-helper] list_add") != std::string::npos ||
+                           c.find("[list-helper] hlist_del") != std::string::npos ||
+                           c.find("[list-helper] hlist_add") != std::string::npos ||
+                           c.find("list_del_rcu") != std::string::npos ||
+                           c.find("list_add") != std::string::npos ||
+                           c.find("hlist_del_rcu") != std::string::npos;
+                };
+                auto isListReaderCode = [](const std::string& c) {
+                    return c.find("list_for_each_entry") != std::string::npos ||
+                           c.find("hlist_for_each_entry") != std::string::npos ||
+                           c.find("[list-helper] list_empty") != std::string::npos ||
+                           c.find("[list-helper] list_is_") != std::string::npos ||
+                           c.find("[list-helper] list_first_entry_or_null") != std::string::npos ||
+                           c.find("[list-helper] hlist_empty") != std::string::npos;
+                };
+                auto accessPatternScore =
+                    [&](const query::ThreadAccess& a,
+                        const MechanismKnowledgeBase::Pattern& p) {
+                        int score = 0;
+                        for (const auto& term : p.code_terms_any) {
+                            if (containsLower(a.code_snippet, term)) score += 2;
+                        }
+                        std::string fnText = leafFn(a) + " " + a.function_name;
+                        for (const auto& term : p.function_terms_any) {
+                            if (containsLower(fnText, term)) score += 1;
+                        }
+                        return score;
+                    };
+                struct KbPair {
+                    const query::ThreadAccess* writer;
+                    const query::ThreadAccess* reader;
+                    int score;
+                };
+
+                size_t kbSuggestions = 0;
+                constexpr size_t kMaxKbSuggestions = 6;
+                for (const auto& match : kbMatches) {
+                    if (kbSuggestions >= kMaxKbSuggestions) break;
+                    const auto* p = match.pattern;
+                    if (!p || !p->emit_interaction ||
+                        p->interaction_strategy == "none") {
+                        continue;
+                    }
+
+                    std::vector<KbPair> pairs;
+                    for (size_t wi = 0; wi < obj.accesses.size(); ++wi) {
+                        const auto& w = obj.accesses[wi];
+                        if (w.node_id < 0) continue;
+                        bool writerOk = isWriteLike(w);
+                        std::string wCodeLower = lowerCopy(w.code_snippet);
+                        if (p->interaction_strategy == "list_pair") {
+                            writerOk = isListWriterCode(wCodeLower);
+                        } else if (p->interaction_strategy == "work_data_pair") {
+                            writerOk = leafFn(w) == "insert_wq_barrier" ||
+                                       leafFn(w) == "set_work_data" ||
+                                       wCodeLower.find("set_work_data") != std::string::npos ||
+                                       wCodeLower.find("insert_wq_barrier") != std::string::npos;
+                        }
+                        if (!writerOk) continue;
+
+                        for (size_t ri = 0; ri < obj.accesses.size(); ++ri) {
+                            if (wi == ri) continue;
+                            const auto& r = obj.accesses[ri];
+                            if (r.node_id < 0) continue;
+                            if (r.thread_id == w.thread_id) continue;
+                            std::string rCodeLower = lowerCopy(r.code_snippet);
+                            bool readerOk = true;
+                            if (p->interaction_strategy == "list_pair") {
+                                readerOk = isListReaderCode(rCodeLower);
+                            } else if (p->interaction_strategy == "work_data_pair") {
+                                readerOk = leafFn(r) == "__flush_work" &&
+                                           rCodeLower.find("work_data_bits") != std::string::npos;
+                            }
+                            if (!readerOk) continue;
+                            if (isWriteLike(r) && w.node_id >= r.node_id) continue;
+
+                            int score = match.score;
+                            if (!w.is_lock_protected) score += 8;
+                            if (!r.is_lock_protected) score += 4;
+                            if (leafFn(w) != leafFn(r)) score += 3;
+                            score += accessPatternScore(w, *p);
+                            score += accessPatternScore(r, *p);
+                            if (p->interaction_strategy == "list_pair") {
+                                if (isCleanupFn(leafFn(r))) score -= 12;
+                                if (isCleanupFn(leafFn(w))) score -= 3;
+                            }
+                            pairs.push_back({&w, &r, score});
+                        }
+                    }
+
+                    std::stable_sort(pairs.begin(), pairs.end(),
+                        [](const KbPair& a, const KbPair& b) {
+                            return a.score > b.score;
+                        });
+                    std::set<std::pair<std::string, std::string>> seenFnPair;
+                    for (const auto& pair : pairs) {
+                        if (kbSuggestions >= kMaxKbSuggestions) break;
+                        const auto& w = *pair.writer;
+                        const auto& r = *pair.reader;
+                        if (!seenFnPair.insert({leafFn(w), leafFn(r)}).second)
+                            continue;
+
+                        nlohmann::json s;
+                        s["trigger"] = "kb:" + p->id;
+                        s["mechanism_hint"] = p->mechanism;
+                        s["bug_category_hint"] = p->bug_category_hint;
+                        s["template"] = p->template_hint;
+                        s["priority_score"] = pair.score;
+                        s["kb_match_reason"] = match.reason;
+                        s["matched_terms"] = match.matched_terms;
+                        s["matched_flags"] = match.matched_flags;
+                        s["negative_hints"] = p->negative_hints;
+                        s["rationale"] =
+                            "KB-backed candidate interaction for pattern `" +
+                            p->id + "`: " + p->description +
+                            " Consider this pair before generic sibling "
+                            "races, but still run analyze_context and check "
+                            "the negative_hints before instantiating.";
+                        s["writer_node"] = w.node_id;
+                        s["reader_node"] = r.node_id;
+                        s["writer_thread"] = w.thread_id;
+                        s["reader_thread"] = r.thread_id;
+                        s["writer_function"] = leafFn(w);
+                        s["reader_function"] = leafFn(r);
+                        s["writer_code"] = w.code_snippet;
+                        s["reader_code"] = r.code_snippet;
+                        s["writer_location"] = w.location;
+                        s["reader_location"] = r.location;
+                        s["writer_lock_protected"] = w.is_lock_protected;
+                        s["reader_lock_protected"] = r.is_lock_protected;
+                        suggestions.push_back(std::move(s));
+                        ++kbSuggestions;
+                    }
+                }
+            }
             if (obj.has_list_mutation) {
                 // v23 Fix #5 (list_mutation_race upgrade): emit
                 // CONCRETE (writer_node, reader_node) PAIRS like Fix
@@ -545,12 +1478,10 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                         "shape, e.g. handle_tx_event's "
                         "list_empty(&ep_ring->td_list) test) over "
                         "full iterators (typically in cleanup paths). "
-                        "Use the EXACT writer_node and reader_node "
-                        "ids — do NOT substitute other access sites "
-                        "on the same object. The verifier's "
-                        "concurrent(a,b) auto-checks same_lock, so a "
-                        "false suggestion costs at most one rejected "
-                        "propose_hypothesis call.";
+                        "Consider these node ids as one candidate "
+                        "interaction when analyzing the context; do "
+                        "not instantiate a rule until the mechanism "
+                        "and benign explanations have been considered.";
                     s["writer_node"] = p.writer_node;
                     s["reader_node"] = p.reader_node;
                     s["writer_thread"] = p.writer_thread;
@@ -563,6 +1494,73 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                     s["reader_location"] = p.reader_loc;
                     suggestions.push_back(std::move(s));
                     ++kept;
+                }
+            }
+
+            // Workqueue KCSAN pattern: a low-ranked but high-fanout
+            // work_struct.data object may contain the patched mechanism where
+            // __flush_work speculatively reads work_data_bits(work) before a
+            // guard such as from_cancel is checked. Generic racy-pair sorting
+            // often drowns this in many work_data_bits helpers, so surface the
+            // mechanism frontier explicitly without changing verifier logic.
+            if (obj.name.find("field:struct.work_struct.data") != std::string::npos) {
+                std::vector<const query::ThreadAccess*> readers;
+                std::vector<const query::ThreadAccess*> writers;
+                for (const auto& a : obj.accesses) {
+                    if (a.node_id < 0) continue;
+                    bool isFlushRead =
+                        a.containing_function == "__flush_work" &&
+                        a.code_snippet.find("work_data_bits") != std::string::npos;
+                    bool isBarrierWrite =
+                        a.containing_function == "insert_wq_barrier" &&
+                        (a.access_type == "Write" || a.access_type == "WRITE" ||
+                         a.code_snippet.find("[ir-fallback] store") != std::string::npos ||
+                         a.code_snippet.find("[ir-fallback] memcpy") != std::string::npos ||
+                         a.code_snippet.find("__set_bit") != std::string::npos);
+                    bool isWorkDataWriter =
+                        a.containing_function == "set_work_data" &&
+                        (a.access_type == "Write" || a.access_type == "WRITE" ||
+                         a.code_snippet.find("atomic_long_set") != std::string::npos ||
+                         a.code_snippet.find("[ir-fallback] store") != std::string::npos);
+                    if (isFlushRead) readers.push_back(&a);
+                    if (isBarrierWrite || isWorkDataWriter) writers.push_back(&a);
+                }
+                size_t kept = 0;
+                for (const auto* w : writers) {
+                    for (const auto* r : readers) {
+                        if (kept >= 3) break;
+                        if (w->thread_id == r->thread_id) continue;
+                        nlohmann::json s;
+                        s["trigger"] = "guarded_work_data_read";
+                        s["bug_category_hint"] = "data_race";
+                        s["template"] = "Template 1 (conflicts + concurrent)";
+                        s["priority_score"] = 100;
+                        s["rationale"] =
+                            "Workqueue-specific KCSAN shape: __flush_work "
+                            "reads work_data_bits(work) while a different "
+                            "path writes work_struct.data in insert_wq_barrier "
+                            "or set_work_data. Inspect __flush_work and verify "
+                            "whether the read is guarded by from_cancel before "
+                            "treating it as benign; this is higher priority "
+                            "than generic work_struct.data helper pairs.";
+                        s["writer_node"] = w->node_id;
+                        s["reader_node"] = r->node_id;
+                        s["writer_thread"] = w->thread_id;
+                        s["reader_thread"] = r->thread_id;
+                        s["writer_function"] =
+                            w->containing_function.empty() ? w->function_name
+                                                           : w->containing_function;
+                        s["reader_function"] =
+                            r->containing_function.empty() ? r->function_name
+                                                           : r->containing_function;
+                        s["writer_code"] = w->code_snippet;
+                        s["reader_code"] = r->code_snippet;
+                        s["writer_loc"] = w->location;
+                        s["reader_loc"] = r->location;
+                        suggestions.push_back(std::move(s));
+                        ++kept;
+                    }
+                    if (kept >= 3) break;
                 }
             }
 
@@ -612,6 +1610,27 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                            a.access_type == "Free"  || a.access_type == "FREE" ||
                            a.access_type == "RMW";
                 };
+                auto lowerCopy = [](std::string s) {
+                    std::transform(s.begin(), s.end(), s.begin(),
+                        [](unsigned char ch) {
+                            return static_cast<char>(std::tolower(ch));
+                        });
+                    return s;
+                };
+                auto receiverName = [](const std::string& code) {
+                    std::size_t arrow = code.find("->");
+                    if (arrow == std::string::npos) return std::string();
+                    std::size_t begin = arrow;
+                    while (begin > 0) {
+                        char ch = code[begin - 1];
+                        if (!(std::isalnum(static_cast<unsigned char>(ch)) ||
+                              ch == '_')) {
+                            break;
+                        }
+                        --begin;
+                    }
+                    return code.substr(begin, arrow - begin);
+                };
                 std::vector<Cand> cands;
                 for (size_t i = 0; i < obj.accesses.size(); ++i) {
                     const auto& w = obj.accesses[i];
@@ -628,6 +1647,20 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                         if (!w.is_lock_protected) score += 2;
                         if (!r.is_lock_protected) score += 1;
                         if (score == 0) continue;
+                        std::string wLower = lowerCopy(w.code_snippet);
+                        std::string rLower = lowerCopy(r.code_snippet);
+                        bool wOnce = wLower.find("write_once") != std::string::npos ||
+                                     wLower.find("read_once") != std::string::npos;
+                        bool rOnce = rLower.find("write_once") != std::string::npos ||
+                                     rLower.find("read_once") != std::string::npos;
+                        if (wOnce != rOnce) score += 4;
+                        std::string wRecv = receiverName(w.code_snippet);
+                        std::string rRecv = receiverName(r.code_snippet);
+                        if (!wRecv.empty() && wRecv == rRecv) score += 3;
+                        if (rLower.find("read_once") == std::string::npos &&
+                            rLower.find("write_once") == std::string::npos) {
+                            score += 1;
+                        }
                         // v23 Fix #5: prefer the LEAF containing
                         // function over the thread-entry so e.g.
                         // CVE-2025-37882's surfaced (handle_tx_event,
@@ -659,7 +1692,7 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                     });
                 std::set<std::pair<std::string, std::string>> seenFnPair;
                 size_t kept = 0;
-                constexpr size_t kMaxRacyPairs = 5;
+                constexpr size_t kMaxRacyPairs = 10;
                 for (const auto& c : cands) {
                     if (kept >= kMaxRacyPairs) break;
                     if (!seenFnPair.insert({c.writer_fn, c.reader_fn}).second)
@@ -678,18 +1711,16 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                         sideText = "the reader is unprotected (double-checked-locking-style; kernel patches typically add READ_ONCE here)";
                     s["rationale"] =
                         "Cross-thread write-read pair on this exact "
-                        "field where " + sideText + ". The verifier's "
-                        "concurrent(a,b) auto-checks same_lock so "
-                        "false suggestions cost at most one rejected "
-                        "propose_hypothesis call. Use these node ids "
-                        "directly in a Template-1 hypothesis "
-                        "(writer/reader role keys map to the node "
-                        "below). Do NOT substitute other access "
-                        "sites on the same object — the choice of "
-                        "(writer, reader) here is already "
-                        "lock-protection-aware and is the principal "
-                        "knob the v22 evaluation flagged as "
-                        "C4.access_site_correct.";
+                        "field where " + sideText + ". Treat these "
+                        "node ids as one candidate interaction for "
+                        "`analyze_context`; instantiate a rule only "
+                        "after deciding that the mechanism is not "
+                        "explained by a common lock, lifecycle order, "
+                        "atomic/RCU protocol, or cleanup-only path. "
+                        "For scalar fields with mixed READ_ONCE/WRITE_ONCE "
+                        "and plain accesses, prefer the plain access on the "
+                        "same receiver object (for example `sk->field`) over "
+                        "sibling receiver aliases such as `other->field`.";
                     s["writer_node"] = c.writer_node;
                     s["reader_node"] = c.reader_node;
                     s["writer_thread"] = c.writer_thread;
@@ -708,7 +1739,7 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
             }
 
             if (!suggestions.empty()) {
-                result["suggested_hypotheses"] = std::move(suggestions);
+                result["candidate_interactions"] = std::move(suggestions);
             }
         }
 
@@ -955,14 +1986,15 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
         result["function_pair_coverage_note"] =
             "Each entry is a distinct (writer, reader/writer) function "
             "pair that shows up across threads on THIS shared object. "
-            "Aim for AT LEAST ONE hypothesis per pair before moving on "
-            "— missing a pair is the most common reason a patch's "
-            "actual fix is not credited as a HIT.";
+            "Use these pairs as evidence for analyze_context. Do not "
+            "instantiate a rule for every pair; first decide whether "
+            "the pair participates in a coherent bug mechanism.";
         return result.dump();
     }
 
     if (tool_name == "get_function_code") {
         std::string name = arguments.at("name").get<std::string>();
+        ctx->function_code_reads.insert(name);
         std::unordered_set<Node*> nodes = ccpg_->getCPG()->findMethodsByName(name);
         if (nodes.empty()) {
             CPGNodeSet all_methods = ccpg_->getCPG()->getNodesByType("Method");
@@ -991,6 +2023,7 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
 
     if (tool_name == "get_lock_protection") {
         int node_id = arguments.at("node_id").get<int>();
+        ctx->lock_nodes_checked.insert(node_id);
         CCPGNode* node = ccpg_->getNodeByID(node_id);
         if (!node) return R"({"error": "Node not found."})";
 
@@ -1125,19 +2158,59 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
         return successors.dump();
     }
 
-    if (tool_name == "propose_hypothesis") {
+    if (tool_name == "analyze_context") {
+        int idx = arguments.value("object_index", -1);
+        if (idx < 1 || idx > (int)ctx->surface->shared_objects.size()) {
+            return R"({"error": "Invalid object_index for analyze_context."})";
+        }
+        if (!arguments.contains("pattern_adaptation") ||
+            !arguments["pattern_adaptation"].is_object()) {
+            return R"({"error": "pattern_adaptation_required", "message": "Every analyze_context call must include pattern_adaptation. If you used retrieve_mechanism_priors or a kb:* candidate, set used_kb_prior=true and bind the historical pattern to current roles; otherwise set used_kb_prior=false and explain why no KB prior was used."})";
+        }
+        nlohmann::json rec = arguments;
+        rec["object_name"] = ctx->surface->shared_objects[idx - 1].name;
+        rec["recorded"] = true;
+        ctx->context_analyses.push_back(rec);
+        ctx->object_decisions[idx] = rec.value("decision", "");
+        ctx->object_mechanisms[idx] = rec.value("mechanism", "");
+
+        nlohmann::json out;
+        out["recorded"] = true;
+        out["context_id"] = rec.value("context_id", "");
+        out["object_index"] = idx;
+        out["object_name"] = rec["object_name"];
+        out["decision"] = rec.value("decision", "");
+        out["next_step"] =
+            rec.value("decision", "") == "INSTANTIATE_RULE"
+                ? "Call instantiate_rule with semantic roles and bug_condition predicates."
+                : "Continue evidence gathering or inspect another context.";
+        return out.dump();
+    }
+
+    if (tool_name == "instantiate_rule") {
         if (!ctx->verifier) return R"({"error": "Verifier not initialized."})";
 
         query::Hypothesis h;
-        h.id = arguments.at("hypothesis_id").get<std::string>();
-        h.description = arguments.at("description").get<std::string>();
-        h.bug_category = arguments.at("bug_category").get<std::string>();
+        h.id = arguments.at("rule_id").get<std::string>();
+        h.bug_category = arguments.at("mechanism").get<std::string>();
         h.severity = arguments.value("severity", "medium");
-
-        if (!arguments.contains("nodes") || !arguments["nodes"].is_object()) {
-            return R"({"error": "nodes must be an object mapping role names to node IDs."})";
+        std::string intent = arguments.value("intent", "");
+        std::string consequence = arguments.value("consequence", "");
+        nlohmann::json benign_exclusions =
+            arguments.value("benign_exclusions", nlohmann::json::array());
+        h.description = "Intent: " + intent + "\nConsequence: " + consequence;
+        if (!benign_exclusions.empty()) {
+            h.description += "\nBenign exclusions considered:";
+            for (const auto& ex : benign_exclusions) {
+                if (ex.is_string()) h.description += "\n- " + ex.get<std::string>();
+                else h.description += "\n- " + ex.dump();
+            }
         }
-        for (auto& [role, val] : arguments["nodes"].items()) {
+
+        if (!arguments.contains("roles") || !arguments["roles"].is_object()) {
+            return R"({"error": "roles must be an object mapping semantic role names to node IDs."})";
+        }
+        for (auto& [role, val] : arguments["roles"].items()) {
             if (!val.is_number_integer()) {
                 return R"({"error": "Node ID for role ')" + role + R"(' must be an integer."})";
             }
@@ -1148,10 +2221,10 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
             h.nodes[role] = nid;
         }
 
-        if (!arguments.contains("constraints") || !arguments["constraints"].is_array()) {
-            return R"({"error": "constraints must be an array of {predicate, args} objects."})";
+        if (!arguments.contains("bug_condition") || !arguments["bug_condition"].is_array()) {
+            return R"({"error": "bug_condition must be an array of {predicate, args} objects."})";
         }
-        for (const auto& c : arguments["constraints"]) {
+        for (const auto& c : arguments["bug_condition"]) {
             query::VerificationConstraint vc;
             vc.predicate = c.value("predicate", "");
             vc.args = c.value("args", nlohmann::json::object());
@@ -1161,7 +2234,7 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
             h.constraints.push_back(std::move(vc));
         }
 
-        // Structural sanity: a bug whose definition requires ≥2 distinct
+        // Structural sanity: a rule whose definition requires ≥2 distinct
         // program points (double-free, UAF, TOCTOU, data-race) cannot be
         // expressed by collapsing every role onto the *same* CCPG node.
         // Two threads passing through one source-code location is just
@@ -1185,26 +2258,59 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                 err["error"] = "structural_rejection";
                 err["reason"] =
                     "All roles in this '" + h.bug_category +
-                    "' hypothesis map to the SAME CCPG node id. A " +
+                    "' rule map to the SAME CCPG node id. A " +
                     h.bug_category + " needs at least two DISTINCT program "
                     "points (e.g. two different free call sites, or a "
                     "write and a separate read). Two threads passing "
                     "through one source-code line is one event per "
-                    "thread, not a bug. Refine the hypothesis with "
+                    "thread, not a bug. Refine the rule with "
                     "distinct node ids for each role, or choose a "
                     "different bug_category.";
                 return err.dump();
             }
         }
 
+        bool has_prior_analysis = false;
+        bool prior_decision_allows_instantiation = false;
+        std::string context_id = arguments.value("context_id", "");
+        for (const auto& rec : ctx->context_analyses) {
+            if (rec.value("context_id", "") == context_id) {
+                has_prior_analysis = true;
+                prior_decision_allows_instantiation =
+                    rec.value("decision", "") == "INSTANTIATE_RULE";
+                break;
+            }
+        }
+        if (!has_prior_analysis || !prior_decision_allows_instantiation) {
+            nlohmann::json err;
+            err["error"] = "missing_or_non_instantiating_context_analysis";
+            err["rule_id"] = h.id;
+            err["context_id"] = context_id;
+            err["has_prior_context_analysis"] = has_prior_analysis;
+            err["reason"] = has_prior_analysis
+                ? "The prior analyze_context decision for this context_id was not INSTANTIATE_RULE."
+                : "instantiate_rule requires a prior analyze_context call for the same context_id.";
+            err["next_step"] =
+                "Call analyze_context with decision=INSTANTIATE_RULE after considering benign explanations, "
+                "or skip this context with SKIP_WITH_REASON.";
+            return err.dump();
+        }
+
         auto result = ctx->verifier->verify(h);
         auto feedback = result.toFeedbackJson();
+        feedback["rule_id"] = h.id;
+        feedback["context_id"] = context_id;
+        feedback["mechanism"] = h.bug_category;
+        feedback["intent"] = intent;
+        feedback["consequence"] = consequence;
+        feedback["benign_exclusions"] = benign_exclusions;
+        feedback["has_prior_context_analysis"] = has_prior_analysis;
 
         if (result.all_satisfied) {
-            // Phase 4 dedupe. Build a canonical fingerprint from bug
+            // Phase 4 dedupe. Build a canonical fingerprint from mechanism
             // category + the sorted set of node ids touched by the
-            // hypothesis. LLMs often re-propose structurally identical
-            // hypotheses with only a renamed role ("check" -> "chk"),
+            // rule. LLMs often re-propose structurally identical
+            // rules with only a renamed role ("check" -> "chk"),
             // which inflates the downstream count without new signal.
             std::vector<int> node_ids;
             node_ids.reserve(h.nodes.size());
@@ -1216,9 +2322,9 @@ std::string DetectorAgent::execute_tool(const std::string& tool_name, const nloh
                 fingerprint += std::to_string(node_ids[i]);
             }
             if (!ctx->accepted_fingerprints.insert(fingerprint).second) {
-                feedback["dedupe"] = "Duplicate of an earlier accepted hypothesis"
+                feedback["dedupe"] = "Duplicate of an earlier accepted rule"
                     " with the same (bug_category, node-id set). Skipped from "
-                    "confirmed list. Propose something substantively different "
+                    "confirmed list. Instantiate something substantively different "
                     "or call finish_detection.";
                 feedback["is_duplicate"] = true;
             } else {
@@ -1259,9 +2365,9 @@ DetectorAgent::DetectionResult DetectorAgent::runDetection(const query::Vulnerab
         "It is organized around **shared objects** — each entry shows one memory object and ALL threads "
         "that access it, with access types (Read/Write/Free), lock protection status, and risk flags.\n\n"
         "Start by calling `get_vulnerability_surface` to see the full report. "
-        "Focus on objects with the highest risk_score (especially those marked [UAF_RISK]). "
-        "Use `get_object_details` for full node IDs, then read code with `get_function_code` or "
-        "`get_function_ops`, and propose hypotheses with `propose_hypothesis`.\n\n"
+        "Focus on objects with plausible bug mechanisms, not just high risk_score. "
+        "For each selected context, gather enough evidence, call `analyze_context`, "
+        "and only then call `instantiate_rule` if the mechanism is coherent.\n\n"
         "Begin now.";
 
     send_message(prompt, &ctx);

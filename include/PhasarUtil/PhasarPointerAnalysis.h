@@ -8,6 +8,7 @@
 #include <memory>
 #include <set>
 #include <map>
+#include <unordered_map>
 
 // Forward-declare Phasar classes to reduce header dependencies
 namespace psr {
@@ -41,6 +42,7 @@ public:
 
     EntryPointInfo getMainFunction() const override;
     std::vector<EntryPointInfo> getAllEntryPointInfos() const;  // NEW: Get all entry points for kernel modules
+    std::vector<EntryPointInfo> getThreadRootEntryPointInfos() const;
     std::vector<const llvm::Function *> getAllLLVMFunctions() const override;
 
     std::vector<const llvm::CallInst *> getCallInstsByLoc(const NodeLoc &Loc) const;
@@ -55,6 +57,7 @@ public:
 
     // Get all discovered entry points (for kernel modules)
     const std::vector<std::string>& getDiscoveredEntryPoints() const { return discoveredEntryPoints_; }
+    const std::vector<std::string>& getThreadRootEntryPoints() const { return threadRootEntryPoints_; }
 
     // Callback-based entry point discovery and conflict analysis
     std::vector<std::string> discoverCallbackEntryPoints() const;
@@ -82,5 +85,7 @@ private:
     std::unordered_map<NodeLoc, std::vector<const llvm::LoadInst *>, NodeLocHash> LocToLoadInstsMap;
     std::unordered_map<NodeLoc, std::vector<const llvm::StoreInst *>, NodeLocHash> LocToStoreInstsMap;
     std::vector<std::string> discoveredEntryPoints_;  // Discovered kernel entry points
+    std::vector<std::string> threadRootEntryPoints_;  // Entries promoted to parallel thread roots
+    std::unordered_map<std::string, unsigned> entrySignalMasks_;
     std::set<std::pair<std::string, std::string>> conflictingPairs_;
 };

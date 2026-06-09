@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <functional>
 
 class CCPGNode; // Forward declaration
 
@@ -36,7 +37,40 @@ public:
     void* get_context_for_tools() const {
         return context_for_tools_;
     }
-    
+
+    // ---- P0: context-management knobs (default OFF; behavior-preserving) ----
+    // When max_tokens > 0, prune_history switches from the legacy
+    // message-count window to a token-budget window that keeps the system
+    // prompt + all pinned messages and drops the oldest prunable rounds.
+    // When max_tokens == 0 (default), the legacy message-count pruning is
+    // used unchanged.
+    void set_token_budget(size_t max_tokens) { max_tokens_ = max_tokens; }
+    size_t get_token_budget() const { return max_tokens_; }
+
+    // Optional compaction hook. When set, prune_history replaces a dropped
+    // round-span with a single summary message produced by this callback
+    // instead of deleting it outright. Default: null (drop). The callback
+    // receives the messages about to be removed and returns the summary text.
+    using Compactor = std::function<std::string(const std::vector<ChatMessage>&)>;
+    void set_compactor(Compactor c) { compactor_ = std::move(c); }
+
+    // Pin helpers: pinned messages are never dropped by prune_history (only
+    // relevant under a token budget). Use to keep task setup / contracts.
+    void pin_next_user_message() { pin_next_user_ = true; }
+    void pin_message_at(size_t idx) { if (idx < history_.size()) history_[idx].pinned = true; }
+
+    // Rough token estimate of a single message (content + serialized tool
+    // calls). Heuristic: ~4 chars/token. Public so agents can budget.
+    static size_t estimate_tokens(const ChatMessage& m) {
+        size_t chars = m.content.size();
+        if (m.tool_calls) {
+            for (const auto& tc : *m.tool_calls) {
+                chars += tc.toolname.size() + tc.arguments.dump().size() + 8;
+            }
+        }
+        return (chars / 4) + 4;  // +4: per-message role/framing overhead
+    }
+
 private:
     std::shared_ptr<LLMClient> client_;
     std::string base_system_prompt_;
@@ -44,10 +78,25 @@ private:
     void* context_for_tools_ = nullptr;
     size_t max_history_messages_;
     std::ofstream simplified_log_file_;
+    // P0 context-management state (see public knobs above).
+    size_t max_tokens_ = 0;       // 0 => token budgeting disabled
+    Compactor compactor_ = nullptr;
+    bool pin_next_user_ = false;
     
     void prune_history() {
         if (history_.empty()) return;
-        
+        // P0: when a token budget is configured, use token-aware pruning;
+        // otherwise fall back to the unchanged legacy message-count window.
+        if (max_tokens_ > 0) {
+            prune_history_by_tokens();
+        } else {
+            prune_history_by_count();
+        }
+    }
+
+    // Legacy behavior: keep system prompt + last (max_history_messages_ - 1)
+    // messages, dropping the oldest. Unchanged from the original design.
+    void prune_history_by_count() {
         size_t current_size = history_.size();
         size_t limit = max_history_messages_;
 
@@ -89,6 +138,74 @@ private:
 
         if (erase_start < erase_end) {
             history_.erase(erase_start, erase_end);
+        }
+    }
+
+    // P0: token-budget window. Keeps the system prompt + all pinned messages,
+    // and drops (or compacts) the oldest prunable "rounds" until the estimated
+    // total token count is within budget. A round groups an ASSISTANT message
+    // that carries tool_calls with its following TOOL responses, so we never
+    // strand an orphaned tool response (same invariant the legacy path guards).
+    void prune_history_by_tokens() {
+        size_t total = 0;
+        for (const auto& m : history_) total += estimate_tokens(m);
+        if (total <= max_tokens_) return;
+
+        size_t startIdx = (history_[0].role == MessageRole::SYSTEM) ? 1 : 0;
+        size_t i = startIdx;
+
+        while (total > max_tokens_ && i < history_.size()) {
+            // Never drop the most recent message (needed for the next call).
+            if (i + 1 >= history_.size()) break;
+
+            if (history_[i].pinned) { ++i; continue; }
+
+            // Determine the round span [i, spanEnd).
+            size_t spanEnd = i + 1;
+            if (history_[i].role == MessageRole::ASSISTANT &&
+                history_[i].tool_calls && !history_[i].tool_calls->empty()) {
+                while (spanEnd < history_.size() &&
+                       history_[spanEnd].role == MessageRole::TOOL) {
+                    ++spanEnd;
+                }
+            }
+
+            // Keep the whole span if any message in it is pinned.
+            bool spanPinned = false;
+            for (size_t k = i; k < spanEnd; ++k) {
+                if (history_[k].pinned) { spanPinned = true; break; }
+            }
+            if (spanPinned) { i = spanEnd; continue; }
+
+            // Don't let the span swallow the most recent message.
+            if (spanEnd >= history_.size()) break;
+
+            size_t spanTokens = 0;
+            for (size_t k = i; k < spanEnd; ++k) spanTokens += estimate_tokens(history_[k]);
+
+            if (compactor_) {
+                std::vector<ChatMessage> dropped(history_.begin() + i,
+                                                 history_.begin() + spanEnd);
+                std::string summary = compactor_(dropped);
+                history_.erase(history_.begin() + i, history_.begin() + spanEnd);
+                ChatMessage note;
+                note.role = MessageRole::USER;
+                note.content = "[context compacted] " + summary;
+                history_.insert(history_.begin() + i, note);
+                total = total - spanTokens + estimate_tokens(note);
+                ++i;  // step past the inserted summary note
+            } else {
+                history_.erase(history_.begin() + i, history_.begin() + spanEnd);
+                total -= spanTokens;
+                // i now indexes the following message; do not advance.
+            }
+        }
+
+        // Orphan guard: first non-system message must not be a TOOL response.
+        while (startIdx < history_.size() &&
+               history_[startIdx].role == MessageRole::TOOL &&
+               !history_[startIdx].pinned) {
+            history_.erase(history_.begin() + startIdx);
         }
     }
 

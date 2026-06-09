@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <unordered_map>
 #include <cstring>
+#include <cstdlib>
 
 using namespace psr;
 
@@ -34,7 +35,8 @@ static int getKernelEntryPriority(const std::string& name) {
         name.find("__arm64_sys_") == 0 ||
         name.find("__se_sys_") == 0 ||
         name.find("__do_sys_") == 0 ||
-        name.find("compat_sys_") == 0) {
+        name.find("compat_sys_") == 0 ||
+        name.find("SyS_") == 0) {
         return 1;
     }
     // Priority 2: `sys_foo` top-level (must also start with sys_ but we
@@ -99,9 +101,11 @@ static bool isKernelEntryFunction(const std::string& name) {
 //       (module_init / module_exit / subsys_initcall / ... all land here)
 //
 //   S2  EXPORT_SYMBOL / EXPORT_SYMBOL_GPL
-//       The kernel emits `__UNIQUE_ID___addressable_<name><num>` globals
-//       holding `ptr @<name>`. Presence of such a global is an unambiguous
-//       "this function is an exported kernel API surface".
+//       The kernel emits addressable globals holding `ptr @<name>` for
+//       exported symbols. Older builds use
+//       `__UNIQUE_ID___addressable_<name><num>`; newer builds commonly use
+//       `__addressable_<name><line>`. Presence of either form is an
+//       unambiguous "this function is an exported kernel API surface".
 //
 //   S3  Syscall wrappers
 //       `_eil_addr_<name>` globals (kernel error injection list) hold
@@ -131,6 +135,17 @@ enum StructuralSignal {
     // Catches threads that the kernel actually spawns but that are not
     // stored in any struct global (e.g. io_wq_worker, kthread bodies).
     SIG_INDIRECT_FORK = 1 << 4,
+    // Public API wrapper alias: an exported one-hop wrapper whose only
+    // semantic callee is an internal implementation function. Some annotations
+    // and bug reports name the internal implementation (e.g. __foo) rather than
+    // the exported wrapper (foo); both represent the same externally-triggered
+    // entry surface.
+    SIG_PUBLIC_ALIAS  = 1 << 5,
+    // External-linkage function that is not exported/registered in this sliced
+    // bitcode, but has a field-level conflict with a strong entry. This covers
+    // cross-TU public callbacks when the registration TU is absent from the
+    // prepared case, without promoting all external functions.
+    SIG_CROSS_TU_PUBLIC = 1 << 6,
 };
 
 // Scan a single (already stripped of casts / wrapper constants) Constant
@@ -150,6 +165,8 @@ static void tagFunctionRefs(const llvm::Constant* C,
 
 // Core structural scan: compute the per-function signal bitmap for every
 // function defined in the module. The caller decides what to do with it.
+static bool globalLooksLikeCallbackTable(const llvm::GlobalVariable& GV);
+
 static std::unordered_map<const llvm::Function*, unsigned>
 computeStructuralEntrySignals(const llvm::Module* M) {
     std::unordered_map<const llvm::Function*, unsigned> sigMap;
@@ -177,15 +194,29 @@ computeStructuralEntrySignals(const llvm::Module* M) {
         // LLVM internals and kernel metadata tables that don't represent
         // real call-target lists.
         if (n.startswith("llvm.")) continue;
-        if (n.startswith("__ksymtab") || n.startswith("__kstrtab") ||
-            n.startswith("____versions")) continue;
+        // __kstrtab* are the export *name* string tables and ____versions is
+        // modversion CRC data — neither references a function pointer.
+        if (n.startswith("__kstrtab") || n.startswith("____versions")) continue;
 
         const llvm::Constant* Init = GV.getInitializer();
 
-        // S2: EXPORT_SYMBOL — `__UNIQUE_ID___addressable_<fn><num>`.
-        // These are single-pointer globals storing `ptr @fn`. They are
-        // the most trustworthy "this function is a public entry" marker.
-        if (n.startswith("__UNIQUE_ID___addressable_")) {
+        // S2: EXPORT_SYMBOL — markers that store a pointer to the exported fn.
+        //
+        //  (a) Newer kernels/clang: `__UNIQUE_ID___addressable_<fn><num>` or
+        //      `__addressable_<fn><line>` globals storing `ptr @fn`.
+        //  (b) Older kernels (4.x): `__ksymtab_<name>` (and the gpl/section
+        //      variants) emit a `struct kernel_symbol { ptrtoint(@fn), ptr
+        //      @__kstrtab_<name> }` — a direct pointer to the exported
+        //      function. PREL32-relative variants encode it as
+        //      `trunc(sub(ptrtoint(@fn), ptrtoint(@self)))`; either way the
+        //      function reference is reachable by walking the initializer.
+        //
+        // Both are the most trustworthy public-entry marker. (Earlier code
+        // skipped __ksymtab outright, which silently dropped EVERY export on
+        // older-kernel cases such as CVE-2016-9806's __netlink_dump_start.)
+        if (n.startswith("__UNIQUE_ID___addressable_") ||
+            n.startswith("__addressable_") ||
+            n.startswith("__ksymtab")) {
             tagFunctionRefs(Init, SIG_EXPORT_SYMBOL, sigMap);
             continue;
         }
@@ -238,9 +269,12 @@ computeStructuralEntrySignals(const llvm::Module* M) {
             }
         }
 
-        // S4: any other global whose initializer contains function
-        // pointers. Almost always an ops table / callback array.
-        tagFunctionRefs(Init, SIG_OPS_MEMBER, sigMap);
+        // S4: known callback / ops table globals. Do not promote arbitrary
+        // struct globals that merely contain a function pointer; those are
+        // often helper tables and create entry explosion.
+        if (globalLooksLikeCallbackTable(GV)) {
+            tagFunctionRefs(Init, SIG_OPS_MEMBER, sigMap);
+        }
     }
 
     // S5: indirect-fork / callback-registration sinks. For each call
@@ -357,6 +391,51 @@ computeStructuralEntrySignals(const llvm::Module* M) {
         if (addressTaken) sigMap[&F] |= SIG_INDIRECT_FORK;
     }
 
+    // S7: thin exported-wrapper aliases. EXPORT_SYMBOL often exposes a small
+    // wrapper while the meaningful body lives in an internal __foo function.
+    // Treat the internal callee as an entry only when the wrapper has exactly
+    // one real, defined callee; this avoids promoting arbitrary helper calls
+    // from large exported APIs.
+    auto isIgnoredWrapperCallee = [](llvm::StringRef name) {
+        return name.startswith("llvm.") ||
+               name.startswith("__asan") ||
+               name.startswith("__kasan") ||
+               name.startswith("__ubsan") ||
+               name.startswith("__tsan") ||
+               name.startswith("__msan");
+    };
+    auto namesLookLikeWrapperAlias = [](llvm::StringRef wrapper,
+                                        llvm::StringRef impl) {
+        std::string expected = "__" + wrapper.str();
+        return impl == expected;
+    };
+    std::vector<const llvm::Function*> exportedFunctions;
+    for (const auto& [F, sig] : sigMap) {
+        if (F && !F->isDeclaration() && (sig & SIG_EXPORT_SYMBOL)) {
+            exportedFunctions.push_back(F);
+        }
+    }
+    for (const llvm::Function* F : exportedFunctions) {
+        std::set<const llvm::Function*> callees;
+        for (const llvm::BasicBlock& BB : *F) {
+            for (const llvm::Instruction& I : BB) {
+                const auto* CI = llvm::dyn_cast<llvm::CallBase>(&I);
+                if (!CI) continue;
+                const llvm::Function* callee = CI->getCalledFunction();
+                if (!callee || callee->isDeclaration() || !callee->hasName())
+                    continue;
+                if (isIgnoredWrapperCallee(callee->getName())) continue;
+                callees.insert(callee);
+            }
+        }
+        if (callees.size() != 1) continue;
+        const llvm::Function* impl = *callees.begin();
+        if (!impl || impl == F || impl->isDeclaration()) continue;
+        if (!impl->hasLocalLinkage()) continue;
+        if (!namesLookLikeWrapperAlias(F->getName(), impl->getName())) continue;
+        sigMap[impl] |= SIG_PUBLIC_ALIAS;
+    }
+
     return sigMap;
 }
 
@@ -369,7 +448,295 @@ static std::string signalsToString(unsigned s) {
     if (s & SIG_SYSCALL)       add("syscall");
     if (s & SIG_OPS_MEMBER)    add("ops");
     if (s & SIG_INDIRECT_FORK) add("indirect_fork");
+    if (s & SIG_PUBLIC_ALIAS)  add("public_alias");
+    if (s & SIG_CROSS_TU_PUBLIC) add("cross_tu_public");
     return r.empty() ? "-" : r;
+}
+
+static bool isStrongThreadSignal(unsigned s) {
+    return (s & (SIG_SECTION_INIT | SIG_SYSCALL |
+                 SIG_OPS_MEMBER | SIG_INDIRECT_FORK)) != 0;
+}
+
+static bool isPureExportSignal(unsigned s) {
+    return s == SIG_EXPORT_SYMBOL;
+}
+
+static bool isKnownCallbackTableTypeName(llvm::StringRef sname) {
+    static const char* const kPatterns[] = {
+        "struct.file_operations",
+        "struct.proc_ops",
+        "struct.seq_operations",
+        "struct.kernfs_ops",
+        "struct.attribute_group",
+        "struct.device_attribute",
+        "struct.driver_attribute",
+        "struct.bus_attribute",
+        "struct.class_attribute",
+        "struct.kobj_attribute",
+        "struct.bin_attribute",
+        "struct.net_device_ops",
+        "struct.ethtool_ops",
+        "struct.net_proto_family",
+        "struct.proto_ops",
+        // Socket-layer protocol dispatch table (`struct proto`, e.g.
+        // tcp_prot / sctp_prot / raw_prot). Holds the per-protocol
+        // sendmsg/recvmsg/bind/connect/setsockopt/getsockopt/ioctl/
+        // backlog_rcv callbacks, each invoked concurrently from
+        // independent userspace sockets (and softirq for backlog_rcv) —
+        // i.e. genuine parallel MHP roots. It is `global` (not `const`,
+        // it carries mutable memory counters) and is NOT `_ops`-suffixed,
+        // so neither the const heuristic nor the naming convention catch
+        // it; it must be listed explicitly.
+        "struct.proto",
+        "struct.nfnl_callback",
+        "struct.tty_operations",
+        "struct.notifier_block",
+        "struct.mmu_notifier_ops",
+        "struct.pernet_operations",
+        "struct.dev_pm_ops",
+        "struct.platform_driver",
+        "struct.bus_type",
+        "struct.device_driver",
+        "struct.nft_object_type",
+        "struct.nft_expr_ops",
+        "struct.nft_chain_type",
+        "struct.iio_info",
+        "struct.regmap_bus",
+        // Async-execution callback containers. The function pointer they hold
+        // (`.func` / `.function`) is launched by the kernel in a separate
+        // context (kworker, softirq, timer/hrtimer IRQ) — i.e. it is a thread
+        // LAUNCH mechanism (a "fork"), exactly the kind of independent
+        // concurrent root the MHP model needs. These callbacks are stored in a
+        // constant global initializer (DECLARE_WORK / DEFINE_TIMER / …) which
+        // the address-taken pass intentionally skips, so they must be picked up
+        // here or they are missed entirely.
+        //
+        // VM-area operations: `.fault`/`.page_mkwrite` run in the page-fault
+        // context concurrently with `.close`/`.open` on munmap/fork — a genuine
+        // MHP pair (e.g. perf_mmap_close vs the mmap fault path). Bounded
+        // (~10 fn-ptrs per table).
+        "struct.vm_operations_struct",
+        // sysctl dispatch: ctl_table[].proc_handler is invoked on every
+        // /proc/sys read/write from independent userspace tasks — concurrent
+        // by construction. The table is an ARRAY of ctl_table (peeled above);
+        // only the small set of generic .proc_handler functions are tagged
+        // (.data points to variables, not functions, so it is never tagged).
+        "struct.ctl_table",
+        "struct.work_struct",
+        "struct.delayed_work",
+        "struct.rcu_work",
+        "struct.tasklet_struct",
+        "struct.tasklet_hrtimer",
+        "struct.timer_list",
+        "struct.hrtimer",
+        "struct.kthread_work",
+        "struct.kthread_delayed_work",
+        "struct.irq_work",
+    };
+    for (const char* p : kPatterns) {
+        llvm::StringRef pref(p);
+        if (sname == pref) return true;
+        if (sname.size() > pref.size() + 1 &&
+            sname[pref.size()] == '.' &&
+            sname.startswith(pref)) {
+            return true;
+        }
+    }
+
+    // General kernel ops-table naming convention: `struct.<subsys>_ops` /
+    // `struct.<subsys>_operations`. These are the standard callback-container
+    // types (file_operations, hwmon_ops, watchdog_ops, …). Matching on the
+    // TYPE name (never on function names) keeps entry discovery structural and
+    // avoids the explosion that "any struct holding a function pointer" would
+    // cause: only function pointers that target *defined* functions inside
+    // such a table are tagged, and the downstream tiering re-filters them.
+    if (sname.startswith("struct.")) {
+        // Strip LLVM's ".<n>" type-dedup suffix(es): struct.hwmon_ops.7 ->
+        // struct.hwmon_ops.
+        llvm::StringRef base = sname;
+        for (;;) {
+            size_t dot = base.rfind('.');
+            if (dot == llvm::StringRef::npos || dot == 0) break;
+            llvm::StringRef tail = base.substr(dot + 1);
+            bool allDigits = !tail.empty();
+            for (char c : tail) {
+                if (c < '0' || c > '9') { allDigits = false; break; }
+            }
+            if (!allDigits) break;
+            base = base.substr(0, dot);
+        }
+        if (base.endswith("_ops") || base.endswith("_operations")) {
+            return true;
+        }
+        // Linux device-model driver containers: `struct.<bus>_driver` holds the
+        // .probe/.remove/.shutdown callbacks (plus an embedded device_driver /
+        // pm_ops). platform_driver / device_driver are already whitelisted
+        // explicitly; generalize to the `_driver` convention so bus-specific
+        // variants (serdev_device_driver, i2c_driver, spi_driver, …) are also
+        // recognized — e.g. cros_ec_uart_probe in struct.serdev_device_driver,
+        // which races its own serdev rx callback during port bring-up. probe is
+        // init-phase, so the lifecycle filter still prevents spurious
+        // probe-vs-remove pairs; only genuine probe-vs-callback MHP survives.
+        if (base.endswith("_driver")) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static const llvm::Type* peelArrayType(const llvm::Type* t) {
+    while (t) {
+        if (const auto* arr = llvm::dyn_cast<llvm::ArrayType>(t)) {
+            t = arr->getElementType();
+            continue;
+        }
+        break;
+    }
+    return t;
+}
+
+// Does this constant aggregate contain at least one pointer to a *defined*
+// function? Used to confirm a name-based ops-table guess actually holds
+// callbacks before we trust it.
+static bool constantHoldsDefinedFunction(const llvm::Constant* C) {
+    std::vector<const llvm::Function*> funcs;
+    std::set<const llvm::Constant*> visited;
+    collectFunctionPointersFromConstant(C, funcs, visited);
+    return !funcs.empty();
+}
+
+static bool globalLooksLikeCallbackTable(const llvm::GlobalVariable& GV) {
+    const llvm::Type* t = peelArrayType(GV.getValueType());
+    const auto* st = llvm::dyn_cast_or_null<llvm::StructType>(t);
+    if (st && st->hasName() && isKnownCallbackTableTypeName(st->getName()))
+        return true;
+
+    // Fallback for TYPE-MERGED bitcode. LLVM's module linker can dedup an
+    // ops struct onto an unrelated identical-layout type — e.g. in a merged
+    // .ll `struct mmu_notifier_ops` (the @mlx5_mn_ops table holding
+    // mlx5_ib_invalidate_range) becomes `%struct.possible_net_t`, so the
+    // type-name whitelist above silently fails. The kernel's `_ops` /
+    // `_operations` GLOBAL naming convention is preserved through linking,
+    // so use it as a backstop — but only for a `constant` struct global that
+    // actually holds a defined function pointer, which is exactly the shape
+    // of a real callback table and avoids matching mutable data globals.
+    if (st && GV.isConstant() && GV.hasName() && GV.hasInitializer()) {
+        llvm::StringRef gn = GV.getName();
+        // Strip LLVM's ".<n>" dedup suffix from the global name.
+        while (true) {
+            size_t dot = gn.rfind('.');
+            if (dot == llvm::StringRef::npos || dot == 0) break;
+            llvm::StringRef tail = gn.substr(dot + 1);
+            bool digits = !tail.empty();
+            for (char c : tail) if (c < '0' || c > '9') { digits = false; break; }
+            if (!digits) break;
+            gn = gn.substr(0, dot);
+        }
+        if ((gn.endswith("_ops") || gn.endswith("_operations")) &&
+            constantHoldsDefinedFunction(GV.getInitializer())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static std::unordered_map<const llvm::Function*,
+                          std::vector<const llvm::Function*>>
+buildDirectCallGraph(const llvm::Module* M) {
+    std::unordered_map<const llvm::Function*,
+                       std::vector<const llvm::Function*>> g;
+    if (!M) return g;
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration()) continue;
+        auto& outs = g[&F];
+        for (const llvm::BasicBlock& BB : F) {
+            for (const llvm::Instruction& I : BB) {
+                const auto* CI = llvm::dyn_cast<llvm::CallInst>(&I);
+                if (!CI) continue;
+                const llvm::Function* callee = CI->getCalledFunction();
+                if (!callee || callee->isDeclaration()) continue;
+                outs.push_back(callee);
+            }
+        }
+    }
+    return g;
+}
+
+static bool reachesFunctionWithin(
+        const llvm::Function* src,
+        const llvm::Function* dst,
+        const std::unordered_map<const llvm::Function*,
+                                 std::vector<const llvm::Function*>>& cg,
+        int maxDepth) {
+    if (!src || !dst || src == dst || maxDepth <= 0) return false;
+    std::queue<std::pair<const llvm::Function*, int>> q;
+    std::set<const llvm::Function*> seen;
+    q.push({src, 0});
+    seen.insert(src);
+    while (!q.empty()) {
+        auto [cur, depth] = q.front();
+        q.pop();
+        if (depth >= maxDepth) continue;
+        auto it = cg.find(cur);
+        if (it == cg.end()) continue;
+        for (const llvm::Function* next : it->second) {
+            if (!next) continue;
+            if (next == dst) return true;
+            if (seen.insert(next).second) {
+                q.push({next, depth + 1});
+            }
+        }
+    }
+    return false;
+}
+
+struct TierFootprint {
+    std::set<query::SharedFieldKey> reads;
+    std::set<query::SharedFieldKey> writes;
+};
+
+static void collectTierFootprint(
+        const llvm::Function* F,
+        const llvm::Module& M,
+        const std::unordered_map<const llvm::Function*,
+                                 std::vector<const llvm::Function*>>& cg,
+        int depth,
+        std::set<const llvm::Function*>& seen,
+        TierFootprint& out) {
+    if (!F || F->isDeclaration() || depth < 0 || !seen.insert(F).second)
+        return;
+    for (const llvm::BasicBlock& BB : *F) {
+        for (const llvm::Instruction& I : BB) {
+            if (const auto* SI = llvm::dyn_cast<llvm::StoreInst>(&I)) {
+                if (auto key = query::SharedFieldKey::fromValue(
+                        SI->getPointerOperand(), M)) {
+                    out.writes.insert(*key);
+                }
+            } else if (const auto* LI = llvm::dyn_cast<llvm::LoadInst>(&I)) {
+                if (auto key = query::SharedFieldKey::fromValue(
+                        LI->getPointerOperand(), M)) {
+                    out.reads.insert(*key);
+                }
+            }
+        }
+    }
+    auto it = cg.find(F);
+    if (it == cg.end()) return;
+    for (const llvm::Function* callee : it->second) {
+        collectTierFootprint(callee, M, cg, depth - 1, seen, out);
+    }
+}
+
+static bool footprintsConflict(const TierFootprint& a,
+                               const TierFootprint& b) {
+    for (const auto& k : a.writes) {
+        if (b.writes.count(k) || b.reads.count(k)) return true;
+    }
+    for (const auto& k : b.writes) {
+        if (a.reads.count(k)) return true;
+    }
+    return false;
 }
 
 // True if F's debug-info primary source file is a header (.h / .hh).
@@ -392,6 +759,11 @@ static bool isDefinedInHeader(const llvm::Function& F) {
 PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                                              const std::vector<std::string>& userEntryPoints) {
     DB = std::make_unique<psr::LLVMProjectIRDB>(bitcodeFilePath);
+    if (!DB || !DB->getModule()) {
+        std::cerr << "Error: failed to load LLVM module from: "
+                  << bitcodeFilePath << std::endl;
+        return;
+    }
 
     // Try to find entry points: user-specified > 'main' > auto-detected kernel entries
     std::vector<std::string> entryPoints;
@@ -403,6 +775,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             // Verify the function exists in the bitcode
             if (DB && DB->getFunctionDefinition(ep)) {
                 entryPoints.push_back(ep);
+                entrySignalMasks_[ep] = SIG_SYSCALL | SIG_OPS_MEMBER;
                 std::cout << "  - " << ep << " (found)" << std::endl;
             } else {
                 std::cerr << "  - " << ep << " (NOT FOUND in bitcode, skipping)" << std::endl;
@@ -412,6 +785,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
     // Priority 2: Check for 'main'
     else if (DB && DB->getFunctionDefinition("main")) {
         entryPoints.push_back("main");
+        entrySignalMasks_["main"] = SIG_SECTION_INIT;
         std::cout << "Found 'main' function as entry point." << std::endl;
     } else {
         // No 'main' found — discover kernel entry points STRUCTURALLY.
@@ -435,8 +809,113 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
             const llvm::Module* M = DB->getModule();
             auto sigMap = computeStructuralEntrySignals(M);
 
+            std::size_t nCrossTuPublicAdded = 0;
+            if (M) {
+                auto cg = buildDirectCallGraph(M);
+                std::vector<const llvm::Function*> strongFuncs;
+                for (const auto& [F, sig] : sigMap) {
+                    if (F && !F->isDeclaration() && isStrongThreadSignal(sig)) {
+                        strongFuncs.push_back(F);
+                    }
+                }
+
+                std::unordered_map<const llvm::Function*, TierFootprint> strongFootprints;
+                for (const llvm::Function* strong : strongFuncs) {
+                    std::set<const llvm::Function*> seen;
+                    TierFootprint fp;
+                    collectTierFootprint(strong, *M, cg, /*depth=*/4, seen, fp);
+                    strongFootprints.emplace(strong, std::move(fp));
+                }
+
+                auto isCompilerHelper = [](llvm::StringRef name) {
+                    return name.startswith("llvm.") ||
+                           name.startswith("__asan") ||
+                           name.startswith("__kasan") ||
+                           name.startswith("__ubsan") ||
+                           name.startswith("__tsan") ||
+                           name.startswith("__msan");
+                };
+                auto isExternallyLinkable = [](const llvm::Function* F) {
+                    auto L = F->getLinkage();
+                    return (L == llvm::GlobalValue::ExternalLinkage) ||
+                           (L == llvm::GlobalValue::WeakAnyLinkage) ||
+                           (L == llvm::GlobalValue::WeakODRLinkage) ||
+                           (L == llvm::GlobalValue::ExternalWeakLinkage) ||
+                           (L == llvm::GlobalValue::CommonLinkage) ||
+                           (L == llvm::GlobalValue::AppendingLinkage);
+                };
+                auto sourceFileOf = [](const llvm::Function* F) {
+                    if (!F) return std::string();
+                    if (auto* SP = F->getSubprogram()) {
+                        return SP->getFilename().str();
+                    }
+                    return std::string();
+                };
+                auto hasInModuleCaller = [](const llvm::Function* F) {
+                    for (const llvm::User* U : F->users()) {
+                        if (const auto* CB = llvm::dyn_cast<llvm::CallBase>(U)) {
+                            if (CB->getCalledOperand() == F) return true;
+                        }
+                    }
+                    return false;
+                };
+
+                for (const llvm::Function& F : M->functions()) {
+                    if (F.isDeclaration()) continue;
+                    if (sigMap[&F] != SIG_NONE) continue;
+                    if (!isExternallyLinkable(&F)) continue;
+                    if (!F.hasName() || isCompilerHelper(F.getName())) continue;
+                    if (isDefinedInHeader(F)) continue;
+
+                    bool reachableFromStrong = false;
+                    for (const llvm::Function* strong : strongFuncs) {
+                        if (reachesFunctionWithin(strong, &F, cg, /*maxDepth=*/4)) {
+                            reachableFromStrong = true;
+                            break;
+                        }
+                    }
+                    if (reachableFromStrong) continue;
+
+                    // An orphan (no caller inside the compiled slice) is
+                    // necessarily invoked from an un-compiled TU, so it is a
+                    // genuine cross-TU concurrent entry regardless of which
+                    // file it is *defined* in. Only when the candidate has a
+                    // local caller is file-locality a meaningful proxy for
+                    // "sequential helper of the strong entry" — see below.
+                    const bool candidateIsOrphan = !hasInModuleCaller(&F);
+
+                    std::set<const llvm::Function*> seen;
+                    TierFootprint fp;
+                    collectTierFootprint(&F, *M, cg, /*depth=*/4, seen, fp);
+                    const std::string candidateFile = sourceFileOf(&F);
+                    bool conflicts = false;
+                    for (const auto& [strong, strongFp] : strongFootprints) {
+                        const std::string strongFile = sourceFileOf(strong);
+                        // Same-file + locally-used ⇒ very likely a sequential
+                        // helper sharing the entry's file-local state, not an
+                        // independent concurrent context. Orphans bypass this
+                        // (e.g. hci_cmd_sync_clear, defined in hci_sync.c next
+                        // to the hci_cmd_sync_work consumer but only ever
+                        // called from the un-compiled hci_unregister_dev path).
+                        if (!candidateIsOrphan &&
+                            !candidateFile.empty() && !strongFile.empty() &&
+                            candidateFile == strongFile) {
+                            continue;
+                        }
+                        if (footprintsConflict(fp, strongFp)) {
+                            conflicts = true;
+                            break;
+                        }
+                    }
+                    if (!conflicts) continue;
+
+                    sigMap[&F] |= SIG_CROSS_TU_PUBLIC;
+                    ++nCrossTuPublicAdded;
+                }
+            }
+
             // Counters for reporting.
-            int nSection = 0, nExport = 0, nSyscall = 0, nOps = 0, nIndirect = 0;
+            int nSection = 0, nExport = 0, nSyscall = 0, nOps = 0, nIndirect = 0, nAlias = 0, nCrossTuPublic = 0;
 
             for (const auto& [F, sig] : sigMap) {
                 if (!F || sig == SIG_NONE) continue;
@@ -455,11 +934,14 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                 std::string name = F->getName().str();
                 if (entrySet.insert(name).second) {
                     entryPoints.push_back(name);
+                    entrySignalMasks_[name] = sig;
                     if (sig & SIG_SECTION_INIT)  nSection++;
                     if (sig & SIG_EXPORT_SYMBOL) nExport++;
                     if (sig & SIG_SYSCALL)       nSyscall++;
                     if (sig & SIG_OPS_MEMBER)    nOps++;
                     if (sig & SIG_INDIRECT_FORK) nIndirect++;
+                    if (sig & SIG_PUBLIC_ALIAS)  nAlias++;
+                    if (sig & SIG_CROSS_TU_PUBLIC) nCrossTuPublic++;
                 }
             }
 
@@ -468,9 +950,18 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                       << nExport  << " EXPORT_SYMBOL, "
                       << nSyscall << " syscall wrapper, "
                       << nOps     << " ops-table member, "
-                      << nIndirect << " indirect-fork sink"
+                      << nIndirect << " indirect-fork sink, "
+                      << nAlias    << " public-wrapper alias, "
+                      << nCrossTuPublic << " cross-TU public"
                       << " (" << entrySet.size() << " unique function(s))"
                       << std::endl;
+            if (nCrossTuPublicAdded > 0) {
+                std::cout << "[Auto-Entry Cross-TU] +"
+                          << nCrossTuPublicAdded
+                          << " external function(s) promoted by strong-entry "
+                             "field conflict."
+                          << std::endl;
+            }
 
             // Name-heuristic pass — ADDITIVE on top of the structural
             // signals (previously this only ran when entrySet was
@@ -489,6 +980,10 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                 if (getKernelEntryPriority(funcName) > 0 &&
                     entrySet.insert(funcName).second) {
                     entryPoints.push_back(funcName);
+                    entrySignalMasks_[funcName] =
+                        getKernelEntryPriority(funcName) == 1
+                            ? SIG_SYSCALL
+                            : SIG_SECTION_INIT;
                 }
             }
             const size_t nameAdded = entrySet.size() - structuralCount;
@@ -552,6 +1047,7 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
                     std::string funcName = F->getName().str();
                     if (entrySet.insert(funcName).second) {
                         entryPoints.push_back(funcName);
+                        entrySignalMasks_[funcName] = SIG_NONE;
                         ++nPromoted;
                     }
                 }
@@ -581,6 +1077,207 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
         }
     }
 
+    discoveredEntryPoints_ = entryPoints;
+
+    // Entry tiering: all discovered entries remain ICFG seeds, but only
+    // thread-root entries are later promoted to parallel ThreadCreationTree
+    // roots. A pure EXPORT_SYMBOL is a public API surface, not necessarily an
+    // independent concurrent root. If another discovered entry reaches it
+    // inside this module, keep it as a reachable helper rather than a separate
+    // LLM-facing thread.
+    {
+        const llvm::Module* M = DB ? DB->getModule() : nullptr;
+        auto cg = buildDirectCallGraph(M);
+        std::set<std::string> allEntryNames(entryPoints.begin(), entryPoints.end());
+        std::unordered_map<std::string, TierFootprint> footprints;
+        if (M) {
+            for (const auto& name : entryPoints) {
+                const llvm::Function* F = M->getFunction(name);
+                if (!F || F->isDeclaration()) continue;
+                std::set<const llvm::Function*> seen;
+                TierFootprint fp;
+                collectTierFootprint(F, *M, cg, /*depth=*/4, seen, fp);
+                footprints.emplace(name, std::move(fp));
+            }
+        }
+        std::set<std::string> kept;
+        std::vector<std::string> strongNames;
+        size_t strongKept = 0;
+        size_t weakKept = 0;
+        size_t weakPruned = 0;
+        size_t weakPrunedReachable = 0;
+        size_t weakPrunedNoStrongConflict = 0;
+
+        bool hasStrong = false;
+        for (const auto& name : entryPoints) {
+            if (isStrongThreadSignal(entrySignalMasks_[name])) {
+                hasStrong = true;
+                strongNames.push_back(name);
+            }
+        }
+
+        auto conflictsWithSet = [&](const std::string& name,
+                                    const std::vector<std::string>& cand) {
+            auto fpIt = footprints.find(name);
+            if (fpIt == footprints.end()) return false;
+            for (const auto& o : cand) {
+                if (o == name) continue;
+                auto oIt = footprints.find(o);
+                if (oIt == footprints.end()) continue;
+                if (footprintsConflict(fpIt->second, oIt->second)) return true;
+            }
+            return false;
+        };
+        auto reachableFromOtherEntry = [&](const std::string& name) {
+            const llvm::Function* target = M ? M->getFunction(name) : nullptr;
+            if (!target) return false;
+            for (const auto& o : entryPoints) {
+                if (o == name) continue;
+                const llvm::Function* other = M ? M->getFunction(o) : nullptr;
+                if (reachesFunctionWithin(other, target, cg, /*maxDepth=*/4))
+                    return true;
+            }
+            return false;
+        };
+
+        // EXPERIMENT (gated): a STRONG entry whose only concurrency signal is
+        // ops-table membership or init/exit-section placement is not necessarily an
+        // independent concurrent root -- many such functions (ops callbacks reached
+        // synchronously, exported helpers) are just callees of a real entry. We
+        // currently keep ALL strong entries unconditionally; on whole-kernel IR that
+        // over-counts threads massively. This measures, and (when the env is set)
+        // prunes, strong entries that (a) carry ONLY ops/init strong signals (NOT a
+        // syscall entry and NOT an async fork signal, which are genuine roots) and
+        // (b) are reachable from another entry in the direct call graph.
+        static const bool kExpReachStrong = [](){
+            const char* e = std::getenv("LACE_EXP_REACH_PRUNE_STRONG");
+            return e && e[0] && e[0] != '0';
+        }();
+        auto opsOrInitOnlyStrong = [&](unsigned sig) {
+            if (!isStrongThreadSignal(sig)) return false;
+            if (sig & (SIG_SYSCALL | SIG_INDIRECT_FORK)) return false;  // genuine roots
+            return (sig & (SIG_OPS_MEMBER | SIG_SECTION_INIT)) != 0;
+        };
+        {
+            size_t diagStrongReach = 0, diagPrunable = 0;
+            for (const auto& name : entryPoints) {
+                unsigned sig = entrySignalMasks_[name];
+                if (!isStrongThreadSignal(sig)) continue;
+                if (!reachableFromOtherEntry(name)) continue;
+                ++diagStrongReach;
+                if (opsOrInitOnlyStrong(sig)) ++diagPrunable;
+            }
+            std::cout << "[Auto-Entry Diag] strong+reachable=" << diagStrongReach
+                      << " (ops/init-only prunable=" << diagPrunable << ")"
+                      << (kExpReachStrong ? "  [EXP reach-prune ON]" : "")
+                      << std::endl;
+        }
+
+        // Two-tier promotion of pure-export ("weak") entries.
+        //
+        //  Conservative tier (always on): a pure-export handler is kept as a
+        //  thread root when it field-conflicts with a STRONG structural entry
+        //  — the common "public API races a registered concurrent context"
+        //  pattern — and is not just a helper reachable from another entry.
+        //
+        //  Broad tier (only when the module is concurrency-thin): additionally
+        //  keep a pure-export handler that field-conflicts with ANY other
+        //  entry. This recovers public-vs-public races where neither side has
+        //  a strong structural signal (two exported handlers, two sysctl
+        //  proc_handlers, two ops callbacks, …) — the dominant cause of
+        //  zero-thread / missing-root collapses on self-contained modules.
+        //
+        //  We gate the broad tier on a thin conservative root set so we never
+        //  inflate already entry-rich modules: promoting every data-touching
+        //  public API in a big networking module explodes the O(threads^2)
+        //  pairwise surface (observed: CVE-2024-26862 145→168 roots → timeout).
+        //  A hard cap bounds the worst case of a thin-but-wide module. These
+        //  are explosion-control valves, not recall criteria: recall is driven
+        //  by the field-conflict relation, which mirrors may-happen-in-parallel.
+        const size_t kThinRootBudget = 16;
+        const size_t kBroadAddCap    = 48;
+
+        struct WeakClass { bool reachable; bool cStrong; };
+        std::unordered_map<std::string, WeakClass> weakClass;
+        for (const auto& name : entryPoints) {
+            unsigned sig = entrySignalMasks_[name];
+            if (!(hasStrong && isPureExportSignal(sig))) continue;
+            WeakClass wc;
+            wc.reachable = reachableFromOtherEntry(name);
+            wc.cStrong = wc.reachable ? false
+                                      : conflictsWithSet(name, strongNames);
+            weakClass[name] = wc;
+        }
+
+        // Conservative root count = strong entries + non-pure-export weak
+        // entries (alias / cross-TU, always kept) + pure-export entries kept
+        // by the conservative tier.
+        size_t conservativeCount = 0;
+        for (const auto& name : entryPoints) {
+            unsigned sig = entrySignalMasks_[name];
+            if (isStrongThreadSignal(sig)) { ++conservativeCount; continue; }
+            if (!(hasStrong && isPureExportSignal(sig))) {
+                ++conservativeCount;  // alias/cross-tu, or the no-strong module
+                continue;
+            }
+            const WeakClass& wc = weakClass[name];
+            if (!wc.reachable && wc.cStrong) ++conservativeCount;
+        }
+        bool broadMode = (conservativeCount < kThinRootBudget);
+        size_t broadAdded = 0;
+
+        for (const auto& name : entryPoints) {
+            unsigned sig = entrySignalMasks_[name];
+            bool strong = isStrongThreadSignal(sig);
+            bool keep = true;
+            if (hasStrong && isPureExportSignal(sig)) {
+                const WeakClass& wc = weakClass[name];
+                if (wc.reachable) {
+                    keep = false; ++weakPrunedReachable;
+                } else if (wc.cStrong) {
+                    keep = true;  // conservative tier
+                } else if (broadMode && broadAdded < kBroadAddCap &&
+                           conflictsWithSet(name, entryPoints)) {
+                    keep = true; ++broadAdded;  // broad tier (thin module)
+                } else {
+                    keep = false; ++weakPrunedNoStrongConflict;
+                }
+            } else if (kExpReachStrong && opsOrInitOnlyStrong(sig) &&
+                       reachableFromOtherEntry(name)) {
+                keep = false; ++weakPrunedReachable;  // experimental strong reach-prune
+            }
+
+            if (!keep) {
+                ++weakPruned;
+                continue;
+            }
+            if (kept.insert(name).second) {
+                threadRootEntryPoints_.push_back(name);
+                if (strong) ++strongKept;
+                else ++weakKept;
+            }
+        }
+
+        if (threadRootEntryPoints_.empty()) {
+            threadRootEntryPoints_ = entryPoints;
+            strongKept = 0;
+            weakKept = threadRootEntryPoints_.size();
+            weakPruned = 0;
+        }
+
+        std::cout << "[Auto-Entry Tiering] thread roots: "
+                  << threadRootEntryPoints_.size() << "/" << entryPoints.size()
+                  << " (strong=" << strongKept
+                  << ", weak_kept=" << weakKept
+                  << ", broad_mode=" << (broadMode ? "on" : "off")
+                  << ", broad_added=" << broadAdded
+                  << ", weak_pruned_reachable=" << weakPrunedReachable
+                  << ", weak_pruned_no_strong_conflict="
+                  << weakPrunedNoStrongConflict
+                  << ", weak_pruned_total=" << weakPruned
+                  << ")" << std::endl;
+    }
+
     std::cout << "[Phasar] Building DIBasedTypeHierarchy..." << std::endl;
     std::cout.flush();
     TH = std::make_unique<psr::DIBasedTypeHierarchy>(*DB);
@@ -596,9 +1293,6 @@ PhasarPointerAnalysis::PhasarPointerAnalysis(const std::string &bitcodeFilePath,
     PTA = std::make_unique<psr::LLVMAliasSet>(DB.get());
     std::cout << "[Phasar] LLVMAliasSet done." << std::endl;
     
-    // Store discovered entry points for later use
-    discoveredEntryPoints_ = entryPoints;
-
     std::cout << "[Phasar] Building location maps for all functions..." << std::endl;
     std::cout.flush();
     size_t funcCount = 0;
@@ -753,6 +1447,13 @@ std::vector<EntryPointInfo> PhasarPointerAnalysis::getAllEntryPointInfos() const
                 info.fileName = "N/A";
                 info.lineNumber = 0;
             }
+            auto sigIt = entrySignalMasks_.find(entryName);
+            info.signalMask = sigIt == entrySignalMasks_.end() ? 0 : sigIt->second;
+            info.signalSummary = signalsToString(info.signalMask);
+            info.threadRoot =
+                std::find(threadRootEntryPoints_.begin(),
+                          threadRootEntryPoints_.end(),
+                          entryName) != threadRootEntryPoints_.end();
             
             allEntries.push_back(info);
         }
@@ -760,6 +1461,36 @@ std::vector<EntryPointInfo> PhasarPointerAnalysis::getAllEntryPointInfos() const
     
     std::cout << "getAllEntryPointInfos: Returning " << allEntries.size() << " entry points for kernel module analysis" << std::endl;
     return allEntries;
+}
+
+std::vector<EntryPointInfo> PhasarPointerAnalysis::getThreadRootEntryPointInfos() const {
+    std::vector<EntryPointInfo> roots;
+
+    for (const std::string& entryName : threadRootEntryPoints_) {
+        if (const llvm::Function *EntryFunc = DB->getFunctionDefinition(entryName)) {
+            EntryPointInfo info;
+            info.functionName = EntryFunc->getName().str();
+
+            if (auto *SP = EntryFunc->getSubprogram()) {
+                info.fileName = SP->getFilename().str();
+                info.lineNumber = SP->getLine();
+            } else {
+                info.fileName = "N/A";
+                info.lineNumber = 0;
+            }
+            auto sigIt = entrySignalMasks_.find(entryName);
+            info.signalMask = sigIt == entrySignalMasks_.end() ? 0 : sigIt->second;
+            info.signalSummary = signalsToString(info.signalMask);
+            info.threadRoot = true;
+            roots.push_back(info);
+        }
+    }
+
+    std::cout << "getThreadRootEntryPointInfos: Returning "
+              << roots.size()
+              << " thread-root entry points for kernel module analysis"
+              << std::endl;
+    return roots;
 }
 
 std::vector<const llvm::Function *> PhasarPointerAnalysis::getAllLLVMFunctions() const {

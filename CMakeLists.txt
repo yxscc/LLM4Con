@@ -72,7 +72,7 @@ include_directories(${PROJECT_SOURCE_DIR}/include
 # add_subdirectory(svf-llvm)
 
 # 1. Get all source files from the src directory.
-file(GLOB_RECURSE ALL_SRC "src/*.cpp" "src/Util/*.cpp")
+file(GLOB_RECURSE ALL_SRC CONFIGURE_DEPENDS "src/*.cpp" "src/Util/*.cpp")
 
 # 2. Create a list of COMMON source files by filtering out ALL main entry points.
 list(FILTER ALL_SRC EXCLUDE REGEX ".*main.cpp$")
