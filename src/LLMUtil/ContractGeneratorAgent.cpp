@@ -33,8 +33,10 @@ covers it. For each such resource you state two things using a CLOSED relation a
 
   assume[] : the execution ORDER this thread REQUIRES for its OWN correctness
              (the inferred INTENT; it is usually NOT written literally in the source):
-    * prec(a, b)             : event a must happen-before event b
-                               (e.g. use before free; init before read).
+    * prec(a, b)             : event a must happen-before event b. Common instances:
+                               prec(use, free) (use before free);
+                               prec(init, expose) (fully initialize before the object/
+                               pointer is published or made reachable).
     * atomic([a, b, ...])    : that region of events must not be interleaved by a
                                conflicting outside event (a single event means
                                "no concurrent conflicting write", the data-race case).
@@ -44,9 +46,23 @@ covers it. For each such resource you state two things using a CLOSED relation a
              in the buggy code (do NOT invent synchronization that is not there):
     * serialize(L, region)   : a lock/context (mutex, spinlock, RCU read-side,
                                irq/preempt disable) makes the region mutually exclusive.
-    * order(a < b via m)     : a cooperative primitive m (rcu_assign/publish,
-                               synchronize_rcu/flush_work/kthread_stop/join, barrier,
-                               refcount-drop-then-free) establishes a happens-before.
+                               Name the real lock as L (e.g. serialize(sk->sk_lock, region)).
+    * order(a < b via m)     : a primitive m establishes a happens-before. Write m as ONE
+                               canonical token below so composition can classify it.
+                               HARD (hardware/compiler-backed memory ordering):
+                                 - rcu       : synchronize_rcu / call_rcu / kfree_rcu /
+                                               rcu read-side + rcu_assign_pointer
+                                 - barrier   : smp_mb / smp_store_release / smp_load_acquire
+                                 - join      : flush_work / cancel_work_sync / kthread_stop /
+                                               wait_for_completion / del_timer_sync /
+                                               synchronize_irq / napi_disable
+                                 - refcount  : refcount/kref drop-then-free (atomic RMW)
+                               SOFT (program order only, NOT memory-ordered -> will be
+                               VERIFIED, never trusted blindly; label honestly):
+                                 - published_flag : a plain bool/state bit (->valid/->dead/
+                                                    ->closing) gates the access
+                                 - program_order  : statements merely reordered, no barrier
+                               e.g. order(publish < use via rcu); order(set < read via published_flag).
     * counts(R)              : refcount discipline maintains count_guarded(R).
 
 RED LINE: use ONLY the six relations above. Do NOT enumerate "patterns" (no
@@ -114,13 +130,15 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
         {"type", "array"},
         {"description", "Order this thread REQUIRES for its own correctness (the inferred intent)."},
         {"items", reqItem("prec | atomic | count_guarded",
-                          "\"prec(use, free)\" | \"atomic([check, use])\" | \"count_guarded(R, free)\"")}
+                          "\"prec(use, free)\" | \"prec(init, expose)\" | \"atomic([check, use])\" | \"count_guarded(R, free)\"")}
     };
     nlohmann::json guarantee_schema = {
         {"type", "array"},
-        {"description", "Order this thread ESTABLISHES via synchronization actually present in the code (may be empty)."},
+        {"description", "Order this thread ESTABLISHES via synchronization actually present in the code (may be empty). "
+                        "For order(a < b via m), m MUST be one canonical token: HARD = rcu|barrier|join|refcount; "
+                        "SOFT = published_flag|program_order (verified, not trusted)."},
         {"items", reqItem("serialize | order | counts",
-                          "\"serialize(key->sem, region)\" | \"order(publish < use via rcu)\" | \"counts(R)\"")}
+                          "\"serialize(sk->sk_lock, region)\" | \"order(publish < use via rcu)\" | \"order(set < read via published_flag)\" | \"counts(R)\"")}
     };
     nlohmann::json sites_schema = {
         {"type", "array"},

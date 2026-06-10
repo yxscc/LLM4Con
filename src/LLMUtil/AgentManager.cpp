@@ -82,6 +82,57 @@ bool establishesOrder(const OrderClause* cl) {
     return false;
 }
 
+// Mechanism soundness class for a stated guarantee (CONCURRENCY_CONTRACT_SPEC.md
+// §3.3). HARD = hardware/compiler-backed ordering (lock release-acquire, RCU
+// grace, barrier, join/quiesce, refcount RMW) -> safe to discharge
+// deterministically. SOFT = published flag / bare program order -> never
+// auto-discharged, must be verified by the step-3 calibration session.
+enum class MechClass { None, Soft, Hard };
+
+MechClass mechanismClass(const LLM::ConcurrencyContract::SyncProv& g) {
+    std::string d = g.relation + " " + g.detail;
+    for (char& c : d) c = static_cast<char>(std::tolower((unsigned char)c));
+    auto has = [&](const char* kw) { return d.find(kw) != std::string::npos; };
+
+    if (g.relation == "counts") return MechClass::Hard;  // refcount RMW discipline
+    if (g.relation == "serialize") {
+        // A lock / interrupt-context guarantee is hard; a guarantee that leans on a
+        // bare published flag/state bit is soft (needs the step-3 verifier).
+        if (has("flag") || has("state bit") || has("bool"))
+            return MechClass::Soft;
+        return MechClass::Hard;
+    }
+    if (g.relation == "order") {
+        // Hard ordering primitives: each one is a concrete cited mechanism, so a
+        // stated guarantee here is well-grounded enough to discharge.
+        if (has("rcu") || has("synchronize") || has("call_rcu") || has("kfree_rcu") ||
+            has("barrier") || has("smp_") || has("store_release") || has("load_acquire") ||
+            has("acquire") || has("release") || has("flush_work") || has("flush_workqueue") ||
+            has("cancel_work") || has("cancel_delayed_work") || has("kthread_stop") ||
+            has("wait_for_completion") || has("del_timer_sync") || has("timer_delete_sync") ||
+            has("napi_disable") || has("drain") || has("join") || has("quiesce") ||
+            has("cmpxchg") || has("xchg") || has("refcount") || has("kref"))
+            return MechClass::Hard;
+        // Published flag / bare program order / unknown ordering: be conservative.
+        return MechClass::Soft;
+    }
+    return MechClass::None;
+}
+
+// A clause establishes a HARD *non-lock* order (RCU/refcount/barrier/join/RMW).
+// These protections structurally cannot appear as a shared lock, so the
+// surfaceSharedLock() gate would otherwise make them un-dischargeable. We trust
+// a stated hard non-lock guarantee on its own because it names a concrete
+// primitive. `serialize` (lock) deliberately stays on the lock-confirmed path.
+bool establishesHardNonLockOrder(const OrderClause* cl) {
+    if (!cl) return false;
+    for (const auto& g : cl->guarantee) {
+        if (g.relation == "counts") return true;
+        if (g.relation == "order" && mechanismClass(g) == MechClass::Hard) return true;
+    }
+    return false;
+}
+
 struct AccKind { bool read = false, write = false, free = false; };
 AccKind threadAccessKind(const query::SharedObject& O, int tid) {
     AccKind k;
@@ -429,8 +480,18 @@ std::string composeVerdict(
                 const OrderClause* clB = contractsByTid.count(t2)
                     ? clauseForObject(contractsByTid.at(t2), oi, *O) : nullptr;
 
-                if (surfaceSharedLock(*O, t1, t2) &&
-                    (establishesOrder(clA) || establishesOrder(clB))) {
+                // Deterministic discharge (CONCURRENCY_CONTRACT_SPEC.md §3.3/§4):
+                //  (a) lock path: surface common-lock AND a stated guarantee -- the
+                //      conservative AND so a vague serialize alone never drops a bug;
+                //  (b) hard non-lock path: a stated RCU/refcount/barrier/join/RMW
+                //      guarantee, which can never manifest as a shared lock and so
+                //      was previously impossible to discharge. Soft guarantees
+                //      (published flag / bare program order) never auto-discharge.
+                bool lockDischarge = surfaceSharedLock(*O, t1, t2) &&
+                                     (establishesOrder(clA) || establishesOrder(clB));
+                bool hardDischarge = establishesHardNonLockOrder(clA) ||
+                                     establishesHardNonLockOrder(clB);
+                if (lockDischarge || hardDischarge) {
                     ++dis;
                     continue;
                 }
@@ -511,12 +572,21 @@ std::string composeVerdict(
         return a.merged > b.merged;
     });
 
-    const int maxHigh = envInt("LACE_B2C_MAX_HIGH", 3);
-    const int maxMed = envInt("LACE_B2C_MAX_MED", 2);
-    const int maxLow = keepLow ? envInt("LACE_B2C_MAX_LOW", 2) : 0;
+    // CONCURRENCY_CONTRACT_SPEC.md §7/§8: do NOT truncate covered candidates to a
+    // tiny top-N. The byAnchor dedup above already collapses same-anchor variants,
+    // so the remaining candidates are distinct (resource, hazard, anchor) classes.
+    // Reviewing them all does NOT add dialogues -- they go into ONE batched session
+    // prompt. A generous overall cap (maxTotal) only bounds prompt size; chunking
+    // for very large sessions is handled later. The per-tier caps stay env-tunable
+    // for ablation but default high so high/medium are no longer dropped.
+    const int maxHigh = envInt("LACE_B2C_MAX_HIGH", 10000);
+    const int maxMed = envInt("LACE_B2C_MAX_MED", 10000);
+    const int maxLow = keepLow ? envInt("LACE_B2C_MAX_LOW", 10000) : 0;
+    const int maxTotal = envInt("LACE_B2C_MAX_TOTAL", 60);
     std::vector<PhaseBCandidate> selected;
     int sh = 0, sm = 0, sl = 0;
     for (auto& c : candidates) {
+        if (static_cast<int>(selected.size()) >= maxTotal) break;
         if (c.tier == "high") {
             if (sh >= maxHigh) continue;
             ++sh;
@@ -535,8 +605,8 @@ std::string composeVerdict(
         vs << "  Phase-B pre-C reduction: raw_pairs=" << raw.size()
            << ", anchor_groups=" << candidates.size()
            << ", selected_for_review=" << selected.size()
-           << " (limits high=" << maxHigh << ", medium=" << maxMed
-           << ", low=" << maxLow << ").\n";
+           << " (caps total=" << maxTotal << ", high=" << maxHigh
+           << ", medium=" << maxMed << ", low=" << maxLow << ").\n";
     }
 
     int cid = 1;
@@ -745,15 +815,19 @@ void applyCostFirstSurfaceBudget(const query::VulnerabilitySurface& surface,
                                  const FlowPrior& flowPrior) {
     if (!surfaceBudgetEnabled() || objKeep.size() <= 80) return;
 
-    const bool huge = surface.conflicting_pair_count >= 1500 ||
-                      surface.total_thread_count >= 120 ||
-                      surface.shared_objects.size() >= 800;
-    const bool large = huge || surface.conflicting_pair_count >= 500 ||
-                       surface.total_thread_count >= 60 ||
-                       surface.shared_objects.size() >= 300;
+    // CONCURRENCY_CONTRACT_SPEC.md §7: the surface IS the recall floor, so do NOT
+    // risk-rank-truncate it. Cost is bounded downstream by deterministic contract
+    // discharge (benign conflicts dropped without LLM), the per-thread contract
+    // budget (the legitimate O(#threads) denominator), and the per-session candidate
+    // cap. The only remaining object truncation is a soundness/throughput safety
+    // valve for a PATHOLOGICALLY huge surface where Phase-B pair enumeration would
+    // not finish; even there, lifecycle carriers (free/list/self-race) are kept.
+    const bool pathological = surface.shared_objects.size() >= 1200 ||
+                              surface.conflicting_pair_count >= 50000;
+    if (!pathological) return;  // keep every conflicting object: recall floor intact
 
-    int defaultGlobal = huge ? 100 : (large ? 70 : 40);
-    int defaultPerSet = huge ? 3 : 4;
+    int defaultGlobal = 300;
+    int defaultPerSet = 6;
     const int globalCap = envInt("LACE_SURFACE_GLOBAL_CAP", defaultGlobal);
     const int perThreadSetCap = envInt("LACE_SURFACE_PER_THREADSET_CAP", defaultPerSet);
 
@@ -882,7 +956,13 @@ SessionList buildBudgetedSessions(const ClusterMap& clusters,
         return a.threads.size() < b.threads.size();
     });
 
-    int defaultCap = hugeSurface(surface) ? 30 : (largeSurface(surface) ? 40 : 60);
+    // Spec §7: modestly raised to use the budget freed by discharge (sessions whose
+    // conflicts are all benign now skip calibration). NOT raised aggressively: each
+    // surviving session is still one calibration dialogue, so on cases WITHOUT hard
+    // mechanisms (no discharge) a high ceiling multiplies Phase-C cost. The real lever
+    // for high coverage is batched bounded verification (spec §8); until that lands,
+    // keep this near the original cap. Env-tunable for ablation.
+    int defaultCap = hugeSurface(surface) ? 35 : (largeSurface(surface) ? 50 : 70);
     const int cap = envInt("LACE_SESSION_CAP", defaultCap);
 
     SessionList sessions;
@@ -976,7 +1056,11 @@ std::set<int> budgetContractThreads(
         return a.first < b.first;
     });
 
-    int defaultCap = hugeSurface(surface) ? 25 : (largeSurface(surface) ? 35 : 80);
+    // Spec §7: per-thread contracts are the legitimate O(#threads) cost denominator
+    // (Phase A is parallel and cheaper than per-pair calibration), so budget here by
+    // thread count rather than by truncating the object surface. Raised modestly;
+    // objects whose threads have no contract fall through to a low-tier raw conflict.
+    int defaultCap = hugeSurface(surface) ? 30 : (largeSurface(surface) ? 45 : 90);
     const int cap = envInt("LACE_CONTRACT_THREAD_CAP", defaultCap);
     std::set<int> out;
     for (size_t i = 0; i < ranked.size() && static_cast<int>(i) < cap; ++i)
