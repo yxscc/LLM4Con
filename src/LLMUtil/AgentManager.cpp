@@ -238,6 +238,14 @@ void appendAssume(std::stringstream& vs, const OrderClause* req) {
     }
 }
 
+const char* mechClassName(MechClass c) {
+    switch (c) {
+        case MechClass::Hard: return "hard";
+        case MechClass::Soft: return "soft";
+        default: return "none";
+    }
+}
+
 // Append the guarantee(s) the requirer/violator DID state (so the session can
 // see what B weighed and why it judged the order uncovered).
 void appendGuarantee(std::stringstream& vs, const OrderClause* a, const OrderClause* b) {
@@ -247,7 +255,8 @@ void appendGuarantee(std::stringstream& vs, const OrderClause* a, const OrderCla
         for (const auto& g : c->guarantee) {
             vs << "        stated guarantee: " << g.relation;
             if (!g.detail.empty()) vs << " " << g.detail;
-            vs << " (B judged it does NOT cover this order)\n";
+            vs << " [mechanism=" << mechClassName(mechanismClass(g))
+               << "] (B judged it does NOT cover this order)\n";
             any = true;
         }
     }
@@ -434,6 +443,8 @@ struct PhaseBCandidate {
     std::vector<std::string> alternates;
 };
 
+std::string resourceFamily(const query::SharedObject* o);
+
 // Phase B: deterministic single-mismatch composition over one session's objects.
 // Produces the human-readable verdict block injected into Phase C and the tier
 // tallies. `kept` is the number of candidates that survive (drives whether the
@@ -450,7 +461,8 @@ std::string composeVerdict(
     ThreadCreationTree* tct,
     const std::unordered_map<int, Thread*>& threadById,
     bool keepLow,
-    int& hi, int& med, int& low, int& dis, int& kept) {
+    int& hi, int& med, int& low, int& dis, int& kept,
+    std::vector<PhaseBCandidate>* outSelected = nullptr) {
     hi = med = low = dis = kept = 0;
     (void)threadSet;
     std::map<std::string, PhaseBCandidate> byAnchor;
@@ -600,6 +612,12 @@ std::string composeVerdict(
         selected.push_back(std::move(c));
     }
 
+    // Hand the structured survivors back so the orchestrator can regroup them
+    // across sessions for batched bounded verification (spec §8). The pointers
+    // (object/clauses/accesses) reference the surface and contracts, which outlive
+    // the whole Phase B/C phase.
+    if (outSelected) *outSelected = selected;
+
     std::stringstream vs;
     if (raw.size() != selected.size()) {
         vs << "  Phase-B pre-C reduction: raw_pairs=" << raw.size()
@@ -623,6 +641,83 @@ std::string composeVerdict(
         vs << "    - [C" << cid++ << "][" << c.tier << "] " << c.label;
         if (c.merged > 1) vs << "  (represents " << c.merged << " same-anchor variants)";
         vs << "\n";
+        vs << "      violated_clause = " << phaseBHazardClass(c.label)
+           << "; resource_family = " << resourceFamily(c.object) << "\n";
+        if (c.reqClause && !c.reqClause->assume.empty()) {
+            vs << "      requirer = thread " << c.reqT << ":\n";
+            appendAssume(vs, c.reqClause);
+        } else {
+            vs << "      requirer = thread " << c.reqT
+               << " (raw conflict; no stated order requirement)\n";
+        }
+        vs << "      violator = thread " << c.violT << ": "
+           << fmtAccess(c.violAccess) << "\n";
+        if (c.anchor && c.anchor != c.violAccess)
+            vs << "      mutating anchor = " << fmtAccess(c.anchor) << "\n";
+        appendGuarantee(vs, c.reqClause, c.violClause);
+        if (!c.alternates.empty()) {
+            vs << "      same-anchor alternate observations:";
+            size_t limit = std::min<size_t>(c.alternates.size(), 4);
+            for (size_t i = 0; i < limit; ++i) vs << "\n        * " << c.alternates[i];
+            if (c.alternates.size() > limit) vs << "\n        * ...";
+            vs << "\n";
+        }
+    }
+    return vs.str();
+}
+
+// Resource family for batched verification grouping (spec §2/§8). Derived from the
+// canonical surface NAME, not the LLVM `type` (which is a useless "ptr" for nearly
+// every kernel object). Groups all fields of the same struct together, each global
+// symbol / alloc-site as its own family:
+//   field:struct.<TYPE>.<field>@<off>  -> "struct.<TYPE>"
+//   global:<symbol>                    -> "global:<symbol>"
+//   obj:<alloc-site>                   -> "obj:<alloc-site>"
+// Keeps the grouping subsystem-independent (no CVE-specific names).
+std::string resourceFamily(const query::SharedObject* o) {
+    if (!o) return "?";
+    const std::string& n = o->name;
+    size_t sp = n.find("struct.");
+    if (sp != std::string::npos) {
+        size_t typeStart = sp + 7;                      // after "struct."
+        size_t end = n.find('.', typeStart);            // dot before the field name
+        if (end == std::string::npos) end = n.find('@', typeStart);
+        if (end == std::string::npos) end = n.size();
+        return "struct." + n.substr(typeStart, end - typeStart);
+    }
+    if (n.rfind("global:", 0) == 0) {
+        std::string g = n.substr(7);
+        size_t at = g.find('@');
+        return "global:" + (at == std::string::npos ? g : g.substr(0, at));
+    }
+    if (n.rfind("obj:", 0) == 0) return n;
+    size_t arrow = n.find("->");
+    if (arrow != std::string::npos) return n.substr(0, arrow);
+    size_t dot = n.find('.');
+    if (dot != std::string::npos) return n.substr(0, dot);
+    if (!o->type.empty() && o->type != "ptr") return o->type;
+    return n.empty() ? "?" : n;
+}
+
+// Render a verdict block for an arbitrary set of Phase-B candidates (spec §8
+// batched review). Same per-candidate format as composeVerdict's own rendering,
+// but over candidates regrouped across sessions by (resource_family, clause).
+std::string renderBatchVerdict(const std::vector<PhaseBCandidate>& sel) {
+    std::stringstream vs;
+    int cid = 1;
+    std::set<int> renderedObjects;
+    for (const auto& c : sel) {
+        if (!c.object) continue;
+        if (renderedObjects.insert(c.objectId).second) {
+            vs << "  object [obj#" << c.objectId << "] "
+               << (c.object->name.empty() ? "<anon>" : c.object->name)
+               << (c.object->type.empty() ? "" : ("  (type: " + c.object->type + ")")) << ":\n";
+        }
+        vs << "    - [C" << cid++ << "][" << c.tier << "] " << c.label;
+        if (c.merged > 1) vs << "  (represents " << c.merged << " same-anchor variants)";
+        vs << "\n";
+        vs << "      violated_clause = " << phaseBHazardClass(c.label)
+           << "; resource_family = " << resourceFamily(c.object) << "\n";
         if (c.reqClause && !c.reqClause->assume.empty()) {
             vs << "      requirer = thread " << c.reqT << ":\n";
             appendAssume(vs, c.reqClause);
@@ -1402,39 +1497,166 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                   << std::endl;
         InterleavingAnalysisAgent calAgent(llmClient, ccpg, tct, &verifier);
         std::vector<query::Hypothesis> composed;
-        size_t sDone = 0, sRun = 0;
-        for (auto& [ts, objs] : sessions) {
-            ++sDone;
-            int hi = 0, med = 0, low = 0, disc = 0, kc = 0;
-            std::string verdict = composeVerdict(objs, ts, contractsByTid, objIndex,
-                                                 tct, threadById, keepLow,
-                                                 hi, med, low, disc, kc);
-            if (kc == 0) {
+        size_t calibratedUnits = 0;
+
+        // Batched bounded verification (spec §8) is OPT-IN for now. It bounds Phase-C
+        // cost by regrouping survivors into #(family x clause) batches, but grouping
+        // ACROSS thread-sets can make a calibration dialogue incoherent (threads that
+        // do not actually interact + objects from different contexts), which dilutes
+        // the interleaving reasoning and dropped confirmations in validation. Keep the
+        // coherent per-thread-set path as default until batch grouping is refined to
+        // preserve thread-set coherence. Enable with LACE_PHASE_C_BATCH=1.
+        const char* batchEnv = std::getenv("LACE_PHASE_C_BATCH");
+        const bool batchVerify = batchEnv && batchEnv[0] && batchEnv[0] != '0';
+
+        if (!batchVerify) {
+            // Legacy per-thread-set calibration (one dialogue per surviving session).
+            size_t sDone = 0;
+            for (auto& [ts, objs] : sessions) {
+                ++sDone;
+                int hi = 0, med = 0, low = 0, disc = 0, kc = 0;
+                std::string verdict = composeVerdict(objs, ts, contractsByTid, objIndex,
+                                                     tct, threadById, keepLow,
+                                                     hi, med, low, disc, kc);
+                if (kc == 0) {
+                    std::cout << "  [session " << sDone << "/" << sessions.size()
+                              << "] no surviving candidate (discharged=" << disc << ") -- skip"
+                              << std::endl;
+                    continue;
+                }
+                int flowScore = sessionFlowPriorScore(objs, flowPrior);
+                if (hi == 0 && med > 0 && low == 0 && flowScore == 0 && !calibrateMedOnlyEnabled()) {
+                    std::cout << "  [session " << sDone << "/" << sessions.size()
+                              << "] med-only candidates=" << med
+                              << " (flow_prior=0, discharged=" << disc
+                              << ") -- skip C" << std::endl;
+                    continue;
+                }
+                ++calibratedUnits;
+                std::map<int, LLM::ConcurrencyContract> sub;
+                for (int t : ts) {
+                    auto it = contractsByTid.find(t);
+                    if (it != contractsByTid.end()) sub.emplace(t, it->second);
+                }
                 std::cout << "  [session " << sDone << "/" << sessions.size()
-                          << "] no surviving candidate (discharged=" << disc << ") -- skip"
-                          << std::endl;
-                continue;
+                          << "] candidates hi=" << hi << " med=" << med << " low=" << low
+                          << " (discharged=" << disc << ") -> calibrate" << std::endl;
+                auto hyps = calAgent.analyzeCluster(objs, ts, surface, true, &sub, &verdict);
+                for (auto& h : hyps) composed.push_back(std::move(h));
             }
-            int flowScore = sessionFlowPriorScore(objs, flowPrior);
-            if (hi == 0 && med > 0 && low == 0 && flowScore == 0 && !calibrateMedOnlyEnabled()) {
-                std::cout << "  [session " << sDone << "/" << sessions.size()
-                          << "] med-only candidates=" << med
-                          << " (flow_prior=0, discharged=" << disc
-                          << ") -- skip C" << std::endl;
-                continue;
+        } else {
+            // Batched bounded verification (spec §8). Step 1: compose every
+            // object-chunk deterministically, then MERGE chunks back by the exact
+            // thread-set before Phase C. This preserves the interleaving context
+            // (all candidates in one verification dialogue share the same threads)
+            // while removing the artificial session inflation caused by splitting a
+            // large thread-set into maxObjsPerSession-sized chunks.
+            std::map<std::set<int>, std::vector<PhaseBCandidate>> byThreadSet;
+            int totalDischarged = 0;
+            int totalSurvivors = 0;
+            for (auto& [ts, objs] : sessions) {
+                int hi = 0, med = 0, low = 0, disc = 0, kc = 0;
+                std::vector<PhaseBCandidate> sel;
+                composeVerdict(objs, ts, contractsByTid, objIndex, tct, threadById,
+                               keepLow, hi, med, low, disc, kc, &sel);
+                totalDischarged += disc;
+                totalSurvivors += static_cast<int>(sel.size());
+                auto& bucket = byThreadSet[ts];
+                for (auto& c : sel) bucket.push_back(c);
             }
-            ++sRun;
-            std::map<int, LLM::ConcurrencyContract> sub;
-            for (int t : ts) {
-                auto it = contractsByTid.find(t);
-                if (it != contractsByTid.end()) sub.emplace(t, it->second);
+
+            // Dedup inside each coherent thread-set by (object, clause, anchor).
+            // We intentionally do NOT dedup across different thread-sets: the same
+            // object/anchor can be a different interleaving witness under a different
+            // concurrent context.
+            int totalUnique = 0;
+            std::vector<std::pair<std::set<int>, std::vector<PhaseBCandidate>>> ordered;
+            for (auto& [ts, gcands] : byThreadSet) {
+                std::set<std::string> seenKey;
+                std::vector<PhaseBCandidate> uniq;
+                for (auto& c : gcands) {
+                    std::string k = std::to_string(c.objectId) + "|" +
+                                    phaseBHazardClass(c.label) + "|" + anchorKey(c.anchor);
+                    if (seenKey.insert(k).second) uniq.push_back(c);
+                }
+                if (uniq.empty()) continue;
+                totalUnique += static_cast<int>(uniq.size());
+                ordered.emplace_back(ts, std::move(uniq));
             }
-            std::cout << "  [session " << sDone << "/" << sessions.size()
-                      << "] candidates hi=" << hi << " med=" << med << " low=" << low
-                      << " (discharged=" << disc << ") -> calibrate" << std::endl;
-            auto hyps = calAgent.analyzeCluster(objs, ts, surface, true, &sub, &verdict);
-            for (auto& h : hyps) composed.push_back(std::move(h));
+            auto groupRank = [](const std::vector<PhaseBCandidate>& g) {
+                int r = 0; for (auto& c : g) r = std::max(r, tierRank(c.tier)); return r;
+            };
+            std::stable_sort(ordered.begin(), ordered.end(),
+                [&](const auto& a, const auto& b) {
+                    int ra = groupRank(a.second), rb = groupRank(b.second);
+                    if (ra != rb) return ra > rb;
+                    if (a.second.size() != b.second.size()) return a.second.size() > b.second.size();
+                    return a.first.size() < b.first.size();
+                });
+
+            const int maxBatches = envInt("LACE_PHASE_C_MAX_BATCHES", 60);
+            const int batchSize = std::max(1, envInt("LACE_PHASE_C_BATCH_SIZE", 12));
+            std::cout << "  [phase-C batch] survivors=" << totalSurvivors
+                      << " unique=" << totalUnique
+                      << " threadset_groups=" << ordered.size()
+                      << " (discharged_total=" << totalDischarged
+                      << ", batch_size=" << batchSize << ", max_batches=" << maxBatches
+                      << ")" << std::endl;
+
+            int batchNo = 0;
+            bool capHit = false;
+            for (auto& [gts, gcands] : ordered) {
+                if (batchNo >= maxBatches) { capHit = true; break; }
+                // Step 3: one capped dialogue per candidate chunk inside the SAME
+                // thread-set. Families/clauses remain visible in each candidate label
+                // and object name, but no cross-thread-set mixing is allowed.
+                for (size_t off = 0; off < gcands.size();
+                     off += static_cast<size_t>(batchSize)) {
+                    if (batchNo >= maxBatches) { capHit = true; break; }
+                    std::vector<PhaseBCandidate> chunk(
+                        gcands.begin() + off,
+                        gcands.begin() + std::min(gcands.size(),
+                                                  off + static_cast<size_t>(batchSize)));
+                    std::vector<const query::SharedObject*> gobjs;
+                    std::set<const query::SharedObject*> seenObj;
+                    int chi = 0, cmed = 0, clow = 0;
+                    for (auto& c : chunk) {
+                        if (c.object && seenObj.insert(c.object).second) gobjs.push_back(c.object);
+                        if (c.tier == "high") ++chi;
+                        else if (c.tier == "medium") ++cmed; else ++clow;
+                    }
+                    std::stringstream key;
+                    key << "threads={";
+                    { bool first = true; for (int t : gts) { key << (first ? "" : ",") << t; first = false; } }
+                    key << "}";
+                    int gFlow = sessionFlowPriorScore(gobjs, flowPrior);
+                    if (chi == 0 && cmed > 0 && clow == 0 && gFlow == 0 &&
+                        !calibrateMedOnlyEnabled()) {
+                        std::cout << "  [batch] " << key.str() << " med-only=" << cmed
+                                  << " -- skip C" << std::endl;
+                        continue;
+                    }
+                    ++batchNo;
+                    std::map<int, LLM::ConcurrencyContract> sub;
+                    for (int t : gts) {
+                        auto it = contractsByTid.find(t);
+                        if (it != contractsByTid.end()) sub.emplace(t, it->second);
+                    }
+                    std::string verdict = renderBatchVerdict(chunk);
+                    std::cout << "  [batch " << batchNo << "/<=" << maxBatches << "] " << key.str()
+                              << " cand(hi=" << chi << ",med=" << cmed << ",low=" << clow
+                              << ") objs=" << gobjs.size() << " threads=" << gts.size()
+                              << " -> calibrate" << std::endl;
+                    auto hyps = calAgent.analyzeCluster(gobjs, gts, surface, true, &sub, &verdict);
+                    for (auto& h : hyps) composed.push_back(std::move(h));
+                }
+            }
+            if (capHit)
+                std::cout << "  [phase-C batch] max_batches=" << maxBatches
+                          << " reached; remaining groups deferred" << std::endl;
+            calibratedUnits = static_cast<size_t>(batchNo);
         }
+
         if (dedupEnabled()) {
             size_t before = composed.size();
             composed = dedupHypotheses(std::move(composed), surface, dedupLevelFromEnv());
@@ -1443,7 +1665,10 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
         }
         confirmedHypotheses_ = std::move(composed);
         std::cout << "\n--- Static-Composition Analysis Finished: "
-                  << confirmedHypotheses_.size() << " hypotheses (calibrated " << sRun << "/"
+                  << confirmedHypotheses_.size() << " hypotheses ("
+                  << (batchVerify ? "batched " : "")
+                  << "calibrated " << calibratedUnits
+                  << (batchVerify ? " batches" : " sessions") << " over "
                   << sessions.size() << " sessions) ---\n" << std::endl;
         return;
     }
