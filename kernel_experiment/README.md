@@ -31,22 +31,24 @@ kernel_experiment/
 
 ## 数据集统计
 
-工作目录 `kernel_experiment/` 当前含 **50 个活跃 CVE**（每个目录都通过编译且 `ground_truth.json` 完整）。
-另有 2 个编译卡死的 CVE 已被隔离到 `_skipped_compile_issues/`：
+工作目录 `kernel_experiment/` 的原始 prepared 数据集包含 **100 个 case**（`CVE-*` 和 `SYZBOT-*`）。
+截至 2026-06-11，active benchmark 采用以下排除策略：
 
-```
-_skipped_compile_issues/
-├── CVE-2011-2183     ← 无法生成 .ll，rmap 旧版头文件依赖太多
-├── CVE-2024-53160    ← llvm-link 阶段卡死
-└── README.md         ← 隔离原因
-```
-
-| 状态 | 数量 | 说明 |
+| 类别 | 数量 | 说明 |
 |------|------|------|
-| 完整编译（单/多文件已合并） | 49 | 可直接运行检测 |
-| 部分编译 | 1 | CVE-2024-42234（部分 mm/.c 失败但保留）|
-| 隔离不参与评估 | 2 | 见 `_skipped_compile_issues/` |
-| 无补丁，被排除 | 1 | CVE-2009-3547 等 |
+| 原始 prepared case | 100 | 见历史实验与 `dataset_benign_exclusions.json` |
+| benign annotation-only case | 28 | 已移动到 `backup_benign_excluded_20260611/` |
+| 顶层 active case 目录 | 72 | glob `CVE-*` / `SYZBOT-*` 可见 |
+| dual-thread 不适合 case | 3 | 仍在顶层，但 runner 根据 `dataset_exclusion_candidates.json` 排除 |
+| 当前有效评估集 | 69 | 见 `dataset_active_manifest.json` |
+
+benign case 的排除依据：纯 `READ_ONCE` / `WRITE_ONCE` / `data_race` 注解修复，且 racy value 不影响内存安全、对象身份或生命周期。完整列表和理由见 `dataset_benign_exclusions.json`。被移动的目录保存在：
+
+```
+backup_benign_excluded_20260611/
+├── moved_cases_manifest.json
+└── <CVE-* | SYZBOT-*>/
+```
 
 漏洞类型分布（按 ground truth `cwes` 字段）：
 

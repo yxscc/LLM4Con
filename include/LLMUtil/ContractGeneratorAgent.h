@@ -7,6 +7,7 @@
 #include <set>
 #include <string>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 class CCPG;
@@ -48,6 +49,20 @@ private:
     std::string preloadSource(const std::set<std::string>& funcNames,
                               std::size_t charBudget) const;
 
+    // Contract COMPLETENESS pass. After the initial generation, drive up to a few
+    // focused repair rounds so that every HIGH-RISK surface object this thread
+    // touches (unprotected write / free / list mutation / self-race) is explicitly
+    // addressed -- either with a real assume/guarantee or an explicit
+    // no_order_needed declaration. A silently-omitted dangerous object is the recall
+    // hole that leaves Phase B static composition with no candidate for the real bug.
+    // Seeded mode only; gated by coverageEnabled().
+    void repairContractCoverage(LLM::ConcurrencyContract& contract, int tid,
+                                const std::vector<const query::SharedObject*>& touchedObjects,
+                                const std::vector<int>& objectIds);
+
+    // Per-call cap on contract-completeness repair rounds (bounds cost).
+    static constexpr int kCoverageRepairRounds = 2;
+
     CCPG* ccpg_;
 
     // Per-contract exploration (read/navigation) budget. The base send_message
@@ -75,6 +90,7 @@ private:
     // every object; we just track the seeded object count and the number of reporting
     // rounds and hard-stop the session past a cap (the safety net for a runaway loop).
     std::set<int> seededObjectIds_;
+    std::unordered_map<int, const query::SharedObject*> seededObjectsById_;
     int reportRounds_ = 0;
     int reportHardCap() const {
         int n = static_cast<int>(seededObjectIds_.size());

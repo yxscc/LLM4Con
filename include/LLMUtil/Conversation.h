@@ -54,6 +54,15 @@ public:
     using Compactor = std::function<std::string(const std::vector<ChatMessage>&)>;
     void set_compactor(Compactor c) { compactor_ = std::move(c); }
 
+    // Hard per-call cap on assistant<->tool round-trips inside send_message.
+    // When > 0, the loop stops after this many LLM turns and returns whatever
+    // has been parsed/reported so far (already-committed tool side effects,
+    // e.g. proposed hypotheses, are preserved). When 0 (default) there is NO
+    // cap and behavior is unchanged. Use to bound pathological sessions where
+    // the model keeps calling uncapped reporting tools without finishing.
+    void set_max_turns(int n) { max_turns_ = n; }
+    int get_max_turns() const { return max_turns_; }
+
     // Pin helpers: pinned messages are never dropped by prune_history (only
     // relevant under a token budget). Use to keep task setup / contracts.
     void pin_next_user_message() { pin_next_user_ = true; }
@@ -80,6 +89,7 @@ private:
     std::ofstream simplified_log_file_;
     // P0 context-management state (see public knobs above).
     size_t max_tokens_ = 0;       // 0 => token budgeting disabled
+    int max_turns_ = 0;           // 0 => no per-call turn cap
     Compactor compactor_ = nullptr;
     bool pin_next_user_ = false;
     

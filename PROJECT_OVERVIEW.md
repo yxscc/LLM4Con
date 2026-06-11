@@ -201,13 +201,20 @@ std::vector<std::string> ordering;      // 跨 clause 的线程级有向序（�
 
 处理策略（与用户达成一致）：
 - 这类对象**良性不报**——对象分诊会过滤，静态组合 Phase B 默认抑制 low-tier 的 torn-scalar，交织 agent 的 prompt 也明确"纯统计/诊断计数器的丢更新是良性，跳过"。
-- 是否把"仅加注解修复"的样本**从数据集排除**仍是开放选项（排/不排各有道理），留待实验后再定；当前实现以**泛化抑制**为主，不做过拟合。
+- 纯 annotation 且不影响内存安全、对象身份或生命周期的样本已从 active benchmark 中排除：详见 `kernel_experiment/dataset_benign_exclusions.json`。
+- 这些 benign case 的原始目录已移动到 `kernel_experiment/backup_benign_excluded_20260611/`，可按需恢复。
 
 ---
 
 ## 6. 数据集
 
-位置：`kernel_experiment/`，共 **100** 个 case（**65 个 `CVE-*` + 35 个 `SYZBOT-*`**），均为已确认（confirmed）的真实并发缺陷（CVE 或 syzbot 报告）。
+位置：`kernel_experiment/`。原始数据集共 **100** 个 case（**65 个 `CVE-*` + 35 个 `SYZBOT-*`**）。
+
+当前 active benchmark 已排除良性开发者注解竞争：
+- `dataset_benign_exclusions.json` 中 28 个 benign case 已移动到 `backup_benign_excluded_20260611/`。
+- 顶层 active case 目录剩 **72** 个。
+- runner 还会根据 `dataset_exclusion_candidates.json` 排除 3 个仍在顶层、但 `dual_thread_model=false` 的 case。
+- 因此当前有效评估集为 **69** 个 case。详见 `kernel_experiment/dataset_active_manifest.json`。
 
 每个 case 目录的典型结构：
 

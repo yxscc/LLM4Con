@@ -82,7 +82,33 @@ public:
         std::vector<std::string> sites;   // "func @ file:line" —— clause 涉及操作的 provenance
         std::vector<OrderReq> assume;     // 要求的 order（推断出的意图 —— 核心增量）
         std::vector<SyncProv> guarantee;  // 建立 order 的同步
+        // Contract COMPLETENESS (coverage invariant): when this thread has reviewed a
+        // HIGH-RISK surface object (unprotected cross-thread write / free / list
+        // mutation / self-race) and concluded it carries NO order obligation for this
+        // thread — the racy value never flows into a branch/index/size/pointer/lifetime
+        // decision AND there is no use-before-free / init-before-publish — it emits a
+        // clause with noOrderNeeded=true + a justification INSTEAD of silently omitting
+        // it. This turns "every dangerous object was considered" into a verifiable
+        // property of the contract; Phase B treats such a clause as benign (no hazard
+        // tier, never discharges), exactly as before.
+        bool noOrderNeeded = false;
+        std::string noOrderReason;
     };
+    // True iff this clause carries actual order content (an assume requirement or a
+    // guarantee). A bare noOrderNeeded clause is NOT order content.
+    static bool clauseHasOrder(const OrderClause& cl) {
+        return !cl.assume.empty() || !cl.guarantee.empty();
+    }
+    // True iff this clause "addresses" object oi for coverage purposes: it references
+    // oi AND either states real order content or explicitly declares no obligation.
+    bool addressesObject(int oi) const {
+        for (const auto& cl : clauses) {
+            bool refs = (cl.objectId == oi);
+            if (!refs) for (int id : cl.objectIds) if (id == oi) { refs = true; break; }
+            if (refs && (clauseHasOrder(cl) || cl.noOrderNeeded)) return true;
+        }
+        return false;
+    }
     // 选择性产出：只为有真实 order/sync 义务的资源各一条（而非逐变量穷举）；
     // 同锁覆盖的多字段合并为一条（objectIds 列多个）。未产出 clause 的对象由
     // Phase B 的 surface 冲突底线兜底（召回不丢）。

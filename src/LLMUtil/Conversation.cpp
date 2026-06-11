@@ -59,7 +59,24 @@ std::string Conversation::send_message(const std::string& user_message, void* co
     }
     prune_history();
 
+    int turn = 0;
     while (true) {
+        // Hard per-call turn cap (opt-in). Bounds pathological sessions where
+        // the model keeps calling uncapped reporting tools without ever
+        // finishing. Already-committed tool side effects (e.g. proposed
+        // hypotheses) are preserved; we just stop asking the model for more.
+        if (max_turns_ > 0 && turn >= max_turns_) {
+            if (simplified_log_file_.is_open()) {
+                simplified_log_file_ << "[turn-cap] reached max_turns_=" << max_turns_
+                                     << ", terminating session" << std::endl;
+            }
+            if (mirrorTraceToStderr()) {
+                std::cerr << "[trace] turn-cap reached (" << max_turns_
+                          << "), terminating session" << std::endl;
+            }
+            return parseResult(history_);
+        }
+        ++turn;
         std::string dynamic_sys_prompt = build_effective_system_prompt();
         if (!history_.empty() && history_[0].role == MessageRole::SYSTEM) {
             history_[0].content = dynamic_sys_prompt;

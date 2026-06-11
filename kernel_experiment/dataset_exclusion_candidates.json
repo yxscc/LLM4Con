@@ -1,0 +1,34 @@
+{
+  "reviewed_at": "2026-06-01",
+  "scope": "kernel_experiment survey cases marked uncertain or reviewed for dataset fit after flow annotation",
+  "decision_basis": "Whether the case can be represented as two Linux kernel execution contexts with function-level entries and a concrete bug path for the thread-contract storyline.",
+  "exclude_candidates": [
+    {
+      "bug_id": "CVE-2024-47715",
+      "dual_thread_model": false,
+      "reason": "Deterministic sparse phy-index NULL dereference. The patch maps wcid->phy_idx through mt76_dev_phy(); it does not repair a missing synchronization/order between two concurrent kernel contexts."
+    },
+    {
+      "bug_id": "CVE-2024-53136",
+      "dual_thread_model": false,
+      "reason": "The patch reverts a shmem_getattr() lock workaround due tmpfs-over-NFS deadlock, but the available CVE evidence does not identify the concrete NFS-side kernel entry/call chain. Expanding into fs/nfs would be speculative without an external trace or reproducer."
+    },
+    {
+      "bug_id": "CVE-2025-38429",
+      "dual_thread_model": false,
+      "reason": "The peer is an external MHI host/hardware observer of MMIO-visible ring state, not a second Linux kernel execution context in source."
+    },
+    {
+      "bug_id": "SYZBOT-4b16e156132582a9",
+      "dual_thread_model": false,
+      "reason": "The visible KCSAN pair is sk_backlog.tail in tcp_recvmsg, while the patch annotates sk_rcvbuf/sk_sndbuf reads in sk_add_backlog callers. The report/patch mismatch makes it unsuitable as ground truth for the patched concurrency behavior."
+    }
+  ],
+  "reviewed_keep_cases": [
+    {
+      "bug_id": "CVE-2024-58072",
+      "dual_thread_model": true,
+      "reason": "Can be modeled as two rtl_pci_probe executions: a failed first probe leaves a freed rtl_priv list node in a global list, and a later probe manipulates the same list. The unused check_buddy_priv hook is not needed for the confirmed path."
+    }
+  ]
+}

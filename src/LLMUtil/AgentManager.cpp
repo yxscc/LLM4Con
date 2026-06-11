@@ -8,6 +8,7 @@
 #include "CPG/Node.h"
 #include "LLMUtil/ConcurrencyContract.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "CCPG/ManualEntryConfig.h"
 #include "LLMUtil/ThreadPair.h"
 #include "LLMUtil/DetectorAgent.h"
 #include "LLMUtil/InterleavingAnalysisAgent.h"
@@ -213,6 +214,34 @@ const query::ThreadAccess* representativeAccess(const query::SharedObject& O, in
         if (!best) best = &a;
     }
     return best;
+}
+
+// The violator access to CITE in a candidate. The naive choice (most-severe
+// access type) is misleading when the severe access is itself serialized: e.g.
+// a publish `obj = x` done UNDER a lock vs a concurrent UNPROTECTED reader of
+// the same pointer. Citing the locked write makes the candidate read as "two
+// serialized writes" and the reviewer (correctly) rejects it, even though the
+// real race front is the unprotected access that escapes all serialization
+// (the classic unlocked guard-read / torn-scalar read). So prefer the violator
+// thread's UNPROTECTED conflicting access (mutation first, then read); only if
+// every violator access is lock-protected do we fall back to the severe site.
+const query::ThreadAccess* escapingViolatorAccess(const query::SharedObject& O, int tid,
+                                                  const AccKind& vk) {
+    const query::ThreadAccess* unprotMut = nullptr;
+    const query::ThreadAccess* unprotRead = nullptr;
+    for (const auto& a : O.accesses) {
+        if (a.thread_id != tid) continue;
+        const bool unprotected = !a.is_lock_protected || a.protecting_lock.empty();
+        if (!unprotected) continue;
+        if (a.access_type == "Write" || a.access_type == "Free") {
+            if (!unprotMut) unprotMut = &a;
+        } else if (!unprotRead) {
+            unprotRead = &a;
+        }
+    }
+    if (unprotMut) return unprotMut;
+    if (unprotRead) return unprotRead;
+    return representativeAccess(O, tid, vk);
 }
 
 // Render an access as "Type in fn @ loc | code: <snippet>".
@@ -503,7 +532,16 @@ std::string composeVerdict(
                                      (establishesOrder(clA) || establishesOrder(clB));
                 bool hardDischarge = establishesHardNonLockOrder(clA) ||
                                      establishesHardNonLockOrder(clB);
-                if (lockDischarge || hardDischarge) {
+                // hardDischarge trusts a single LLM-ASSERTED hard guarantee
+                // (rcu/counts/barrier) with no structural confirmation. That is the
+                // right cost trade-off on the broad auto surface, but in analyst-scoped
+                // (manual entry) recall-first mode it silently drops real races when
+                // Phase A hallucinates a covering order. There, keep the pair and let
+                // Phase C confirm or refute the asserted guarantee instead of dropping.
+                // (lockDischarge stays authoritative: it needs EVERY access under a
+                // shared surface lock, a structural fact, not a bare assertion.)
+                const bool keepUnverifiedHard = manualentry::enabled() && !lockDischarge;
+                if (lockDischarge || (hardDischarge && !keepUnverifiedHard)) {
                     ++dis;
                     continue;
                 }
@@ -520,7 +558,12 @@ std::string composeVerdict(
                 if (tier.empty()) {
                     bool suppressible = O->has_scalar_torn_access && !O->has_free_operation &&
                                         !O->has_list_mutation && !O->is_self_race;
-                    if (suppressible && !keepLow) continue;  // benign torn-scalar
+                    // In manual entry mode the surface is already tightly scoped to
+                    // the analyst-declared concurrent contexts, so we do NOT hard-drop
+                    // benign torn-scalars here -- we demote them to low tier and let
+                    // the Phase C sink-gate decide (recall-first). The narrow drop is
+                    // kept only for the broad auto-discovery surface.
+                    if (suppressible && !keepLow && !manualentry::enabled()) continue;
                     tier = "low";
                     label = "raw conflict (no stated order requirement)";
                 }
@@ -540,7 +583,7 @@ std::string composeVerdict(
                 c.violKind = vk;
                 c.reqClause = reqClause;
                 c.violClause = violClause;
-                c.violAccess = representativeAccess(*O, violT, vk);
+                c.violAccess = escapingViolatorAccess(*O, violT, vk);
                 c.anchor = mutatingAnchor(*O, reqT, rk, violT, vk);
                 raw.push_back(std::move(c));
             }
@@ -1005,7 +1048,10 @@ bool sessionBudgetEnabled() {
 bool calibrateMedOnlyEnabled() {
     if (const char* e = std::getenv("LACE_CALIBRATE_MED_ONLY"))
         return e[0] && e[0] != '0';
-    return false;
+    // Analyst-scoped (manual entry) mode is recall-first and its surface is small,
+    // so a medium-only session is worth one verification dialogue rather than a
+    // silent skip.
+    return manualentry::enabled();
 }
 
 int sessionFlowPriorScore(const std::vector<const query::SharedObject*>& objs,

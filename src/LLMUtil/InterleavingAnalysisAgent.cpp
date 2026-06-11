@@ -154,7 +154,10 @@ BENIGN (do not report): a pure statistics/diagnostic counter (packet/byte counte
 decision is a benign lost-update -- skip it.
 
 When you have proposed every real bug (or there is none) for these threads, call
-`finish_analysis`. Propose only bugs you are confident are malignant; precision matters.)";
+`finish_analysis`. Propose only bugs you are confident are malignant; precision matters.
+Every propose_race_hypothesis MUST state its `consequence`: the consequential use (which
+dangerous sink the racy value reaches) AND the concrete harmful interleaving. If the value
+drives nothing or you cannot pin down a harmful interleaving, it is benign -- do not propose.)";
 }
 
 std::vector<Tool> InterleavingAnalysisAgent::get_available_tools() const {
@@ -197,6 +200,15 @@ std::vector<Tool> InterleavingAnalysisAgent::get_available_tools() const {
 
     std::vector<Parameter> propose_params;
     propose_params.emplace_back("description", "string", "Natural-language description of the harmful interleaving.", true);
+    propose_params.emplace_back("consequence", "string",
+        "Why this is NOT benign, in two parts: (1) the CONSEQUENTIAL USE -- which dangerous "
+        "sink the racy value reaches (a branch/comparison, an array/ring index, a length/"
+        "size/bound, a pointer dereference, a free/refcount/lifetime decision, a list/tree "
+        "unlink-then-traverse, a timer/timeout, or an indirect function-pointer call); and "
+        "(2) the CONCRETE HARMFUL INTERLEAVING -- the specific ordering of the two sites and "
+        "the resulting bad outcome (e.g. reader observes the stale/torn value then "
+        "dereferences/frees/indexes it; or free precedes use). If the value drives nothing, "
+        "or you cannot state a concrete harmful interleaving, do NOT propose.", true);
     propose_params.emplace_back("bug_category", "string", "Free-form bug category (emergent, not a template).", true);
     propose_params.emplace_back("severity", "string", "low|medium|high (optional).", false);
     propose_params.emplace_back("racing_sites", std::move(sites_schema), true);
@@ -312,6 +324,22 @@ std::string InterleavingAnalysisAgent::execute_tool(const std::string& tool_name
 
         query::Hypothesis h;
         h.description = arguments.value("description", std::string());
+        // The consequence (consequential use + concrete harmful interleaving) is what
+        // distinguishes a real bug from a benign torn-scalar. Require it: a proposal that
+        // cannot articulate the sink the value reaches AND the harmful ordering is not a
+        // confirmable bug. Fold it into the description so it lands in the bug report.
+        std::string consequence = arguments.value("consequence", std::string());
+        {
+            std::string trimmed = consequence;
+            trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
+            if (trimmed.size() < 12) {
+                return R"({"error":"propose_race_hypothesis needs a non-empty 'consequence': state (1) the consequential use (which dangerous sink the racy value reaches) and (2) the concrete harmful interleaving. If neither holds, this is benign -- do not propose."})";
+            }
+        }
+        if (!consequence.empty()) {
+            if (!h.description.empty()) h.description += "  ";
+            h.description += "[consequence] " + consequence;
+        }
         h.bug_category = arguments.value("bug_category", std::string("data_race"));
         h.severity = arguments.value("severity", std::string("medium"));
         h.id = "interleave_" + std::to_string(ctx->confirmed.size() + 1);
@@ -479,6 +507,23 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
     exploreHard_ = calibrate ? kCalibrateHardBudget : kInlineHardBudget;
     curThreads_ = threadSet;
 
+    // Bound the absolute number of LLM round-trips per session. The read budget
+    // (exploreHard_) already caps exploration, but reporting tools
+    // (propose_race_hypothesis / finish_analysis) are intentionally uncapped, so
+    // a model that keeps proposing without ever finishing can run a single
+    // session away (observed: an amdgpu lock-ordering session burning millions
+    // of tokens). This caps reads-budget + headroom for proposes/turns.
+    // Env LACE_CALIBRATE_MAX_TURNS overrides (0 disables the cap entirely).
+    // Healthy calibration sessions converge in ~5-8 turns; runaway sessions
+    // (repeated propose_race_hypothesis without finishing) hit 30+. exploreHard_
+    // reads + 8 leaves >2x headroom over healthy while cutting runaways hard.
+    {
+        int turnCap = exploreHard_ + 8;
+        if (const char* e = std::getenv("LACE_CALIBRATE_MAX_TURNS"))
+            turnCap = std::atoi(e);
+        set_max_turns(turnCap);
+    }
+
     InterleavingContext ctx;
     ctx.surface = &surface;
     if (objects.size() == 1) ctx.object = objects.front();  // keep single-object metadata
@@ -517,11 +562,33 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
                   "(e.g. confirm a lock scope or a missing guard), not to re-derive the analysis.\n"
                   "CANDIDATE-ONLY REVIEW: evaluate ONLY the candidate IDs listed below (C1, C2,\n"
                   "...). Do NOT enumerate new thread pairs or add fresh bugs in calibration mode.\n"
-                  "For each listed candidate, either CONFIRM it by calling propose_race_hypothesis\n"
-                  "(mention the candidate ID in the description) or REJECT it by skipping it if a\n"
-                  "guarantee really covers it, the flows cannot run concurrently, or it is benign\n"
-                  "torn-scalar/HB-ordered. The same-anchor alternate observations are supporting\n"
-                  "context for the representative candidate, not separate candidates:\n"
+                  "For each listed candidate, decide CONFIRM vs REJECT. Anchor the decision on\n"
+                  "the CONSEQUENCE -- the candidate's `assume` already names the required order R0\n"
+                  "and the sink it protects; use it.\n"
+                  "  CONFIRM requires BOTH, and you must state them in propose's `consequence`:\n"
+                  "    (1) CONSEQUENTIAL USE -- the racy value reaches a dangerous sink: a branch/\n"
+                  "        comparison, an array/ring index, a length/size/bound, a pointer\n"
+                  "        dereference, a free/refcount/lifetime decision, a list/tree unlink-then-\n"
+                  "        traverse, a timer/timeout, or an indirect (function-pointer) call; AND\n"
+                  "    (2) a CONCRETE HARMFUL INTERLEAVING -- a specific ordering of the two sites\n"
+                  "        that yields the bad outcome (reader observes the stale/torn value then\n"
+                  "        dereferences/frees/indexes it; or free precedes use). TRACE the value\n"
+                  "        through callees to find the sink before judging.\n"
+                  "  REJECT if ANY holds: (a) a synchronization guarantee on THIS object truly\n"
+                  "  covers R0 (a lock/RCU/refcount guarding a DIFFERENT field does NOT count);\n"
+                  "  (b) the two flows provably cannot run concurrently -- NOTE a reentrant kernel\n"
+                  "  entry (syscall/ioctl/handler/work) executes on multiple CPUs at once, so two\n"
+                  "  instances of the SAME entry ARE concurrent unless an object-covering lock/HB\n"
+                  "  serializes them, and a '[self-race: concurrent instance]' access is a real\n"
+                  "  second CPU, not a duplicate; or (c) NO consequential use -- the value flows\n"
+                  "  ONLY into statistics/logging/tracing -- OR you cannot construct a concrete\n"
+                  "  harmful interleaving.\n"
+                  "  Balance: when a consequential use AND a concrete harmful interleaving both\n"
+                  "  hold, CONFIRM -- do NOT over-reject a real, articulable bug. When neither can\n"
+                  "  be pinned down after a bounded check, REJECT -- do NOT confirm on vague\n"
+                  "  suspicion. CONFIRM by calling propose_race_hypothesis (mention the candidate\n"
+                  "  ID). The same-anchor alternate observations are supporting context for the\n"
+                  "  representative candidate, not separate candidates:\n"
                << *staticVerdict << "\n";
         }
         ps << "\n";

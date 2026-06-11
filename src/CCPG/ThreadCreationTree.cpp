@@ -1,4 +1,5 @@
 #include "CCPG/ThreadCreationTree.h"
+#include "CCPG/ManualEntryConfig.h"
 #include "phasar.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
@@ -40,8 +41,12 @@ void ThreadCreationTree::build(){
     FunctionSet entries = ccpg->getEntryFunctions();
     
     // NEW: Kernel module mode detection
-    // If we have multiple entry functions, treat them as parallel execution contexts
-    bool isKernelModuleMode = (entries.size() > 1);
+    // If we have multiple entry functions, treat them as parallel execution contexts.
+    // Manual entry mode forces kernel-module treatment even for a single root, so
+    // that a lone self-race entry (thread_a == thread_b in the annotation) is kept
+    // and marked reentrant instead of being pruned as a childless main thread.
+    const bool manualEntries = manualentry::enabled();
+    bool isKernelModuleMode = (entries.size() > 1) || manualEntries;
     if (isKernelModuleMode) {
         std::cout << "[Kernel Module Mode] Treating " << entries.size() 
                   << " entry points as parallel threads" << std::endl;
@@ -60,8 +65,12 @@ void ThreadCreationTree::build(){
         // proc-seq/blk_mq/...) so the verifier can validate `concurrent`
         // hypotheses where both nodes live in the SAME thread (the
         // canonical kvm_vcpu_on_spin / jbd2_journal_dirty_metadata
-        // self-race pattern).
-        if (const llvm::Function* llvmF = entry->getLLVMFunction()) {
+        // self-race pattern). Manual-configured roots are reentrant by
+        // declaration (the analyst stated these contexts run concurrently,
+        // which includes another invocation of the same entry).
+        if (manualEntries) {
+            entryThread->setReentrant(true);
+        } else if (const llvm::Function* llvmF = entry->getLLVMFunction()) {
             if (isReentrantEntryName(llvmF->getName().str())) {
                 entryThread->setReentrant(true);
             }
@@ -838,6 +847,19 @@ bool ThreadCreationTree::mayHappenInParallel(Thread * t1, Thread * t2) {
         if (!bothKernelEntry) {
             mayHappenInParallelCache[cacheKey] = false;
             return false;
+        }
+
+        // Manual entry mode: the analyst explicitly declared these entries as
+        // the concurrent contexts of interest. Honor that directly and skip the
+        // lifecycle / shared-data heuristics (which can wrongly prune the very
+        // pair we were told to analyze).
+        if (manualentry::enabled()) {
+            std::string mn1 = threadEntryName(t1);
+            std::string mn2 = threadEntryName(t2);
+            if (manualentry::matches(mn1) && manualentry::matches(mn2)) {
+                mayHappenInParallelCache[cacheKey] = true;
+                return true;
+            }
         }
 
         // Filter 1: lifecycle incompatibility. init/probe vs exit/remove

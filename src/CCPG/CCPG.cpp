@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "CCPG/HB.h"
+#include "CCPG/ManualEntryConfig.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
 #include "CCPG/LSAnalysis.h"
@@ -262,8 +263,13 @@ void CCPG::build(){
     std::queue<ccpg::Function *> functionQueue;
     std::set<ccpg::Function *> visited;
 
+    // Manual thread-entry override: when configured (LACE_ENTRYPOINTS[_FILE]),
+    // disable ALL automatic entry discovery and use only the analyst-provided
+    // roots. See include/CCPG/ManualEntryConfig.h for the rationale/guardrail.
+    const bool manualEntries = manualentry::enabled();
+
     CCPGNode* main = getMain();
-    if(main != nullptr){
+    if(main != nullptr && !manualEntries){
         ccpg::Function * f = createFunction(main);
         entryFunctions.insert(f);
         functionQueue.push(f);
@@ -274,8 +280,24 @@ void CCPG::build(){
     auto pointerAnalyzer = dynamic_cast<PhasarPointerAnalysis*>(
         AnalysisManager::getInstance()->getPointerAnalyzer());
     if (pointerAnalyzer) {
-        auto allEntries = pointerAnalyzer->getThreadRootEntryPointInfos();
-        if (allEntries.size() > 1) {
+        std::vector<EntryPointInfo> allEntries;
+        if (manualEntries) {
+            for (const std::string& r : manualentry::get().roots) {
+                EntryPointInfo e;
+                e.functionName = r;
+                e.signalSummary = "manual";
+                e.threadRoot = true;
+                allEntries.push_back(e);
+            }
+            std::cout << "[Manual Entry Mode] automatic entry-point discovery "
+                         "DISABLED; using "
+                      << allEntries.size() << " configured thread root(s):";
+            for (const auto& e : allEntries) std::cout << " " << e.functionName;
+            std::cout << std::endl;
+        } else {
+            allEntries = pointerAnalyzer->getThreadRootEntryPointInfos();
+        }
+        if (allEntries.size() > 1 || (manualEntries && !allEntries.empty())) {
             std::cout << "[Kernel Module Mode] Adding " << allEntries.size() 
                       << " thread-root entry points as parallel entries"
                       << std::endl;
@@ -451,7 +473,7 @@ void CCPG::build(){
     // an additional entry. Downstream ThreadCreationTree::build() picks
     // them up automatically as kernel-entry threads (concurrent with
     // every other entry that shares data, exactly the model we want).
-    if (pointerAnalyzer) {
+    if (pointerAnalyzer && !manualEntries) {
         const llvm::Module* M = pointerAnalyzer->getModule();
         if (M) {
             std::vector<const llvm::Function*> harvested;
@@ -525,7 +547,7 @@ void CCPG::build(){
     // INIT_WORK / timer_setup / register_*_notifier / etc. paths that
     // P8a misses because their callback pointer never sits in a static
     // global.
-    if (pointerAnalyzer) {
+    if (pointerAnalyzer && !manualEntries) {
         const llvm::Module* M = pointerAnalyzer->getModule();
         if (M) {
             std::unordered_set<const llvm::Function*> harvested;

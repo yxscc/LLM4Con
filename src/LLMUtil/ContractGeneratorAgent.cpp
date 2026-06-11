@@ -3,14 +3,92 @@
 #include "CCPG/ThreadCreationTree.h"
 #include "CCPG/CCPG.h"
 #include "CCPG/CCPGNode.h"
+#include "CCPG/ManualEntryConfig.h"
 #include "CPG/Node.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "llvm/IR/Value.h"
+#include <cctype>
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <unordered_set>
 
 namespace llm_client {
+
+namespace {
+// An object is HIGH-RISK (memory-safety / data-race shaped) iff the static surface
+// flagged it as carrying an unprotected cross-thread mutation, a free, a list
+// mutation, or a self-race. For such an object the contract MUST take a position
+// (a real assume/guarantee, or an explicit no_order_needed) — silently omitting it
+// is the recall hole that makes Phase B unable to compose a candidate. Benign
+// scalars (pure reads / counters / config) are NOT high-risk and stay selective.
+bool isHighRiskObject(const query::SharedObject* o) {
+    if (!o) return false;
+    return o->has_free_operation || o->has_list_mutation || o->is_self_race ||
+           o->has_unprotected_write;
+}
+
+// Coverage is enabled in analyst-scoped (manual entry) recall-first runs by default,
+// and can be forced on/off for ablation via LACE_CONTRACT_COVERAGE=1/0. The broad
+// auto-discovery surface (hundreds of objects) keeps the legacy selective behavior
+// unless explicitly enabled, to bound contract-generation cost.
+bool coverageEnabled() {
+    if (const char* e = std::getenv("LACE_CONTRACT_COVERAGE"))
+        return e[0] && e[0] != '0';
+    return manualentry::enabled();
+}
+
+const char* riskTag(const query::SharedObject* o) {
+    if (!o) return "high-risk";
+    if (o->has_free_operation) return "free/UAF";
+    if (o->has_list_mutation) return "list mutation";
+    if (o->is_self_race) return "self-race";
+    if (o->has_unprotected_write) return "unprotected cross-thread write";
+    return "cross-thread read/write";
+}
+
+std::string lowerCopy(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+
+bool containsAny(const std::string& s, const std::vector<std::string>& needles) {
+    for (const auto& n : needles)
+        if (s.find(n) != std::string::npos) return true;
+    return false;
+}
+
+// Deterministic guard for no_order_needed: the model may batch a high-risk object
+// as benign only when this thread's own access snippets do NOT show an obvious
+// consequential use. This is intentionally syntactic and conservative: it prevents
+// branch predicates or selection/removal tests from being placed in the benign
+// bucket. It is not the only way to discover consequences -- the prompt still asks
+// the model to follow callees for indirect sinks -- but obvious local sinks should
+// never be waived away by no_order_needed.
+bool hasObviousLocalConsequence(const query::SharedObject* o, int tid, std::string* evidence) {
+    if (!o) return false;
+    for (const auto& a : o->accesses) {
+        if (a.thread_id != tid) continue;
+        std::string c = lowerCopy(a.code_snippet);
+        bool branchLike = containsAny(c, {"if (", "if(", "while (", "while(", "for (", "for(",
+                                          "&&", "||", "!=", "==", "<=", ">=", " ? "});
+        // Less-than/greater-than are noisy in C++ templates/angles, so keep them as
+        // secondary signals only when the line also references the object as a value.
+        bool indexOrSize = containsAny(c, {"[", "alloc", "skb_put", "memcpy", "memmove",
+                                           "copy_", "_copy", "len", "size", "bound"});
+        bool lifetimeOrLinks = containsAny(c, {"kfree", "free(", "refcount", "kref",
+                                               "list_", "hlist_", "rb_", "xarray", "xa_"});
+        if (branchLike || indexOrSize || lifetimeOrLinks) {
+            if (evidence) {
+                *evidence = a.code_snippet;
+                if (!a.location.empty()) *evidence += " @ " + a.location;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+}  // namespace
 
 ContractGeneratorAgent::ContractGeneratorAgent(CCPG* ccpg, std::shared_ptr<LLMClient> client)
     : Conversation(client, build_system_prompt(), 25), ccpg_(ccpg) {}
@@ -80,17 +158,53 @@ Use get_callees / get_function_by_name to follow the thread's real work into cal
 before deciding the requirements. Attach PROVENANCE (a source line / caller) to every
 assume and guarantee.
 
-SELECTIVITY (the core of a useful contract): do NOT emit one clause per listed object.
-Emit a report_clause ONLY when one of these holds for THIS thread:
+SELECTIVITY vs COMPLETENESS: emit a clause when one of these holds for THIS thread:
   * a genuine order requirement: use-before-free / free-before-destroy /
     check-then-act / init-before-publish / refcount-before-free; or
   * the resource's racy value flows into a branch / index / size / pointer /
     lifetime decision (a NON-benign torn read -> assume atomic); or
   * this thread provides a real synchronization discipline over it
     (guarantee: serialize / order / counts).
-Do NOT emit a clause for pure reads, statistics/diagnostic counters, or config
-scalars that are merely read without driving lifetime/branch -- those carry no order
-obligation and are covered by the static floor.
+For an ordinary read-only scalar / statistics counter / config value that drives no
+decision, you may skip it.
+
+COVERAGE MANDATE (completeness is what makes the contract sound): some listed objects
+are marked **HIGH-RISK** (the static surface saw an unsynchronized write, a free, a
+list mutation, or a self-race on them). You must ACCOUNT FOR every high-risk object --
+never silently drop one -- but you decide its disposition by ONE test: does the racy
+value have a CONSEQUENTIAL USE?
+
+  CONSEQUENTIAL USE (=> emit a real assume/guarantee): the racy value flows into
+    * control flow  -- a branch / comparison / condition / predicate; or
+    * an index / a size / a length / a loop bound; or
+    * a pointer that is dereferenced or stored for later dereference; or
+    * a lifetime / free decision -- use-before-free, init-before-publish,
+      refcount-before-free; or
+    * a list / tree link that is mutated or traversed.
+    FOLLOW THE VALUE: if this object's racy value is passed into a callee, returned to a
+    caller, or copied to an alias, follow it (get_callees / get_function_by_name) to the
+    point of use before deciding -- the consequence is often one or two calls away (e.g.
+    a charge/RMW helper, a list helper, a deref in a worker). Do not judge "benign" just
+    because the cited line itself only loads/stores it.
+
+  NO CONSEQUENTIAL USE (=> benign): the value is only stored, copied, counted, or logged
+    and never reaches any of the uses above.
+
+DISPOSITION:
+  (a) Consequential objects: emit report_clause with the matching assume (and any real
+      guarantee). These are few -- only the values that actually drive a decision.
+  (b) Benign high-risk objects: do NOT emit one clause each. Make ONE report_clause with
+      no_order_needed=true and object_ids=[ALL benign high-risk ids], plus a one-line
+      no_order_reason. This keeps the contract complete (every high-risk object is
+      accounted for) without inventing order requirements.
+COMMON TRAP: fields named id/state/count/flag often look like harmless metadata, but
+they are consequential whenever they participate in equality/range predicates,
+matching/selection/removal decisions, shutdown/free gates, or limit checks. Such uses
+need an order requirement (often `assume atomic([read, branch])` or
+`assume atomic([read, limit_check])`), not no_order_needed.
+Be honest in BOTH directions: do not fabricate an atomic([...]) for a value that drives
+nothing (that is a false positive), and do not bucket as benign a value that feeds a
+branch/index/pointer/lifetime (that is a missed bug).
 LOCK-REGION MERGING: when several listed fields are protected by the SAME lock/region,
 emit ONE clause that lists all of them in object_ids and states a single serialize(...)
 guarantee -- do NOT repeat the same guarantee field-by-field.
@@ -160,9 +274,21 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
     clause_params.emplace_back("sites", std::move(sites_schema), false);
     clause_params.emplace_back("assume", std::move(assume_schema), false);
     clause_params.emplace_back("guarantee", std::move(guarantee_schema), false);
+    clause_params.emplace_back("no_order_needed", "boolean",
+        "Set true ONLY to explicitly declare that this resource carries NO order "
+        "obligation for THIS thread: the racy value never flows into a branch/index/"
+        "size/pointer/lifetime decision AND there is no use-before-free / "
+        "init-before-publish. Use this for a HIGH-RISK object you reviewed and judged "
+        "benign (instead of silently omitting it). When true, leave assume/guarantee "
+        "empty and give the justification in no_order_reason.", false);
+    clause_params.emplace_back("no_order_reason", "string",
+        "Required when no_order_needed=true: one concise sentence justifying why this "
+        "resource has no order obligation (e.g. 'plain diagnostic counter, value never "
+        "drives control flow or lifetime').", false);
     tools.push_back({"report_clause",
         "Report THIS thread's order/sync obligations for ONE shared resource, using only the "
-        "closed relation algebra (assume: prec/atomic/count_guarded; guarantee: serialize/order/counts).",
+        "closed relation algebra (assume: prec/atomic/count_guarded; guarantee: serialize/order/counts). "
+        "For a HIGH-RISK object with no obligation, set no_order_needed=true + no_order_reason.",
         std::move(clause_params)});
 
     tools.push_back({"report_ordering", "Optional: a thread-level cross-resource order requirement.", {
@@ -184,7 +310,15 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
     explore_calls_ = 0;
     reportRounds_ = 0;
     seededObjectIds_.clear();
-    for (int id : objectIds) if (id >= 0) seededObjectIds_.insert(id);
+    seededObjectsById_.clear();
+    for (size_t k = 0; k < objectIds.size(); ++k) {
+        int id = objectIds[k];
+        if (id >= 0) {
+            seededObjectIds_.insert(id);
+            if (k < touchedObjects.size() && touchedObjects[k])
+                seededObjectsById_[id] = touchedObjects[k];
+        }
+    }
     // Context hygiene: bound the window and pin the task setup so a long
     // exploration does not blow up the prompt or strand the instructions.
     set_token_budget(16000);
@@ -213,16 +347,27 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
 
     std::stringstream candidates_ss;
     std::set<std::string> preloadNames;
+    const bool coverage = coverageEnabled();
     if (seeded) {
         // The objects this thread touches, with THIS thread's own accesses.
         candidates_ss << "\n--- Shared objects THIS thread touches (from static analysis) ---\n"
                          "This is the surface's EXHAUSTIVE inventory -- you do NOT need to restate it.\n"
-                         "Write a clause ONLY for an object with a real order requirement or a real\n"
-                         "synchronization discipline (see the selectivity rule); skip pure reads,\n"
-                         "statistics counters, and config scalars. Set object_id to the [obj#N] number\n"
-                         "(or object_ids for several fields under the SAME lock) so the resource is\n"
-                         "matched unambiguously. You generally do NOT need to explore the call graph --\n"
-                         "the accessing functions are preloaded below.\n";
+                         "Skip pure reads, statistics counters, and config scalars that drive no\n"
+                         "decision. Set object_id to the [obj#N] number (or object_ids for several\n"
+                         "fields under the SAME lock) so the resource is matched unambiguously. You\n"
+                         "generally do NOT need to explore the call graph -- the accessing functions\n"
+                         "are preloaded below.\n";
+        if (coverage)
+            candidates_ss << "Every object tagged [HIGH-RISK] below must be ACCOUNTED FOR. Emit a real\n"
+                             "assume only for those whose racy value has a CONSEQUENTIAL USE (branch /\n"
+                             "index / size / pointer-deref / use-before-free / list-or-tree); follow the\n"
+                             "value into callees if needed. Put ALL the remaining (benign) HIGH-RISK ids\n"
+                             "into a SINGLE no_order_needed=true clause (object_ids=[...]). Do NOT silently\n"
+                             "drop a HIGH-RISK object, and do NOT invent an assume for a value that drives\n"
+                             "nothing. IMPORTANT: fields named id/state/count/flag are NOT automatically\n"
+                             "benign metadata -- if they are used to match/select/remove an object, gate a\n"
+                             "shutdown/free, or enforce a limit, they have CONSEQUENTIAL USE and need an\n"
+                             "assume (e.g. atomic([read, branch])).\n";
         for (size_t k = 0; k < touchedObjects.size(); ++k) {
             const query::SharedObject* o = touchedObjects[k];
             if (!o) continue;
@@ -231,6 +376,8 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
             if (oid >= 0) candidates_ss << "[obj#" << oid << "] ";
             candidates_ss << (o->name.empty() ? "<anon>" : o->name);
             if (!o->type.empty()) candidates_ss << "  (type: " << o->type << ")";
+            if (coverage && isHighRiskObject(o))
+                candidates_ss << "  [HIGH-RISK: " << riskTag(o) << "]";
             candidates_ss << "\n";
             for (const auto& a : o->accesses) {
                 if (a.thread_id != tid) continue;  // only this thread's accesses
@@ -285,12 +432,19 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         "Thread entry function body:\n```cpp\n" + entry_func_code + "\n```" +
         candidates_ss.str() + "\n\n" +
         explore_hint +
-        "For each resource you DO report: state what order this thread NEEDS for its own\n"
+        "For each resource you report: state what order this thread NEEDS for its own\n"
         "correctness (assume: prec/atomic/count_guarded) and what order it actually\n"
         "ENFORCES here (guarantee: serialize/order/counts) — leave guarantee empty if the\n"
-        "code provides no synchronization that truly covers that resource. Be SELECTIVE:\n"
-        "skip resources with no real order requirement and no synchronization you provide\n"
-        "(pure reads, counters, config scalars) — they are covered by the static floor.\n"
+        "code provides no synchronization that truly covers that resource. Emit a real\n"
+        "assume ONLY for a value with a CONSEQUENTIAL USE (branch / index / size /\n"
+        "pointer-deref / use-before-free / list-or-tree); follow the value into callees to\n"
+        "decide. Do not classify id/state/count/flag fields as benign merely because the\n"
+        "name looks like metadata: if the value is used to match/select/remove an object,\n"
+        "gate shutdown/free, or enforce a limit, it has CONSEQUENTIAL USE and needs an\n"
+        "assume (typically atomic([read, branch]) or atomic([read, limit_check])).\n"
+        "Account for every [HIGH-RISK] object: the benign ones go together into a\n"
+        "SINGLE no_order_needed=true clause (object_ids=[...]) — do not drop one, and do\n"
+        "not fabricate an assume for a value that drives nothing.\n"
         "Attach provenance. Do NOT describe bug patterns; describe only this thread's "
         "obligations.";
 
@@ -299,11 +453,13 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
     // --- Validation & Retry Logic ---
     int retries = 0;
     const int MAX_RETRIES = 3;
+    bool valid = false;
 
     while (retries < MAX_RETRIES) {
         // A minimal valid contract must carry at least a role or one order clause.
         if (!contract->role.empty() || contract->hasOrderContent()) {
-            return std::move(*contract);
+            valid = true;
+            break;
         }
 
         std::cout << "  [ContractGenerator] Warning: LLM failed to use tools (empty contract). Retrying ("
@@ -322,8 +478,83 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         retries++;
     }
 
+    if (valid) {
+        // Contract COMPLETENESS pass: a contract is only useful to static composition
+        // if every dangerous object is addressed. Selective omission of a HIGH-RISK
+        // object (unprotected write / free / list / self-race) is exactly what leaves
+        // Phase B with no candidate for the real bug. Drive a few focused repair rounds
+        // so each such object gets a position (real assume/guarantee or explicit
+        // no_order_needed). Seeded + coverage-enabled (analyst-scoped) runs only.
+        if (seeded && coverageEnabled())
+            repairContractCoverage(*contract, tid, touchedObjects, objectIds);
+        return std::move(*contract);
+    }
+
     std::cerr << "  [ContractGenerator] Error: Failed to generate a valid contract after " << MAX_RETRIES << " retries." << std::endl;
     return std::nullopt;
+}
+
+void ContractGeneratorAgent::repairContractCoverage(
+    LLM::ConcurrencyContract& contract, int tid,
+    const std::vector<const query::SharedObject*>& touchedObjects,
+    const std::vector<int>& objectIds) {
+
+    // Fresh read budget for the repair phase: the accessing sources were already
+    // preloaded, so the model rarely needs to read, but resetting avoids a
+    // budget-exhausted state from the main pass cutting the repair short.
+    explore_calls_ = 0;
+
+    for (int round = 0; round < kCoverageRepairRounds; ++round) {
+        // HIGH-RISK objects this thread touches that the contract has NOT addressed
+        // (no real assume/guarantee, no explicit no_order_needed).
+        std::vector<size_t> missing;
+        for (size_t k = 0; k < touchedObjects.size(); ++k) {
+            const query::SharedObject* o = touchedObjects[k];
+            int oid = (k < objectIds.size()) ? objectIds[k] : -1;
+            if (!o || oid < 0) continue;
+            if (!isHighRiskObject(o)) continue;
+            if (contract.addressesObject(oid)) continue;
+            missing.push_back(k);
+        }
+        if (missing.empty()) return;  // contract is complete over high-risk objects
+
+        std::stringstream ss;
+        ss << "CONTRACT COMPLETENESS CHECK: the following HIGH-RISK shared object(s) this "
+              "thread touches are not yet accounted for. Decide each by ONE test -- does its "
+              "racy value have a CONSEQUENTIAL USE?\n"
+              "  * If YES (the value flows into a branch/comparison, an index/size/length, a "
+              "pointer that is dereferenced, a use-before-free / init-before-publish / "
+              "refcount-before-free, or a list/tree link): call report_clause for that "
+              "[obj#N] with the matching assume (atomic([...]) / prec(use,free) / "
+              "prec(init,expose) / count_guarded(R,free)) (+ a real guarantee only if the "
+              "code provides one). FOLLOW the value into callees (get_callees / "
+              "get_function_by_name) if the use is not visible at the cited line.\n"
+              "  * If NO (the value is only stored/copied/counted/logged and drives nothing): "
+              "it is benign. Put ALL such ids together into a SINGLE report_clause with "
+              "no_order_needed=true, object_ids=[...], and a one-line no_order_reason.\n"
+              "Do NOT invent synchronization that is not in the code, and do NOT fabricate an "
+              "assume for a value that drives nothing. After accounting for ALL of them, call "
+              "finalize_contract.\n\n";
+        for (size_t k : missing) {
+            const query::SharedObject* o = touchedObjects[k];
+            int oid = objectIds[k];
+            ss << "* [obj#" << oid << "] " << (o->name.empty() ? "<anon>" : o->name)
+               << "  <-- HIGH-RISK: " << riskTag(o);
+            if (!o->type.empty()) ss << "  (type: " << o->type << ")";
+            ss << "\n";
+            for (const auto& a : o->accesses) {
+                if (a.thread_id != tid) continue;
+                const std::string& fn = a.containing_function.empty() ? a.function_name
+                                                                      : a.containing_function;
+                ss << "    - " << a.access_type << " in " << fn << " @ " << a.location
+                   << (a.is_lock_protected ? (" [lock=" + a.protecting_lock + "]") : " [no lock]")
+                   << "\n          code: " << a.code_snippet << "\n";
+            }
+        }
+
+        pin_next_user_message();
+        send_message(ss.str(), &contract);
+    }
 }
 
 std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, const nlohmann::json& arguments) {
@@ -417,6 +648,40 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
                                             it.value("provenance", std::string())});
             }
         }
+        // Explicit "no order obligation" declaration (contract completeness): record
+        // it so a reviewed-benign high-risk object is auditable rather than silently
+        // omitted. Only honored when no real order content was given.
+        if (arguments.value("no_order_needed", false) &&
+            clause.assume.empty() && clause.guarantee.empty()) {
+            // Guard against the common false-benign mistake: ids/states/counters look
+            // harmless by name, but if this thread's own access snippet already shows
+            // the value in a branch/comparison, size/index, free/refcount, or list/tree
+            // operation, it is consequential and must get a real assume instead, even
+            // if the field name looks like metadata and the model tries to batch it into
+            // the benign bucket.
+            for (int oid : clause.objectIds) {
+                auto it = seededObjectsById_.find(oid);
+                if (it == seededObjectsById_.end()) continue;
+                std::string evidence;
+                if (hasObviousLocalConsequence(it->second, contract->threadId, &evidence)) {
+                    nlohmann::json err;
+                    err["error"] =
+                        "no_order_needed rejected for [obj#" + std::to_string(oid) +
+                        "]: this thread's access has an obvious consequential use. "
+                        "Do not treat id/state/count/flag metadata as benign when it "
+                        "drives a branch/comparison, selection/removal, size/index, "
+                        "free/refcount, or list/tree operation. Emit report_clause with "
+                        "a real assume such as atomic([read, branch]) / atomic([read, "
+                        "limit_check]) / prec(use,free), or split this object out of "
+                        "the benign object_ids list.";
+                    if (!evidence.empty()) err["evidence"] = evidence;
+                    return err.dump();
+                }
+            }
+            clause.noOrderNeeded = true;
+            clause.noOrderReason = arguments.value("no_order_reason", std::string());
+        }
+
         contract->addClause(clause);
         nlohmann::json resp;
         if (dropped > 0)
@@ -428,10 +693,12 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
         // high-signal summary, and unreported objects are caught by the static floor.
         // Just confirm and steer toward finalizing once the few real obligations are in.
         resp["clauses_so_far"] = static_cast<int>(contract->clauses.size());
-        resp["status"] = "Clause recorded. Report only the REMAINING resources that have a real "
-                         "order requirement or synchronization discipline (skip pure "
-                         "reads/counters/config scalars; merge same-lock fields via object_ids). "
-                         "Call report_ordering for any cross-resource order, then finalize_contract.";
+        resp["status"] =
+            "Clause recorded. For remaining [HIGH-RISK] objects, emit a real assume ONLY "
+            "when the value has consequential use (branch/selection/removal, index/size, "
+            "pointer/lifetime, list/tree, limit check). Batch the rest into ONE "
+            "no_order_needed=true clause with object_ids=[...]. id/state/count/flag fields "
+            "are NOT benign if they drive a decision. Then finalize_contract.";
         return resp.dump();
     }
 
