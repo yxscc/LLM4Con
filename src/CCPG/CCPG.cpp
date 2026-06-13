@@ -302,8 +302,11 @@ void CCPG::build(){
                       << " thread-root entry points as parallel entries"
                       << std::endl;
             for (const auto& entryInfo : allEntries) {
-                // Skip the main entry point we already added
-                if (main != nullptr && main->getCPGNode()->getName() == entryInfo.functionName) {
+                // In automatic mode main was already queued above; skip the duplicate.
+                // In manual-entry mode main is NOT pre-queued — configured roots must
+                // still be added even when they match the CPG "main" heuristic.
+                if (!manualEntries && main != nullptr &&
+                    main->getCPGNode()->getName() == entryInfo.functionName) {
                     std::cout << "  - Skipping (already main): " << entryInfo.functionName << std::endl;
                     continue;
                 }
