@@ -1,0 +1,24 @@
+{
+  "bug_id": "SYZBOT-52fced2d288f8ecd",
+  "tier": "A",
+  "title": "KCSAN: data-race in copy_process / copy_process (2)",
+  "mainline_sha": "c17d1a3a8ee4dac7539d5c976b45d9300f6f10bc",
+  "all_shas_seen": [
+    "52fced2d288f8ecd2b20",
+    "c17d1a3a8ee4dac7539d5c976b45d9300f6f10bc",
+    "cd77006e01b3198c75fb7819b3d0ff89709539bb",
+    "edb543cfe5db6148935a383aeef4d0bfd240216c",
+    "7c30b859a947535f2213277e827d7ac7dcff9c84",
+    "9ebcfadb0610322ac537dd7aa5d9cbc2b2894c68",
+    "91a9a90d040e8b9ff63d48ea71468e0f4db764ff",
+    "719fdd32921fb7e3208db8832d32ae1c2d68900f",
+    "916a3b0fc1206f7e7ae8d00a21a3114b1dc67794",
+    "6116dea80dfd5b8d3825bf7f2e44a8bc2730f3d0",
+    "1590a2e1c681b0991bd42c992cabfd380e0338f2"
+  ],
+  "c_paths": [
+    "kernel/fork.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

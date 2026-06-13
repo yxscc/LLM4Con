@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-35301db28c64310d",
+  "shared_object": "struct net_device::stats (rx_errors / rx_dropped / tx_dropped)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "MACsec RX handler on one CPU",
+    "entry": "macsec_handle_frame",
+    "clause": {
+      "resource": "struct net_device::stats.<counter>",
+      "sites": [
+        {"function": "macsec_handle_frame", "file": "drivers/net/macsec.c", "line": 1182, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([rmw(netdev->stats.<counter>)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "MACsec RX/TX handler on another CPU (same handler, self-race)",
+    "entry": "macsec_handle_frame",
+    "clause": {
+      "resource": "struct net_device::stats.<counter>",
+      "sites": [
+        {"function": "macsec_handle_frame", "file": "drivers/net/macsec.c", "line": 1233, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([rmw(netdev->stats.<counter>)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([rmw(netdev->stats.<counter>)]) from thread_a (the ++ read-modify-write of a per-device stats counter must not interleave with a conflicting RMW of the SAME counter)",
+    "violating_event": "e@macsec_handle_frame:1233 = mutate(netdev->stats.<counter>++) on another CPU (same counter)",
+    "missing_guarantee": "plain C '++' on dev->stats is a non-atomic read-modify-write; nothing serializes the per-device stats across the multiple packet-processing CPUs (no lock, no atomic op) → no g establishes atomic(rmw)",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic over a single RMW access; a concurrent conflicting RMW of the same counter → lost-update data race"
+  },
+
+  "fix_maps_to": "plain dev->stats.X++ replaced by DEV_STATS_INC(dev, X) (atomic_long_inc on the __X backing counter) and stats64 reads switched to atomic_long_read → makes each increment an atomic RMW → establishes atomic([rmw]) so the accesses no longer conflict",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Textbook non-atomic-counter self-race; our design models macsec_handle_frame as an rx_handler self-race root and the unprotected '++' yields atomic(single RMW) directly. Risks: (1) it is a benign lost-counter race, which an LLM may downrank/decline to assert (precision pressure causing FN); (2) the two GT-listed lines are DIFFERENT fields (rx_errors vs rx_dropped), so same_location grounding between exactly those two sites would fail — the true conflict is each counter racing with itself across CPUs, which the per-object session must capture.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

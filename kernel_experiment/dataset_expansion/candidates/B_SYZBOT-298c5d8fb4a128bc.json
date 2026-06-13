@@ -1,0 +1,200 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-298c5d8fb4a128bc",
+  "source": "syzbot",
+  "title": "possible deadlock in ext4_xattr_inode_iget",
+  "description": "possible deadlock in ext4_xattr_inode_iget",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in ext4_xattr_inode_iget"
+  },
+  "fix_commit": "aff3bea95388299eec63440389b4545c8041b357",
+  "affected_files": [
+    "drivers/vdpa/vdpa_sim/vdpa_sim.c",
+    "drivers/vdpa/vdpa_sim/vdpa_sim.h",
+    "drivers/vdpa/vdpa_sim/vdpa_sim_net.c",
+    "fs/ext4/ext4.h",
+    "fs/ext4/xattr.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/vdpa/vdpa_sim/vdpa_sim.c",
+      "changed_lines": [
+        "-\t\t\t\t    dev_attr->nvqs, NULL);",
+        "+\t\t\t\t    dev_attr->nvqs, dev_attr->name);",
+        "+\tvdpasim->vdpa.mdev = dev_attr->mgmt_dev;"
+      ],
+      "hunks": [
+        {
+          "old_start": 235,
+          "new_start": 235
+        },
+        {
+          "old_start": 249,
+          "new_start": 249
+        }
+      ]
+    },
+    {
+      "path": "drivers/vdpa/vdpa_sim/vdpa_sim.h",
+      "changed_lines": [
+        "+\tstruct vdpa_mgmt_dev *mgmt_dev;",
+        "+\tconst char *name;"
+      ],
+      "hunks": [
+        {
+          "old_start": 33,
+          "new_start": 33
+        }
+      ]
+    },
+    {
+      "path": "drivers/vdpa/vdpa_sim/vdpa_sim_net.c",
+      "changed_lines": [
+        "-static struct vdpasim *vdpasim_net_dev;",
+        "-",
+        "-static int __init vdpasim_net_init(void)",
+        "+static void vdpasim_net_mgmtdev_release(struct device *dev)",
+        "+{",
+        "+}",
+        "+",
+        "+static struct device vdpasim_net_mgmtdev = {",
+        "+\t.init_name = \"vdpasim_net\",",
+        "+\t.release = vdpasim_net_mgmtdev_release,",
+        "+};",
+        "+",
+        "+static int vdpasim_net_dev_add(struct vdpa_mgmt_dev *mdev, const char *name)",
+        "+\tstruct vdpasim *simdev;",
+        "-\tif (macaddr) {",
+        "-\t\tmac_pton(macaddr, macaddr_buf);",
+        "-\t\tif (!is_valid_ether_addr(macaddr_buf)) {",
+        "-\t\t\tret = -EADDRNOTAVAIL;",
+        "-\t\t\tgoto out;",
+        "-\t\t}",
+        "-\t} else {",
+        "-\t\teth_random_addr(macaddr_buf);",
+        "-\t}",
+        "-",
+        "+\tdev_attr.mgmt_dev = mdev;",
+        "+\tdev_attr.name = name;",
+        "-\tvdpasim_net_dev = vdpasim_create(&dev_attr);",
+        "-\tif (IS_ERR(vdpasim_net_dev)) {",
+        "-\t\tret = PTR_ERR(vdpasim_net_dev);",
+        "-\t\tgoto out;",
+        "+\tsimdev = vdpasim_create(&dev_attr);",
+        "+\tif (IS_ERR(simdev))",
+        "+\t\treturn PTR_ERR(simdev);",
+        "+",
+        "+\tret = _vdpa_register_device(&simdev->vdpa);",
+        "+\tif (ret)",
+        "+\t\tgoto reg_err;",
+        "+",
+        "+\treturn 0;",
+        "+",
+        "+reg_err:",
+        "+\tput_device(&simdev->vdpa.dev);",
+        "+\treturn ret;",
+        "+}",
+        "+",
+        "+static void vdpasim_net_dev_del(struct vdpa_mgmt_dev *mdev,",
+        "+\t\t\t\tstruct vdpa_device *dev)",
+        "+{",
+        "+\tstruct vdpasim *simdev = container_of(dev, struct vdpasim, vdpa);",
+        "+",
+        "+\t_vdpa_unregister_device(&simdev->vdpa);",
+        "+}",
+        "+",
+        "+static const struct vdpa_mgmtdev_ops vdpasim_net_mgmtdev_ops = {",
+        "+\t.dev_add = vdpasim_net_dev_add,",
+        "+\t.dev_del = vdpasim_net_dev_del",
+        "+};",
+        "+",
+        "+static struct virtio_device_id id_table[] = {",
+        "+\t{ VIRTIO_ID_NET, VIRTIO_DEV_ANY_ID },",
+        "+\t{ 0 },",
+        "+};",
+        "+",
+        "+static struct vdpa_mgmt_dev mgmt_dev = {",
+        "+\t.device = &vdpasim_net_mgmtdev,",
+        "+\t.id_table = id_table,",
+        "+\t.ops = &vdpasim_net_mgmtdev_ops,",
+        "+};",
+        "+",
+        "+static int __init vdpasim_net_init(void)",
+        "+{",
+        "+\tint ret;",
+        "+",
+        "+\tif (macaddr) {",
+        "+\t\tmac_pton(macaddr, macaddr_buf);",
+        "+\t\tif (!is_valid_ether_addr(macaddr_buf))",
+        "+\t\t\treturn -EADDRNOTAVAIL;",
+        "+\t} else {",
+        "+\t\teth_random_addr(macaddr_buf);",
+        "-\tret = vdpa_register_device(&vdpasim_net_dev->vdpa);",
+        "+\tret = device_register(&vdpasim_net_mgmtdev);",
+        "-\t\tgoto put_dev;",
+        "+\t\treturn ret;",
+        "+\tret = vdpa_mgmtdev_register(&mgmt_dev);",
+        "+\tif (ret)",
+        "+\t\tgoto parent_err;",
+        "-put_dev:",
+        "-\tput_device(&vdpasim_net_dev->vdpa.dev);",
+        "-out:",
+        "+parent_err:",
+        "+\tdevice_unregister(&vdpasim_net_mgmtdev);",
+        "-\tstruct vdpa_device *vdpa = &vdpasim_net_dev->vdpa;",
+        "-",
+        "-\tvdpa_unregister_device(vdpa);",
+        "+\tvdpa_mgmtdev_unregister(&mgmt_dev);",
+        "+\tdevice_unregister(&vdpasim_net_mgmtdev);"
+      ],
+      "hunks": [
+        {
+          "old_start": 35,
+          "new_start": 35
+        },
+        {
+          "old_start": 120,
+          "new_start": 118
+        },
+        {
+          "old_start": 143,
+          "new_start": 143
+        }
+      ]
+    },
+    {
+      "path": "fs/ext4/ext4.h",
+      "changed_lines": [
+        "+ *  I_DATA_SEM_EA     - Used for ea_inodes only",
+        "+\tI_DATA_SEM_EA"
+      ],
+      "hunks": [
+        {
+          "old_start": 918,
+          "new_start": 918
+        }
+      ]
+    },
+    {
+      "path": "fs/ext4/xattr.c",
+      "changed_lines": [
+        "+\tstruct ext4_inode_info *ei = EXT4_I(ea_inode);",
+        "+",
+        "+\t(void) ei;\t/* shut up clang warning if !CONFIG_LOCKDEP */",
+        "+\tlockdep_set_subclass(&ei->i_data_sem, I_DATA_SEM_EA);"
+      ],
+      "hunks": [
+        {
+          "old_start": 121,
+          "new_start": 121
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-298c5d8fb4a128bc/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-298c5d8fb4a128bc/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-298c5d8fb4a128bc"
+}

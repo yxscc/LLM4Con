@@ -1,0 +1,41 @@
+{
+  "commit": "ebb3b78db7bf842270a46fd4fe7cc45c78fa5ed6",
+  "user_seeds": [
+    "net/core/filter.c",
+    "net/core/skbuff.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_input.c"
+  ],
+  "patch_files": [
+    "include/net/tcp.h",
+    "include/trace/events/sock.h",
+    "net/core/filter.c",
+    "net/core/skbuff.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_input.c"
+  ],
+  "changed_symbols_sample": [
+    "SK_MEMINFO_RCVBUF",
+    "SOCK_MIN_RCVBUF",
+    "__entry",
+    "atomic_read",
+    "max_t",
+    "sk_rcvbuf",
+    "sk_rmem_alloc",
+    "sock_net",
+    "sysctl_tcp_rmem",
+    "tcp_win_from_space"
+  ],
+  "expanded": [
+    "include/net/tcp.h",
+    "include/trace/events/sock.h",
+    "net/core/filter.c",
+    "net/core/skbuff.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_input.c"
+  ],
+  "added_by_expander": {}
+}

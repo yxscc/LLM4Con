@@ -43,12 +43,13 @@
   },
   "CVE-2017-15265": {
     "thread_roots": [
-      "snd_seq_ioctl"
+      "snd_seq_ioctl_create_port",
+      "snd_seq_ioctl_delete_port"
     ],
-    "self_race": true,
+    "self_race": false,
     "raw_entries": [
-      "snd_seq_ioctl",
-      "snd_seq_ioctl"
+      "snd_seq_ioctl_create_port",
+      "snd_seq_ioctl_delete_port"
     ]
   },
   "CVE-2017-6346": {
@@ -311,12 +312,12 @@
   "CVE-2024-46704": {
     "thread_roots": [
       "__flush_work",
-      "flush_delayed_work / flush_work"
+      "flush_work"
     ],
     "self_race": false,
     "raw_entries": [
       "__flush_work",
-      "flush_delayed_work / flush_work"
+      "flush_work"
     ]
   },
   "CVE-2024-47715": {
@@ -462,12 +463,13 @@
   },
   "CVE-2025-37772": {
     "thread_roots": [
-      "cma_netevent_callback"
+      "cma_netevent_callback",
+      "cma_netevent_work_handler"
     ],
-    "self_race": true,
+    "self_race": false,
     "raw_entries": [
       "cma_netevent_callback",
-      "cma_netevent_callback"
+      "cma_netevent_work_handler"
     ]
   },
   "CVE-2025-37854": {
@@ -596,6 +598,177 @@
     "raw_entries": [
       "mhi_ep_ring_add_element",
       "host ring consumer"
+    ]
+  },
+  "SYZBOT-01affb1491750534": {
+    "thread_roots": [
+      "worker_thread"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "worker_thread",
+      "worker_thread"
+    ]
+  },
+  "SYZBOT-1c486d0b62032c82": {
+    "thread_roots": [
+      "bprm_execve",
+      "copy_fs"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "bprm_execve",
+      "copy_fs"
+    ]
+  },
+  "SYZBOT-2d373c9936c00d7e": {
+    "thread_roots": [
+      "snd_seq_poll",
+      "snd_seq_ioctl"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_seq_poll",
+      "snd_seq_ioctl"
+    ]
+  },
+  "SYZBOT-2e4de7fe846aba66": {
+    "thread_roots": [
+      "tun_chr_write_iter",
+      "napi_busy_loop"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "tun_chr_write_iter",
+      "napi_busy_loop"
+    ]
+  },
+  "SYZBOT-35301db28c64310d": {
+    "thread_roots": [
+      "macsec_handle_frame"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "macsec_handle_frame",
+      "macsec_handle_frame"
+    ]
+  },
+  "SYZBOT-3b6b32dc50537a49": {
+    "thread_roots": [
+      "do_epoll_ctl",
+      "__fput"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "do_epoll_ctl",
+      "__fput"
+    ]
+  },
+  "SYZBOT-3cc3a12efa69aa6f": {
+    "thread_roots": [
+      "register_netdevice",
+      "type_show"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "register_netdevice",
+      "type_show"
+    ]
+  },
+  "SYZBOT-417aeb05fd190f3a": {
+    "thread_roots": [
+      "__unmap_hugepage_range",
+      "alloc_surplus_hugetlb_folio"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "__unmap_hugepage_range",
+      "alloc_surplus_hugetlb_folio"
+    ]
+  },
+  "SYZBOT-44cf88a58d91b12b": {
+    "thread_roots": [
+      "raw_bind",
+      "ip4_datagram_connect"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "raw_bind",
+      "ip4_datagram_connect"
+    ]
+  },
+  "SYZBOT-4a03518df1e31b53": {
+    "thread_roots": [
+      "ext4_es_find_extent_range"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "ext4_es_find_extent_range",
+      "ext4_es_find_extent_range"
+    ]
+  },
+  "SYZBOT-4a06d4373fd52f0b": {
+    "thread_roots": [
+      "inotify_handle_inode_event",
+      "__x64_sys_inotify_rm_watch"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "inotify_handle_inode_event",
+      "__x64_sys_inotify_rm_watch"
+    ]
+  },
+  "SYZBOT-52e3dbded1f71729": {
+    "thread_roots": [
+      "strp_work",
+      "kcm_recvmsg"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "strp_work",
+      "kcm_recvmsg"
+    ]
+  },
+  "SYZBOT-5676077ba016d741": {
+    "thread_roots": [
+      "ipgre_xmit",
+      "ip_output"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "ipgre_xmit",
+      "ip_output"
+    ]
+  },
+  "SYZBOT-5a486fef3de40e0d": {
+    "thread_roots": [
+      "__x64_sys_io_uring_register"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "__x64_sys_io_uring_register",
+      "__x64_sys_io_uring_register"
+    ]
+  },
+  "SYZBOT-5cce5938c6c2c518": {
+    "thread_roots": [
+      "__x64_sys_sendmmsg"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "__x64_sys_sendmmsg",
+      "__x64_sys_sendmmsg"
+    ]
+  },
+  "SYZBOT-63cbe31877bb80ef": {
+    "thread_roots": [
+      "snd_seq_check_queue",
+      "snd_seq_control_queue"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_seq_check_queue",
+      "snd_seq_control_queue"
     ]
   }
 }

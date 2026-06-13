@@ -1,0 +1,19 @@
+{
+  "commit": "e358e09a894dbcd51fdbbcf62bec1df249915834",
+  "user_seeds": [
+    "io_uring/register.c",
+    "io_uring/rsrc.c"
+  ],
+  "patch_files": [
+    "io_uring/register.c"
+  ],
+  "changed_symbols_sample": [
+    "mutex_unlock",
+    "uring_lock"
+  ],
+  "expanded": [
+    "io_uring/register.c",
+    "io_uring/rsrc.c"
+  ],
+  "added_by_expander": {}
+}

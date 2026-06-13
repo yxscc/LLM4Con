@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-52cb782c704e243e",
+  "tier": "A",
+  "title": "KCSAN: data-race in find_match / find_match",
+  "mainline_sha": "1bef4c223b8588cf50433bdc2c6953d82949b3b3",
+  "all_shas_seen": [
+    "52cb782c704e243e4f464716afa8a6ebaae6d53d",
+    "1bef4c223b8588cf50433bdc2c6953d82949b3b3"
+  ],
+  "c_paths": [
+    "net/ipv6/route.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

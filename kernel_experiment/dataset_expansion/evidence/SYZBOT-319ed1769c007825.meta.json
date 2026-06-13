@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-319ed1769c007825",
+  "tier": "A",
+  "title": "KCSAN: data-race in inode_doinit_with_dentry / selinux_file_open",
+  "mainline_sha": "2571bb9d553ba2b8db1971bd3c903bff07d0bb11",
+  "all_shas_seen": [
+    "319ed1769c0078257262",
+    "2571bb9d553ba2b8db1971bd3c903bff07d0bb11",
+    "aa0743a229366e8c1963f1b72a1c974a9d15f08f"
+  ],
+  "c_paths": [
+    "security/selinux/hooks.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-5676077ba016d741",
+  "shared_object": "struct net_device::needed_headroom",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "tunnel xmit updates device headroom",
+    "entry": "ipgre_xmit",
+    "clause": {
+      "resource": "dev->needed_headroom",
+      "sites": [
+        {"function": "ip_tunnel_xmit", "file": "net/ipv4/ip_tunnel.c", "line": 804, "op_kind": "WRITE"},
+        {"function": "ip6_tnl_xmit", "file": "net/ipv6/ip6_tunnel.c", "line": 1244, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "packet output reads device headroom",
+    "entry": "ip_output",
+    "clause": {
+      "resource": "dev->needed_headroom",
+      "sites": [
+        {"function": "ip_finish_output2", "file": "net/ipv4/ip_output.c", "line": 199, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(needed_headroom)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(needed_headroom)]) from thread_b (LL_RESERVED_SPACE reads the headroom field assuming it is not torn by a concurrent write)",
+    "violating_event": "e@ip_tunnel_xmit:804 = write(dev->needed_headroom = max_headroom)",
+    "missing_guarantee": "both the tunnel xmit write and the output-path read are entirely lockless; there is no lock or ordering primitive on either side, so no serialize/order(g) establishes the single-access atomicity the reader assumes",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write to the same field -> data race (torn/unstable headroom read)"
+  },
+
+  "fix_maps_to": "patch wraps the tunnel writes in WRITE_ONCE and the LL_RESERVED_SPACE / LL_RESERVED_SPACE_EXTRA helper reads in READ_ONCE -> makes the conflicting single access atomic; a tearing annotation, not a serialize/order/counts guarantee",
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Object and sites are in the static surface, so the pair is findable and the category maps to atomic(single access)=data_race. But both sides are entirely lockless and needed_headroom is a best-effort sizing hint; the read carries no order intent beyond no-tearing, and there is no flag/semantic guard. The design wants a semantic order/atomicity intent, so the LLM is very likely to adjudicate this benign and reject it (precision pressure), or only a pure-syntactic-race detector would fire. The fix is annotation-only and does not map to serialize/order/counts.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

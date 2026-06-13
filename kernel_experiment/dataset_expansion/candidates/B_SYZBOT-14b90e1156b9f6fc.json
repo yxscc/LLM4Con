@@ -1,0 +1,104 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-14b90e1156b9f6fc",
+  "source": "syzbot",
+  "title": "possible deadlock in f2fs_do_truncate_blocks",
+  "description": "possible deadlock in f2fs_do_truncate_blocks",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in f2fs_do_truncate_blocks"
+  },
+  "fix_commit": "ca8b201f28547e28343a6f00a6e91fa8c09572fe",
+  "affected_files": [
+    "fs/f2fs/compress.c",
+    "fs/f2fs/f2fs.h",
+    "fs/f2fs/super.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/f2fs/compress.c",
+      "changed_lines": [
+        "-\t\tif (!in_task)",
+        "-\t\t\tf2fs_handle_error_async(sbi, ERROR_FAIL_DECOMPRESSION);",
+        "-\t\telse",
+        "-\t\t\tf2fs_handle_error(sbi, ERROR_FAIL_DECOMPRESSION);",
+        "+\t\tf2fs_handle_error(sbi, ERROR_FAIL_DECOMPRESSION);"
+      ],
+      "hunks": [
+        {
+          "old_start": 759,
+          "new_start": 759
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/f2fs.h",
+      "changed_lines": [
+        "-void f2fs_handle_error_async(struct f2fs_sb_info *sbi, unsigned char error);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3800,
+          "new_start": 3800
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/super.c",
+      "changed_lines": [
+        "-static bool f2fs_update_errors(struct f2fs_sb_info *sbi)",
+        "-{",
+        "-\tunsigned long flags;",
+        "-\tbool need_update = false;",
+        "-",
+        "-\tspin_lock_irqsave(&sbi->error_lock, flags);",
+        "-\tif (sbi->error_dirty) {",
+        "-\t\tmemcpy(F2FS_RAW_SUPER(sbi)->s_errors, sbi->errors,",
+        "-\t\t\t\t\t\t\tMAX_F2FS_ERRORS);",
+        "-\t\tsbi->error_dirty = false;",
+        "-\t\tneed_update = true;",
+        "-\t}",
+        "-\tspin_unlock_irqrestore(&sbi->error_lock, flags);",
+        "-",
+        "-\treturn need_update;",
+        "-}",
+        "-",
+        "-static void f2fs_record_errors(struct f2fs_sb_info *sbi, unsigned char error)",
+        "-{",
+        "-\tint err;",
+        "-",
+        "-\tf2fs_down_write(&sbi->sb_lock);",
+        "-",
+        "-\tif (!f2fs_update_errors(sbi))",
+        "-\t\tgoto out_unlock;",
+        "-",
+        "-\terr = f2fs_commit_super(sbi, false);",
+        "-\tif (err)",
+        "-\t\tf2fs_err_ratelimited(sbi,",
+        "-\t\t\t\"f2fs_commit_super fails to record errors:%u, err:%d\",",
+        "-\t\t\terror, err);",
+        "-out_unlock:",
+        "-\tf2fs_up_write(&sbi->sb_lock);",
+        "-}",
+        "-",
+        "-{",
+        "-\tf2fs_save_errors(sbi, error);",
+        "-\tf2fs_record_errors(sbi, error);",
+        "-}",
+        "-",
+        "-void f2fs_handle_error_async(struct f2fs_sb_info *sbi, unsigned char error)"
+      ],
+      "hunks": [
+        {
+          "old_start": 4544,
+          "new_start": 4544
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-14b90e1156b9f6fc/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-14b90e1156b9f6fc/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-14b90e1156b9f6fc"
+}

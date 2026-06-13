@@ -1,0 +1,50 @@
+{
+  "bug_id": "SYZBOT-63cbe31877bb80ef",
+  "shared_object": "struct snd_seq_queue::{locked,klocked,check_again,check_blocked} bitfield storage word",
+
+  "scope": "out_of_scope",
+  "scope_reason": "other:bitfield_storage_word_aliasing (sub-word read-modify-write race invisible to the logical-object SC model; adjacent to weak_memory / access-granularity)",
+
+  "thread_a": {
+    "role": "queue check updates check_* bitfields (under check_lock)",
+    "entry": "snd_seq_check_queue",
+    "clause": {
+      "resource": "q bitfield word (logical field q->check_again / q->check_blocked)",
+      "sites": [
+        {"function": "snd_seq_check_queue", "file": "sound/core/seq/seq_queue.c", "line": 250, "op_kind": "WRITE"},
+        {"function": "snd_seq_check_queue", "file": "sound/core/seq/seq_queue.c", "line": 254, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([write(shared bitfield word)])"],
+      "guarantee_protection": ["serialize(q->check_lock, check_* writes)"]
+    }
+  },
+  "thread_b": {
+    "role": "queue control updates klocked/locked bitfields (under owner_lock)",
+    "entry": "snd_seq_control_queue",
+    "clause": {
+      "resource": "q bitfield word (logical field q->klocked / q->locked)",
+      "sites": [
+        {"function": "queue_access_lock", "file": "sound/core/seq/seq_queue.c", "line": 359, "op_kind": "WRITE"},
+        {"function": "snd_seq_queue_set_owner", "file": "sound/core/seq/seq_queue.c", "line": 409, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([write(shared bitfield word)])"],
+      "guarantee_protection": ["serialize(q->owner_lock, klocked/locked writes)"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([write to the shared bitfield storage word]) - each logical bitfield write compiles to a word-granularity read-modify-store that must be exclusive of any other write to the same word",
+    "violating_event": "e@queue_access_lock:359 = write(q->klocked = 1), which RMWs the same storage word as thread_a's q->check_again write",
+    "missing_guarantee": "EXPECTED NOT COVERED BY THIS DESIGN: each logical field is in fact correctly serialized by its OWN lock (check_lock for check_*, owner_lock for klocked/locked); there is no missing logical-level guarantee. The race exists only because the two distinct C bitfields share one compiler-managed storage word, so the two different locks fail to serialize word-level RMWs. Our logical-object contract model treats q->check_again and q->klocked as distinct locations (same_location oracle returns false), so the emergent mismatch never fires.",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ground-truth shape is a word-granularity RMW data race on shared bitfield storage; classified out_of_scope because the conflict is sub-word and not representable in the logical-object SC model, not because data_race is an uncovered category"
+  },
+
+  "fix_maps_to": "patch converts the four bitfields to standalone bool fields so each gets its own storage byte (no shared word) -> this is a struct-layout change, NOT a synchronization change; it has no counterpart in the serialize/order/counts guarantee algebra (no lock/ordering/refcount is added)",
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Design is expected to MISS this. Failure point is the same_location/conflicts oracle: q->check_again and q->klocked are distinct named struct members, so the structural grounding sees two different objects, each properly lock-protected, and finds no conflict. Recognizing the race requires C bitfield-packing knowledge (both members alias one storage word and each write is a non-atomic word RMW) - sub-word memory-layout reasoning the logical-object/SC model does not have. The fix is also a layout change with no synchronization delta to express in the algebra.",
+
+  "confidence": "high",
+  "needs_human_review": true
+}

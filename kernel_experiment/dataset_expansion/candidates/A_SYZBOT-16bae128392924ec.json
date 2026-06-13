@@ -1,0 +1,61 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-16bae128392924ec",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in netlink_recvmsg / netlink_recvmsg (6)",
+  "description": "KCSAN: data-race in netlink_recvmsg / netlink_recvmsg (6)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "netlink_recvmsg",
+    "fn_b": "netlink_recvmsg"
+  },
+  "fix_commit": "a1865f2e7d10dde00d35a2122b38d2e469ae67ed",
+  "affected_files": [
+    "net/netlink/af_netlink.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/netlink/af_netlink.c",
+      "changed_lines": [
+        "-\tsize_t copied;",
+        "+\tsize_t copied, max_recvmsg_len;",
+        "-\tnlk->max_recvmsg_len = max(nlk->max_recvmsg_len, len);",
+        "-\tnlk->max_recvmsg_len = min_t(size_t, nlk->max_recvmsg_len,",
+        "-\t\t\t\t     SKB_WITH_OVERHEAD(32768));",
+        "+\tmax_recvmsg_len = max(READ_ONCE(nlk->max_recvmsg_len), len);",
+        "+\tmax_recvmsg_len = min_t(size_t, max_recvmsg_len,",
+        "+\t\t\t\tSKB_WITH_OVERHEAD(32768));",
+        "+\tWRITE_ONCE(nlk->max_recvmsg_len, max_recvmsg_len);",
+        "+\tsize_t max_recvmsg_len;",
+        "-\tif (alloc_min_size < nlk->max_recvmsg_len) {",
+        "-\t\talloc_size = nlk->max_recvmsg_len;",
+        "+\tmax_recvmsg_len = READ_ONCE(nlk->max_recvmsg_len);",
+        "+\tif (alloc_min_size < max_recvmsg_len) {",
+        "+\t\talloc_size = max_recvmsg_len;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1952,
+          "new_start": 1952
+        },
+        {
+          "old_start": 1985,
+          "new_start": 1985
+        },
+        {
+          "old_start": 2236,
+          "new_start": 2237
+        },
+        {
+          "old_start": 2258,
+          "new_start": 2260
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-16bae128392924ec/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-16bae128392924ec/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-16bae128392924ec"
+}

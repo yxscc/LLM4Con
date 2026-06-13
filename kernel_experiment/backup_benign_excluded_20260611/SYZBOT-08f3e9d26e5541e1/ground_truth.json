@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-08f3e9d26e5541e1",
+  "fix_commit": "844a378de3372c923909681706d62336d702531e",
+  "files": [
+    "kernel/rcu/srcutree.c"
+  ],
+  "description": "KCSAN: data-race in process_srcu / synchronize_srcu",
+  "cwes": [],
+  "title": "KCSAN: data-race in process_srcu / synchronize_srcu",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "process_srcu",
+    "fn_b": "synchronize_srcu"
+  },
+  "two_threads_summary": "srcu_gp_end() (called from process_srcu workqueue) writes ->srcu_last_gp_end; srcu_might_be_idle() called from synchronize_srcu (task) reads it. Fix adds WRITE_ONCE/READ_ONCE.",
+  "audit_notes": "Real cross-context race fixed with paired *_ONCE.",
+  "fix_commit_message": "844a378de3372c923909681706d62336d702531e\nsrcu: Apply *_ONCE() to ->srcu_last_gp_end\n\nThe ->srcu_last_gp_end field is accessed from any CPU at any time\nby synchronize_srcu(), so non-initialization references need to use\nREAD_ONCE() and WRITE_ONCE().  This commit therefore makes that change.\n\nReported-by: syzbot+08f3e9d26e5541e1ecf2@syzkaller.appspotmail.com\nAcked-by: Marco Elver <elver@google.com>\nSigned-off-by: Paul E. McKenney <paulmck@kernel.org>",
+  "patch": "commit 844a378de3372c923909681706d62336d702531e\nAuthor: Paul E. McKenney <paulmck@kernel.org>\nDate:   Mon Nov 4 08:08:30 2019 -0800\n\n    srcu: Apply *_ONCE() to ->srcu_last_gp_end\n    \n    The ->srcu_last_gp_end field is accessed from any CPU at any time\n    by synchronize_srcu(), so non-initialization references need to use\n    READ_ONCE() and WRITE_ONCE().  This commit therefore makes that change.\n    \n    Reported-by: syzbot+08f3e9d26e5541e1ecf2@syzkaller.appspotmail.com\n    Acked-by: Marco Elver <elver@google.com>\n    Signed-off-by: Paul E. McKenney <paulmck@kernel.org>\n\ndiff --git a/kernel/rcu/srcutree.c b/kernel/rcu/srcutree.c\nindex 5dffade2d7cd..21acdff3bd27 100644\n--- a/kernel/rcu/srcutree.c\n+++ b/kernel/rcu/srcutree.c\n@@ -530,7 +530,7 @@ static void srcu_gp_end(struct srcu_struct *ssp)\n \tidx = rcu_seq_state(ssp->srcu_gp_seq);\n \tWARN_ON_ONCE(idx != SRCU_STATE_SCAN2);\n \tcbdelay = srcu_get_delay(ssp);\n-\tssp->srcu_last_gp_end = ktime_get_mono_fast_ns();\n+\tWRITE_ONCE(ssp->srcu_last_gp_end, ktime_get_mono_fast_ns());\n \trcu_seq_end(&ssp->srcu_gp_seq);\n \tgpseq = rcu_seq_current(&ssp->srcu_gp_seq);\n \tif (ULONG_CMP_LT(ssp->srcu_gp_seq_needed_exp, gpseq))\n@@ -762,6 +762,7 @@ static bool srcu_might_be_idle(struct srcu_struct *ssp)\n \tunsigned long flags;\n \tstruct srcu_data *sdp;\n \tunsigned long t;\n+\tunsigned long tlast;\n \n \t/* If the local srcu_data structure has callbacks, not idle.  */\n \tlocal_irq_save(flags);\n@@ -780,9 +781,9 @@ static bool srcu_might_be_idle(struct srcu_struct *ssp)\n \n \t/* First, see if enough time has passed since the last GP. */\n \tt = ktime_get_mono_fast_ns();\n+\ttlast = READ_ONCE(ssp->srcu_last_gp_end);\n \tif (exp_holdoff == 0 ||\n-\t    time_in_range_open(t, ssp->srcu_last_gp_end,\n-\t\t\t       ssp->srcu_last_gp_end + exp_holdoff))\n+\t    time_in_range_open(t, tlast, tlast + exp_holdoff))\n \t\treturn false; /* Too soon after last GP. */\n \n \t/* Next, check for probable idleness. */\n",
+  "affected_files_from_patch": [
+    "kernel/rcu/srcutree.c"
+  ]
+}

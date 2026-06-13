@@ -1,0 +1,36 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-0c13eb20d3026cfa",
+  "source": "syzbot",
+  "title": "possible deadlock in tcp_diag_get_aux",
+  "description": "possible deadlock in tcp_diag_get_aux",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in tcp_diag_get_aux"
+  },
+  "fix_commit": "d6a9608af9a75d13243d217f6ce1e30e57d56ffe",
+  "affected_files": [
+    "net/mptcp/diag.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/mptcp/diag.c",
+      "changed_lines": [
+        "+\tif (inet_sk_state_load(sk) == TCP_LISTEN)",
+        "+\t\treturn 0;",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 21,
+          "new_start": 21
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-0c13eb20d3026cfa/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-0c13eb20d3026cfa/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-0c13eb20d3026cfa"
+}

@@ -1,0 +1,72 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-4a03518df1e31b53",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __es_find_extent_range / __es_find_extent_range (6)",
+  "description": "KCSAN: data-race in __es_find_extent_range / __es_find_extent_range (6)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__es_find_extent_range",
+    "fn_b": "__es_find_extent_range"
+  },
+  "fix_commit": "492888df0c7b42fc0843631168b0021bc4caee84",
+  "affected_files": [
+    "fs/ext4/extents_status.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/ext4/extents_status.c",
+      "changed_lines": [
+        "-\tif (tree->cache_es) {",
+        "-\t\tes1 = tree->cache_es;",
+        "-\t\tif (in_range(lblk, es1->es_lblk, es1->es_len)) {",
+        "-\t\t\tes_debug(\"%u cached by [%u/%u) %llu %x\\n\",",
+        "-\t\t\t\t lblk, es1->es_lblk, es1->es_len,",
+        "-\t\t\t\t ext4_es_pblock(es1), ext4_es_status(es1));",
+        "-\t\t\tgoto out;",
+        "-\t\t}",
+        "+\tes1 = READ_ONCE(tree->cache_es);",
+        "+\tif (es1 && in_range(lblk, es1->es_lblk, es1->es_len)) {",
+        "+\t\tes_debug(\"%u cached by [%u/%u) %llu %x\\n\",",
+        "+\t\t\t lblk, es1->es_lblk, es1->es_len,",
+        "+\t\t\t ext4_es_pblock(es1), ext4_es_status(es1));",
+        "+\t\tgoto out;",
+        "-\t\ttree->cache_es = es1;",
+        "+\t\tWRITE_ONCE(tree->cache_es, es1);",
+        "-\tif (tree->cache_es) {",
+        "-\t\tes1 = tree->cache_es;",
+        "-\t\tif (in_range(lblk, es1->es_lblk, es1->es_len)) {",
+        "-\t\t\tes_debug(\"%u cached by [%u/%u)\\n\",",
+        "-\t\t\t\t lblk, es1->es_lblk, es1->es_len);",
+        "-\t\t\tfound = 1;",
+        "-\t\t\tgoto out;",
+        "-\t\t}",
+        "+\tes1 = READ_ONCE(tree->cache_es);",
+        "+\tif (es1 && in_range(lblk, es1->es_lblk, es1->es_len)) {",
+        "+\t\tes_debug(\"%u cached by [%u/%u)\\n\",",
+        "+\t\t\t lblk, es1->es_lblk, es1->es_len);",
+        "+\t\tfound = 1;",
+        "+\t\tgoto out;"
+      ],
+      "hunks": [
+        {
+          "old_start": 267,
+          "new_start": 267
+        },
+        {
+          "old_start": 293,
+          "new_start": 291
+        },
+        {
+          "old_start": 931,
+          "new_start": 929
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-4a03518df1e31b53/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-4a03518df1e31b53/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-4a03518df1e31b53"
+}

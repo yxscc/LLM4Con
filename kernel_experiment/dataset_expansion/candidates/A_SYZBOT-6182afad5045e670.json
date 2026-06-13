@@ -1,0 +1,188 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-6182afad5045e670",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in rxrpc_peer_keepalive_worker / rxrpc_send_data_packet",
+  "description": "KCSAN: data-race in rxrpc_peer_keepalive_worker / rxrpc_send_data_packet",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "rxrpc_peer_keepalive_worker",
+    "fn_b": "rxrpc_send_data_packet"
+  },
+  "fix_commit": "5d5fe8bcd331f1e34e0943ec7c18432edfcf0e8b",
+  "affected_files": [
+    "net/rxrpc/ar-internal.h",
+    "net/rxrpc/conn_event.c",
+    "net/rxrpc/output.c",
+    "net/rxrpc/peer_event.c",
+    "net/rxrpc/proc.c",
+    "net/rxrpc/rxgk.c",
+    "net/rxrpc/rxkad.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/rxrpc/ar-internal.h",
+      "changed_lines": [
+        "-\ttime64_t\t\tlast_tx_at;\t/* Last time packet sent here */",
+        "+\tunsigned int\t\tlast_tx_at;\t/* Last time packet sent here (time64_t LSW) */",
+        "+/* Update the last transmission time on a peer for keepalive purposes. */",
+        "+static inline void rxrpc_peer_mark_tx(struct rxrpc_peer *peer)",
+        "+{",
+        "+\t/* To avoid tearing on 32-bit systems, we only keep the LSW. */",
+        "+\tWRITE_ONCE(peer->last_tx_at, ktime_get_seconds());",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 387,
+          "new_start": 387
+        },
+        {
+          "old_start": 1379,
+          "new_start": 1379
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/conn_event.c",
+      "changed_lines": [
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);"
+      ],
+      "hunks": [
+        {
+          "old_start": 194,
+          "new_start": 194
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/output.c",
+      "changed_lines": [
+        "-\tcall->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(call->peer);",
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);",
+        "-\t\t\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\t\t\trxrpc_peer_mark_tx(conn->peer);",
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);",
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);",
+        "-\tpeer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(peer);",
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);"
+      ],
+      "hunks": [
+        {
+          "old_start": 275,
+          "new_start": 275
+        },
+        {
+          "old_start": 411,
+          "new_start": 411
+        },
+        {
+          "old_start": 698,
+          "new_start": 698
+        },
+        {
+          "old_start": 711,
+          "new_start": 711
+        },
+        {
+          "old_start": 797,
+          "new_start": 797
+        },
+        {
+          "old_start": 917,
+          "new_start": 917
+        },
+        {
+          "old_start": 973,
+          "new_start": 973
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/peer_event.c",
+      "changed_lines": [
+        "+/*",
+        "+ * Reconstruct the last transmission time.  The difference calculated should be",
+        "+ * valid provided no more than ~68 years elapsed since the last transmission.",
+        "+ */",
+        "+static time64_t rxrpc_peer_get_tx_mark(const struct rxrpc_peer *peer, time64_t base)",
+        "+{",
+        "+\ts32 last_tx_at = READ_ONCE(peer->last_tx_at);",
+        "+\ts32 base_lsw = base;",
+        "+\ts32 diff = last_tx_at - base_lsw;",
+        "+",
+        "+\tdiff = clamp(diff, -RXRPC_KEEPALIVE_TIME, RXRPC_KEEPALIVE_TIME);",
+        "+",
+        "+\treturn diff + base;",
+        "+}",
+        "+",
+        "-\t\t\tkeepalive_at = peer->last_tx_at + RXRPC_KEEPALIVE_TIME;",
+        "+\t\t\tkeepalive_at = rxrpc_peer_get_tx_mark(peer, base) + RXRPC_KEEPALIVE_TIME;"
+      ],
+      "hunks": [
+        {
+          "old_start": 237,
+          "new_start": 237
+        },
+        {
+          "old_start": 265,
+          "new_start": 280
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/proc.c",
+      "changed_lines": [
+        "-\t\t   \"UDP   %-47.47s %-47.47s %3u %4u %5u %6llus %8d %8d\\n\",",
+        "+\t\t   \"UDP   %-47.47s %-47.47s %3u %4u %5u %6ds %8d %8d\\n\",",
+        "-\t\t   now - peer->last_tx_at,",
+        "+\t\t   (s32)now - (s32)READ_ONCE(peer->last_tx_at),"
+      ],
+      "hunks": [
+        {
+          "old_start": 296,
+          "new_start": 296
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/rxgk.c",
+      "changed_lines": [
+        "-\t\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\t\trxrpc_peer_mark_tx(conn->peer);"
+      ],
+      "hunks": [
+        {
+          "old_start": 678,
+          "new_start": 678
+        }
+      ]
+    },
+    {
+      "path": "net/rxrpc/rxkad.c",
+      "changed_lines": [
+        "-\tconn->peer->last_tx_at = ktime_get_seconds();",
+        "+\trxrpc_peer_mark_tx(conn->peer);"
+      ],
+      "hunks": [
+        {
+          "old_start": 694,
+          "new_start": 694
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-6182afad5045e670/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-6182afad5045e670/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-6182afad5045e670"
+}

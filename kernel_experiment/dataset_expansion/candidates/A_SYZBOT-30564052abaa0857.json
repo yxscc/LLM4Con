@@ -1,0 +1,50 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-30564052abaa0857",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __skb_try_recv_datagram / sock_setsockopt",
+  "description": "KCSAN: data-race in __skb_try_recv_datagram / sock_setsockopt",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__skb_try_recv_datagram",
+    "fn_b": "sock_setsockopt"
+  },
+  "fix_commit": "0dbffbb5335a1e3aa6855e4ee317e25e669dd302",
+  "affected_files": [
+    "include/net/busy_poll.h",
+    "net/core/sock.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/busy_poll.h",
+      "changed_lines": [
+        "-\treturn sk->sk_ll_usec && !signal_pending(current);",
+        "+\treturn READ_ONCE(sk->sk_ll_usec) && !signal_pending(current);"
+      ],
+      "hunks": [
+        {
+          "old_start": 38,
+          "new_start": 38
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-\t\t\t\tsk->sk_ll_usec = val;",
+        "+\t\t\t\tWRITE_ONCE(sk->sk_ll_usec, val);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1201,
+          "new_start": 1201
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-30564052abaa0857/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-30564052abaa0857/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-30564052abaa0857"
+}

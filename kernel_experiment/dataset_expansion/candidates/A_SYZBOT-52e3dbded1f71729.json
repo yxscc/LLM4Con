@@ -1,0 +1,50 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-52e3dbded1f71729",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in kcm_rfree / unreserve_rx_kcm (3)",
+  "description": "KCSAN: data-race in kcm_rfree / unreserve_rx_kcm (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "kcm_rfree",
+    "fn_b": "unreserve_rx_kcm"
+  },
+  "fix_commit": "15e4dabda11b0fa31d510a915d1a580f47dfc92e",
+  "affected_files": [
+    "net/kcm/kcmsock.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/kcm/kcmsock.c",
+      "changed_lines": [
+        "-\tif (!kcm->rx_wait && !kcm->rx_psock &&",
+        "+\tif (!kcm->rx_wait && !READ_ONCE(kcm->rx_psock) &&",
+        "-\tkcm->rx_psock = psock;",
+        "+\t/* paired with lockless reads in kcm_rfree() */",
+        "+\tWRITE_ONCE(kcm->rx_psock, psock);",
+        "-\tkcm->rx_psock = NULL;",
+        "+\t/* paired with lockless reads in kcm_rfree() */",
+        "+\tWRITE_ONCE(kcm->rx_psock, NULL);"
+      ],
+      "hunks": [
+        {
+          "old_start": 178,
+          "new_start": 178
+        },
+        {
+          "old_start": 283,
+          "new_start": 283
+        },
+        {
+          "old_start": 310,
+          "new_start": 311
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-52e3dbded1f71729/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-52e3dbded1f71729/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-52e3dbded1f71729"
+}

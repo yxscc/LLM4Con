@@ -1,0 +1,19 @@
+{
+  "bug_id": "SYZBOT-0b272670f47bbf00",
+  "tier": "A",
+  "title": "KCSAN: data-race in fib_alias_hw_flags_set / fib_alias_hw_flags_set",
+  "mainline_sha": "9fcf986cc4bc6a3a39f23fbcbbc3a9e52d3c24fd",
+  "all_shas_seen": [
+    "0b272670f47bbf00cb4532d724b4149c99c54836",
+    "9fcf986cc4bc6a3a39f23fbcbbc3a9e52d3c24fd",
+    "1d41d2e82623b40ee27811fe9ea38bafe2e722e9"
+  ],
+  "c_paths": [
+    "net/ipv4/fib_lookup.h",
+    "net/ipv4/fib_semantics.c",
+    "net/ipv4/fib_trie.c",
+    "net/ipv4/route.c"
+  ],
+  "n_files_shown": 4,
+  "n_functions_shown": 3
+}

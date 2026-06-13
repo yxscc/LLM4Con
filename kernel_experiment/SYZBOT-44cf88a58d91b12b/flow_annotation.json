@@ -1,0 +1,88 @@
+{
+  "bug_id": "SYZBOT-44cf88a58d91b12b",
+  "status": "complete",
+  "summary": "Raw IPv4 bind updates inet socket source-address fields without holding the socket lock while datagram connect reads them under the normal connect path.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "raw socket bind",
+      "entry": {"function": "raw_bind", "file": "net/ipv4/raw.c", "kind": "socket_ops_bind"},
+      "call_chain": [
+        {"function": "raw_bind", "file": "net/ipv4/raw.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "raw_bind is the raw socket protocol bind callback and the KCSAN write site."}
+      ],
+      "bug_site": {"function": "raw_bind", "file": "net/ipv4/raw.c", "line": 739, "code": "inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr;"}
+    },
+    "thread_b": {
+      "role": "IPv4 datagram connect",
+      "entry": {"function": "ip4_datagram_connect", "file": "net/ipv4/datagram.c", "kind": "socket_ops_connect"},
+      "call_chain": [
+        {"function": "ip4_datagram_connect", "file": "net/ipv4/datagram.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Repaired datagram.ll defines the socket connect wrapper."},
+        {"function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN read stack points to this function."}
+      ],
+      "bug_site": {"function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "line": 39, "code": "read of inet socket source-address state"}
+    },
+    "interleaving": [
+      "One task binds a raw socket and writes inet_rcv_saddr/inet_saddr without lock_sock().",
+      "Another task connects the same socket and reads the source address fields in __ip4_datagram_connect.",
+      "The fix wraps raw_bind in lock_sock()/release_sock() so the bind writes are serialized with connect."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct inet_sock::inet_rcv_saddr / inet_saddr",
+    "access_a": {"function": "raw_bind", "file": "net/ipv4/raw.c", "line": 739, "kind": "write", "code": "inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr;"},
+    "access_b": {"function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "line": 39, "kind": "read", "code": "source address read from inet_sk(sk) during connect"},
+    "required_ordering": "Bind and connect operations on the same socket must be serialized by the socket lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct inet_sock::{inet_rcv_saddr,inet_saddr}",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "These fields store the bound IPv4 source address for the socket and are shared between bind and connect operations.",
+    "aliases": [
+      {"name": "inet->inet_rcv_saddr", "function": "raw_bind", "file": "net/ipv4/raw.c", "evidence": "inet is inet_sk(sk) and raw_bind writes the receive source address."},
+      {"name": "inet->inet_saddr", "function": "raw_bind", "file": "net/ipv4/raw.c", "evidence": "raw_bind writes the outgoing source address and may reset it for multicast/broadcast."},
+      {"name": "inet_sk(sk)->inet_saddr", "function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "evidence": "The connect path reads inet socket source-address state."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "raw_bind(struct sock *sk)", "to": "inet_sk(sk)->inet_rcv_saddr/inet_saddr", "evidence": "raw_bind casts sk with inet_sk(sk)."}],
+      "thread_b": [{"from": "ip4_datagram_connect(sock->sk)", "to": "inet_sk(sk)->source address fields", "evidence": "__ip4_datagram_connect operates on the same struct sock."}]
+    },
+    "access_sites": [
+      {"function": "raw_bind", "file": "net/ipv4/raw.c", "line": 739, "kind": "write", "code": "inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr;"},
+      {"function": "raw_bind", "file": "net/ipv4/raw.c", "line": 741, "kind": "write", "code": "inet->inet_saddr = 0;"},
+      {"function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "line": 39, "kind": "read", "code": "source address read from inet_sk(sk)"}
+    ],
+    "lifetime": {
+      "allocated_by": ["socket allocation creates struct sock with embedded struct inet_sock"],
+      "published_by": ["socket file descriptor exposes bind/connect operations"],
+      "invalidated_by": ["socket close/release"],
+      "freed_by": ["protocol socket destruction"]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["net/ipv4/raw.c", "net/ipv4/datagram.c"],
+    "candidate_files": ["net/ipv4/af_inet.c", "net/socket.c"],
+    "analysis_conclusion": "raw.c defines the writer callback and datagram.c defines the reported reader; higher syscall wrappers are candidate context.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": ["net/ipv4/datagram.c"],
+    "src_file_count_before": 1,
+    "src_file_count_after": 2,
+    "compiled_files": ["net/ipv4/raw.c", "net/ipv4/datagram.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": ["raw.ll", "datagram.ll"],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 204
+  },
+  "evidence": {
+    "patch_hunks": ["153a0d187e76 adds lock_sock(sk) and release_sock(sk) around raw_bind."],
+    "indirect_edges": ["raw_bind is registered as the raw IPv4 bind callback.", "ip4_datagram_connect wraps __ip4_datagram_connect for datagram-style connect."],
+    "entry_discovery_log": ["merged.ll defines raw_bind, ip4_datagram_connect, and __ip4_datagram_connect."],
+    "repair_commands": ["Copied net/ipv4/datagram.c from 153a0d187e76^.", "Compiled datagram.c with clang-15 and linked raw.ll + datagram.ll with external llvm-link."],
+    "notes": []
+  }
+}

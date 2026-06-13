@@ -1,0 +1,33 @@
+{
+  "core_bug_ids": [
+    "SYZBOT-0b272670f47bbf00",
+    "SYZBOT-0c155cd16222a6b8",
+    "SYZBOT-10a1def5445d4902",
+    "SYZBOT-134336b86f728d6e",
+    "SYZBOT-1651b5234028c294",
+    "SYZBOT-16bae128392924ec",
+    "SYZBOT-1f27d25f8a179480",
+    "SYZBOT-241a778c1f735006",
+    "SYZBOT-250e1a870af0ced3",
+    "SYZBOT-25ceba325246fa6c",
+    "SYZBOT-2737094b72705e0f",
+    "SYZBOT-282e13b9bc8ac284",
+    "SYZBOT-2be2f8da254ea650",
+    "SYZBOT-2d373c9936c00d7e",
+    "SYZBOT-30564052abaa0857",
+    "SYZBOT-30c996283da1e6ce",
+    "SYZBOT-31ef9215c568bf85",
+    "SYZBOT-37918fd039da476c",
+    "SYZBOT-3c750be01dab672c",
+    "SYZBOT-479918f96105d14c",
+    "SYZBOT-576cc007eb9f2c96",
+    "SYZBOT-5a486fef3de40e0d",
+    "SYZBOT-5b22981f6d3c7be1",
+    "SYZBOT-5c54bd3eb218bb59",
+    "SYZBOT-63cbe31877bb80ef",
+    "SYZBOT-3b6b32dc50537a49",
+    "SYZBOT-3d367d1df1d2b67f",
+    "SYZBOT-417aeb05fd190f3a",
+    "SYZBOT-65c6c92d04304d0a"
+  ]
+}

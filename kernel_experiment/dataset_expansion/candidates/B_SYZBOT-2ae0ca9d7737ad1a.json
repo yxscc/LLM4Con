@@ -1,0 +1,302 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-2ae0ca9d7737ad1a",
+  "source": "syzbot",
+  "title": "possible deadlock in cfg80211_netdev_notifier_call",
+  "description": "possible deadlock in cfg80211_netdev_notifier_call",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in cfg80211_netdev_notifier_call"
+  },
+  "fix_commit": "40c575d1ec71f7a61c73ba1603a69650c130559c",
+  "affected_files": [
+    "include/net/cfg80211.h",
+    "net/wireless/core.c",
+    "include/linux/secretmem.h",
+    "include/uapi/linux/magic.h",
+    "kernel/sys_ni.c",
+    "mm/Kconfig",
+    "mm/Makefile",
+    "mm/gup.c",
+    "mm/secretmem.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/cfg80211.h",
+      "changed_lines": [
+        "+ * @registering: indicates we're doing registration under wiphy lock",
+        "+ *\tfor the notifier",
+        "-\tbool use_4addr, is_running, registered;",
+        "+\tbool use_4addr, is_running, registered, registering;"
+      ],
+      "hunks": [
+        {
+          "old_start": 5299,
+          "new_start": 5299
+        },
+        {
+          "old_start": 5382,
+          "new_start": 5384
+        }
+      ]
+    },
+    {
+      "path": "net/wireless/core.c",
+      "changed_lines": [
+        "+\twdev->registering = true;",
+        "+\twdev->registering = false;",
+        "-\t\tif (wdev->registered) {",
+        "+\t\tif (wdev->registered && !wdev->registering) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 1346,
+          "new_start": 1346
+        },
+        {
+          "old_start": 1361,
+          "new_start": 1362
+        },
+        {
+          "old_start": 1403,
+          "new_start": 1405
+        }
+      ]
+    },
+    {
+      "path": "include/linux/secretmem.h",
+      "changed_lines": [
+        "+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */",
+        "+#ifndef _LINUX_SECRETMEM_H",
+        "+#define _LINUX_SECRETMEM_H",
+        "+",
+        "+#ifdef CONFIG_SECRETMEM",
+        "+",
+        "+bool vma_is_secretmem(struct vm_area_struct *vma);",
+        "+bool page_is_secretmem(struct page *page);",
+        "+",
+        "+#else",
+        "+",
+        "+static inline bool vma_is_secretmem(struct vm_area_struct *vma)",
+        "+{",
+        "+\treturn false;",
+        "+}",
+        "+",
+        "+static inline bool page_is_secretmem(struct page *page)",
+        "+{",
+        "+\treturn false;",
+        "+}",
+        "+",
+        "+#endif /* CONFIG_SECRETMEM */",
+        "+",
+        "+#endif /* _LINUX_SECRETMEM_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 0,
+          "new_start": 1
+        }
+      ]
+    },
+    {
+      "path": "include/uapi/linux/magic.h",
+      "changed_lines": [
+        "+#define SECRETMEM_MAGIC\t\t0x5345434d\t/* \"SECM\" */"
+      ],
+      "hunks": [
+        {
+          "old_start": 97,
+          "new_start": 97
+        }
+      ]
+    },
+    {
+      "path": "kernel/sys_ni.c",
+      "changed_lines": [
+        "+/* memfd_secret */",
+        "+COND_SYSCALL(memfd_secret);"
+      ],
+      "hunks": [
+        {
+          "old_start": 352,
+          "new_start": 352
+        }
+      ]
+    },
+    {
+      "path": "mm/Kconfig",
+      "changed_lines": [
+        "+config SECRETMEM",
+        "+\tdef_bool ARCH_HAS_SET_DIRECT_MAP && !EMBEDDED",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 872,
+          "new_start": 872
+        }
+      ]
+    },
+    {
+      "path": "mm/Makefile",
+      "changed_lines": [
+        "+obj-$(CONFIG_SECRETMEM) += secretmem.o"
+      ],
+      "hunks": [
+        {
+          "old_start": 120,
+          "new_start": 120
+        }
+      ]
+    },
+    {
+      "path": "mm/gup.c",
+      "changed_lines": [
+        "+#include <linux/secretmem.h>",
+        "+\tif (vma_is_secretmem(vma))",
+        "+\t\treturn NULL;",
+        "+",
+        "+\tif (vma_is_secretmem(vma))",
+        "+\t\treturn -EFAULT;",
+        "+",
+        "+\t\tif (page_is_secretmem(page))",
+        "+\t\t\tgoto pte_unmap;",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 10,
+          "new_start": 10
+        },
+        {
+          "old_start": 759,
+          "new_start": 760
+        },
+        {
+          "old_start": 892,
+          "new_start": 896
+        },
+        {
+          "old_start": 2031,
+          "new_start": 2038
+        }
+      ]
+    },
+    {
+      "path": "mm/secretmem.c",
+      "changed_lines": [
+        "+// SPDX-License-Identifier: GPL-2.0",
+        "+/*",
+        "+ * Copyright IBM Corporation, 2020",
+        "+ *",
+        "+ * Author: Mike Rapoport <rppt@linux.ibm.com>",
+        "+ */",
+        "+",
+        "+#include <linux/mm.h>",
+        "+#include <linux/fs.h>",
+        "+#include <linux/mount.h>",
+        "+#include <linux/memfd.h>",
+        "+#include <linux/bitops.h>",
+        "+#include <linux/printk.h>",
+        "+#include <linux/pagemap.h>",
+        "+#include <linux/syscalls.h>",
+        "+#include <linux/pseudo_fs.h>",
+        "+#include <linux/secretmem.h>",
+        "+#include <linux/set_memory.h>",
+        "+#include <linux/sched/signal.h>",
+        "+",
+        "+#include <uapi/linux/magic.h>",
+        "+",
+        "+#include <asm/tlbflush.h>",
+        "+",
+        "+#include \"internal.h\"",
+        "+",
+        "+#undef pr_fmt",
+        "+#define pr_fmt(fmt) \"secretmem: \" fmt",
+        "+",
+        "+/*",
+        "+ * Define mode and flag masks to allow validation of the system call",
+        "+ * parameters.",
+        "+ */",
+        "+#define SECRETMEM_MODE_MASK\t(0x0)",
+        "+#define SECRETMEM_FLAGS_MASK\tSECRETMEM_MODE_MASK",
+        "+",
+        "+struct secretmem_ctx {",
+        "+\tunsigned int mode;",
+        "+};",
+        "+",
+        "+static struct page *secretmem_alloc_page(gfp_t gfp)",
+        "+{",
+        "+\t/*",
+        "+\t * FIXME: use a cache of large pages to reduce the direct map",
+        "+\t * fragmentation",
+        "+\t */",
+        "+\treturn alloc_page(gfp | __GFP_ZERO);",
+        "+}",
+        "+",
+        "+static vm_fault_t secretmem_fault(struct vm_fault *vmf)",
+        "+{",
+        "+\tstruct address_space *mapping = vmf->vma->vm_file->f_mapping;",
+        "+\tstruct inode *inode = file_inode(vmf->vma->vm_file);",
+        "+\tpgoff_t offset = vmf->pgoff;",
+        "+\tunsigned long addr;",
+        "+\tstruct page *page;",
+        "+\tint err;",
+        "+",
+        "+\tif (((loff_t)vmf->pgoff << PAGE_SHIFT) >= i_size_read(inode))",
+        "+\t\treturn vmf_error(-EINVAL);",
+        "+",
+        "+retry:",
+        "+\tpage = find_lock_page(mapping, offset);",
+        "+\tif (!page) {",
+        "+\t\tpage = secretmem_alloc_page(vmf->gfp_mask);",
+        "+\t\tif (!page)",
+        "+\t\t\treturn VM_FAULT_OOM;",
+        "+",
+        "+\t\terr = set_direct_map_invalid_noflush(page, 1);",
+        "+\t\tif (err) {",
+        "+\t\t\tput_page(page);",
+        "+\t\t\treturn vmf_error(err);",
+        "+\t\t}",
+        "+",
+        "+\t\t__SetPageUptodate(page);",
+        "+\t\terr = add_to_page_cache(page, mapping, offset, vmf->gfp_mask);",
+        "+\t\tif (unlikely(err)) {",
+        "+\t\t\tput_page(page);",
+        "+\t\t\tif (err == -EEXIST)",
+        "+\t\t\t\tgoto retry;",
+        "+\t\t\tgoto err_restore_direct_map;",
+        "+\t\t}",
+        "+",
+        "+\t\taddr = (unsigned long)page_address(page);",
+        "+\t\tflush_tlb_kernel_range(addr, addr + PAGE_SIZE);",
+        "+\t}",
+        "+",
+        "+\tvmf->page = page;",
+        "+\treturn VM_FAULT_LOCKED;",
+        "+",
+        "+err_restore_direct_map:",
+        "+\t/*",
+        "+\t * If a split of large page was required, it already happened",
+        "+\t * when we marked the page invalid which guarantees that this call",
+        "+\t * won't fail",
+        "+\t */",
+        "+\tset_direct_map_default_noflush(page, 1);",
+        "+\treturn vmf_error(err);",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 0,
+          "new_start": 1
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2ae0ca9d7737ad1a/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2ae0ca9d7737ad1a/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2ae0ca9d7737ad1a"
+}

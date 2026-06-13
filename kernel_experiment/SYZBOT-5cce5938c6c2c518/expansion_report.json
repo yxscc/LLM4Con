@@ -1,0 +1,46 @@
+{
+  "commit": "f866fbc842de5976e41ba874b76ce31710b634b5",
+  "user_seeds": [
+    "drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+    "net/dccp/ipv4.c",
+    "net/ipv4/af_inet.c",
+    "net/ipv4/datagram.c",
+    "net/ipv4/ip_output.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/sctp/socket.c"
+  ],
+  "patch_files": [
+    "drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+    "include/net/inet_sock.h",
+    "include/net/ip.h",
+    "net/dccp/ipv4.c",
+    "net/ipv4/af_inet.c",
+    "net/ipv4/datagram.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/sctp/socket.c"
+  ],
+  "changed_symbols_sample": [
+    "__u16",
+    "atomic_add_return",
+    "atomic_read",
+    "atomic_set",
+    "atomic_t",
+    "get_random_u16",
+    "inet_id",
+    "inet_sk",
+    "sk_is_tcp",
+    "sock_owned_by_me"
+  ],
+  "expanded": [
+    "drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+    "include/net/inet_sock.h",
+    "include/net/ip.h",
+    "net/dccp/ipv4.c",
+    "net/ipv4/af_inet.c",
+    "net/ipv4/datagram.c",
+    "net/ipv4/ip_output.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/sctp/socket.c"
+  ],
+  "added_by_expander": {}
+}

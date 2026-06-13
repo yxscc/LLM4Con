@@ -1,0 +1,49 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-187ef5bae8262aba",
+  "source": "syzbot",
+  "title": "possible deadlock in userfaultfd_read",
+  "description": "possible deadlock in userfaultfd_read",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in userfaultfd_read"
+  },
+  "fix_commit": "d3d6a18d7d351cbcc9b33dbedf710e65f8ce1595",
+  "affected_files": [
+    "fs/aio.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/aio.c",
+      "changed_lines": [
+        "+\tunsigned long flags;",
+        "-\t\t/* try to complete the iocb inline if we can: */",
+        "-\t\tif (spin_trylock(&iocb->ki_ctx->ctx_lock)) {",
+        "+\t\t/*",
+        "+\t\t * Try to complete the iocb inline if we can. Use",
+        "+\t\t * irqsave/irqrestore because not all filesystems (e.g. fuse)",
+        "+\t\t * call this function with IRQs disabled and because IRQs",
+        "+\t\t * have to be disabled before ctx_lock is obtained.",
+        "+\t\t */",
+        "+\t\tif (spin_trylock_irqsave(&iocb->ki_ctx->ctx_lock, flags)) {",
+        "-\t\t\tspin_unlock(&iocb->ki_ctx->ctx_lock);",
+        "+\t\t\tspin_unlock_irqrestore(&iocb->ki_ctx->ctx_lock, flags);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1679,
+          "new_start": 1679
+        },
+        {
+          "old_start": 1687,
+          "new_start": 1688
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-187ef5bae8262aba/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-187ef5bae8262aba/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-187ef5bae8262aba"
+}

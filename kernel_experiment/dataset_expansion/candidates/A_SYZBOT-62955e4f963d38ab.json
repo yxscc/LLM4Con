@@ -1,0 +1,104 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-62955e4f963d38ab",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in tcp_event_new_data_sent / tcp_stream_memory_free",
+  "description": "KCSAN: data-race in tcp_event_new_data_sent / tcp_stream_memory_free",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "tcp_event_new_data_sent",
+    "fn_b": "tcp_stream_memory_free"
+  },
+  "fix_commit": "e0d694d638dba768b47be31c22e1a9b4f862f561",
+  "affected_files": [
+    "include/net/tcp.h",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_minisocks.c",
+    "net/ipv4/tcp_output.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/tcp.h",
+      "changed_lines": [
+        "-\tu32 notsent_bytes = READ_ONCE(tp->write_seq) - tp->snd_nxt;",
+        "+\tu32 notsent_bytes = READ_ONCE(tp->write_seq) -",
+        "+\t\t\t    READ_ONCE(tp->snd_nxt);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1917,
+          "new_start": 1917
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp.c",
+      "changed_lines": [
+        "-\t\t\tansw = READ_ONCE(tp->write_seq) - tp->snd_nxt;",
+        "+\t\t\tansw = READ_ONCE(tp->write_seq) -",
+        "+\t\t\t       READ_ONCE(tp->snd_nxt);"
+      ],
+      "hunks": [
+        {
+          "old_start": 625,
+          "new_start": 625
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp_minisocks.c",
+      "changed_lines": [
+        "-\tnewtp->snd_sml = newtp->snd_una =",
+        "-\tnewtp->snd_nxt = newtp->snd_up = treq->snt_isn + 1;",
+        "+\tseq = treq->snt_isn + 1;",
+        "+\tnewtp->snd_sml = newtp->snd_una = seq;",
+        "+\tWRITE_ONCE(newtp->snd_nxt, seq);",
+        "+\tnewtp->snd_up = seq;"
+      ],
+      "hunks": [
+        {
+          "old_start": 482,
+          "new_start": 482
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp_output.c",
+      "changed_lines": [
+        "-\ttp->snd_nxt = TCP_SKB_CB(skb)->end_seq;",
+        "+\tWRITE_ONCE(tp->snd_nxt, TCP_SKB_CB(skb)->end_seq);",
+        "-\t\t\ttp->snd_nxt++;",
+        "+\t\t\tWRITE_ONCE(tp->snd_nxt, tp->snd_nxt + 1);",
+        "-\ttp->snd_nxt = tp->write_seq;",
+        "+\tWRITE_ONCE(tp->snd_nxt, tp->write_seq);",
+        "-\ttp->snd_nxt = tp->write_seq;",
+        "+\tWRITE_ONCE(tp->snd_nxt, tp->write_seq);",
+        "-\t\ttp->snd_nxt\t= TCP_SKB_CB(buff)->seq;",
+        "+\t\tWRITE_ONCE(tp->snd_nxt, TCP_SKB_CB(buff)->seq);"
+      ],
+      "hunks": [
+        {
+          "old_start": 67,
+          "new_start": 67
+        },
+        {
+          "old_start": 3142,
+          "new_start": 3142
+        },
+        {
+          "old_start": 3426,
+          "new_start": 3426
+        },
+        {
+          "old_start": 3586,
+          "new_start": 3586
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-62955e4f963d38ab/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-62955e4f963d38ab/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-62955e4f963d38ab"
+}

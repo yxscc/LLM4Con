@@ -1,0 +1,1287 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-019072ad24ab1d94",
+  "source": "syzbot",
+  "title": "possible deadlock in efivarfs_actor",
+  "description": "possible deadlock in efivarfs_actor",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in efivarfs_actor"
+  },
+  "fix_commit": "dec1277875a5974413068bfb67df7e87e51a189b",
+  "affected_files": [
+    "fs/efivarfs/super.c",
+    "tools/testing/selftests/mm/hugepage-mremap.c",
+    "tools/testing/selftests/mm/ksm_functional_tests.c",
+    "tools/testing/selftests/mm/memfd_secret.c",
+    "tools/testing/selftests/mm/mkdirty.c",
+    "tools/testing/selftests/mm/mlock2.h",
+    "tools/testing/selftests/mm/protection_keys.c",
+    "tools/testing/selftests/mm/uffd-common.c",
+    "tools/testing/selftests/mm/uffd-stress.c",
+    "tools/testing/selftests/mm/uffd-unit-tests.c",
+    "tools/testing/selftests/damon/damos_quota_goal.py",
+    "arch/m68k/include/asm/sun3_pgalloc.h",
+    "arch/arm/mm/fault-armv.c",
+    "mm/internal.h",
+    "mm/memory-failure.c",
+    "mm/memory_hotplug.c",
+    "lib/Kconfig.debug",
+    "mm/kmsan/hooks.c",
+    "mm/swapfile.c",
+    "include/linux/hugetlb.h",
+    "mm/hugetlb.c",
+    "mm/page_isolation.c",
+    "mm/vma.c",
+    "fs/nfs/file.c",
+    "include/linux/compaction.h",
+    "include/linux/sched.h",
+    "mm/compaction.c",
+    "include/linux/log2.h",
+    "tools/testing/selftests/damon/damos_quota.py",
+    "tools/testing/selftests/damon/damon_nr_regions.py",
+    "mm/userfaultfd.c",
+    "mm/shmem.c",
+    "mm/zswap.c",
+    "mm/memory.c",
+    "mm/vmalloc.c",
+    "mm/page_alloc.c",
+    ".mailmap",
+    "MAINTAINERS",
+    "drivers/rapidio/devices/rio_mport_cdev.c",
+    "drivers/rapidio/rio-scan.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/efivarfs/super.c",
+      "changed_lines": [
+        "-\tinode_lock(inode);",
+        "+\tinode_lock_nested(inode, I_MUTEX_CHILD);"
+      ],
+      "hunks": [
+        {
+          "old_start": 421,
+          "new_start": 421
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/hugepage-mremap.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#include <unistd.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 15,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/ksm_functional_tests.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#include <unistd.h>",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 11,
+          "new_start": 11
+        },
+        {
+          "old_start": 369,
+          "new_start": 369
+        },
+        {
+          "old_start": 429,
+          "new_start": 430
+        },
+        {
+          "old_start": 684,
+          "new_start": 686
+        },
+        {
+          "old_start": 696,
+          "new_start": 700
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/memfd_secret.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#include <unistd.h>",
+        "+#ifdef __NR_memfd_secret",
+        "+",
+        "+",
+        "+#else /* __NR_memfd_secret */",
+        "+",
+        "+int main(int argc, char *argv[])",
+        "+{",
+        "+\tprintf(\"skip: skipping memfd_secret test (missing __NR_memfd_secret)\\n\");",
+        "+\treturn KSFT_SKIP;",
+        "+}",
+        "+",
+        "+#endif /* __NR_memfd_secret */"
+      ],
+      "hunks": [
+        {
+          "old_start": 17,
+          "new_start": 17
+        },
+        {
+          "old_start": 28,
+          "new_start": 28
+        },
+        {
+          "old_start": 332,
+          "new_start": 334
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/mkdirty.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#include <unistd.h>",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif /* __NR_userfaultfd */",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif /* __NR_userfaultfd */",
+        "+#ifdef __NR_userfaultfd",
+        "+#endif /* __NR_userfaultfd */"
+      ],
+      "hunks": [
+        {
+          "old_start": 9,
+          "new_start": 9
+        },
+        {
+          "old_start": 265,
+          "new_start": 265
+        },
+        {
+          "old_start": 322,
+          "new_start": 323
+        },
+        {
+          "old_start": 334,
+          "new_start": 336
+        },
+        {
+          "old_start": 364,
+          "new_start": 368
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/mlock2.h",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/protection_keys.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#include <unistd.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 42,
+          "new_start": 42
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/uffd-common.c",
+      "changed_lines": [
+        "+#ifdef __NR_userfaultfd",
+        "+#else",
+        "+\treturn -1;",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 673,
+          "new_start": 673
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/uffd-stress.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+",
+        "+#ifdef __NR_userfaultfd",
+        "+",
+        "+#else /* __NR_userfaultfd */",
+        "+",
+        "+#warning \"missing __NR_userfaultfd definition\"",
+        "+",
+        "+int main(void)",
+        "+{",
+        "+\tprintf(\"skip: Skipping userfaultfd test (missing __NR_userfaultfd)\\n\");",
+        "+\treturn KSFT_SKIP;",
+        "+}",
+        "+",
+        "+#endif /* __NR_userfaultfd */"
+      ],
+      "hunks": [
+        {
+          "old_start": 33,
+          "new_start": 33
+        },
+        {
+          "old_start": 471,
+          "new_start": 472
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/mm/uffd-unit-tests.c",
+      "changed_lines": [
+        "-#include <asm-generic/unistd.h>",
+        "+#ifdef __NR_userfaultfd",
+        "+",
+        "+#else /* __NR_userfaultfd */",
+        "+",
+        "+#warning \"missing __NR_userfaultfd definition\"",
+        "+",
+        "+int main(void)",
+        "+{",
+        "+\tprintf(\"Skipping %s (missing __NR_userfaultfd)\\n\", __file__);",
+        "+\treturn KSFT_SKIP;",
+        "+}",
+        "+",
+        "+#endif /* __NR_userfaultfd */"
+      ],
+      "hunks": [
+        {
+          "old_start": 5,
+          "new_start": 5
+        },
+        {
+          "old_start": 1558,
+          "new_start": 1559
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/damon/damos_quota_goal.py",
+      "changed_lines": [
+        "+            # effective quota was already minimum that cannot be more reduced",
+        "+            if expect_increase is False and last_effective_bytes == 1:",
+        "+                continue"
+      ],
+      "hunks": [
+        {
+          "old_start": 63,
+          "new_start": 63
+        }
+      ]
+    },
+    {
+      "path": "arch/m68k/include/asm/sun3_pgalloc.h",
+      "changed_lines": [
+        "-\tmemcpy(new_pgd, swapper_pg_dir, PAGE_SIZE);",
+        "-\tmemset(new_pgd, 0, (PAGE_OFFSET >> PGDIR_SHIFT));",
+        "+\tif (likely(new_pgd != NULL)) {",
+        "+\t\tmemcpy(new_pgd, swapper_pg_dir, PAGE_SIZE);",
+        "+\t\tmemset(new_pgd, 0, (PAGE_OFFSET >> PGDIR_SHIFT));",
+        "+\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 44,
+          "new_start": 44
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/fault-armv.c",
+      "changed_lines": [
+        "-\t\t      unsigned long pfn, struct vm_fault *vmf)",
+        "+\t\t      unsigned long pfn, bool need_lock)",
+        "-\t/*",
+        "-\t * If we are using split PTE locks, then we need to take the page",
+        "-\t * lock here.  Otherwise we are using shared mm->page_table_lock",
+        "-\t * which is already locked, thus cannot take it.",
+        "-\t */",
+        "-\tif (ptl != vmf->ptl) {",
+        "+\tif (need_lock) {",
+        "+\t\t/*",
+        "+\t\t * Use nested version here to indicate that we are already",
+        "+\t\t * holding one similar spinlock.",
+        "+\t\t */",
+        "-\tif (ptl != vmf->ptl)",
+        "+\tif (need_lock)",
+        "-\t      unsigned long addr, pte_t *ptep, unsigned long pfn,",
+        "-\t      struct vm_fault *vmf)",
+        "+\t      unsigned long addr, pte_t *ptep, unsigned long pfn)",
+        "+\tconst unsigned long pmd_start_addr = ALIGN_DOWN(addr, PMD_SIZE);",
+        "+\tconst unsigned long pmd_end_addr = pmd_start_addr + PMD_SIZE;",
+        "+\t\t/*",
+        "+\t\t * If we are using split PTE locks, then we need to take the pte",
+        "+\t\t * lock. Otherwise we are using shared mm->page_table_lock which",
+        "+\t\t * is already locked, thus cannot take it.",
+        "+\t\t */",
+        "+\t\tbool need_lock = IS_ENABLED(CONFIG_SPLIT_PTE_PTLOCKS);",
+        "+\t\tunsigned long mpnt_addr;",
+        "+",
+        "-\t\taliases += adjust_pte(mpnt, mpnt->vm_start + offset, pfn, vmf);",
+        "+\t\tmpnt_addr = mpnt->vm_start + offset;",
+        "+",
+        "+\t\t/* Avoid deadlocks by not grabbing the same PTE lock again. */",
+        "+\t\tif (mpnt_addr >= pmd_start_addr && mpnt_addr < pmd_end_addr)",
+        "+\t\t\tneed_lock = false;",
+        "+\t\taliases += adjust_pte(mpnt, mpnt_addr, pfn, need_lock);",
+        "-\t\t\tmake_coherent(mapping, vma, addr, ptep, pfn, vmf);",
+        "+\t\t\tmake_coherent(mapping, vma, addr, ptep, pfn);"
+      ],
+      "hunks": [
+        {
+          "old_start": 62,
+          "new_start": 62
+        },
+        {
+          "old_start": 99,
+          "new_start": 99
+        },
+        {
+          "old_start": 114,
+          "new_start": 113
+        },
+        {
+          "old_start": 123,
+          "new_start": 122
+        },
+        {
+          "old_start": 141,
+          "new_start": 141
+        },
+        {
+          "old_start": 151,
+          "new_start": 159
+        },
+        {
+          "old_start": 194,
+          "new_start": 207
+        }
+      ]
+    },
+    {
+      "path": "mm/internal.h",
+      "changed_lines": [
+        "-void unmap_poisoned_folio(struct folio *folio, enum ttu_flags ttu);",
+        "+int unmap_poisoned_folio(struct folio *folio, unsigned long pfn, bool must_kill);",
+        "-static inline void unmap_poisoned_folio(struct folio *folio, enum ttu_flags ttu)",
+        "+static inline int unmap_poisoned_folio(struct folio *folio, unsigned long pfn, bool must_kill)",
+        "+\treturn -EBUSY;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1115,
+          "new_start": 1115
+        },
+        {
+          "old_start": 1138,
+          "new_start": 1138
+        }
+      ]
+    },
+    {
+      "path": "mm/memory-failure.c",
+      "changed_lines": [
+        "-void unmap_poisoned_folio(struct folio *folio, enum ttu_flags ttu)",
+        "+int unmap_poisoned_folio(struct folio *folio, unsigned long pfn, bool must_kill)",
+        "-\tif (folio_test_hugetlb(folio) && !folio_test_anon(folio)) {",
+        "-\t\tstruct address_space *mapping;",
+        "+\tenum ttu_flags ttu = TTU_IGNORE_MLOCK | TTU_SYNC | TTU_HWPOISON;",
+        "+\tstruct address_space *mapping;",
+        "+",
+        "+\tif (folio_test_swapcache(folio)) {",
+        "+\t\tpr_err(\"%#lx: keeping poisoned page in swap cache\\n\", pfn);",
+        "+\t\tttu &= ~TTU_HWPOISON;",
+        "+\t}",
+        "+\t/*",
+        "+\t * Propagate the dirty bit from PTEs to struct page first, because we",
+        "+\t * need this to decide if we should kill or just drop the page.",
+        "+\t * XXX: the dirty test could be racy: set_page_dirty() may not always",
+        "+\t * be called inside page lock (it's recommended but not enforced).",
+        "+\t */",
+        "+\tmapping = folio_mapping(folio);",
+        "+\tif (!must_kill && !folio_test_dirty(folio) && mapping &&",
+        "+\t    mapping_can_writeback(mapping)) {",
+        "+\t\tif (folio_mkclean(folio)) {",
+        "+\t\t\tfolio_set_dirty(folio);",
+        "+\t\t} else {",
+        "+\t\t\tttu &= ~TTU_HWPOISON;",
+        "+\t\t\tpr_info(\"%#lx: corrupted page was clean: dropped without side effects\\n\",",
+        "+\t\t\t\tpfn);",
+        "+\t\t}",
+        "+\t}",
+        "+",
+        "+\tif (folio_test_hugetlb(folio) && !folio_test_anon(folio)) {",
+        "-\t\t\treturn;",
+        "+\t\t\treturn -EBUSY;",
+        "+",
+        "+\treturn folio_mapped(folio) ? -EBUSY : 0;",
+        "-\tenum ttu_flags ttu = TTU_IGNORE_MLOCK | TTU_SYNC | TTU_HWPOISON;",
+        "-\tstruct address_space *mapping;",
+        "-\tif (folio_test_swapcache(folio)) {",
+        "-\t\tpr_err(\"%#lx: keeping poisoned page in swap cache\\n\", pfn);",
+        "-\t\tttu &= ~TTU_HWPOISON;",
+        "-\t}",
+        "-",
+        "-\t/*",
+        "-\t * Propagate the dirty bit from PTEs to struct page first, because we",
+        "-\t * need this to decide if we should kill or just drop the page.",
+        "-\t * XXX: the dirty test could be racy: set_page_dirty() may not always",
+        "-\t * be called inside page lock (it's recommended but not enforced).",
+        "-\t */",
+        "-\tmapping = folio_mapping(folio);",
+        "-\tif (!(flags & MF_MUST_KILL) && !folio_test_dirty(folio) && mapping &&",
+        "-\t    mapping_can_writeback(mapping)) {",
+        "-\t\tif (folio_mkclean(folio)) {",
+        "-\t\t\tfolio_set_dirty(folio);",
+        "-\t\t} else {",
+        "-\t\t\tttu &= ~TTU_HWPOISON;",
+        "-\t\t\tpr_info(\"%#lx: corrupted page was clean: dropped without side effects\\n\",",
+        "-\t\t\t\tpfn);",
+        "-\t\t}",
+        "-\t}",
+        "-",
+        "-\tunmap_poisoned_folio(folio, ttu);",
+        "-",
+        "-\tunmap_success = !folio_mapped(folio);",
+        "+\tunmap_success = !unmap_poisoned_folio(folio, pfn, flags & MF_MUST_KILL);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1556,
+          "new_start": 1556
+        },
+        {
+          "old_start": 1572,
+          "new_start": 1596
+        },
+        {
+          "old_start": 1580,
+          "new_start": 1604
+        },
+        {
+          "old_start": 1589,
+          "new_start": 1615
+        },
+        {
+          "old_start": 1613,
+          "new_start": 1637
+        },
+        {
+          "old_start": 1643,
+          "new_start": 1644
+        }
+      ]
+    },
+    {
+      "path": "mm/memory_hotplug.c",
+      "changed_lines": [
+        "-\t\t\t\tunmap_poisoned_folio(folio, TTU_IGNORE_MLOCK);",
+        "+\t\t\t\tunmap_poisoned_folio(folio, pfn, false);",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1833,
+          "new_start": 1833
+        }
+      ]
+    },
+    {
+      "path": "mm/memory_hotplug.c",
+      "changed_lines": [
+        "-\t\t/*",
+        "-\t\t * HWPoison pages have elevated reference counts so the migration would",
+        "-\t\t * fail on them. It also doesn't make any sense to migrate them in the",
+        "-\t\t * first place. Still try to unmap such a page in case it is still mapped",
+        "-\t\t * (keep the unmap as the catch all safety net).",
+        "-\t\t */",
+        "+\t\tif (!folio_try_get(folio))",
+        "+\t\t\tcontinue;",
+        "+",
+        "+\t\tif (unlikely(page_folio(page) != folio))",
+        "+\t\t\tgoto put_folio;",
+        "+",
+        "-\t\t\tcontinue;",
+        "-\t\t}",
+        "-",
+        "-\t\tif (!folio_try_get(folio))",
+        "-\t\t\tcontinue;",
+        "-",
+        "-\t\tif (unlikely(page_folio(page) != folio))",
+        "+\t\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 1822,
+          "new_start": 1822
+        },
+        {
+          "old_start": 1835,
+          "new_start": 1835
+        }
+      ]
+    },
+    {
+      "path": "mm/memory_hotplug.c",
+      "changed_lines": [
+        "-\t\t\tif (folio_mapped(folio))",
+        "+\t\t\tif (folio_mapped(folio)) {",
+        "+\t\t\t\tfolio_lock(folio);",
+        "+\t\t\t\tfolio_unlock(folio);",
+        "+\t\t\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 1832,
+          "new_start": 1832
+        }
+      ]
+    },
+    {
+      "path": "lib/Kconfig.debug",
+      "changed_lines": [
+        "-\t  Documentation/dev-tools/fault-injection/fault-injection.rst",
+        "+\t  Documentation/fault-injection/fault-injection.rst"
+      ],
+      "hunks": [
+        {
+          "old_start": 2103,
+          "new_start": 2103
+        }
+      ]
+    },
+    {
+      "path": "mm/kmsan/hooks.c",
+      "changed_lines": [
+        "+EXPORT_SYMBOL_GPL(kmsan_handle_dma);"
+      ],
+      "hunks": [
+        {
+          "old_start": 357,
+          "new_start": 357
+        }
+      ]
+    },
+    {
+      "path": "mm/swapfile.c",
+      "changed_lines": [
+        "+\tif (WARN_ON_ONCE(!si)) {",
+        "+\t\tpr_err(\"%s%08lx\\n\", Bad_file, entry.val);",
+        "+\t\treturn -EINVAL;",
+        "+\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 3542,
+          "new_start": 3542
+        }
+      ]
+    },
+    {
+      "path": "include/linux/hugetlb.h",
+      "changed_lines": [
+        "+void wait_for_freed_hugetlb_folios(void);",
+        "+static inline void wait_for_freed_hugetlb_folios(void)",
+        "+{",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 682,
+          "new_start": 682
+        },
+        {
+          "old_start": 1066,
+          "new_start": 1067
+        }
+      ]
+    },
+    {
+      "path": "mm/hugetlb.c",
+      "changed_lines": [
+        "+void wait_for_freed_hugetlb_folios(void)",
+        "+{",
+        "+\tif (llist_empty(&hpage_freelist))",
+        "+\t\treturn;",
+        "+",
+        "+\tflush_work(&free_hpage_work);",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2943,
+          "new_start": 2943
+        }
+      ]
+    },
+    {
+      "path": "mm/page_isolation.c",
+      "changed_lines": [
+        "+\t/*",
+        "+\t * Due to the deferred freeing of hugetlb folios, the hugepage folios may",
+        "+\t * not immediately release to the buddy system. This can cause PageBuddy()",
+        "+\t * to fail in __test_page_isolated_in_pageblock(). To ensure that the",
+        "+\t * hugetlb folios are properly released back to the buddy system, we",
+        "+\t * invoke the wait_for_freed_hugetlb_folios() function to wait for the",
+        "+\t * release to complete.",
+        "+\t */",
+        "+\twait_for_freed_hugetlb_folios();",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 607,
+          "new_start": 607
+        }
+      ]
+    },
+    {
+      "path": "mm/vma.c",
+      "changed_lines": [
+        "+\tunsigned long start = vmg->start;",
+        "+\tunsigned long end = vmg->end;",
+        "+\tif (vmg_nomem(vmg))",
+        "+\t\treturn ERR_PTR(-ENOMEM);",
+        "-\tif (vma->vm_start < vmg->start) {",
+        "-\t\tint err = split_vma(vmg->vmi, vma, vmg->start, 1);",
+        "+\tif (vma->vm_start < start) {",
+        "+\t\tint err = split_vma(vmg->vmi, vma, start, 1);",
+        "-\tif (vma->vm_end > vmg->end) {",
+        "-\t\tint err = split_vma(vmg->vmi, vma, vmg->end, 0);",
+        "+\tif (vma->vm_end > end) {",
+        "+\t\tint err = split_vma(vmg->vmi, vma, end, 0);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1509,
+          "new_start": 1509
+        }
+      ]
+    },
+    {
+      "path": "mm/swapfile.c",
+      "changed_lines": [
+        "+\t\t/* in case no swap cache is reclaimed */",
+        "+\t\tif (ci->flags == CLUSTER_FLAG_NONE)",
+        "+\t\t\trelocate_cluster(si, ci);",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 858,
+          "new_start": 858
+        }
+      ]
+    },
+    {
+      "path": "mm/swapfile.c",
+      "changed_lines": [
+        "-\t\toffset += SWAPFILE_CLUSTER;"
+      ],
+      "hunks": [
+        {
+          "old_start": 2645,
+          "new_start": 2645
+        }
+      ]
+    },
+    {
+      "path": "mm/swapfile.c",
+      "changed_lines": [
+        "-\t\tfree_cluster(si, ci);",
+        "+\t\tif (ci->flags != CLUSTER_FLAG_FREE)",
+        "+\t\t\tfree_cluster(si, ci);"
+      ],
+      "hunks": [
+        {
+          "old_start": 653,
+          "new_start": 653
+        }
+      ]
+    },
+    {
+      "path": "fs/nfs/file.c",
+      "changed_lines": [
+        "+#include <linux/compaction.h>",
+        "-\t\t    current_is_kswapd())",
+        "+\t\t    current_is_kswapd() || current_is_kcompactd())"
+      ],
+      "hunks": [
+        {
+          "old_start": 29,
+          "new_start": 29
+        },
+        {
+          "old_start": 457,
+          "new_start": 458
+        }
+      ]
+    },
+    {
+      "path": "include/linux/compaction.h",
+      "changed_lines": [
+        "+static inline int current_is_kcompactd(void)",
+        "+{",
+        "+\treturn current->flags & PF_KCOMPACTD;",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 80,
+          "new_start": 80
+        }
+      ]
+    },
+    {
+      "path": "include/linux/sched.h",
+      "changed_lines": [
+        "-#define PF__HOLE__00010000\t0x00010000",
+        "+#define PF_KCOMPACTD\t\t0x00010000\t/* I am kcompactd */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1701,
+          "new_start": 1701
+        }
+      ]
+    },
+    {
+      "path": "mm/compaction.c",
+      "changed_lines": [
+        "+\tcurrent->flags |= PF_KCOMPACTD;",
+        "+\tcurrent->flags &= ~PF_KCOMPACTD;",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 3181,
+          "new_start": 3181
+        },
+        {
+          "old_start": 3237,
+          "new_start": 3238
+        }
+      ]
+    },
+    {
+      "path": "include/linux/log2.h",
+      "changed_lines": [
+        "-static inline __attribute__((const))",
+        "+static __always_inline __attribute__((const))"
+      ],
+      "hunks": [
+        {
+          "old_start": 41,
+          "new_start": 41
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/damon/damos_quota.py",
+      "changed_lines": [
+        "+    nr_expected_quota_exceeds = 0",
+        "+        if wss == sz_quota:",
+        "+            nr_expected_quota_exceeds += 1",
+        "-    if nr_quota_exceeds < len(wss_collected):",
+        "-        print('quota is not always exceeded: %d > %d' %",
+        "-              (len(wss_collected), nr_quota_exceeds))",
+        "+    if nr_quota_exceeds < nr_expected_quota_exceeds:",
+        "+        print('quota is exceeded less than expected: %d < %d' %",
+        "+              (nr_quota_exceeds, nr_expected_quota_exceeds))"
+      ],
+      "hunks": [
+        {
+          "old_start": 51,
+          "new_start": 51
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/damon/damon_nr_regions.py",
+      "changed_lines": [
+        "+    attrs.update_us = 100000"
+      ],
+      "hunks": [
+        {
+          "old_start": 109,
+          "new_start": 109
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/damon/damon_nr_regions.py",
+      "changed_lines": [
+        "+    collected_nr_regions.sort()",
+        "- If the PTE entry is present, move_present_pte() handles folio",
+        "- If the PTE entry is a swap entry, move_swap_pte() simply copies"
+      ],
+      "hunks": [
+        {
+          "old_start": 65,
+          "new_start": 65
+        }
+      ]
+    },
+    {
+      "path": "mm/userfaultfd.c",
+      "changed_lines": [
+        "+#include \"swap.h\"",
+        "-static int move_swap_pte(struct mm_struct *mm,",
+        "+static int move_swap_pte(struct mm_struct *mm, struct vm_area_struct *dst_vma,",
+        "-\t\t\t spinlock_t *dst_ptl, spinlock_t *src_ptl)",
+        "+\t\t\t spinlock_t *dst_ptl, spinlock_t *src_ptl,",
+        "+\t\t\t struct folio *src_folio)",
+        "-\tif (!pte_swp_exclusive(orig_src_pte))",
+        "-\t\treturn -EBUSY;",
+        "-",
+        "+\t/*",
+        "+\t * The src_folio resides in the swapcache, requiring an update to its",
+        "+\t * index and mapping to align with the dst_vma, where a swap-in may",
+        "+\t * occur and hit the swapcache after moving the PTE.",
+        "+\t */",
+        "+\tif (src_folio) {",
+        "+\t\tfolio_move_anon_rmap(src_folio, dst_vma);",
+        "+\t\tsrc_folio->index = linear_page_index(dst_vma, dst_addr);",
+        "+\t}",
+        "+",
+        "+\tstruct swap_info_struct *si = NULL;",
+        "+\t\tstruct folio *folio = NULL;",
+        "+",
+        "-\t\terr = move_swap_pte(mm, dst_addr, src_addr, dst_pte, src_pte,",
+        "-\t\t\t\t    orig_dst_pte, orig_src_pte, dst_pmd,",
+        "-\t\t\t\t    dst_pmdval, dst_ptl, src_ptl);",
+        "+\t\tif (!pte_swp_exclusive(orig_src_pte)) {",
+        "+\t\t\terr = -EBUSY;",
+        "+\t\t\tgoto out;",
+        "+\t\t}",
+        "+",
+        "+\t\tsi = get_swap_device(entry);",
+        "+\t\tif (unlikely(!si)) {",
+        "+\t\t\terr = -EAGAIN;",
+        "+\t\t\tgoto out;",
+        "+\t\t}",
+        "+\t\t/*",
+        "+\t\t * Verify the existence of the swapcache. If present, the folio's",
+        "+\t\t * index and mapping must be updated even when the PTE is a swap",
+        "+\t\t * entry. The anon_vma lock is not taken during this process since",
+        "+\t\t * the folio has already been unmapped, and the swap entry is",
+        "+\t\t * exclusive, preventing rmap walks.",
+        "+\t\t *",
+        "+\t\t * For large folios, return -EBUSY immediately, as split_folio()",
+        "+\t\t * also returns -EBUSY when attempting to split unmapped large",
+        "+\t\t * folios in the swapcache. This issue needs to be resolved",
+        "+\t\t * separately to allow proper handling.",
+        "+\t\t */",
+        "+\t\tif (!src_folio)",
+        "+\t\t\tfolio = filemap_get_folio(swap_address_space(entry),",
+        "+\t\t\t\t\tswap_cache_index(entry));",
+        "+\t\tif (!IS_ERR_OR_NULL(folio)) {",
+        "+\t\t\tif (folio_test_large(folio)) {",
+        "+\t\t\t\terr = -EBUSY;",
+        "+\t\t\t\tfolio_put(folio);",
+        "+\t\t\t\tgoto out;",
+        "+\t\t\t}",
+        "+\t\t\tsrc_folio = folio;",
+        "+\t\t\tsrc_folio_pte = orig_src_pte;",
+        "+\t\t\tif (!folio_trylock(src_folio)) {",
+        "+\t\t\t\tpte_unmap(&orig_src_pte);",
+        "+\t\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\t\tsrc_pte = dst_pte = NULL;",
+        "+\t\t\t\tput_swap_device(si);",
+        "+\t\t\t\tsi = NULL;",
+        "+\t\t\t\t/* now we can block and wait */",
+        "+\t\t\t\tfolio_lock(src_folio);",
+        "+\t\t\t\tgoto retry;",
+        "+\t\t\t}",
+        "+\t\t}",
+        "+\t\terr = move_swap_pte(mm, dst_vma, dst_addr, src_addr, dst_pte, src_pte,",
+        "+\t\t\t\torig_dst_pte, orig_src_pte, dst_pmd, dst_pmdval,",
+        "+\t\t\t\tdst_ptl, src_ptl, src_folio);",
+        "+\tif (si)",
+        "+\t\tput_swap_device(si);"
+      ],
+      "hunks": [
+        {
+          "old_start": 18,
+          "new_start": 18
+        },
+        {
+          "old_start": 1076,
+          "new_start": 1077
+        },
+        {
+          "old_start": 1094,
+          "new_start": 1093
+        },
+        {
+          "old_start": 1141,
+          "new_start": 1150
+        },
+        {
+          "old_start": 1322,
+          "new_start": 1332
+        },
+        {
+          "old_start": 1335,
+          "new_start": 1347
+        },
+        {
+          "old_start": 1354,
+          "new_start": 1410
+        }
+      ]
+    },
+    {
+      "path": "mm/shmem.c",
+      "changed_lines": [
+        "-\tint error, nr_pages;",
+        "+\tint error, nr_pages, order, split_order;",
+        "+\torder = xa_get_order(&mapping->i_pages, index);",
+        "-\t\tint order = xa_get_order(&mapping->i_pages, index);",
+        "-\t\tint split_order;",
+        "+\t} else if (order != folio_order(folio)) {",
+        "+\t\t/*",
+        "+\t\t * Swap readahead may swap in order 0 folios into swapcache",
+        "+\t\t * asynchronously, while the shmem mapping can still stores",
+        "+\t\t * large swap entries. In such cases, we should split the",
+        "+\t\t * large swap entry to prevent possible data corruption.",
+        "+\t\t */",
+        "+\t\tsplit_order = shmem_split_large_entry(inode, index, swap, gfp);",
+        "+\t\tif (split_order < 0) {",
+        "+\t\t\terror = split_order;",
+        "+\t\t\tgoto failed;",
+        "+\t\t}",
+        "+",
+        "+\t\t/*",
+        "+\t\t * If the large swap entry has already been split, it is",
+        "+\t\t * necessary to recalculate the new swap entry based on",
+        "+\t\t * the old order alignment.",
+        "+\t\t */",
+        "+\t\tif (split_order > 0) {",
+        "+\t\t\tpgoff_t offset = index - round_down(index, 1 << split_order);",
+        "+",
+        "+\t\t\tswap = swp_entry(swp_type(swap), swp_offset(swap) + offset);",
+        "+\t\t}",
+        "-\t    !shmem_confirm_swap(mapping, index, swap)) {",
+        "+\t    !shmem_confirm_swap(mapping, index, swap) ||",
+        "+\t    xa_get_order(&mapping->i_pages, index) != folio_order(folio)) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 2253,
+          "new_start": 2253
+        },
+        {
+          "old_start": 2272,
+          "new_start": 2272
+        },
+        {
+          "old_start": 2339,
+          "new_start": 2338
+        },
+        {
+          "old_start": 2346,
+          "new_start": 2368
+        }
+      ]
+    },
+    {
+      "path": "mm/zswap.c",
+      "changed_lines": [
+        "-atomic_long_t zswap_stored_pages = ATOMIC_INIT(0);",
+        "+atomic_long_t zswap_stored_pages = ATOMIC_LONG_INIT(0);"
+      ],
+      "hunks": [
+        {
+          "old_start": 43,
+          "new_start": 43
+        }
+      ]
+    },
+    {
+      "path": "mm/userfaultfd.c",
+      "changed_lines": [
+        "+\t\t\tbool locked;",
+        "+\t\t\tlocked = folio_trylock(folio);",
+        "+\t\t\t/*",
+        "+\t\t\t * We avoid waiting for folio lock with a raised",
+        "+\t\t\t * refcount for large folios because extra refcounts",
+        "+\t\t\t * will result in split_folio() failing later and",
+        "+\t\t\t * retrying.  If multiple tasks are trying to move a",
+        "+\t\t\t * large folio we can end up livelocking.",
+        "+\t\t\t */",
+        "+\t\t\tif (!locked && folio_test_large(folio)) {",
+        "+\t\t\t\tspin_unlock(src_ptl);",
+        "+\t\t\t\terr = -EAGAIN;",
+        "+\t\t\t\tgoto out;",
+        "+\t\t\t}",
+        "+",
+        "-\t\t\tif (!folio_trylock(src_folio)) {",
+        "+\t\t\tif (!locked) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 1250,
+          "new_start": 1250
+        },
+        {
+          "old_start": 1269,
+          "new_start": 1270
+        }
+      ]
+    },
+    {
+      "path": "mm/userfaultfd.c",
+      "changed_lines": [
+        "-\t\t\t\tpte_unmap(&orig_src_pte);",
+        "-\t\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\t\tpte_unmap(src_pte);",
+        "+\t\t\t\tpte_unmap(dst_pte);",
+        "-\t\t\tpte_unmap(&orig_src_pte);",
+        "-\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\tpte_unmap(src_pte);",
+        "+\t\t\tpte_unmap(dst_pte);",
+        "-\t\t\t\tpte_unmap(&orig_src_pte);",
+        "-\t\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\t\tpte_unmap(src_pte);",
+        "+\t\t\t\tpte_unmap(dst_pte);",
+        "-\t\t\t\tpte_unmap(&orig_src_pte);",
+        "-\t\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\t\tpte_unmap(src_pte);",
+        "+\t\t\t\tpte_unmap(dst_pte);",
+        "-\t\t\t\tpte_unmap(&orig_src_pte);",
+        "-\t\t\t\tpte_unmap(&orig_dst_pte);",
+        "+\t\t\t\tpte_unmap(src_pte);",
+        "+\t\t\t\tpte_unmap(dst_pte);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1290,
+          "new_start": 1290
+        },
+        {
+          "old_start": 1307,
+          "new_start": 1307
+        },
+        {
+          "old_start": 1333,
+          "new_start": 1333
+        },
+        {
+          "old_start": 1352,
+          "new_start": 1352
+        },
+        {
+          "old_start": 1396,
+          "new_start": 1396
+        }
+      ]
+    },
+    {
+      "path": "mm/shmem.c",
+      "changed_lines": [
+        "-\tif (WARN_ON_ONCE((info->flags & VM_LOCKED) || sbinfo->noswap))",
+        "+\tif ((info->flags & VM_LOCKED) || sbinfo->noswap)"
+      ],
+      "hunks": [
+        {
+          "old_start": 1548,
+          "new_start": 1548
+        }
+      ]
+    },
+    {
+      "path": "mm/memory.c",
+      "changed_lines": [
+        "-\t\tif (WARN_ON_ONCE(pgd_leaf(*pgd)))",
+        "-\t\t\treturn -EINVAL;",
+        "+\t\tif (WARN_ON_ONCE(pgd_leaf(*pgd))) {",
+        "+\t\t\terr = -EINVAL;",
+        "+\t\t\tbreak;",
+        "+\t\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 3051,
+          "new_start": 3051
+        }
+      ]
+    },
+    {
+      "path": "mm/vmalloc.c",
+      "changed_lines": [
+        "-\t\t\treturn err;",
+        "+\t\t\tbreak;",
+        "-\treturn 0;",
+        "+\treturn err;"
+      ],
+      "hunks": [
+        {
+          "old_start": 586,
+          "new_start": 586
+        }
+      ]
+    },
+    {
+      "path": "mm/memory.c",
+      "changed_lines": [
+        "-\tunsigned long addr = vmf->address;",
+        "+\tunsigned long addr;",
+        "+\tbool needs_fallback = false;",
+        "+",
+        "+fallback:",
+        "+\taddr = vmf->address;",
+        "-\tif (!vma_is_anon_shmem(vma) || unlikely(userfaultfd_armed(vma))) {",
+        "+\tif (!vma_is_anon_shmem(vma) || unlikely(userfaultfd_armed(vma)) ||",
+        "+\t    unlikely(needs_fallback)) {",
+        "-\t\tupdate_mmu_tlb_range(vma, addr, vmf->pte, nr_pages);",
+        "-\t\tret = VM_FAULT_NOPAGE;",
+        "-\t\tgoto unlock;",
+        "+\t\tneeds_fallback = true;",
+        "+\t\tpte_unmap_unlock(vmf->pte, vmf->ptl);",
+        "+\t\tgoto fallback;",
+        "->lowmem_reserve[] for empty zone\") removes the protection of lower zones"
+      ],
+      "hunks": [
+        {
+          "old_start": 5185,
+          "new_start": 5185
+        },
+        {
+          "old_start": 5224,
+          "new_start": 5228
+        },
+        {
+          "old_start": 5260,
+          "new_start": 5265
+        }
+      ]
+    },
+    {
+      "path": "mm/page_alloc.c",
+      "changed_lines": [
+        "-\t\t\t\tbool empty = !zone_managed_pages(upper_zone);",
+        "-\t\t\t\tif (clear || empty)",
+        "+\t\t\t\tif (clear)"
+      ],
+      "hunks": [
+        {
+          "old_start": 5849,
+          "new_start": 5849
+        }
+      ]
+    },
+    {
+      "path": ".mailmap",
+      "changed_lines": [
+        "+Sumit Garg <sumit.garg@kernel.org> <sumit.garg@linaro.org>"
+      ],
+      "hunks": [
+        {
+          "old_start": 689,
+          "new_start": 689
+        }
+      ]
+    },
+    {
+      "path": "MAINTAINERS",
+      "changed_lines": [
+        "-M:\tSumit Garg <sumit.garg@linaro.org>",
+        "+M:\tSumit Garg <sumit.garg@kernel.org>",
+        "-M:\tSumit Garg <sumit.garg@linaro.org>",
+        "+M:\tSumit Garg <sumit.garg@kernel.org>",
+        "-R:\tSumit Garg <sumit.garg@linaro.org>",
+        "+R:\tSumit Garg <sumit.garg@kernel.org>"
+      ],
+      "hunks": [
+        {
+          "old_start": 12864,
+          "new_start": 12864
+        },
+        {
+          "old_start": 17658,
+          "new_start": 17658
+        },
+        {
+          "old_start": 23268,
+          "new_start": 23268
+        }
+      ]
+    },
+    {
+      "path": "drivers/rapidio/devices/rio_mport_cdev.c",
+      "changed_lines": [
+        "-\t\t\tkfree(net);",
+        "+\t\t\tput_device(&net->dev);",
+        "+\t\t\tmport->net = NULL;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1742,
+          "new_start": 1742
+        }
+      ]
+    },
+    {
+      "path": "drivers/rapidio/rio-scan.c",
+      "changed_lines": [
+        "-\t\trio_add_net(net);",
+        "+\t\tif (rio_add_net(net)) {",
+        "+\t\t\tput_device(&net->dev);",
+        "+\t\t\tnet = NULL;",
+        "+\t\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 871,
+          "new_start": 871
+        }
+      ]
+    },
+    {
+      "path": "mm/page_alloc.c",
+      "changed_lines": [
+        "+\tcompact_result = COMPACT_SKIPPED;"
+      ],
+      "hunks": [
+        {
+          "old_start": 4243,
+          "new_start": 4243
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-019072ad24ab1d94/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-019072ad24ab1d94/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-019072ad24ab1d94"
+}

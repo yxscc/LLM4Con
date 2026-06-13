@@ -1,0 +1,239 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 361749MB)
+InputSrcDir: src
+InputBCFileName: srcutree.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 361749MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 117MB, Avail: 361663MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 117MB, Avail: 361663MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 3 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 2 ops-table member, 4 indirect-fork sink (9 unique function(s))
+[Auto-Entry] Total: 9 kernel entry point(s):
+  - srcu_delay_timer
+  - process_srcu
+  - srcu_barrier_cb
+  - srcu_invoke_callbacks
+  - srcu_module_notify
+  - srcu_leak_callback
+  - init_srcu_module_notifier
+  - srcu_init
+  - srcu_bootup_announce
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 93/93 functions...
+[Phasar] Location maps built. Total functions: 93
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 120MB, Avail: 361666MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 120MB, Avail: 361666MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 120MB, Avail: 361666MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 120MB, Avail: 361666MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "srcu_delay_timer", fileName: "kernel/rcu/srcutree.c", lineNumber: 458 }
+[DEBUG getMain] Looking for: funcName=srcu_delay_timer, fileName=kernel/rcu/srcutree.c, fileName_last=srcutree.c, lineNumber=458
+[DEBUG getMain] methods from full path: 53
+[DEBUG getMain] Iterating 53 methods
+[DEBUG getMain] Checking method: name=srcu_for_each_node_breadth_first, line=335
+[DEBUG getMain] Checking method: name=LIST_HEAD, line=42
+[DEBUG getMain] Checking method: name=srcu_bootup_announce, line=1292
+[DEBUG getMain] Checking method: name=process_srcu, line=1231
+[DEBUG getMain] Checking method: name=srcu_reschedule, line=1208
+[DEBUG getMain] Checking method: name=srcu_invoke_callbacks, line=1156
+[DEBUG getMain] Checking method: name=srcu_advance_state, line=1090
+[DEBUG getMain] Checking method: name=srcutorture_get_gp_data, line=1241
+[DEBUG getMain] Checking method: name=srcu_barrier, line=1021
+[DEBUG getMain] Checking method: name=DEFAULT_SRCU_EXP_HOLDOFF, line=33
+[DEBUG getMain] Checking method: name=srcu_torture_stats_print, line=1252
+[DEBUG getMain] Checking method: name=srcu_barrier_cb, line=1006
+[DEBUG getMain] Checking method: name=synchronize_srcu, line=994
+[DEBUG getMain] Checking method: name=spin_lock_rcu_node, line=51
+[DEBUG getMain] Checking method: name=spin_lock_irq_rcu_node, line=59
+[DEBUG getMain] Checking method: name=__srcu_read_lock, line=403
+[DEBUG getMain] Checking method: name=__srcu_read_unlock, line=419
+[DEBUG getMain] Checking method: name=srcu_batches_completed, line=1079
+[DEBUG getMain] Checking method: name=srcu_readers_unlock_idx, line=264
+[DEBUG getMain] Checking method: name=synchronize_srcu_expedited, line=944
+[DEBUG getMain] Checking method: name=SRCU_RETRY_CHECK_DELAY, line=433
+[DEBUG getMain] Checking method: name=check_init_srcu_struct, line=227
+[DEBUG getMain] Checking method: name=spin_unlock_rcu_node, line=57
+[DEBUG getMain] Checking method: name=srcu_readers_active_idx_check, line=281
+[DEBUG getMain] Checking method: name=init_srcu_struct_fields, line=168
+[DEBUG getMain] Checking method: name=srcu_readers_active, line=333
+[DEBUG getMain] Checking method: name=srcu_gp_end, line=512
+[DEBUG getMain] Checking method: name=srcu_get_delay, line=355
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=init_srcu_struct_nodes, line=83
+[DEBUG getMain] Checking method: name=try_check_zero, line=698
+[DEBUG getMain] Checking method: name=srcu_init, line=1301
+[DEBUG getMain] Checking method: name=srcu_gp_start, line=438
+[DEBUG getMain] Checking method: name=spin_unlock_irq_rcu_node, line=65
+[DEBUG getMain] Checking method: name=srcu_funnel_exp_start, line=598
+[DEBUG getMain] Checking method: name=spin_unlock_irqrestore_rcu_node, line=74
+[DEBUG getMain] Checking method: name=cleanup_srcu_struct, line=370
+[DEBUG getMain] Checking method: name=srcu_delay_timer, line=458
+[DEBUG getMain] Found main! Creating CCPGNode
+getAllEntryPointInfos: Returning 9 entry points for kernel module analysis
+[Kernel Module Mode] Adding 9 entry points as parallel entries
+  - Skipping (already main): srcu_delay_timer
+  - Looking for: process_srcu -> demangled: process_srcu -> shortName: process_srcu
+  - Found in CPG: process_srcu at kernel/rcu/srcutree.c:1231
+  - Added entry: process_srcu
+  - Looking for: srcu_barrier_cb -> demangled: srcu_barrier_cb -> shortName: srcu_barrier_cb
+  - Found in CPG: srcu_barrier_cb at kernel/rcu/srcutree.c:1006
+  - Added entry: srcu_barrier_cb
+  - Looking for: srcu_invoke_callbacks -> demangled: srcu_invoke_callbacks -> shortName: srcu_invoke_callbacks
+  - Found in CPG: srcu_invoke_callbacks at kernel/rcu/srcutree.c:1156
+  - Added entry: srcu_invoke_callbacks
+  - Looking for: srcu_module_notify -> demangled: srcu_module_notify -> shortName: srcu_module_notify
+  - Not found in CPG: srcu_module_notify (tried: srcu_module_notify)
+  - Looking for: srcu_leak_callback -> demangled: srcu_leak_callback -> shortName: srcu_leak_callback
+  - Not found in CPG: srcu_leak_callback (tried: srcu_leak_callback)
+  - Looking for: init_srcu_module_notifier -> demangled: init_srcu_module_notifier -> shortName: init_srcu_module_notifier
+  - Not found in CPG: init_srcu_module_notifier (tried: init_srcu_module_notifier)
+  - Looking for: srcu_init -> demangled: srcu_init -> shortName: srcu_init
+  - Found in CPG: srcu_init at kernel/rcu/srcutree.c:1301
+  - Added entry: srcu_init
+  - Looking for: srcu_bootup_announce -> demangled: srcu_bootup_announce -> shortName: srcu_bootup_announce
+  - Found in CPG: srcu_bootup_announce at kernel/rcu/srcutree.c:1292
+  - Added entry: srcu_bootup_announce
+[Kernel Module Mode] Total entry functions: 6
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'spin_unlock_irq_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_accelerate' to an llvm::Function.
+Warning: Could not map CPG function 'spin_lock_irq_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_cblist_init' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_ready_cbs' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_extract_done_cbs' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_insert_count' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_advance' to an llvm::Function.
+[DEBUG entry] queue_work args:
+  - idx=1 type=Identifier name=rcu_gp_wq code=<global> rcu_gp_wq
+  - idx=2 type=Call name=<operator>.addressOf code=&ssp->work.work
+[Thread Entry] queue_work - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'DEFAULT_SRCU_EXP_HOLDOFF' to an llvm::Function.
+[Thread Entry] queue_delayed_work - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'SRCU_INTERVAL' to an llvm::Function.
+Warning: Could not map CPG function 'RCU_SEQ_STATE_MASK' to an llvm::Function.
+Warning: Could not map CPG function 'spin_unlock_irqrestore_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'spin_lock_irqsave_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'spin_lock_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'spin_unlock_rcu_node' to an llvm::Function.
+Warning: Could not map CPG function 'SRCU_RETRY_CHECK_DELAY' to an llvm::Function.
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'RCU_SEQ_CTR_SHIFT' to an llvm::Function.
+Warning: Could not map CPG function 'rcu_segcblist_init' to an llvm::Function.
+Warning: Could not map CPG function 'srcu_for_each_node_breadth_first' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 6 entry points as parallel threads
+[DEBUG entry] queue_work args:
+  - idx=1 type=Identifier name=rcu_gp_wq code=<global> rcu_gp_wq
+  - idx=2 type=Call name=<operator>.addressOf code=&ssp->work.work
+[Thread Entry] queue_work - direct arg lookup failed, trying LLM...
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+[Thread Entry] queue_delayed_work - direct arg lookup failed, trying LLM...
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+[Kernel Module Mode] Keeping all 10 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 122MB, Avail: 361411MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 122MB, Avail: 361411MB)
+[DEBUG PRINT] Phase 1: Found 107 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'process_srcu' as a candidate.
+  -> Found thread arg in function 'srcu_invoke_callbacks' as a candidate.
+  -> Found thread arg in function 'process_srcu' as a candidate.
+  -> Found thread arg in function 'srcu_invoke_callbacks' as a candidate.
+  -> Found thread arg in function 'srcu_delay_timer' as a candidate.
+  -> Found thread arg in function 'srcu_barrier_cb' as a candidate.
+  -> Found thread arg in function 'process_srcu' as a candidate.
+  -> Found thread arg in function 'srcu_invoke_callbacks' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 54
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 10 threads...
+[VulnerabilitySurface] Collected 381 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 22 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 60 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 194 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 2 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 3 list-helper accesses (cluster-A fix)
+[VulnerabilitySurface] Found 61 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 61 shared objects (30 high risk, 5 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-08f3e9d26e5541e1_2026-05-14_21-16-07/vulnerability_surface.json"
+
+  Threads: 10, Conflicting pairs: 3, Shared objects: 61, High-risk objects: 35
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 8 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-08f3e9d26e5541e1_2026-05-14_21-16-07/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 122MB, Avail: 362027MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 122MB, Avail: 362027MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL init_race VIOLATION FOUND: srcu_idx_init_not_ordered_before_work
+    [VerificationAgent] Verifying hypothesis 'srcu_idx_init_not_ordered_before_work' ...
+    [VerificationAgent] 'srcu_idx_init_not_ordered_before_work' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: sdp_cpu_init_not_ordered_before_process_srcu_queue_work_on
+    [VerificationAgent] Verifying hypothesis 'sdp_cpu_init_not_ordered_before_process_srcu_queue_work_on' ...
+    [VerificationAgent] 'sdp_cpu_init_not_ordered_before_process_srcu_queue_work_on' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: srcu_gp_seq_init_not_ordered_before_process_srcu
+    [VerificationAgent] Verifying hypothesis 'srcu_gp_seq_init_not_ordered_before_process_srcu' ...
+    [VerificationAgent] 'srcu_gp_seq_init_not_ordered_before_process_srcu' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: sdp_cpu_init_not_ordered_before_delay_timer
+    [VerificationAgent] Verifying hypothesis 'sdp_cpu_init_not_ordered_before_delay_timer' ...
+    [VerificationAgent] 'sdp_cpu_init_not_ordered_before_delay_timer' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: sdp_ssp_init_not_ordered_before_barrier_cb
+    [VerificationAgent] Verifying hypothesis 'sdp_ssp_init_not_ordered_before_barrier_cb' ...
+    [VerificationAgent] 'sdp_ssp_init_not_ordered_before_barrier_cb' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: sdp_ssp_init_not_ordered_before_invoke_callbacks
+    [VerificationAgent] Verifying hypothesis 'sdp_ssp_init_not_ordered_before_invoke_callbacks' ...
+    [VerificationAgent] 'sdp_ssp_init_not_ordered_before_invoke_callbacks' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: srcu_last_gp_end_init_not_ordered_before_process_srcu
+    [VerificationAgent] Verifying hypothesis 'srcu_last_gp_end_init_not_ordered_before_process_srcu' ...
+    [VerificationAgent] 'srcu_last_gp_end_init_not_ordered_before_process_srcu' -> KEEP (true positive)
+    [!!!] POTENTIAL init_race VIOLATION FOUND: srcu_cblist_invoking_init_not_ordered_before_invoke_callbacks
+    [VerificationAgent] Verifying hypothesis 'srcu_cblist_invoking_init_not_ordered_before_invoke_callbacks' ...
+    [VerificationAgent] 'srcu_cblist_invoking_init_not_ordered_before_invoke_callbacks' -> KEEP (true positive)
+[Phase 4.5] LLM hypothesis-verifier filter: kept 8/8, dropped 0 false-positive(s).
+Bug detection complete. 8 potential bug(s) found.
+  - Hypothesis-Based Violations: 8
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-08f3e9d26e5541e1_2026-05-14_21-16-07/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 122MB, Avail: 362554MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 1977 seconds
+LLM API Requests: 118
+Total Prompt Tokens: 1759342
+Total Completion Tokens: 22245
+Total Tokens: 1781587
+==========================================

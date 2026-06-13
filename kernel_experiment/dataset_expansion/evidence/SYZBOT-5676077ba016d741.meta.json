@@ -1,0 +1,18 @@
+{
+  "bug_id": "SYZBOT-5676077ba016d741",
+  "tier": "A",
+  "title": "KCSAN: data-race in ip_finish_output2 / ip_tunnel_xmit",
+  "mainline_sha": "4b397c06cb987935b1b097336532aa6b4210e091",
+  "all_shas_seen": [
+    "5676077ba016d74187adc28ad015b19f706fedce",
+    "4b397c06cb987935b1b097336532aa6b4210e091",
+    "ab072681eabe1ce0a9a32d4baa1a27a2d046bc4a"
+  ],
+  "c_paths": [
+    "include/linux/netdevice.h",
+    "net/ipv4/ip_tunnel.c",
+    "net/ipv6/ip6_tunnel.c"
+  ],
+  "n_files_shown": 3,
+  "n_functions_shown": 3
+}

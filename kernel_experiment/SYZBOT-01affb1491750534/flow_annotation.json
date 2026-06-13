@@ -1,0 +1,188 @@
+{
+  "bug_id": "SYZBOT-01affb1491750534",
+  "status": "complete",
+  "summary": "Two kworker contexts execute process_one_work() concurrently and increment the shared pool_workqueue completion counter outside pool->lock.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "first kworker completion path",
+      "entry": {
+        "function": "worker_thread",
+        "file": "kernel/workqueue.c",
+        "kind": "kthread"
+      },
+      "call_chain": [
+        {
+          "function": "worker_thread",
+          "file": "kernel/workqueue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "kthread created by create_worker() with worker_thread"
+        },
+        {
+          "function": "process_one_work",
+          "file": "kernel/workqueue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "worker loop dispatches a work item"
+        }
+      ],
+      "bug_site": {
+        "function": "process_one_work",
+        "file": "kernel/workqueue.c",
+        "line": 3244,
+        "code": "pwq->stats[PWQ_STAT_COMPLETED]++;"
+      }
+    },
+    "thread_b": {
+      "role": "second kworker completion path",
+      "entry": {
+        "function": "worker_thread",
+        "file": "kernel/workqueue.c",
+        "kind": "kthread"
+      },
+      "call_chain": [
+        {
+          "function": "worker_thread",
+          "file": "kernel/workqueue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "another worker in the same pool can run process_one_work()"
+        },
+        {
+          "function": "process_one_work",
+          "file": "kernel/workqueue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "same function on a different worker"
+        }
+      ],
+      "bug_site": {
+        "function": "process_one_work",
+        "file": "kernel/workqueue.c",
+        "line": 3244,
+        "code": "pwq->stats[PWQ_STAT_COMPLETED]++;"
+      }
+    },
+    "interleaving": [
+      "Worker A drops pool->lock before executing the work function.",
+      "Worker B can do the same on another CPU for the same pool_workqueue.",
+      "Both increment pwq->stats[PWQ_STAT_COMPLETED] locklessly; the fix moves the increment under pool->lock."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct pool_workqueue::stats[PWQ_STAT_COMPLETED]",
+    "access_a": {
+      "function": "process_one_work",
+      "file": "kernel/workqueue.c",
+      "line": 3244,
+      "kind": "write",
+      "code": "pwq->stats[PWQ_STAT_COMPLETED]++;"
+    },
+    "access_b": {
+      "function": "process_one_work",
+      "file": "kernel/workqueue.c",
+      "line": 3244,
+      "kind": "write",
+      "code": "pwq->stats[PWQ_STAT_COMPLETED]++;"
+    },
+    "required_ordering": "Both completion increments must be serialized by pool->lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct pool_workqueue::stats[PWQ_STAT_COMPLETED]",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The counter is incremented by every worker completion and is shared by all workers attached to the same pool_workqueue.",
+    "aliases": [
+      {
+        "name": "pwq",
+        "function": "process_one_work",
+        "file": "kernel/workqueue.c",
+        "evidence": "get_work_pwq(work) returns the pool_workqueue used for stats updates"
+      },
+      {
+        "name": "worker->current_pwq",
+        "function": "process_one_work",
+        "file": "kernel/workqueue.c",
+        "evidence": "worker stores the current pwq while executing the work item"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "worker_thread worker argument",
+          "to": "worker->pool/current work -> get_work_pwq(work) -> pwq->stats[PWQ_STAT_COMPLETED]",
+          "evidence": "process_one_work obtains pwq at entry"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "second worker_thread worker argument",
+          "to": "worker->pool/current work -> get_work_pwq(work) -> same pwq stats slot",
+          "evidence": "two workers can execute work from the same pool_workqueue"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "process_one_work",
+        "file": "kernel/workqueue.c",
+        "line": 3244,
+        "kind": "write",
+        "code": "pwq->stats[PWQ_STAT_COMPLETED]++;"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "workqueue/pwq allocation before work execution"
+      ],
+      "published_by": [
+        "work item queueing associates work with pwq under pool->lock"
+      ],
+      "invalidated_by": [],
+      "freed_by": [
+        "put_pwq() after refcount reaches zero"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "kernel/workqueue.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "Only kernel/workqueue.c is required because both racing contexts are kworker executions of process_one_work() and the patch moves the same stats increment within that file.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 10,
+    "src_file_count_after": 10,
+    "compiled_files": [
+      "kernel/workqueue.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "workqueue.ll",
+    "bitcode_input_files": [
+      "workqueue.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 392
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Moved pwq->stats[PWQ_STAT_COMPLETED]++ from after trace_workqueue_execute_end() into the later pool->lock critical section."
+    ],
+    "indirect_edges": [
+      "create_worker() creates kthreads with worker_thread as the entry."
+    ],
+    "entry_discovery_log": [
+      "workqueue.ll contains worker_thread and process_one_work."
+    ],
+    "repair_commands": [],
+    "notes": [
+      "KCSAN reports process_one_work/process_one_work; this is a same-function, two-worker race."
+    ]
+  }
+}

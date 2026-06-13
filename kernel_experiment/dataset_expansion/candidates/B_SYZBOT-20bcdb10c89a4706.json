@@ -1,0 +1,42 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-20bcdb10c89a4706",
+  "source": "syzbot",
+  "title": "possible deadlock in inet_put_port",
+  "description": "possible deadlock in inet_put_port",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in inet_put_port"
+  },
+  "fix_commit": "b9fb10d131b8c84af9bb14e2078d5c63600c7dea",
+  "affected_files": [
+    "net/l2tp/l2tp_core.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/l2tp/l2tp_core.c",
+      "changed_lines": [
+        "-\tif (ret < 0) {",
+        "-\t\trelease_sock(sk);",
+        "+\tif (ret < 0)",
+        "-\t}",
+        "+\trelease_sock(sk);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1483,
+          "new_start": 1483
+        },
+        {
+          "old_start": 1523,
+          "new_start": 1521
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-20bcdb10c89a4706/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-20bcdb10c89a4706/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-20bcdb10c89a4706"
+}

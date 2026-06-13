@@ -1,0 +1,41 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-516acdb03d3e27d9",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __bpf_lru_list_rotate / bpf_lru_push_free (2)",
+  "description": "KCSAN: data-race in __bpf_lru_list_rotate / bpf_lru_push_free (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__bpf_lru_list_rotate",
+    "fn_b": "bpf_lru_push_free"
+  },
+  "fix_commit": "6df8fb83301d68ea0a0c0e1cbcc790fcc333ed12",
+  "affected_files": [
+    "kernel/bpf/bpf_lru_list.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "kernel/bpf/bpf_lru_list.c",
+      "changed_lines": [
+        "+\tu8 node_type = READ_ONCE(node->type);",
+        "-\tif (WARN_ON_ONCE(node->type == BPF_LRU_LIST_T_FREE) ||",
+        "-\t    WARN_ON_ONCE(node->type == BPF_LRU_LOCAL_LIST_T_FREE))",
+        "+\tif (WARN_ON_ONCE(node_type == BPF_LRU_LIST_T_FREE) ||",
+        "+\t    WARN_ON_ONCE(node_type == BPF_LRU_LOCAL_LIST_T_FREE))",
+        "-\tif (node->type == BPF_LRU_LOCAL_LIST_T_PENDING) {",
+        "+\tif (node_type == BPF_LRU_LOCAL_LIST_T_PENDING) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 502,
+          "new_start": 502
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-516acdb03d3e27d9/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-516acdb03d3e27d9/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-516acdb03d3e27d9"
+}

@@ -1,0 +1,16 @@
+{
+  "commit": "c915d8f5918bea7c3962b09b8884ca128bfd9b0c",
+  "user_seeds": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ],
+  "patch_files": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ],
+  "changed_symbols_sample": [
+    "i_mark"
+  ],
+  "expanded": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ],
+  "added_by_expander": {}
+}

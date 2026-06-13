@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-1b830cb1f67689d4",
+  "shared_object": "struct sock::sk_receive_queue (queue head links .prev/.next)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "receive-queue producer (enqueue skb)",
+    "entry": "__sock_queue_rcv_skb",
+    "clause": {
+      "resource": "sk->sk_receive_queue links",
+      "sites": [
+        {"function": "__sock_queue_rcv_skb", "file": "net/core/sock.c", "line": 477, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(sk->sk_receive_queue.lock, [__skb_queue_tail @477])"]
+    }
+  },
+  "thread_b": {
+    "role": "busy-poll / datagram reader checking queue tail locklessly",
+    "entry": "__skb_recv_datagram",
+    "clause": {
+      "resource": "sk->sk_receive_queue links",
+      "sites": [
+        {"function": "__skb_try_recv_datagram", "file": "net/core/datagram.c", "line": 281, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([READ sk->sk_receive_queue.prev @281])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([READ sk_receive_queue.prev @281]) from thread_b (single-access read of a queue link that assumes no concurrent conflicting write)",
+    "violating_event": "e@__sock_queue_rcv_skb:477 = __skb_queue_tail(list, skb) updates the queue .prev/.next links concurrently in the producer context",
+    "missing_guarantee": "the producer updates the queue under sk->sk_receive_queue.lock; the busy-poll reader reads the queue links WITHOUT taking that lock (busy poll is lockless by design), so no common lock serializes the read against the producer write",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho = atomic(single access) on queue-link pointers broken by a concurrent unsynchronized list update -> KCSAN data race (torn/stale link read)"
+  },
+
+  "fix_maps_to": "patch replaces skb_queue_empty() with skb_queue_empty_lockless() in the busy-poll readers (chtls/nvme-tcp/tcp/sctp) and wraps __skb_try_recv_datagram's tail check in READ_ONCE(sk->sk_receive_queue.prev). Marked-access only -- it declares the lockless read intentional; it adds NO serialize/order/counts guarantee, so it does not 'establish' rho.",
+
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Same *_ONCE/lockless family as the other KCSAN net-stack races: a benign single-field torn-read race silenced by skb_queue_empty_lockless()/READ_ONCE (commit: 'Busy polling usually runs without locks'). The read is intentionally lockless, so there is no SC ordering invariant -- the design's anti-pure-syntactic-race stance (4.6.3) means it likely won't raise it or will treat it as benign. Additional risks: (1) the racing read is one of many sibling busy-poll sites spread across 6 files (chtls_io, nvme/host/tcp, datagram, sock, tcp, sctp/socket) all touching the same sk_receive_queue, so object identity must unify across files; (2) cross-context MHP (softirq producer vs task busy-poll reader) must be modeled, and the producer DOES hold the receive-queue spinlock, so keep/reject must conclude the busy-poll reader lacks the common lock.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

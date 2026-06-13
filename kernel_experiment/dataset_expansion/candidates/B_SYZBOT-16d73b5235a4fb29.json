@@ -1,0 +1,41 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-16d73b5235a4fb29",
+  "source": "syzbot",
+  "title": "possible deadlock in path_openat (3)",
+  "description": "possible deadlock in path_openat (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in path_openat (3)"
+  },
+  "fix_commit": "9f7c02e031570e8291a63162c6c046dc15ff85b0",
+  "affected_files": [
+    "drivers/block/nbd.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/block/nbd.c",
+      "changed_lines": [
+        "+\tif (!sk_is_tcp(sock->sk) &&",
+        "+\t    !sk_is_stream_unix(sock->sk)) {",
+        "+\t\tdev_err(disk_to_dev(nbd->disk), \"Unsupported socket: should be TCP or UNIX.\\n\");",
+        "+\t\t*err = -EINVAL;",
+        "+\t\tsockfd_put(sock);",
+        "+\t\treturn NULL;",
+        "+\t}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1217,
+          "new_start": 1217
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-16d73b5235a4fb29/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-16d73b5235a4fb29/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-16d73b5235a4fb29"
+}

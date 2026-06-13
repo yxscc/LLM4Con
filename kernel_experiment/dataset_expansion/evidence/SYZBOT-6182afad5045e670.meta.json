@@ -1,0 +1,22 @@
+{
+  "bug_id": "SYZBOT-6182afad5045e670",
+  "tier": "A",
+  "title": "KCSAN: data-race in rxrpc_peer_keepalive_worker / rxrpc_send_data_packet",
+  "mainline_sha": "5d5fe8bcd331f1e34e0943ec7c18432edfcf0e8b",
+  "all_shas_seen": [
+    "6182afad5045e6703b3d",
+    "5d5fe8bcd331f1e34e0943ec7c18432edfcf0e8b",
+    "30f09200cc4aefbd8385b01e41bde2e4565a6f0e"
+  ],
+  "c_paths": [
+    "net/rxrpc/ar-internal.h",
+    "net/rxrpc/conn_event.c",
+    "net/rxrpc/output.c",
+    "net/rxrpc/peer_event.c",
+    "net/rxrpc/proc.c",
+    "net/rxrpc/rxgk.c",
+    "net/rxrpc/rxkad.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 9
+}

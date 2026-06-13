@@ -1,0 +1,107 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-19df89b6a1c1aa59",
+  "source": "syzbot",
+  "title": "possible deadlock in open_rio (3)",
+  "description": "possible deadlock in open_rio (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in open_rio (3)"
+  },
+  "fix_commit": "9472aff16ca0fd9351eea7773facef364743088f",
+  "affected_files": [
+    "drivers/usb/misc/rio500.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/usb/misc/rio500.c",
+      "changed_lines": [
+        "-\tint retval = 0;",
+        "+\tint retval = -ENOMEM;",
+        "+\tchar *ibuf, *obuf;",
+        "-\tmutex_lock(&rio500_mutex);",
+        "-\t\tretval = -EBUSY;",
+        "-\t\tgoto bail_out;",
+        "-\t} else {",
+        "-\t\tdev_info(&intf->dev, \"USB Rio found at address %d\\n\", dev->devnum);",
+        "-\t}",
+        "-",
+        "-\tretval = usb_register_dev(intf, &usb_rio_class);",
+        "-\tif (retval) {",
+        "-\t\tdev_err(&dev->dev,",
+        "-\t\t\t\"Not able to get a minor for this device.\\n\");",
+        "-\t\tretval = -ENOMEM;",
+        "-\t\tgoto bail_out;",
+        "+\t\treturn -EBUSY;",
+        "+\tdev_info(&intf->dev, \"USB Rio found at address %d\\n\", dev->devnum);",
+        "-\trio->rio_dev = dev;",
+        "-",
+        "-\tif (!(rio->obuf = kmalloc(OBUF_SIZE, GFP_KERNEL))) {",
+        "+\tobuf = kmalloc(OBUF_SIZE, GFP_KERNEL);",
+        "+\tif (!obuf) {",
+        "-\t\tusb_deregister_dev(intf, &usb_rio_class);",
+        "-\t\tretval = -ENOMEM;",
+        "-\t\tgoto bail_out;",
+        "+\t\tgoto err_obuf;",
+        "-\tdev_dbg(&intf->dev, \"obuf address:%p\\n\", rio->obuf);",
+        "+\tdev_dbg(&intf->dev, \"obuf address: %p\\n\", obuf);",
+        "-\tif (!(rio->ibuf = kmalloc(IBUF_SIZE, GFP_KERNEL))) {",
+        "+\tibuf = kmalloc(IBUF_SIZE, GFP_KERNEL);",
+        "+\tif (!ibuf) {",
+        "-\t\tusb_deregister_dev(intf, &usb_rio_class);",
+        "-\t\tkfree(rio->obuf);",
+        "-\t\tretval = -ENOMEM;",
+        "-\t\tgoto bail_out;",
+        "+\t\tgoto err_ibuf;",
+        "-\tdev_dbg(&intf->dev, \"ibuf address:%p\\n\", rio->ibuf);",
+        "+\tdev_dbg(&intf->dev, \"ibuf address: %p\\n\", ibuf);",
+        "-\tusb_set_intfdata (intf, rio);",
+        "+\tmutex_lock(&rio500_mutex);",
+        "+\trio->rio_dev = dev;",
+        "+\trio->ibuf = ibuf;",
+        "+\trio->obuf = obuf;",
+        "-bail_out:",
+        "+\tretval = usb_register_dev(intf, &usb_rio_class);",
+        "+\tif (retval) {",
+        "+\t\tdev_err(&dev->dev,",
+        "+\t\t\t\"Not able to get a minor for this device.\\n\");",
+        "+\t\tgoto err_register;",
+        "+\t}",
+        "+",
+        "+\tusb_set_intfdata(intf, rio);",
+        "+\treturn retval;",
+        "+",
+        "+ err_register:",
+        "+\tmutex_lock(&rio500_mutex);",
+        "+\trio->present = 0;",
+        "+\tmutex_unlock(&rio500_mutex);",
+        "+ err_ibuf:",
+        "+\tkfree(obuf);",
+        "+ err_obuf:",
+        "-\tmutex_lock(&rio500_mutex);",
+        "+\t\tmutex_lock(&rio500_mutex);",
+        "+\t\tmutex_unlock(&rio500_mutex);",
+        "-\tmutex_unlock(&rio500_mutex);"
+      ],
+      "hunks": [
+        {
+          "old_start": 454,
+          "new_start": 454
+        },
+        {
+          "old_start": 507,
+          "new_start": 511
+        },
+        {
+          "old_start": 524,
+          "new_start": 528
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-19df89b6a1c1aa59/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-19df89b6a1c1aa59/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-19df89b6a1c1aa59"
+}

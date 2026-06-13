@@ -1,0 +1,50 @@
+{
+  "bug_id": "SYZBOT-4a03518df1e31b53",
+  "shared_object": "struct ext4_es_tree::cache_es (tree->cache_es)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "cached extent lookup (reader of cache_es)",
+    "entry": "ext4_es_find_extent_range",
+    "clause": {
+      "resource": "tree->cache_es",
+      "sites": [
+        {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 270, "op_kind": "READ"},
+        {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 271, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(cache_es), use(es1->es_lblk/es_len in in_range)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "concurrent cached extent update (writer of cache_es)",
+    "entry": "ext4_es_find_extent_range",
+    "clause": {
+      "resource": "tree->cache_es",
+      "sites": [
+        {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 296, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(cache_es), use(es1)]) from thread_a -- the cached pointer must be sampled once and not refetched/replaced between the load and the in_range() check",
+    "violating_event": "e@__es_find_extent_range:296 = WRITE(tree->cache_es = es1) by another reader-side lookup",
+    "missing_guarantee": "both sides hold i_es_lock only in READ (shared) mode -- the writer updates cache_es while holding the read lock, which does NOT exclude other read-lock holders -> the shared lock establishes no serialize for this write",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic(single access / short use) broken by a concurrent write under a shared read lock -> data race (a compiler refetch of cache_es could yield a bogus in_range() check)"
+  },
+
+  "fix_maps_to": "patch reads tree->cache_es once via READ_ONCE and writes it via WRITE_ONCE -> single-copy atomicity so es1 is stable across the in_range() check; NO change to locking (read lock kept) -> maps to atomic([read,use]) at the access-marking level",
+
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Hardest masking risk in the batch: BOTH accesses hold i_es_lock, so a lock-mode-blind 'protected/same_lock' oracle (or LLM) would conclude they are mutually excluded and SUPPRESS the race (FN). Recall requires recognizing that a write under a read/shared lock does not serialize concurrent read-lock holders. Also benign/annotation-only and a self-race (same function on two CPUs).",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

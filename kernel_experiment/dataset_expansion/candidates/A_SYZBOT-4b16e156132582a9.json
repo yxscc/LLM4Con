@@ -1,0 +1,122 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-4b16e156132582a9",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in tcp_add_backlog / tcp_recvmsg",
+  "description": "KCSAN: data-race in tcp_add_backlog / tcp_recvmsg",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "tcp_add_backlog",
+    "fn_b": "tcp_recvmsg"
+  },
+  "fix_commit": "8265792bf8871acc2d00fd03883d830e2249d395",
+  "affected_files": [
+    "net/core/sock.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/llc/llc_conn.c",
+    "net/sctp/input.c",
+    "net/tipc/socket.c",
+    "net/x25/x25_dev.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-\t} else if (sk_add_backlog(sk, skb, sk->sk_rcvbuf)) {",
+        "+\t} else if (sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf))) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 522,
+          "new_start": 522
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp_ipv4.c",
+      "changed_lines": [
+        "-\tu32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;",
+        "+\tu32 limit = READ_ONCE(sk->sk_rcvbuf) + READ_ONCE(sk->sk_sndbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1644,
+          "new_start": 1644
+        }
+      ]
+    },
+    {
+      "path": "net/llc/llc_conn.c",
+      "changed_lines": [
+        "-\t\tif (sk_add_backlog(sk, skb, sk->sk_rcvbuf))",
+        "+\t\tif (sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf)))"
+      ],
+      "hunks": [
+        {
+          "old_start": 813,
+          "new_start": 813
+        }
+      ]
+    },
+    {
+      "path": "net/sctp/input.c",
+      "changed_lines": [
+        "-\t\t\tif (sk_add_backlog(sk, skb, sk->sk_rcvbuf))",
+        "+\t\t\tif (sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf)))",
+        "-\t\t\tif (!sk_add_backlog(sk, skb, sk->sk_rcvbuf))",
+        "+\t\t\tif (!sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf)))",
+        "-\tret = sk_add_backlog(sk, skb, sk->sk_rcvbuf);",
+        "+\tret = sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf));"
+      ],
+      "hunks": [
+        {
+          "old_start": 322,
+          "new_start": 322
+        },
+        {
+          "old_start": 337,
+          "new_start": 337
+        },
+        {
+          "old_start": 364,
+          "new_start": 364
+        }
+      ]
+    },
+    {
+      "path": "net/tipc/socket.c",
+      "changed_lines": [
+        "-\t\treturn sk->sk_rcvbuf;",
+        "+\t\treturn READ_ONCE(sk->sk_rcvbuf);",
+        "-\t\treturn sk->sk_rcvbuf << msg_importance(hdr);",
+        "+\t\treturn READ_ONCE(sk->sk_rcvbuf) << msg_importance(hdr);",
+        "-\t\treturn sk->sk_rcvbuf;",
+        "+\t\treturn READ_ONCE(sk->sk_rcvbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 2119,
+          "new_start": 2119
+        }
+      ]
+    },
+    {
+      "path": "net/x25/x25_dev.c",
+      "changed_lines": [
+        "-\t\t\tqueued = !sk_add_backlog(sk, skb, sk->sk_rcvbuf);",
+        "+\t\t\tqueued = !sk_add_backlog(sk, skb, READ_ONCE(sk->sk_rcvbuf));"
+      ],
+      "hunks": [
+        {
+          "old_start": 55,
+          "new_start": 55
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-4b16e156132582a9/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-4b16e156132582a9/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-4b16e156132582a9"
+}

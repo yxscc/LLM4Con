@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-5366159cc4c1d817",
+  "tier": "A",
+  "title": "KCSAN: data-race in mod_timer / run_timer_softirq",
+  "mainline_sha": "56144737e67329c9aaed15f942d46a6302e2e3d8",
+  "all_shas_seen": [
+    "5366159cc4c1d8172cbb934b95807fb5bb63d087",
+    "56144737e67329c9aaed15f942d46a6302e2e3d8"
+  ],
+  "c_paths": [
+    "include/linux/hrtimer.h",
+    "kernel/time/hrtimer.c"
+  ],
+  "n_files_shown": 2,
+  "n_functions_shown": 4
+}

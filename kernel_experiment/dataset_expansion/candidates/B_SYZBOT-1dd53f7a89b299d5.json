@@ -1,0 +1,197 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-1dd53f7a89b299d5",
+  "source": "syzbot",
+  "title": "possible deadlock in mptcp_close",
+  "description": "possible deadlock in mptcp_close",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in mptcp_close"
+  },
+  "fix_commit": "49054556289e8787501630b7c7a9d407da02e296",
+  "affected_files": [
+    "include/net/sock.h",
+    "net/core/sock.c",
+    "net/mptcp/protocol.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/sock.h",
+      "changed_lines": [
+        "+\t\tmutex_release(&sk->sk_lock.dep_map, _RET_IP_);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1640,
+          "new_start": 1640
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "+\t/* The sk_lock has mutex_lock() semantics here. */",
+        "+\tmutex_acquire(&sk->sk_lock.dep_map, subclass, 0, _RET_IP_);",
+        "+",
+        "-\tspin_unlock(&sk->sk_lock.slock);",
+        "-\t/*",
+        "-\t * The sk_lock has mutex_lock() semantics here:",
+        "-\t */",
+        "-\tmutex_acquire(&sk->sk_lock.dep_map, subclass, 0, _RET_IP_);",
+        "-\tlocal_bh_enable();",
+        "+\tspin_unlock_bh(&sk->sk_lock.slock);",
+        "+\t/* The sk_lock has mutex_lock() semantics here. */",
+        "+\tmutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);",
+        "+",
+        "-\tif (!sk->sk_lock.owned)",
+        "+\tif (!sk->sk_lock.owned) {",
+        "-\t\t * Note : We must disable BH",
+        "+\t\t * Fast path return with bottom halves disabled and",
+        "+\t\t * sock::sk_lock.slock held.",
+        "+\t\t *",
+        "+\t\t * The 'mutex' is not contended and holding",
+        "+\t\t * sock::sk_lock.slock prevents all other lockers to",
+        "+\t\t * proceed so the corresponding unlock_sock_fast() can",
+        "+\t\t * avoid the slow path of release_sock() completely and",
+        "+\t\t * just release slock.",
+        "+\t\t *",
+        "+\t\t * From a semantical POV this is equivalent to 'acquiring'",
+        "+\t\t * the 'mutex', hence the corresponding lockdep",
+        "+\t\t * mutex_release() has to happen in the fast path of",
+        "+\t\t * unlock_sock_fast().",
+        "+\t}",
+        "-\tspin_unlock(&sk->sk_lock.slock);",
+        "-\t/*",
+        "-\t * The sk_lock has mutex_lock() semantics here:",
+        "-\t */",
+        "-\tmutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);",
+        "-\tlocal_bh_enable();",
+        "+\tspin_unlock_bh(&sk->sk_lock.slock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3179,
+          "new_start": 3179
+        },
+        {
+          "old_start": 3227,
+          "new_start": 3225
+        }
+      ]
+    },
+    {
+      "path": "include/net/sock.h",
+      "changed_lines": [
+        "-bool lock_sock_fast(struct sock *sk) __acquires(&sk->sk_lock.slock);",
+        "+bool __lock_sock_fast(struct sock *sk) __acquires(&sk->sk_lock.slock);",
+        "+",
+        "+/**",
+        "+ * lock_sock_fast - fast version of lock_sock",
+        "+ * @sk: socket",
+        "+ *",
+        "+ * This version should be used for very small section, where process wont block",
+        "+ * return false if fast path is taken:",
+        "+ *",
+        "+ *   sk_lock.slock locked, owned = 0, BH disabled",
+        "+ *",
+        "+ * return true if slow path is taken:",
+        "+ *",
+        "+ *   sk_lock.slock unlocked, owned = 1, BH enabled",
+        "+ */",
+        "+static inline bool lock_sock_fast(struct sock *sk)",
+        "+{",
+        "+\t/* The sk_lock has mutex_lock() semantics here. */",
+        "+\tmutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);",
+        "+",
+        "+\treturn __lock_sock_fast(sk);",
+        "+}",
+        "+",
+        "+/* fast socket lock variant for caller already holding a [different] socket lock */",
+        "+static inline bool lock_sock_fast_nested(struct sock *sk)",
+        "+{",
+        "+\tmutex_acquire(&sk->sk_lock.dep_map, SINGLE_DEPTH_NESTING, 0, _RET_IP_);",
+        "+",
+        "+\treturn __lock_sock_fast(sk);",
+        "+}"
+      ],
+      "hunks": [
+        {
+          "old_start": 1623,
+          "new_start": 1623
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-/**",
+        "- * lock_sock_fast - fast version of lock_sock",
+        "- * @sk: socket",
+        "- *",
+        "- * This version should be used for very small section, where process wont block",
+        "- * return false if fast path is taken:",
+        "- *",
+        "- *   sk_lock.slock locked, owned = 0, BH disabled",
+        "- *",
+        "- * return true if slow path is taken:",
+        "- *",
+        "- *   sk_lock.slock unlocked, owned = 1, BH enabled",
+        "- */",
+        "-bool lock_sock_fast(struct sock *sk) __acquires(&sk->sk_lock.slock)",
+        "+bool __lock_sock_fast(struct sock *sk) __acquires(&sk->sk_lock.slock)",
+        "-\t/* The sk_lock has mutex_lock() semantics here. */",
+        "-\tmutex_acquire(&sk->sk_lock.dep_map, 0, 0, _RET_IP_);",
+        "-",
+        "-EXPORT_SYMBOL(lock_sock_fast);",
+        "+EXPORT_SYMBOL(__lock_sock_fast);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3210,
+          "new_start": 3210
+        },
+        {
+          "old_start": 3256,
+          "new_start": 3240
+        }
+      ]
+    },
+    {
+      "path": "net/mptcp/protocol.c",
+      "changed_lines": [
+        "-\t\tbool slow = lock_sock_fast(ssk);",
+        "+\t\tbool slow = lock_sock_fast_nested(ssk);"
+      ],
+      "hunks": [
+        {
+          "old_start": 2735,
+          "new_start": 2735
+        }
+      ]
+    },
+    {
+      "path": "net/mptcp/protocol.c",
+      "changed_lines": [
+        "-\t\tmust_collapse = (info->size_goal - skb->len > 0) &&",
+        "+\t\tmust_collapse = (info->size_goal > skb->len) &&",
+        "-\tif (!must_collapse && !ssk->sk_tx_skb_cache &&",
+        "+\tif (!must_collapse &&"
+      ],
+      "hunks": [
+        {
+          "old_start": 1316,
+          "new_start": 1316
+        },
+        {
+          "old_start": 1325,
+          "new_start": 1325
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-1dd53f7a89b299d5/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-1dd53f7a89b299d5/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-1dd53f7a89b299d5"
+}

@@ -1,0 +1,164 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 362283MB)
+InputSrcDir: src
+InputBCFileName: fib_semantics.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 362282MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 93MB, Avail: 362066MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 93MB, Avail: 362066MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 0 init/exit section, 5 EXPORT_SYMBOL, 0 syscall wrapper, 0 ops-table member, 5 indirect-fork sink (10 unique function(s))
+[Auto-Entry] Total: 10 kernel entry point(s):
+  - neigh_key_eq128
+  - arp_hashfn
+  - free_fib_info_rcu
+  - fib_add_nexthop
+  - ndisc_hashfn
+  - fib_nexthop_info
+  - neigh_key_eq32
+  - fib_nh_common_init
+  - free_fib_info
+  - fib_nh_common_release
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 172/172 functions...
+[Phasar] Location maps built. Total functions: 172
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 96MB, Avail: 361935MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 96MB, Avail: 361934MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 96MB, Avail: 361933MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 96MB, Avail: 361933MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "neigh_key_eq128", fileName: "include/net/neighbour.h", lineNumber: 287 }
+[DEBUG getMain] Looking for: funcName=neigh_key_eq128, fileName=include/net/neighbour.h, fileName_last=neighbour.h, lineNumber=287
+[DEBUG getMain] methods from full path: 0
+[DEBUG getMain] methods from filename only: 0
+Warning: No methods found in file include/net/neighbour.h or neighbour.h
+getAllEntryPointInfos: Returning 10 entry points for kernel module analysis
+[Kernel Module Mode] Adding 10 entry points as parallel entries
+  - Looking for: neigh_key_eq128 -> demangled: neigh_key_eq128 -> shortName: neigh_key_eq128
+  - Not found in CPG: neigh_key_eq128 (tried: neigh_key_eq128)
+  - Looking for: arp_hashfn -> demangled: arp_hashfn -> shortName: arp_hashfn
+  - Not found in CPG: arp_hashfn (tried: arp_hashfn)
+  - Looking for: free_fib_info_rcu -> demangled: free_fib_info_rcu -> shortName: free_fib_info_rcu
+  - Found in CPG: free_fib_info_rcu at net/ipv4/fib_semantics.c:229
+  - Added entry: free_fib_info_rcu
+  - Looking for: fib_add_nexthop -> demangled: fib_add_nexthop -> shortName: fib_add_nexthop
+  - Not found in CPG: fib_add_nexthop (tried: fib_add_nexthop)
+  - Looking for: ndisc_hashfn -> demangled: ndisc_hashfn -> shortName: ndisc_hashfn
+  - Not found in CPG: ndisc_hashfn (tried: ndisc_hashfn)
+  - Looking for: fib_nexthop_info -> demangled: fib_nexthop_info -> shortName: fib_nexthop_info
+  - Found in CPG: fib_nexthop_info at net/ipv4/fib_semantics.c:1631
+  - Added entry: fib_nexthop_info
+  - Looking for: neigh_key_eq32 -> demangled: neigh_key_eq32 -> shortName: neigh_key_eq32
+  - Not found in CPG: neigh_key_eq32 (tried: neigh_key_eq32)
+  - Looking for: fib_nh_common_init -> demangled: fib_nh_common_init -> shortName: fib_nh_common_init
+  - Found in CPG: fib_nh_common_init at net/ipv4/fib_semantics.c:572
+  - Added entry: fib_nh_common_init
+  - Looking for: free_fib_info -> demangled: free_fib_info -> shortName: free_fib_info
+  - Found in CPG: free_fib_info at net/ipv4/fib_semantics.c:246
+  - Added entry: free_fib_info
+  - Looking for: fib_nh_common_release -> demangled: fib_nh_common_release -> shortName: fib_nh_common_release
+  - Found in CPG: fib_nh_common_release at net/ipv4/fib_semantics.c:209
+  - Added entry: fib_nh_common_release
+[Kernel Module Mode] Total entry functions: 5
+Warning: Could not map CPG function 'change_nexthops' to an llvm::Function.
+[Thread Entry] call_rcu uses arg2 -> free_fib_info_rcu
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 5 entry points as parallel threads
+[Thread Entry] call_rcu uses arg2 -> free_fib_info_rcu
+[Kernel Module Mode] Keeping all 6 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 96MB, Avail: 361920MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 96MB, Avail: 361920MB)
+[DEBUG PRINT] Phase 1: Found 103 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'free_fib_info_rcu' as a candidate.
+  -> Found thread arg in function 'free_fib_info_rcu' as a candidate.
+  -> Found thread arg in function 'fib_nexthop_info' as a candidate.
+  -> Found thread arg in function 'fib_nexthop_info' as a candidate.
+  -> Found thread arg in function 'fib_nexthop_info' as a candidate.
+  -> Found thread arg in function 'fib_nexthop_info' as a candidate.
+  -> Found thread arg in function 'fib_nexthop_info' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_init' as a candidate.
+  -> Found thread arg in function 'free_fib_info' as a candidate.
+  -> Found thread arg in function 'fib_nh_common_release' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 65
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 6 threads...
+[VulnerabilitySurface] Collected 147 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 46 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 0 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 386 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 5 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Found 30 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 30 shared objects (17 high risk, 1 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-565f500a8d3fb9b7_2026-05-14_22-42-57/vulnerability_surface.json"
+
+  Threads: 6, Conflicting pairs: 5, Shared objects: 30, High-risk objects: 18
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 6 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-565f500a8d3fb9b7_2026-05-14_22-42-57/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 98MB, Avail: 361970MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 98MB, Avail: 361970MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL use_after_free VIOLATION FOUND: nhc_lwtstate_read_vs_release_put_no_hb
+    [VerificationAgent] Verifying hypothesis 'nhc_lwtstate_read_vs_release_put_no_hb' ...
+    [VerificationAgent] HARD STOP: duplicate-call cap (5) exceeded; defaulting to KEEP.
+    [VerificationAgent] 'nhc_lwtstate_read_vs_release_put_no_hb' -> KEEP (no verdict; default-trust static layer)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: nhc_pcpu_rth_output_init_null_vs_release_read
+    [VerificationAgent] Verifying hypothesis 'nhc_pcpu_rth_output_init_null_vs_release_read' ...
+    [VerificationAgent] HARD STOP: duplicate-call cap (5) exceeded; defaulting to KEEP.
+    [VerificationAgent] 'nhc_pcpu_rth_output_init_null_vs_release_read' -> KEEP (no verdict; default-trust static layer)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: nhc_lwtstate_init_store_vs_nexthop_info_read
+    [VerificationAgent] Verifying hypothesis 'nhc_lwtstate_init_store_vs_nexthop_info_read' ...
+    [VerificationAgent] HARD STOP: duplicate-call cap (5) exceeded; defaulting to KEEP.
+    [VerificationAgent] 'nhc_lwtstate_init_store_vs_nexthop_info_read' -> KEEP (no verdict; default-trust static layer)
+    [!!!] POTENTIAL use_after_free VIOLATION FOUND: nhc_dev_ifindex_read_vs_dev_put_track_no_hb
+    [VerificationAgent] Verifying hypothesis 'nhc_dev_ifindex_read_vs_dev_put_track_no_hb' ...
+    [VerificationAgent] 'nhc_dev_ifindex_read_vs_dev_put_track_no_hb' -> KEEP (true positive)
+    [!!!] POTENTIAL atomicity_break VIOLATION FOUND: nhc_pcpu_rth_output_free_then_null_toctou
+    [VerificationAgent] Verifying hypothesis 'nhc_pcpu_rth_output_free_then_null_toctou' ...
+    [VerificationAgent] 'nhc_pcpu_rth_output_free_then_null_toctou' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: nhc_lwtstate_init_store_vs_common_release_put
+    [VerificationAgent] Verifying hypothesis 'nhc_lwtstate_init_store_vs_common_release_put' ...

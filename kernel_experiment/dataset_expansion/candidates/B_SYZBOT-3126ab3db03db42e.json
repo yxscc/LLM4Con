@@ -1,0 +1,133 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-3126ab3db03db42e",
+  "source": "syzbot",
+  "title": "possible deadlock in xfs_dquot_detach_buf",
+  "description": "possible deadlock in xfs_dquot_detach_buf",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in xfs_dquot_detach_buf"
+  },
+  "fix_commit": "ca378189fdfa890a4f0622f85ee41b710bbac271",
+  "affected_files": [
+    "fs/xfs/xfs_dquot.c",
+    "fs/xfs/xfs_dquot.h",
+    "fs/xfs/xfs_qm.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/xfs/xfs_dquot.c",
+      "changed_lines": [
+        "-int",
+        "+static int",
+        "-\txfs_buf_flags_t\t\txbf_flags,",
+        "-\t\t\t\t   mp->m_quotainfo->qi_dqchunklen, xbf_flags,",
+        "+\t\t\t\t   mp->m_quotainfo->qi_dqchunklen, 0,",
+        "-\tif (error == -EAGAIN)",
+        "-\t\treturn error;",
+        "-\t\terror = xfs_dquot_read_buf(tp, dqp, 0, &bp);",
+        "+\t\terror = xfs_dquot_read_buf(tp, dqp, &bp);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1285,
+          "new_start": 1285
+        },
+        {
+          "old_start": 1297,
+          "new_start": 1296
+        },
+        {
+          "old_start": 1334,
+          "new_start": 1331
+        }
+      ]
+    },
+    {
+      "path": "fs/xfs/xfs_dquot.h",
+      "changed_lines": [
+        "-int\t\txfs_dquot_read_buf(struct xfs_trans *tp, struct xfs_dquot *dqp,",
+        "-\t\t\t\txfs_buf_flags_t flags, struct xfs_buf **bpp);"
+      ],
+      "hunks": [
+        {
+          "old_start": 214,
+          "new_start": 214
+        }
+      ]
+    },
+    {
+      "path": "fs/xfs/xfs_qm.c",
+      "changed_lines": [
+        "-\t\terror = xfs_dquot_read_buf(NULL, dqp, XBF_TRYLOCK, &bp);",
+        "+\t\terror = xfs_dquot_use_attached_buf(dqp, &bp);",
+        "-\t\tif (error)",
+        "+\t\tif (!bp)",
+        "-\t\terror = xfs_dquot_read_buf(NULL, dqp, XBF_TRYLOCK, &bp);",
+        "-\t\tif (error) {",
+        "+\t\terror = xfs_dquot_use_attached_buf(dqp, &bp);",
+        "+\t\tif (!bp || error == -EAGAIN) {",
+        "+\terror = xfs_dquot_attach_buf(NULL, dqp);",
+        "+\tif (error)",
+        "+\t\treturn error;",
+        "+",
+        "-\terror = xfs_dquot_read_buf(NULL, dqp, XBF_TRYLOCK, &bp);",
+        "+\terror = xfs_dquot_use_attached_buf(dqp, &bp);",
+        "+\tif (!bp) {",
+        "+\t\terror = -EFSCORRUPTED;",
+        "+\t\tgoto out_unlock;",
+        "+\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 148,
+          "new_start": 148
+        },
+        {
+          "old_start": 506,
+          "new_start": 506
+        },
+        {
+          "old_start": 1331,
+          "new_start": 1331
+        },
+        {
+          "old_start": 1513,
+          "new_start": 1517
+        }
+      ]
+    },
+    {
+      "path": "fs/xfs/xfs_dquot.c",
+      "changed_lines": [
+        "- * dqflush, since dqflush can be called from reclaim context.",
+        "+ * dqflush, since dqflush can be called from reclaim context.  Caller must hold",
+        "+ * the dqlock.",
+        "-\t\t * Attach the dquot to the buffer so that the AIL does not have",
+        "-\t\t * to read the dquot buffer to push this item.",
+        "+\t\t * Hold the dquot buffer so that we retain our ref to it after",
+        "+\t\t * detaching it from the transaction, then give that ref to the",
+        "+\t\t * dquot log item so that the AIL does not have to read the",
+        "+\t\t * dquot buffer to push this item.",
+        "+\t\txfs_trans_brelse(tp, bp);",
+        "+",
+        "-\t\txfs_trans_brelse(tp, bp);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1315,
+          "new_start": 1315
+        },
+        {
+          "old_start": 1336,
+          "new_start": 1337
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-3126ab3db03db42e/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-3126ab3db03db42e/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-3126ab3db03db42e"
+}

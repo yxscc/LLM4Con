@@ -1,0 +1,16 @@
+{
+  "commit": "70e1683ca3a6474360af1d3a020a9a98c8492cc0",
+  "user_seeds": [
+    "kernel/workqueue.c"
+  ],
+  "patch_files": [
+    "kernel/workqueue.c"
+  ],
+  "changed_symbols_sample": [
+    "PWQ_STAT_COMPLETED"
+  ],
+  "expanded": [
+    "kernel/workqueue.c"
+  ],
+  "added_by_expander": {}
+}

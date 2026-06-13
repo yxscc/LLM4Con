@@ -1,0 +1,353 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-050e797ad21ccc3f",
+  "source": "syzbot",
+  "title": "possible deadlock in bch2_gc_mark_key",
+  "description": "possible deadlock in bch2_gc_mark_key",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in bch2_gc_mark_key"
+  },
+  "fix_commit": "1841027c7de47527ed819a935b7aa340b9171eb5",
+  "affected_files": [
+    "fs/bcachefs/btree_gc.c",
+    "fs/btrfs/block-group.c",
+    "fs/btrfs/bio.c",
+    "fs/bcachefs/alloc_background.c",
+    "fs/bcachefs/alloc_foreground.c",
+    "fs/bcachefs/bcachefs.h",
+    "fs/bcachefs/btree_gc.h",
+    "fs/bcachefs/super.c",
+    "fs/bcachefs/sysfs.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/bcachefs/btree_gc.c",
+      "changed_lines": [
+        "-\tmutex_lock(&c->btree_root_lock);",
+        "-\tstruct btree *b = bch2_btree_id_root(c, btree)->b;",
+        "-\tif (!btree_node_fake(b)) {",
+        "+\tdo {",
+        "+retry_root:",
+        "+\t\tbch2_trans_begin(trans);",
+        "+",
+        "+\t\tstruct btree_iter iter;",
+        "+\t\tbch2_trans_node_iter_init(trans, &iter, btree, POS_MIN,",
+        "+\t\t\t\t\t  0, bch2_btree_id_root(c, btree)->b->c.level, 0);",
+        "+\t\tstruct btree *b = bch2_btree_iter_peek_node(&iter);",
+        "+\t\tret = PTR_ERR_OR_ZERO(b);",
+        "+\t\tif (ret)",
+        "+\t\t\tgoto err_root;",
+        "+",
+        "+\t\tif (b != btree_node_root(c, b)) {",
+        "+\t\t\tbch2_trans_iter_exit(trans, &iter);",
+        "+\t\t\tgoto retry_root;",
+        "+\t\t}",
+        "+",
+        "-\t\tret = lockrestart_do(trans,",
+        "-\t\t\tbch2_gc_mark_key(trans, b->c.btree_id, b->c.level + 1,",
+        "-\t\t\t\t\t NULL, NULL, bkey_i_to_s_c(&b->key), initial));",
+        "+\t\tstruct bkey_s_c k = bkey_i_to_s_c(&b->key);",
+        "+\t\tret = bch2_gc_mark_key(trans, btree, b->c.level + 1, NULL, NULL, k, initial);",
+        "-\t}",
+        "-\tmutex_unlock(&c->btree_root_lock);",
+        "+err_root:",
+        "+\t\tbch2_trans_iter_exit(trans, &iter);",
+        "+\t} while (bch2_err_matches(ret, BCH_ERR_transaction_restart));"
+      ],
+      "hunks": [
+        {
+          "old_start": 641,
+          "new_start": 641
+        }
+      ]
+    },
+    {
+      "path": "fs/btrfs/block-group.c",
+      "changed_lines": [
+        "+\tLIST_HEAD(retry_list);",
+        "-\t\tif (ret)",
+        "-\t\t\tbtrfs_mark_bg_to_reclaim(bg);",
+        "+\t\tif (ret) {",
+        "+\t\t\t/* Refcount held by the reclaim_bgs list after splice. */",
+        "+\t\t\tbtrfs_get_block_group(bg);",
+        "+\t\t\tlist_add_tail(&bg->bg_list, &retry_list);",
+        "+\t\t}",
+        "+\tspin_lock(&fs_info->unused_bgs_lock);",
+        "+\tlist_splice_tail(&retry_list, &fs_info->reclaim_bgs);",
+        "+\tspin_unlock(&fs_info->unused_bgs_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1785,
+          "new_start": 1785
+        },
+        {
+          "old_start": 1921,
+          "new_start": 1922
+        },
+        {
+          "old_start": 1942,
+          "new_start": 1946
+        }
+      ]
+    },
+    {
+      "path": "fs/btrfs/bio.c",
+      "changed_lines": [
+        "-\t\t} else if (use_append) {",
+        "+\t\t} else if (use_append ||",
+        "+\t\t\t   (btrfs_is_zoned(fs_info) && inode &&",
+        "+\t\t\t    inode->flags & BTRFS_INODE_NODATASUM)) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 741,
+          "new_start": 741
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/alloc_background.c",
+      "changed_lines": [
+        "-\t\t\tbch2_do_gc_gens(c);",
+        "+\t\t\tbch2_gc_gens_async(c);"
+      ],
+      "hunks": [
+        {
+          "old_start": 874,
+          "new_start": 874
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/alloc_foreground.c",
+      "changed_lines": [
+        "-\t\tbch2_do_gc_gens(c);",
+        "+\t\tbch2_gc_gens_async(c);"
+      ],
+      "hunks": [
+        {
+          "old_start": 541,
+          "new_start": 541
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/bcachefs.h",
+      "changed_lines": [
+        "+\tx(gc_gens)\t\t\t\t\t\t\t\\",
+        "-\tstruct task_struct\t*gc_thread;",
+        "-\tatomic_t\t\tkick_gc;",
+        "+\tstruct work_struct\tgc_gens_work;",
+        "-\tunsigned\t\tbtree_gc_periodic:1;"
+      ],
+      "hunks": [
+        {
+          "old_start": 718,
+          "new_start": 718
+        },
+        {
+          "old_start": 960,
+          "new_start": 961
+        },
+        {
+          "old_start": 1118,
+          "new_start": 1118
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/btree_gc.c",
+      "changed_lines": [
+        "+\tif (unlikely(test_bit(BCH_FS_going_ro, &c->flags)))",
+        "+\t\treturn -EROFS;",
+        "+",
+        "-static int bch2_gc_thread(void *arg)",
+        "+static void bch2_gc_gens_work(struct work_struct *work)",
+        "-\tstruct bch_fs *c = arg;",
+        "-\tstruct io_clock *clock = &c->io_clock[WRITE];",
+        "-\tunsigned long last = atomic64_read(&clock->now);",
+        "-\tunsigned last_kick = atomic_read(&c->kick_gc);",
+        "-",
+        "-\tset_freezable();",
+        "-",
+        "-\twhile (1) {",
+        "-\t\twhile (1) {",
+        "-\t\t\tset_current_state(TASK_INTERRUPTIBLE);",
+        "-",
+        "-\t\t\tif (kthread_should_stop()) {",
+        "-\t\t\t\t__set_current_state(TASK_RUNNING);",
+        "-\t\t\t\treturn 0;",
+        "-\t\t\t}",
+        "-",
+        "-\t\t\tif (atomic_read(&c->kick_gc) != last_kick)",
+        "-\t\t\t\tbreak;",
+        "-",
+        "-\t\t\tif (c->btree_gc_periodic) {",
+        "-\t\t\t\tunsigned long next = last + c->capacity / 16;",
+        "-",
+        "-\t\t\t\tif (atomic64_read(&clock->now) >= next)",
+        "-\t\t\t\t\tbreak;",
+        "-",
+        "-\t\t\t\tbch2_io_clock_schedule_timeout(clock, next);",
+        "-\t\t\t} else {",
+        "-\t\t\t\tschedule();",
+        "-\t\t\t}",
+        "-",
+        "-\t\t\ttry_to_freeze();",
+        "-\t\t}",
+        "-\t\t__set_current_state(TASK_RUNNING);",
+        "-",
+        "-\t\tlast = atomic64_read(&clock->now);",
+        "-\t\tlast_kick = atomic_read(&c->kick_gc);",
+        "-",
+        "-\t\tbch2_gc_gens(c);",
+        "-\t\tdebug_check_no_locks_held();",
+        "-\t}",
+        "-",
+        "-\treturn 0;",
+        "+\tstruct bch_fs *c = container_of(work, struct bch_fs, gc_gens_work);",
+        "+\tbch2_gc_gens(c);",
+        "+\tbch2_write_ref_put(c, BCH_WRITE_REF_gc_gens);",
+        "-void bch2_gc_thread_stop(struct bch_fs *c)",
+        "+void bch2_gc_gens_async(struct bch_fs *c)",
+        "-\tstruct task_struct *p;",
+        "-",
+        "-\tp = c->gc_thread;",
+        "-\tc->gc_thread = NULL;",
+        "-",
+        "-\tif (p) {",
+        "-\t\tkthread_stop(p);",
+        "-\t\tput_task_struct(p);",
+        "-\t}",
+        "+\tif (bch2_write_ref_tryget(c, BCH_WRITE_REF_gc_gens) &&",
+        "+\t    !queue_work(c->write_ref_wq, &c->gc_gens_work))",
+        "+\t\tbch2_write_ref_put(c, BCH_WRITE_REF_gc_gens);",
+        "-int bch2_gc_thread_start(struct bch_fs *c)",
+        "+void bch2_fs_gc_init(struct bch_fs *c)",
+        "-\tstruct task_struct *p;",
+        "-",
+        "-\tif (c->gc_thread)",
+        "-\t\treturn 0;",
+        "+\tseqcount_init(&c->gc_pos_lock);",
+        "-\tp = kthread_create(bch2_gc_thread, c, \"bch-gc/%s\", c->name);",
+        "-\tif (IS_ERR(p)) {",
+        "-\t\tbch_err_fn(c, PTR_ERR(p));",
+        "-\t\treturn PTR_ERR(p);",
+        "-\t}",
+        "-",
+        "-\tget_task_struct(p);",
+        "-\tc->gc_thread = p;",
+        "-\twake_up_process(p);",
+        "-\treturn 0;",
+        "+\tINIT_WORK(&c->gc_gens_work, bch2_gc_gens_work);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1669,
+          "new_start": 1669
+        },
+        {
+          "old_start": 1802,
+          "new_start": 1805
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/btree_gc.h",
+      "changed_lines": [
+        "-int bch2_gc_gens(struct bch_fs *);",
+        "-void bch2_gc_thread_stop(struct bch_fs *);",
+        "-int bch2_gc_thread_start(struct bch_fs *);",
+        "-static inline void bch2_do_gc_gens(struct bch_fs *c)",
+        "-{",
+        "-\tatomic_inc(&c->kick_gc);",
+        "-\tif (c->gc_thread)",
+        "-\t\twake_up_process(c->gc_thread);",
+        "-}",
+        "+int bch2_gc_gens(struct bch_fs *);",
+        "+void bch2_gc_gens_async(struct bch_fs *);",
+        "+void bch2_fs_gc_init(struct bch_fs *);"
+      ],
+      "hunks": [
+        {
+          "old_start": 7,
+          "new_start": 7
+        },
+        {
+          "old_start": 104,
+          "new_start": 101
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/super.c",
+      "changed_lines": [
+        "-\tbch2_gc_thread_stop(c);",
+        "-\tret = bch2_gc_thread_start(c);",
+        "-\tif (ret) {",
+        "-\t\tbch_err(c, \"error starting gc thread\");",
+        "-\t\treturn ret;",
+        "-\t}",
+        "-",
+        "+\tbch2_fs_gc_init(c);",
+        "-\tseqcount_init(&c->gc_pos_lock);",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 264,
+          "new_start": 264
+        },
+        {
+          "old_start": 486,
+          "new_start": 485
+        },
+        {
+          "old_start": 780,
+          "new_start": 773
+        },
+        {
+          "old_start": 810,
+          "new_start": 804
+        }
+      ]
+    },
+    {
+      "path": "fs/bcachefs/sysfs.c",
+      "changed_lines": [
+        "-rw_attribute(btree_gc_periodic);",
+        "-\tsysfs_printf(btree_gc_periodic, \"%u\",\t(int) c->btree_gc_periodic);",
+        "-",
+        "-\tif (attr == &sysfs_btree_gc_periodic) {",
+        "-\t\tssize_t ret = strtoul_safe(buf, c->btree_gc_periodic)",
+        "-\t\t\t?: (ssize_t) size;",
+        "-",
+        "-\t\twake_up_process(c->gc_thread);",
+        "-\t\treturn ret;",
+        "-\t}",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 142,
+          "new_start": 142
+        },
+        {
+          "old_start": 408,
+          "new_start": 407
+        },
+        {
+          "old_start": 485,
+          "new_start": 482
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-050e797ad21ccc3f/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-050e797ad21ccc3f/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-050e797ad21ccc3f"
+}

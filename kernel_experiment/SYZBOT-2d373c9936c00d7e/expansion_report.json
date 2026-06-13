@@ -1,0 +1,21 @@
+{
+  "commit": "e3cd33ab17c33bd8f1a9df66ec83a15dd8f7afbb",
+  "user_seeds": [
+    "sound/core/seq/seq_clientmgr.c",
+    "sound/core/seq/seq_memory.c"
+  ],
+  "patch_files": [
+    "sound/core/seq/seq_clientmgr.c",
+    "sound/core/seq/seq_memory.c"
+  ],
+  "changed_symbols_sample": [
+    "snd_seq_pool_poll_wait",
+    "snd_seq_write_pool_allocated",
+    "spinlock_irq"
+  ],
+  "expanded": [
+    "sound/core/seq/seq_clientmgr.c",
+    "sound/core/seq/seq_memory.c"
+  ],
+  "added_by_expander": {}
+}

@@ -1,0 +1,17 @@
+{
+  "bug_id": "SYZBOT-35301db28c64310d",
+  "tier": "A",
+  "title": "KCSAN: data-race in macsec_handle_frame / macsec_handle_frame (3)",
+  "mainline_sha": "32d0a49d36a2a306c2e47fe5659361e424f0ed3f",
+  "all_shas_seen": [
+    "35301db28c64310db23e7891f3dc22f09904d35f",
+    "32d0a49d36a2a306c2e47fe5659361e424f0ed3f",
+    "7bafbd4027ae86572f308c4ddf93120c90126332",
+    "5d0c230f1de8c7515b6567d9afba1f196fb4e2f4"
+  ],
+  "c_paths": [
+    "drivers/net/macsec.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 5
+}

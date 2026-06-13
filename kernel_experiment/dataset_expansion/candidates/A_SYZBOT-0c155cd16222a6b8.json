@@ -1,0 +1,72 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-0c155cd16222a6b8",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __dev_queue_xmit / net_tx_action",
+  "description": "KCSAN: data-race in __dev_queue_xmit / net_tx_action",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__dev_queue_xmit",
+    "fn_b": "net_tx_action"
+  },
+  "fix_commit": "90b2be27bb0e56483f335cc10fb59ec66882b949",
+  "affected_files": [
+    "include/net/sch_generic.h",
+    "net/core/dev.c",
+    "net/sched/sch_generic.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/sch_generic.h",
+      "changed_lines": [
+        "-\t\treturn qdisc->empty;",
+        "-\treturn !qdisc->q.qlen;",
+        "+\t\treturn READ_ONCE(qdisc->empty);",
+        "+\treturn !READ_ONCE(qdisc->q.qlen);",
+        "-\t\tqdisc->empty = false;",
+        "+\t\tWRITE_ONCE(qdisc->empty, false);"
+      ],
+      "hunks": [
+        {
+          "old_start": 148,
+          "new_start": 148
+        },
+        {
+          "old_start": 157,
+          "new_start": 157
+        }
+      ]
+    },
+    {
+      "path": "net/core/dev.c",
+      "changed_lines": [
+        "-\t\tif ((q->flags & TCQ_F_CAN_BYPASS) && q->empty &&",
+        "+\t\tif ((q->flags & TCQ_F_CAN_BYPASS) && READ_ONCE(q->empty) &&"
+      ],
+      "hunks": [
+        {
+          "old_start": 3607,
+          "new_start": 3607
+        }
+      ]
+    },
+    {
+      "path": "net/sched/sch_generic.c",
+      "changed_lines": [
+        "-\t\tqdisc->empty = true;",
+        "+\t\tWRITE_ONCE(qdisc->empty, true);"
+      ],
+      "hunks": [
+        {
+          "old_start": 652,
+          "new_start": 652
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-0c155cd16222a6b8/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-0c155cd16222a6b8/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-0c155cd16222a6b8"
+}

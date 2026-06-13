@@ -1,0 +1,33 @@
+======================================================================
+# Evidence: SYZBOT-015a92c50abf7973  (tier B, score 100)
+- source archive: **syzbot**
+- title: possible deadlock in smc_shutdown (3)
+- mainline fix commit: `9f7c02e031570e8291a63162c6c046dc15ff85b0`
+- candidate JSON: `B_SYZBOT-015a92c50abf7973.json`
+- thread_hint: `{"kind": "deadlock", "raw_title": "possible deadlock in smc_shutdown (3)"}`
+
+## Commit subject
+  nbd: restrict sockets to TCP and UDP
+
+## Patch (truncated)
+```diff
+diff --git a/drivers/block/nbd.c b/drivers/block/nbd.c
+index 6463d0e8d0ce..87b0b78249da 100644
+--- a/drivers/block/nbd.c
++++ b/drivers/block/nbd.c
+@@ -1217,6 +1217,14 @@ static struct socket *nbd_get_socket(struct nbd_device *nbd, unsigned long fd,
+ 	if (!sock)
+ 		return NULL;
+ 
++	if (!sk_is_tcp(sock->sk) &&
++	    !sk_is_stream_unix(sock->sk)) {
++		dev_err(disk_to_dev(nbd->disk), "Unsupported socket: should be TCP or UNIX.\n");
++		*err = -EINVAL;
++		sockfd_put(sock);
++		return NULL;
++	}
++
+ 	if (sock->ops->shutdown == sock_no_shutdown) {
+ 		dev_err(disk_to_dev(nbd->disk), "Unsupported socket: shutdown callout must be supported.\n");
+ 		*err = -EINVAL;
+```

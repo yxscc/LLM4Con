@@ -1,0 +1,36 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-2b946a3fd80caf97",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in io_sq_thread / io_sq_thread_park (9)",
+  "description": "KCSAN: data-race in io_sq_thread / io_sq_thread_park (9)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "io_sq_thread",
+    "fn_b": "io_sq_thread_park"
+  },
+  "fix_commit": "e4956dc7a84da074fd8dc10f7abd147f15b3ae58",
+  "affected_files": [
+    "io_uring/sqpoll.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "io_uring/sqpoll.c",
+      "changed_lines": [
+        "-\tWARN_ON_ONCE(sqd->thread == current);",
+        "+\tWARN_ON_ONCE(data_race(sqd->thread) == current);"
+      ],
+      "hunks": [
+        {
+          "old_start": 44,
+          "new_start": 44
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2b946a3fd80caf97/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2b946a3fd80caf97/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2b946a3fd80caf97"
+}

@@ -1,0 +1,36 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-250cfd1a3cbded62",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __skb_wait_for_more_packets / __sock_queue_rcv_skb",
+  "description": "KCSAN: data-race in __skb_wait_for_more_packets / __sock_queue_rcv_skb",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__skb_wait_for_more_packets",
+    "fn_b": "__sock_queue_rcv_skb"
+  },
+  "fix_commit": "7c422d0ce97552dde4a97e6290de70ec6efb0fc6",
+  "affected_files": [
+    "net/core/datagram.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/core/datagram.c",
+      "changed_lines": [
+        "-\tif (sk->sk_receive_queue.prev != skb)",
+        "+\tif (READ_ONCE(sk->sk_receive_queue.prev) != skb)"
+      ],
+      "hunks": [
+        {
+          "old_start": 97,
+          "new_start": 97
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-250cfd1a3cbded62/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-250cfd1a3cbded62/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-250cfd1a3cbded62"
+}

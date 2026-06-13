@@ -1,0 +1,41 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-319ed1769c007825",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in inode_doinit_with_dentry / selinux_file_open",
+  "description": "KCSAN: data-race in inode_doinit_with_dentry / selinux_file_open",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "inode_doinit_with_dentry",
+    "fn_b": "selinux_file_open"
+  },
+  "fix_commit": "2571bb9d553ba2b8db1971bd3c903bff07d0bb11",
+  "affected_files": [
+    "security/selinux/hooks.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "security/selinux/hooks.c",
+      "changed_lines": [
+        "+\t/*",
+        "+\t * The check of isec->initialized below is racy but",
+        "+\t * inode_doinit_with_dentry() will recheck with",
+        "+\t * isec->lock held.",
+        "+\t */",
+        "-\t    isec->initialized != LABEL_INITIALIZED) {",
+        "+\t    data_race(isec->initialized != LABEL_INITIALIZED)) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 282,
+          "new_start": 282
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-319ed1769c007825/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-319ed1769c007825/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-319ed1769c007825"
+}

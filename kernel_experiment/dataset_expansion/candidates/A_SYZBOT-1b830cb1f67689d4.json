@@ -1,0 +1,106 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-1b830cb1f67689d4",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __skb_recv_udp / datagram_poll",
+  "description": "KCSAN: data-race in __skb_recv_udp / datagram_poll",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__skb_recv_udp",
+    "fn_b": "datagram_poll"
+  },
+  "fix_commit": "3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4",
+  "affected_files": [
+    "drivers/crypto/chelsio/chtls/chtls_io.c",
+    "drivers/nvme/host/tcp.c",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/sctp/socket.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/crypto/chelsio/chtls/chtls_io.c",
+      "changed_lines": [
+        "-\t    skb_queue_empty(&sk->sk_receive_queue) &&",
+        "+\t    skb_queue_empty_lockless(&sk->sk_receive_queue) &&"
+      ],
+      "hunks": [
+        {
+          "old_start": 1702,
+          "new_start": 1702
+        }
+      ]
+    },
+    {
+      "path": "drivers/nvme/host/tcp.c",
+      "changed_lines": [
+        "-\tif (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue))",
+        "+\tif (sk_can_busy_loop(sk) && skb_queue_empty_lockless(&sk->sk_receive_queue))"
+      ],
+      "hunks": [
+        {
+          "old_start": 2219,
+          "new_start": 2219
+        }
+      ]
+    },
+    {
+      "path": "net/core/datagram.c",
+      "changed_lines": [
+        "-\t} while (sk->sk_receive_queue.prev != *last);",
+        "+\t} while (READ_ONCE(sk->sk_receive_queue.prev) != *last);"
+      ],
+      "hunks": [
+        {
+          "old_start": 278,
+          "new_start": 278
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-\treturn !skb_queue_empty(&sk->sk_receive_queue) ||",
+        "+\treturn !skb_queue_empty_lockless(&sk->sk_receive_queue) ||"
+      ],
+      "hunks": [
+        {
+          "old_start": 3600,
+          "new_start": 3600
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp.c",
+      "changed_lines": [
+        "-\tif (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&",
+        "+\tif (sk_can_busy_loop(sk) && skb_queue_empty_lockless(&sk->sk_receive_queue) &&"
+      ],
+      "hunks": [
+        {
+          "old_start": 1964,
+          "new_start": 1964
+        }
+      ]
+    },
+    {
+      "path": "net/sctp/socket.c",
+      "changed_lines": [
+        "-\t\t\tif (!skb_queue_empty(&sk->sk_receive_queue))",
+        "+\t\t\tif (!skb_queue_empty_lockless(&sk->sk_receive_queue))"
+      ],
+      "hunks": [
+        {
+          "old_start": 8871,
+          "new_start": 8871
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-1b830cb1f67689d4/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-1b830cb1f67689d4/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-1b830cb1f67689d4"
+}

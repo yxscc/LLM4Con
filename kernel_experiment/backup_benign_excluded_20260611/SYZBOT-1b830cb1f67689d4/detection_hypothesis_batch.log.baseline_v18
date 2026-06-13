@@ -1,0 +1,372 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 358920MB)
+InputSrcDir: src
+InputBCFileName: socket.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 358920MB)
+generateCPGCommand: joern-parse -J-Xmx40G src --frontend-args --define __user --define __kernel --define __iomem --define __rcu --define __percpu --define __force --define __cold --define __read_mostly --define __ro_after_init --define __init --define __exit --define __initdata --define __exitdata --define __initconst --define __net_init --define __net_exit --define __net_initdata --define __devinit --define __devexit --define __devinitdata --define __acquires --define __releases --define __must_hold --define __maybe_unused --define __always_inline --define asmlinkage --define notrace --define noinline --define __bitwise --define __randomize_layout --define __aligned --define __cacheline_aligned --define __cacheline_aligned_in_smp --define __packed --define __weak --define __visible --define "SYSCALL_DEFINE0(name)=long sys_##name(void)" --define "SYSCALL_DEFINE1(name,t1,a1)=long sys_##name(t1 a1)" --define "SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long sys_##name(t1 a1, t2 a2)" --define "SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long sys_##name(t1 a1, t2 a2, t3 a3)" --define "SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4)" --define "SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5)" --define "SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)" --define "COMPAT_SYSCALL_DEFINE0(name)=long compat_sys_##name(void)" --define "COMPAT_SYSCALL_DEFINE1(name,t1,a1)=long compat_sys_##name(t1 a1)" --define "COMPAT_SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long compat_sys_##name(t1 a1, t2 a2)" --define "COMPAT_SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long compat_sys_##name(t1 a1, t2 a2, t3 a3)" --define "COMPAT_SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4)" --define "COMPAT_SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5)" --define "COMPAT_SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)"
+drawCPGCommand: joern-export -J-Xmx40G cpg.bin --repr=all --format=dot --out /mlx_devbox/users/mayunlong.39/playground/LLM4Con/cpg_dot/SYZBOT-1b830cb1f67689d4
+[START] Joern CPG generation (generate cpg.bin) ...
+Parsing code at: src - language: `NEWC`
+[+] Running language frontend
+=======================================================================================================
+Invoking CPG generator in a separate process. Note that the new process will consume additional memory.
+If you are importing a large codebase (and/or running into memory issues), please try the following:
+1) exit joern
+2) invoke the frontend: /mlx_devbox/users/mayunlong.39/playground/external/joern-cli/c2cpg.sh -J-Xmx40960m src --output cpg.bin --define __user --define __kernel --define __iomem --define __rcu --define __percpu --define __force --define __cold --define __read_mostly --define __ro_after_init --define __init --define __exit --define __initdata --define __exitdata --define __initconst --define __net_init --define __net_exit --define __net_initdata --define __devinit --define __devexit --define __devinitdata --define __acquires --define __releases --define __must_hold --define __maybe_unused --define __always_inline --define asmlinkage --define notrace --define noinline --define __bitwise --define __randomize_layout --define __aligned --define __cacheline_aligned --define __cacheline_aligned_in_smp --define __packed --define __weak --define __visible --define SYSCALL_DEFINE0(name)=long sys_##name(void) --define SYSCALL_DEFINE1(name,t1,a1)=long sys_##name(t1 a1) --define SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long sys_##name(t1 a1, t2 a2) --define SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long sys_##name(t1 a1, t2 a2, t3 a3) --define SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4) --define SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5) --define SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6) --define COMPAT_SYSCALL_DEFINE0(name)=long compat_sys_##name(void) --define COMPAT_SYSCALL_DEFINE1(name,t1,a1)=long compat_sys_##name(t1 a1) --define COMPAT_SYSCALL_DEFINE2(name,t1,a1,t2,a2)=long compat_sys_##name(t1 a1, t2 a2) --define COMPAT_SYSCALL_DEFINE3(name,t1,a1,t2,a2,t3,a3)=long compat_sys_##name(t1 a1, t2 a2, t3 a3) --define COMPAT_SYSCALL_DEFINE4(name,t1,a1,t2,a2,t3,a3,t4,a4)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4) --define COMPAT_SYSCALL_DEFINE5(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5) --define COMPAT_SYSCALL_DEFINE6(name,t1,a1,t2,a2,t3,a3,t4,a4,t5,a5,t6,a6)=long compat_sys_##name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6)
+3) start joern, import the cpg: `importCpg("path/to/cpg")`
+=======================================================================================================
+
+[+] Applying default overlays
+2026-05-13 12:01:11.619 WARN  CfgCreator$               Using order fallback for do-while statement body
+2026-05-13 12:01:11.619 WARN  CfgCreator$               Using order fallback for break statement jump argument
+2026-05-13 12:01:11.627 WARN  CfgCreator$               Using order fallback for continue statement jump argument
+2026-05-13 12:01:11.736 WARN  CfgCreator$               Using order fallback for for statement condition
+2026-05-13 12:01:11.737 WARN  CfgCreator$               Using order fallback for for statement update
+Successfully wrote graph to: /mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-1b830cb1f67689d4/cpg.bin
+To load the graph, type `joern /mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-1b830cb1f67689d4/cpg.bin`
+Joern CPG generation (generate cpg.bin) succeed! 
+[START] Joern CPG drawing ...
+exported 73108 nodes, 584887 edges into /mlx_devbox/users/mayunlong.39/playground/LLM4Con/cpg_dot/SYZBOT-1b830cb1f67689d4
+Joern CPG drawing succeed! 
+CPG data generated at: /mlx_devbox/users/mayunlong.39/playground/LLM4Con/cpg_dot/SYZBOT-1b830cb1f67689d4
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 689MB, Avail: 358126MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 689MB, Avail: 358126MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 0 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 16 ops-table member, 6 indirect-fork sink (22 unique function(s))
+[Auto-Entry] Total: 22 kernel entry point(s):
+  - sctp_set_owner_w
+  - sctp_clear_owner_w
+  - sctp_skb_set_owner_r_frag
+  - sctp_destruct_sock
+  - sctp_v6_destroy_sock
+  - sctp_wfree
+  - sctp_enter_memory_pressure
+  - sctp_unhash
+  - sctp_close
+  - sctp_disconnect
+  - sctp_accept
+  - sctp_ioctl
+  - sctp_init_sock
+  - sctp_destroy_sock
+  - sctp_sendmsg
+  - sctp_shutdown
+  - sctp_recvmsg
+  - sctp_setsockopt
+  - sctp_sock_rfree
+  - sctp_hash
+  ... and 2 more
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 332/332 functions...
+[Phasar] Location maps built. Total functions: 332
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 692MB, Avail: 358057MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 692MB, Avail: 358058MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 692MB, Avail: 358053MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 692MB, Avail: 358055MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "sctp_set_owner_w", fileName: "net/sctp/socket.c", lineNumber: 122 }
+[DEBUG getMain] Looking for: funcName=sctp_set_owner_w, fileName=net/sctp/socket.c, fileName_last=socket.c, lineNumber=122
+[DEBUG getMain] methods from full path: 190
+[DEBUG getMain] Iterating 190 methods
+[DEBUG getMain] Checking method: name=sctp_wait_for_close, line=9239
+[DEBUG getMain] Checking method: name=sctp_wait_for_accept, line=9198
+[DEBUG getMain] Checking method: name=sctp_writeable, line=9128
+[DEBUG getMain] Checking method: name=sctp_write_space, line=9107
+[DEBUG getMain] Checking method: name=sctp_data_ready, line=9093
+[DEBUG getMain] Checking method: name=sctp_wait_for_sndbuf, line=9024
+[DEBUG getMain] Checking method: name=sctp_wfree, line=8966
+[DEBUG getMain] Checking method: name=sctp_wake_up_waiters, line=8922
+[DEBUG getMain] Checking method: name=__sctp_write_space, line=8892
+[DEBUG getMain] Checking method: name=sctp_skb_recv_datagram, line=8832
+[DEBUG getMain] Checking method: name=sctp_wait_for_packet, line=8774
+[DEBUG getMain] Checking method: name=sctp_msghdr_parse, line=8629
+[DEBUG getMain] Checking method: name=sctp_autobind, line=8575
+[DEBUG getMain] Checking method: name=sctp_bucket_create, line=8518
+[DEBUG getMain] Checking method: name=sctp_listen_start, line=8338
+[DEBUG getMain] Checking method: name=sctp_get_port, line=8322
+[DEBUG getMain] Checking method: name=sctp_getsockopt, line=7903
+[DEBUG getMain] Checking method: name=sctp_hash, line=8124
+[DEBUG getMain] Checking method: name=sctp_getsockopt_ecn_supported, line=7864
+[DEBUG getMain] Checking method: name=sctp_getsockopt_asconf_supported, line=7786
+[DEBUG getMain] Checking method: name=sctp_getsockopt_event, line=7751
+[DEBUG getMain] Checking method: name=sctp_copy_descendant, line=9326
+[DEBUG getMain] Checking method: name=sctp_getsockopt_scheduler, line=7611
+[DEBUG getMain] Checking method: name=sctp_copy_sock, line=9270
+[DEBUG getMain] Checking method: name=sctp_getsockopt_reuse_port, line=7731
+[DEBUG getMain] Checking method: name=sctp_getsockopt_scheduler_value, line=7650
+[DEBUG getMain] Checking method: name=sctp_getsockopt_enable_strreset, line=7572
+[DEBUG getMain] Checking method: name=sctp_getsockopt_interleaving_supported, line=7692
+[DEBUG getMain] Checking method: name=sctp_getsockopt_reconfig_supported, line=7533
+[DEBUG getMain] Checking method: name=sctp_getsockopt_pr_streamstatus, line=7469
+[DEBUG getMain] Checking method: name=sctp_getsockopt_recvnxtinfo, line=7305
+[DEBUG getMain] Checking method: name=sctp_getsockopt_paddr_thresholds, line=7172
+[DEBUG getMain] Checking method: name=sctp_getsockopt_auto_asconf, line=7098
+[DEBUG getMain] Checking method: name=sctp_getsockopt_assoc_number, line=7067
+[DEBUG getMain] Checking method: name=sctp_getsockopt_local_auth_chunks, line=7011
+[DEBUG getMain] Checking method: name=sctp_getsockopt_active_key, line=6931
+[DEBUG getMain] Checking method: name=sctp_getsockopt_hmac_ident, line=6895
+[DEBUG getMain] Checking method: name=sctp_getsockopt_maxburst, line=6855
+[DEBUG getMain] Checking method: name=sctp_getsockopt_default_prinfo, line=7364
+[DEBUG getMain] Checking method: name=sctp_getsockopt_partial_delivery_point, line=6831
+[DEBUG getMain] Checking method: name=sctp_getsockopt_auth_supported, line=7825
+[DEBUG getMain] Checking method: name=sctp_getsockopt_fragment_interleave, line=6808
+[DEBUG getMain] Checking method: name=sctp_getsockopt_maxseg, line=6761
+[DEBUG getMain] Checking method: name=sctp_getsockopt_mappedv4, line=6681
+[DEBUG getMain] Checking method: name=sctp_getsockopt_associnfo, line=6612
+[DEBUG getMain] Checking method: name=sctp_setsockopt_peer_primary_addr, line=3329
+[DEBUG getMain] Checking method: name=sctp_setsockopt_maxseg, line=3269
+[DEBUG getMain] Checking method: name=sctp_sendmsg_new_asoc, line=1644
+[DEBUG getMain] Checking method: name=sctp_getsockopt_pr_assocstatus, line=7410
+[DEBUG getMain] Checking method: name=sctp_sendmsg_get_daddr, line=1880
+[DEBUG getMain] Checking method: name=sctp_setsockopt_delayed_ack, line=2778
+[DEBUG getMain] Checking method: name=sctp_apply_asoc_delayed_ack, line=2705
+[DEBUG getMain] Checking method: name=sctp_getsockopt_context, line=6704
+[DEBUG getMain] Checking method: name=sctp_spp_sackdelay_disable, line=2700
+[DEBUG getMain] Checking method: name=sctp_getsockopt_nodelay, line=6529
+[DEBUG getMain] Checking method: name=sctp_spp_sackdelay_enable, line=2695
+[DEBUG getMain] Checking method: name=sctp_getsockopt_peeloff_flags, line=5750
+[DEBUG getMain] Checking method: name=sctp_setsockopt_events, line=2208
+[DEBUG getMain] Checking method: name=sctp_recvmsg, line=2076
+[DEBUG getMain] Checking method: name=sctp_skb_pull, line=2034
+[DEBUG getMain] Checking method: name=sctp_getsockopt_peer_addr_info, line=5503
+[DEBUG getMain] Checking method: name=sctp_sendmsg_check_sflags, line=1739
+[DEBUG getMain] Checking method: name=sctp_setsockopt_autoclose, line=2262
+[DEBUG getMain] Checking method: name=sctp_sockaddr_af, line=315
+[DEBUG getMain] Checking method: name=sctp_setsockopt_disable_fragments, line=2191
+[DEBUG getMain] Checking method: name=sctp_setsockopt_mappedv4, line=3225
+[DEBUG getMain] Checking method: name=sctp_bind, line=291
+[DEBUG getMain] Checking method: name=sctp_verify_addr, line=192
+[DEBUG getMain] Checking method: name=sctp_setsockopt_ecn_supported, line=4564
+[DEBUG getMain] Checking method: name=sctp_getsockopt_rtoinfo, line=6558
+[DEBUG getMain] Checking method: name=sctp_bucket_destroy, line=8536
+[DEBUG getMain] Checking method: name=sctp_do_bind, line=346
+[DEBUG getMain] Checking method: name=sctp_sendmsg_update_sinfo, line=1903
+[DEBUG getMain] Checking method: name=sctp_skb_set_owner_r_frag, line=9255
+[DEBUG getMain] Checking method: name=sctp_setsockopt_rtoinfo, line=3091
+[DEBUG getMain] Checking method: name=sctp_set_owner_w, line=122
+[DEBUG getMain] Found main! Creating CCPGNode
+getAllEntryPointInfos: Returning 22 entry points for kernel module analysis
+[Kernel Module Mode] Adding 22 entry points as parallel entries
+  - Skipping (already main): sctp_set_owner_w
+  - Looking for: sctp_clear_owner_w -> demangled: sctp_clear_owner_w -> shortName: sctp_clear_owner_w
+  - Found in CPG: sctp_clear_owner_w at net/sctp/socket.c:145
+  - Added entry: sctp_clear_owner_w
+  - Looking for: sctp_skb_set_owner_r_frag -> demangled: sctp_skb_set_owner_r_frag -> shortName: sctp_skb_set_owner_r_frag
+  - Found in CPG: sctp_skb_set_owner_r_frag at net/sctp/socket.c:9255
+  - Added entry: sctp_skb_set_owner_r_frag
+  - Looking for: sctp_destruct_sock -> demangled: sctp_destruct_sock -> shortName: sctp_destruct_sock
+  - Found in CPG: sctp_destruct_sock at net/sctp/socket.c:5150
+  - Added entry: sctp_destruct_sock
+  - Looking for: sctp_v6_destroy_sock -> demangled: sctp_v6_destroy_sock -> shortName: sctp_v6_destroy_sock
+  - Not found in CPG: sctp_v6_destroy_sock (tried: sctp_v6_destroy_sock)
+  - Looking for: sctp_wfree -> demangled: sctp_wfree -> shortName: sctp_wfree
+  - Found in CPG: sctp_wfree at net/sctp/socket.c:8966
+  - Added entry: sctp_wfree
+  - Looking for: sctp_enter_memory_pressure -> demangled: sctp_enter_memory_pressure -> shortName: sctp_enter_memory_pressure
+  - Found in CPG: sctp_enter_memory_pressure at net/sctp/socket.c:98
+  - Added entry: sctp_enter_memory_pressure
+  - Looking for: sctp_unhash -> demangled: sctp_unhash -> shortName: sctp_unhash
+  - Not found in CPG: sctp_unhash (tried: sctp_unhash)
+  - Looking for: sctp_close -> demangled: sctp_close -> shortName: sctp_close
+  - Found in CPG: sctp_close at net/sctp/socket.c:1470
+  - Added entry: sctp_close
+  - Looking for: sctp_disconnect -> demangled: sctp_disconnect -> shortName: sctp_disconnect
+  - Found in CPG: sctp_disconnect at net/sctp/socket.c:4860
+  - Added entry: sctp_disconnect
+  - Looking for: sctp_accept -> demangled: sctp_accept -> shortName: sctp_accept
+  - Found in CPG: sctp_accept at net/sctp/socket.c:4872
+  - Added entry: sctp_accept
+  - Looking for: sctp_ioctl -> demangled: sctp_ioctl -> shortName: sctp_ioctl
+  - Found in CPG: sctp_ioctl at net/sctp/socket.c:4929
+  - Added entry: sctp_ioctl
+  - Looking for: sctp_init_sock -> demangled: sctp_init_sock -> shortName: sctp_init_sock
+  - Found in CPG: sctp_init_sock at net/sctp/socket.c:4971
+  - Added entry: sctp_init_sock
+  - Looking for: sctp_destroy_sock -> demangled: sctp_destroy_sock -> shortName: sctp_destroy_sock
+  - Found in CPG: sctp_destroy_sock at net/sctp/socket.c:5124
+  - Added entry: sctp_destroy_sock
+  - Looking for: sctp_sendmsg -> demangled: sctp_sendmsg -> shortName: sctp_sendmsg
+  - Found in CPG: sctp_sendmsg at net/sctp/socket.c:1929
+  - Added entry: sctp_sendmsg
+  - Looking for: sctp_shutdown -> demangled: sctp_shutdown -> shortName: sctp_shutdown
+  - Found in CPG: sctp_shutdown at net/sctp/socket.c:5176
+  - Added entry: sctp_shutdown
+  - Looking for: sctp_recvmsg -> demangled: sctp_recvmsg -> shortName: sctp_recvmsg
+  - Found in CPG: sctp_recvmsg at net/sctp/socket.c:2076
+  - Added entry: sctp_recvmsg
+  - Looking for: sctp_setsockopt -> demangled: sctp_setsockopt -> shortName: sctp_setsockopt
+  - Found in CPG: sctp_setsockopt at net/sctp/socket.c:4611
+  - Added entry: sctp_setsockopt
+  - Looking for: sctp_sock_rfree -> demangled: sctp_sock_rfree -> shortName: sctp_sock_rfree
+  - Found in CPG: sctp_sock_rfree at net/sctp/socket.c:9009
+  - Added entry: sctp_sock_rfree
+  - Looking for: sctp_hash -> demangled: sctp_hash -> shortName: sctp_hash
+  - Found in CPG: sctp_hash at net/sctp/socket.c:8124
+  - Added entry: sctp_hash
+  - Looking for: sctp_getsockopt -> demangled: sctp_getsockopt -> shortName: sctp_getsockopt
+  - Found in CPG: sctp_getsockopt at net/sctp/socket.c:7903
+  - Added entry: sctp_getsockopt
+  - Looking for: sctp_bind -> demangled: sctp_bind -> shortName: sctp_bind
+  - Found in CPG: sctp_bind at net/sctp/socket.c:291
+  - Added entry: sctp_bind
+[Kernel Module Mode] Total entry functions: 20
+Warning: Could not map CPG function 'skb_set_owner_w' to an llvm::Function.
+Warning: Could not map CPG function 'sock_wfree' to an llvm::Function.
+Warning: Could not map CPG function 'sk_common_release' to an llvm::Function.
+Warning: Could not map CPG function 'release_sock' to an llvm::Function.
+Warning: Could not map CPG function 'lock_sock_nested' to an llvm::Function.
+Warning: Could not map CPG function '__sk_free' to an llvm::Function.
+Warning: Could not map CPG function '__release_sock' to an llvm::Function.
+Warning: Could not map CPG function '__lock_sock' to an llvm::Function.
+Warning: Could not map CPG function 'sk_destruct' to an llvm::Function.
+Warning: Could not map CPG function 'sock_inuse_add' to an llvm::Function.
+Warning: Could not map CPG function 'sock_i_uid' to an llvm::Function.
+Warning: Could not map CPG function '__sk_destruct' to an llvm::Function.
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+Warning: Could not map CPG function 'sk_prot_free' to an llvm::Function.
+Warning: Could not map CPG function 'sock_disable_timestamp' to an llvm::Function.
+Warning: Could not map CPG function 'sock_needs_netstamp' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 20 entry points as parallel threads
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+[Kernel Module Mode] Keeping all 21 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 692MB, Avail: 358000MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 692MB, Avail: 358000MB)
+[DEBUG PRINT] Phase 1: Found 207 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sctp_clear_owner_w' as a candidate.
+  -> Found thread arg in function 'sctp_setsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_setsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_setsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_setsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_setsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_close' as a candidate.
+  -> Found thread arg in function 'sctp_close' as a candidate.
+  -> Found thread arg in function 'sctp_sendmsg' as a candidate.
+  -> Found thread arg in function 'sctp_sendmsg' as a candidate.
+  -> Found thread arg in function 'sctp_sendmsg' as a candidate.
+  -> Found thread arg in function 'sctp_disconnect' as a candidate.
+  -> Found thread arg in function 'sctp_disconnect' as a candidate.
+  -> Found thread arg in function 'sctp_shutdown' as a candidate.
+  -> Found thread arg in function 'sctp_shutdown' as a candidate.
+  -> Found thread arg in function 'sctp_hash' as a candidate.
+  -> Found thread arg in function 'sctp_sock_rfree' as a candidate.
+  -> Found thread arg in function 'sctp_init_sock' as a candidate.
+  -> Found thread arg in function 'sctp_ioctl' as a candidate.
+  -> Found thread arg in function 'sctp_ioctl' as a candidate.
+  -> Found thread arg in function 'sctp_ioctl' as a candidate.
+  -> Found thread arg in function 'sctp_getsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_getsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_getsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_getsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_getsockopt' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_recvmsg' as a candidate.
+  -> Found thread arg in function 'sctp_set_owner_w' as a candidate.
+  -> Found thread arg in function 'sctp_destruct_sock' as a candidate.
+  -> Found thread arg in function 'sctp_accept' as a candidate.
+  -> Found thread arg in function 'sctp_accept' as a candidate.
+  -> Found thread arg in function 'sctp_accept' as a candidate.
+  -> Found thread arg in function 'sctp_accept' as a candidate.
+  -> Found thread arg in function 'sctp_enter_memory_pressure' as a candidate.
+  -> Found thread arg in function 'sctp_wfree' as a candidate.
+  -> Found thread arg in function 'sctp_bind' as a candidate.
+  -> Found thread arg in function 'sctp_bind' as a candidate.
+  -> Found thread arg in function 'sctp_bind' as a candidate.
+  -> Found thread arg in function 'sctp_destroy_sock' as a candidate.
+  -> Found thread arg in function 'sctp_skb_set_owner_r_frag' as a candidate.
+  -> Found thread arg in function 'sctp_skb_set_owner_r_frag' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 129
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 21 threads...
+[VulnerabilitySurface] Collected 2784 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] Discovered 5 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 26 list-helper accesses (cluster-A fix; +3 bridged head-side deletes)
+[VulnerabilitySurface] Found 219 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 219 shared objects (137 high risk, 8 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-1b830cb1f67689d4_2026-05-13_12-01-07/vulnerability_surface.json"
+
+  Threads: 21, Conflicting pairs: 64, Shared objects: 219, High-risk objects: 145
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 7 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-1b830cb1f67689d4_2026-05-13_12-01-07/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 693MB, Avail: 357981MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 693MB, Avail: 357981MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL data_race VIOLATION FOUND: do_auto_asconf_destroy_vs_getsockopt_race
+    [VerificationAgent] Verifying hypothesis 'do_auto_asconf_destroy_vs_getsockopt_race' ...
+    [VerificationAgent] 'do_auto_asconf_destroy_vs_getsockopt_race' -> KEEP (true positive)
+    [!!!] POTENTIAL list_mutation_race VIOLATION FOUND: auto_asconf_list_destroy_del_vs_init_add_unsync
+    [VerificationAgent] Verifying hypothesis 'auto_asconf_list_destroy_del_vs_init_add_unsync' ...
+    [VerificationAgent] 'auto_asconf_list_destroy_del_vs_init_add_unsync' -> KEEP (true positive)
+    [!!!] POTENTIAL list_mutation_race VIOLATION FOUND: auto_asconf_destroy_del_vs_setsockopt_listdel_race
+    [VerificationAgent] Verifying hypothesis 'auto_asconf_destroy_del_vs_setsockopt_listdel_race' ...
+    [VerificationAgent] 'auto_asconf_destroy_del_vs_setsockopt_listdel_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: asoc_rto_min_setsockopt_vs_getsockopt_race
+    [VerificationAgent] Verifying hypothesis 'asoc_rto_min_setsockopt_vs_getsockopt_race' ...
+    [VerificationAgent] 'asoc_rto_min_setsockopt_vs_getsockopt_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: transport_pathmtu_setsockopt_vs_getsockopt_race
+    [VerificationAgent] Verifying hypothesis 'transport_pathmtu_setsockopt_vs_getsockopt_race' ...
+    [VerificationAgent] 'transport_pathmtu_setsockopt_vs_getsockopt_race' -> KEEP (true positive)
+    [!!!] POTENTIAL use_after_free VIOLATION FOUND: endpoint_free_vs_sendmsg_ep_use_uaf
+    [VerificationAgent] Verifying hypothesis 'endpoint_free_vs_sendmsg_ep_use_uaf' ...
+    [VerificationAgent] 'endpoint_free_vs_sendmsg_ep_use_uaf' -> KEEP (true positive)
+    [!!!] POTENTIAL list_mutation_race VIOLATION FOUND: auto_asconf_destroy_del_vs_setsockopt_add_race
+    [VerificationAgent] Verifying hypothesis 'auto_asconf_destroy_del_vs_setsockopt_add_race' ...
+    [VerificationAgent] 'auto_asconf_destroy_del_vs_setsockopt_add_race' -> KEEP (true positive)
+[Phase 4.5] LLM hypothesis-verifier filter: kept 7/7, dropped 0 false-positive(s).
+Bug detection complete. 7 potential bug(s) found.
+  - Hypothesis-Based Violations: 7
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-1b830cb1f67689d4_2026-05-13_12-01-07/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 693MB, Avail: 358049MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 526 seconds
+LLM API Requests: 79
+Total Prompt Tokens: 1806147
+Total Completion Tokens: 13589
+Total Tokens: 1819736
+==========================================

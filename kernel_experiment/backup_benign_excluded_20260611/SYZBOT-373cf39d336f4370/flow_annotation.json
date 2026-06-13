@@ -1,0 +1,247 @@
+{
+  "bug_id": "SYZBOT-373cf39d336f4370",
+  "status": "complete",
+  "summary": "sk_stream_wait_connect() reads socket state/error in sk_wait_event while tcp_disconnect()/shutdown can change the same sock fields concurrently.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "send wait reader",
+      "entry": {
+        "function": "tcp_sendmsg",
+        "file": "net/ipv4/tcp.c",
+        "kind": "sock_ops_sendmsg"
+      },
+      "call_chain": [
+        {
+          "function": "tcp_sendmsg",
+          "file": "net/ipv4/tcp.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "TCP sendmsg op"
+        },
+        {
+          "function": "tcp_sendmsg_locked",
+          "file": "net/ipv4/tcp.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "locked send path waits for connect"
+        },
+        {
+          "function": "sk_stream_wait_connect",
+          "file": "net/core/stream.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "waits for connection state using sk_wait_event"
+        }
+      ],
+      "bug_site": {
+        "function": "sk_stream_wait_connect",
+        "file": "net/core/stream.c",
+        "line": 73,
+        "code": "!sk->sk_err && !((1 << sk->sk_state) & ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT))"
+      }
+    },
+    "thread_b": {
+      "role": "shutdown/disconnect writer",
+      "entry": {
+        "function": "tcp_disconnect",
+        "file": "net/ipv4/tcp.c",
+        "kind": "sock_ops_disconnect"
+      },
+      "call_chain": [
+        {
+          "function": "tcp_disconnect",
+          "file": "net/ipv4/tcp.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "TCP disconnect/shutdown updates socket state"
+        }
+      ],
+      "bug_site": {
+        "function": "tcp_disconnect",
+        "file": "net/ipv4/tcp.c",
+        "line": 0,
+        "code": "writes sk->sk_state during disconnect/reset state transition"
+      }
+    },
+    "interleaving": [
+      "A sendmsg task waits in sk_stream_wait_connect(), whose sk_wait_event condition is evaluated locklessly first.",
+      "A shutdown/disconnect task changes sk_state/sk_err on the same struct sock.",
+      "The fix wraps lockless condition reads with READ_ONCE across stream, SMC, LLC, TIPC, TLS, and BPF wait sites."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct sock::sk_state",
+    "access_a": {
+      "function": "sk_stream_wait_connect",
+      "file": "net/core/stream.c",
+      "line": 73,
+      "kind": "read",
+      "code": "(1 << sk->sk_state) in sk_wait_event condition"
+    },
+    "access_b": {
+      "function": "tcp_disconnect",
+      "file": "net/ipv4/tcp.c",
+      "line": 0,
+      "kind": "write",
+      "code": "tcp_disconnect changes sk->sk_state"
+    },
+    "required_ordering": "Lockless sk_wait_event condition checks must READ_ONCE socket state/error fields because peer syscall paths can update them concurrently."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct sock::sk_state",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The reported changed value and patched wait condition center on sk_state; related sk_err/sk_shutdown/sk_write_pending condition fields are sibling surfaces patched for the same macro pattern.",
+    "aliases": [
+      {
+        "name": "sk",
+        "function": "sk_stream_wait_connect",
+        "file": "net/core/stream.c",
+        "evidence": "send path passes the TCP struct sock to the wait helper"
+      },
+      {
+        "name": "sk",
+        "function": "tcp_disconnect",
+        "file": "net/ipv4/tcp.c",
+        "evidence": "disconnect operates on the same struct sock"
+      },
+      {
+        "name": "sk->sk_err/sk_shutdown",
+        "function": "sk_stream_wait_memory",
+        "file": "net/core/stream.c",
+        "evidence": "sibling wait conditions patched with READ_ONCE"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "tcp_sendmsg socket op",
+          "to": "sk -> tcp_sendmsg_locked -> sk_stream_wait_connect -> sk->sk_state",
+          "evidence": "send wait path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "shutdown/disconnect socket op",
+          "to": "sk -> tcp_disconnect -> sk->sk_state",
+          "evidence": "disconnect path"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "sk_stream_wait_connect",
+        "file": "net/core/stream.c",
+        "line": 73,
+        "kind": "read",
+        "code": "sk->sk_state"
+      },
+      {
+        "function": "sk_stream_wait_connect",
+        "file": "net/core/stream.c",
+        "line": 73,
+        "kind": "read",
+        "code": "sk->sk_err"
+      },
+      {
+        "function": "tcp_disconnect",
+        "file": "net/ipv4/tcp.c",
+        "line": 0,
+        "kind": "write",
+        "code": "sk->sk_state"
+      },
+      {
+        "function": "sk_stream_wait_memory",
+        "file": "net/core/stream.c",
+        "line": 142,
+        "kind": "read",
+        "code": "sk->sk_shutdown"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "socket allocation initializes struct sock"
+      ],
+      "published_by": [
+        "inet socket ops expose the same sock to sendmsg/shutdown/disconnect syscalls"
+      ],
+      "invalidated_by": [
+        "tcp_disconnect and shutdown state transitions"
+      ],
+      "freed_by": [
+        "socket close after refs drain"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "net/core/stream.c",
+      "net/ipv4/tcp.c",
+      "net/ipv4/tcp_bpf.c",
+      "net/llc/af_llc.c",
+      "net/smc/smc_close.c",
+      "net/smc/smc_rx.c",
+      "net/smc/smc_tx.c",
+      "net/tipc/socket.c",
+      "net/tls/tls_main.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "stream.c contains the reported wait reader; net/ipv4/tcp.c is required for tcp_sendmsg/tcp_disconnect and was added; the other patched files contain sibling sk_wait_event condition surfaces in the same fix.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [
+      "net/ipv4/tcp.c"
+    ],
+    "src_file_count_before": 56,
+    "src_file_count_after": 57,
+    "compiled_files": [
+      "net/tls/tls_main.c",
+      "net/tipc/socket.c",
+      "net/smc/smc_tx.c",
+      "net/smc/smc_rx.c",
+      "net/smc/smc_close.c",
+      "net/llc/af_llc.c",
+      "net/ipv4/tcp_bpf.c",
+      "net/core/stream.c",
+      "net/ipv4/tcp.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "tls_main.ll",
+      "socket.ll",
+      "smc_tx.ll",
+      "smc_rx.ll",
+      "smc_close.ll",
+      "af_llc.ll",
+      "tcp_bpf.ll",
+      "stream.ll",
+      "tcp.ll"
+    ],
+    "bitcode_linked_file_count": 9,
+    "selected_bitcode_defined_function_count": 1273
+  },
+  "evidence": {
+    "patch_hunks": [
+      "stream.c wraps sk_err/sk_state/sk_shutdown reads in READ_ONCE; sibling wait sites in tcp_bpf, llc, smc, tipc, and tls receive analogous annotations."
+    ],
+    "indirect_edges": [
+      "TCP protocol ops dispatch sendmsg to tcp_sendmsg and disconnect/shutdown to TCP disconnect path; sk_wait_event first evaluates conditions locklessly."
+    ],
+    "entry_discovery_log": [
+      "After repair, merged.ll contains sk_stream_wait_connect, tcp_sendmsg, tcp_sendmsg_locked, and tcp_disconnect."
+    ],
+    "repair_commands": [
+      "git show d0ac89f6f9879fae316c155de77b5173b3e2c9c9^:net/ipv4/tcp.c > src/net/ipv4/tcp.c",
+      "created temporary worktree at fix_commit^ and compiled net/ipv4/tcp.c with clang-15 to tcp.ll",
+      "linked tls_main.ll socket.ll smc_tx.ll smc_rx.ll smc_close.ll af_llc.ll tcp_bpf.ll stream.ll tcp.ll into merged.ll with external llvm-link"
+    ],
+    "notes": [
+      "llvm-link emitted only a target-triple warning for tcp.ll; merged.ll was produced and contains required definitions."
+    ]
+  }
+}

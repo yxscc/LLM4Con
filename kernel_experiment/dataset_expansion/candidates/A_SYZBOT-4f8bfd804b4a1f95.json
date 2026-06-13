@@ -1,0 +1,36 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-4f8bfd804b4a1f95",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in sbitmap_queue_clear / sbitmap_queue_clear (3)",
+  "description": "KCSAN: data-race in sbitmap_queue_clear / sbitmap_queue_clear (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "sbitmap_queue_clear",
+    "fn_b": "sbitmap_queue_clear"
+  },
+  "fix_commit": "9f8b93a7df4d8e1e8715fb2a45a893cffad9da0b",
+  "affected_files": [
+    "lib/sbitmap.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "lib/sbitmap.c",
+      "changed_lines": [
+        "-\t\t*per_cpu_ptr(sb->alloc_hint, cpu) = tag;",
+        "+\t\tdata_race(*per_cpu_ptr(sb->alloc_hint, cpu) = tag);"
+      ],
+      "hunks": [
+        {
+          "old_start": 631,
+          "new_start": 631
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-4f8bfd804b4a1f95/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-4f8bfd804b4a1f95/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-4f8bfd804b4a1f95"
+}

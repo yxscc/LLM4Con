@@ -1,0 +1,21 @@
+{
+  "commit": "c39e342a050a4425348e6fe7f75827c0a1a7ebc5",
+  "user_seeds": [
+    "drivers/net/tun.c",
+    "net/core/dev.c"
+  ],
+  "patch_files": [
+    "drivers/net/tun.c"
+  ],
+  "changed_symbols_sample": [
+    "NAPI_POLL_WEIGHT",
+    "netif_napi_add",
+    "netif_tx_napi_add",
+    "tun_napi_poll"
+  ],
+  "expanded": [
+    "drivers/net/tun.c",
+    "net/core/dev.c"
+  ],
+  "added_by_expander": {}
+}

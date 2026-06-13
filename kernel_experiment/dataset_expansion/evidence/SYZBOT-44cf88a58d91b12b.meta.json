@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-44cf88a58d91b12b",
+  "tier": "A",
+  "title": "KCSAN: data-race in __ip4_datagram_connect / raw_bind (2)",
+  "mainline_sha": "153a0d187e767c68733b8e9f46218eb1f41ab902",
+  "all_shas_seen": [
+    "44cf88a58d91b12b57090f4e229500a677fc70f8",
+    "153a0d187e767c68733b8e9f46218eb1f41ab902",
+    "dd81e1c7d5fb126e5fbc5c9e334d7b3ec29a16a0"
+  ],
+  "c_paths": [
+    "net/ipv4/raw.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

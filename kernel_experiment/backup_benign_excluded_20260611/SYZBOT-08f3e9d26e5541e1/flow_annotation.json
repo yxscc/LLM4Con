@@ -1,0 +1,193 @@
+{
+  "bug_id": "SYZBOT-08f3e9d26e5541e1",
+  "status": "complete",
+  "summary": "SRCU workqueue grace-period completion writes srcu_last_gp_end while synchronize_srcu() reads it locklessly to decide expedited idleness.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "SRCU grace-period work",
+      "entry": {
+        "function": "process_srcu",
+        "file": "kernel/rcu/srcutree.c",
+        "kind": "workqueue"
+      },
+      "call_chain": [
+        {
+          "function": "process_srcu",
+          "file": "kernel/rcu/srcutree.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "INIT_DELAYED_WORK(&ssp->work, process_srcu)"
+        },
+        {
+          "function": "srcu_gp_end",
+          "file": "kernel/rcu/srcutree.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "SRCU state machine calls srcu_gp_end at GP completion"
+        }
+      ],
+      "bug_site": {
+        "function": "srcu_gp_end",
+        "file": "kernel/rcu/srcutree.c",
+        "line": 533,
+        "code": "ssp->srcu_last_gp_end = ktime_get_mono_fast_ns();"
+      }
+    },
+    "thread_b": {
+      "role": "synchronize_srcu caller",
+      "entry": {
+        "function": "synchronize_srcu",
+        "file": "kernel/rcu/srcutree.c",
+        "kind": "exported_api"
+      },
+      "call_chain": [
+        {
+          "function": "synchronize_srcu",
+          "file": "kernel/rcu/srcutree.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "exported process-context API"
+        },
+        {
+          "function": "srcu_might_be_idle",
+          "file": "kernel/rcu/srcutree.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "synchronize_srcu consults idleness before choosing expedited wait"
+        }
+      ],
+      "bug_site": {
+        "function": "srcu_might_be_idle",
+        "file": "kernel/rcu/srcutree.c",
+        "line": 784,
+        "code": "time_in_range_open(t, ssp->srcu_last_gp_end, ssp->srcu_last_gp_end + exp_holdoff)"
+      }
+    },
+    "interleaving": [
+      "The delayed work item process_srcu advances the SRCU GP and records the last GP end timestamp.",
+      "A task concurrently calls synchronize_srcu() on the same srcu_struct.",
+      "srcu_might_be_idle() reads the timestamp without READ_ONCE; the fix adds READ_ONCE/WRITE_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct srcu_struct::srcu_last_gp_end",
+    "access_a": {
+      "function": "srcu_gp_end",
+      "file": "kernel/rcu/srcutree.c",
+      "line": 533,
+      "kind": "write",
+      "code": "ssp->srcu_last_gp_end = ktime_get_mono_fast_ns();"
+    },
+    "access_b": {
+      "function": "srcu_might_be_idle",
+      "file": "kernel/rcu/srcutree.c",
+      "line": 784,
+      "kind": "read",
+      "code": "time_in_range_open(t, ssp->srcu_last_gp_end, ssp->srcu_last_gp_end + exp_holdoff)"
+    },
+    "required_ordering": "Lockless timestamp communication must use paired READ_ONCE/WRITE_ONCE to avoid torn or reordered KCSAN-visible accesses."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct srcu_struct::srcu_last_gp_end",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This timestamp is the shared field used by GP work and synchronize_srcu idleness heuristics.",
+    "aliases": [
+      {
+        "name": "ssp",
+        "function": "process_srcu",
+        "file": "kernel/rcu/srcutree.c",
+        "evidence": "container_of(work, struct srcu_struct, work.work) recovers the SRCU object"
+      },
+      {
+        "name": "ssp",
+        "function": "synchronize_srcu",
+        "file": "kernel/rcu/srcutree.c",
+        "evidence": "caller passes the same srcu_struct to synchronize_srcu"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "work_struct callback argument",
+          "to": "container_of delayed work -> ssp -> srcu_last_gp_end",
+          "evidence": "process_srcu is registered with INIT_DELAYED_WORK"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "synchronize_srcu(ssp) argument",
+          "to": "ssp -> srcu_might_be_idle(ssp) -> srcu_last_gp_end",
+          "evidence": "synchronize_srcu calls srcu_might_be_idle"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "srcu_gp_end",
+        "file": "kernel/rcu/srcutree.c",
+        "line": 533,
+        "kind": "write",
+        "code": "ssp->srcu_last_gp_end = ktime_get_mono_fast_ns();"
+      },
+      {
+        "function": "srcu_might_be_idle",
+        "file": "kernel/rcu/srcutree.c",
+        "line": 784,
+        "kind": "read",
+        "code": "ssp->srcu_last_gp_end"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "init_srcu_struct_fields() initializes srcu_last_gp_end"
+      ],
+      "published_by": [
+        "SRCU structure is passed to callbacks and exported APIs"
+      ],
+      "invalidated_by": [],
+      "freed_by": [
+        "SRCU cleanup after users stop calling the API"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "kernel/rcu/srcutree.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "The delayed work entry, exported synchronize_srcu entry, and both access sites are all defined in kernel/rcu/srcutree.c.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 7,
+    "src_file_count_after": 7,
+    "compiled_files": [
+      "kernel/rcu/srcutree.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "srcutree.ll",
+    "bitcode_input_files": [
+      "srcutree.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 91
+  },
+  "evidence": {
+    "patch_hunks": [
+      "srcu_gp_end() uses WRITE_ONCE(ssp->srcu_last_gp_end, ...); srcu_might_be_idle() reads it into tlast with READ_ONCE()."
+    ],
+    "indirect_edges": [
+      "INIT_DELAYED_WORK(&ssp->work, process_srcu) registers the workqueue entry."
+    ],
+    "entry_discovery_log": [
+      "srcutree.ll contains process_srcu, srcu_gp_end, synchronize_srcu, and srcu_might_be_idle."
+    ],
+    "repair_commands": [],
+    "notes": []
+  }
+}

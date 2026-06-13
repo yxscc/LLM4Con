@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-2be2f8da254ea650",
+  "tier": "A",
+  "title": "KCSAN: data-race in fanout_demux_rollover / fanout_demux_rollover",
+  "mainline_sha": "b756ad928d98e5ef0b74af7546a6a31a8dadde00",
+  "all_shas_seen": [
+    "2be2f8da254ea6503982590d5b56c22bd09dce90",
+    "b756ad928d98e5ef0b74af7546a6a31a8dadde00"
+  ],
+  "c_paths": [
+    "net/packet/af_packet.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

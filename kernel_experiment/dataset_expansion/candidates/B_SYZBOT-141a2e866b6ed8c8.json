@@ -1,0 +1,58 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-141a2e866b6ed8c8",
+  "source": "syzbot",
+  "title": "possible deadlock in sk_common_release",
+  "description": "possible deadlock in sk_common_release",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in sk_common_release"
+  },
+  "fix_commit": "af295e854a4e3813ffbdef26dbb6a4d6226c3ea1",
+  "affected_files": [
+    "net/l2tp/l2tp_core.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/l2tp/l2tp_core.c",
+      "changed_lines": [
+        "-\twrite_lock(&sk->sk_callback_lock);",
+        "-",
+        "+\twrite_lock_bh(&sk->sk_callback_lock);",
+        "-\t\tgoto err_sock;",
+        "+\t\tgoto err_inval_sock;",
+        "+\trcu_assign_sk_user_data(sk, tunnel);",
+        "+\twrite_unlock_bh(&sk->sk_callback_lock);",
+        "-\t} else {",
+        "-\t\trcu_assign_sk_user_data(sk, tunnel);",
+        "-\twrite_unlock(&sk->sk_callback_lock);",
+        "+\twrite_lock_bh(&sk->sk_callback_lock);",
+        "+\trcu_assign_sk_user_data(sk, NULL);",
+        "+err_inval_sock:",
+        "+\twrite_unlock_bh(&sk->sk_callback_lock);",
+        "+",
+        "-",
+        "-\twrite_unlock(&sk->sk_callback_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1474,
+          "new_start": 1474
+        },
+        {
+          "old_start": 1507,
+          "new_start": 1508
+        },
+        {
+          "old_start": 1522,
+          "new_start": 1521
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-141a2e866b6ed8c8/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-141a2e866b6ed8c8/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-141a2e866b6ed8c8"
+}

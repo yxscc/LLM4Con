@@ -1,0 +1,22 @@
+{
+  "commit": "492888df0c7b42fc0843631168b0021bc4caee84",
+  "user_seeds": [
+    "fs/ext4/extents_status.c"
+  ],
+  "patch_files": [
+    "fs/ext4/extents_status.c"
+  ],
+  "changed_symbols_sample": [
+    "cache_es",
+    "es_debug",
+    "es_lblk",
+    "es_len",
+    "ext4_es_pblock",
+    "ext4_es_status",
+    "in_range"
+  ],
+  "expanded": [
+    "fs/ext4/extents_status.c"
+  ],
+  "added_by_expander": {}
+}

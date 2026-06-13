@@ -1,0 +1,21 @@
+{
+  "commit": "56144737e67329c9aaed15f942d46a6302e2e3d8",
+  "user_seeds": [
+    "kernel/time/hrtimer.c",
+    "kernel/time/timer.c"
+  ],
+  "patch_files": [
+    "include/linux/hrtimer.h",
+    "kernel/time/hrtimer.c"
+  ],
+  "changed_symbols_sample": [
+    "HRTIMER_STATE_ENQUEUED",
+    "hrtimer_is_queued"
+  ],
+  "expanded": [
+    "include/linux/hrtimer.h",
+    "kernel/time/hrtimer.c",
+    "kernel/time/timer.c"
+  ],
+  "added_by_expander": {}
+}

@@ -1,0 +1,106 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-35301db28c64310d",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in macsec_handle_frame / macsec_handle_frame (3)",
+  "description": "KCSAN: data-race in macsec_handle_frame / macsec_handle_frame (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "macsec_handle_frame",
+    "fn_b": "macsec_handle_frame"
+  },
+  "fix_commit": "32d0a49d36a2a306c2e47fe5659361e424f0ed3f",
+  "affected_files": [
+    "drivers/net/macsec.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/net/macsec.c",
+      "changed_lines": [
+        "-\t\tsecy->netdev->stats.rx_dropped++;",
+        "+\t\tDEV_STATS_INC(secy->netdev, rx_dropped);",
+        "-\t\t\tsecy->netdev->stats.rx_errors++;",
+        "+\t\t\tDEV_STATS_INC(secy->netdev, rx_errors);",
+        "-\t\t\tmacsec->secy.netdev->stats.rx_dropped++;",
+        "+\t\t\tDEV_STATS_INC(macsec->secy.netdev, rx_dropped);",
+        "-\t\tsecy->netdev->stats.rx_errors++;",
+        "+\t\tDEV_STATS_INC(secy->netdev, rx_errors);",
+        "-\t\t\tsecy->netdev->stats.rx_errors++;",
+        "+\t\t\tDEV_STATS_INC(secy->netdev, rx_errors);",
+        "-\t\t\tmacsec->secy.netdev->stats.rx_dropped++;",
+        "+\t\t\tDEV_STATS_INC(macsec->secy.netdev, rx_dropped);",
+        "-\t\tmacsec->secy.netdev->stats.rx_dropped++;",
+        "+\t\tDEV_STATS_INC(macsec->secy.netdev, rx_dropped);",
+        "-\t\t\tmacsec->secy.netdev->stats.rx_errors++;",
+        "+\t\t\tDEV_STATS_INC(macsec->secy.netdev, rx_errors);",
+        "-\t\t\tmacsec->secy.netdev->stats.rx_dropped++;",
+        "+\t\t\tDEV_STATS_INC(macsec->secy.netdev, rx_dropped);",
+        "-\t\tdev->stats.tx_dropped++;",
+        "+\t\tDEV_STATS_INC(dev, tx_dropped);",
+        "-\t\t\tdev->stats.tx_dropped++;",
+        "+\t\t\tDEV_STATS_INC(dev, tx_dropped);",
+        "-\ts->rx_dropped = dev->stats.rx_dropped;",
+        "-\ts->tx_dropped = dev->stats.tx_dropped;",
+        "-\ts->rx_errors = dev->stats.rx_errors;",
+        "+\ts->rx_dropped = atomic_long_read(&dev->stats.__rx_dropped);",
+        "+\ts->tx_dropped = atomic_long_read(&dev->stats.__tx_dropped);",
+        "+\ts->rx_errors = atomic_long_read(&dev->stats.__rx_errors);"
+      ],
+      "hunks": [
+        {
+          "old_start": 743,
+          "new_start": 743
+        },
+        {
+          "old_start": 767,
+          "new_start": 767
+        },
+        {
+          "old_start": 1069,
+          "new_start": 1069
+        },
+        {
+          "old_start": 1179,
+          "new_start": 1179
+        },
+        {
+          "old_start": 1196,
+          "new_start": 1196
+        },
+        {
+          "old_start": 1230,
+          "new_start": 1230
+        },
+        {
+          "old_start": 1271,
+          "new_start": 1271
+        },
+        {
+          "old_start": 1308,
+          "new_start": 1308
+        },
+        {
+          "old_start": 1327,
+          "new_start": 1327
+        },
+        {
+          "old_start": 3422,
+          "new_start": 3422
+        },
+        {
+          "old_start": 3430,
+          "new_start": 3430
+        },
+        {
+          "old_start": 3667,
+          "new_start": 3667
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-35301db28c64310d/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-35301db28c64310d/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-35301db28c64310d"
+}

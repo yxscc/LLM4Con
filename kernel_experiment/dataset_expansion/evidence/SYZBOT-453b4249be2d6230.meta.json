@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-453b4249be2d6230",
+  "tier": "A",
+  "title": "KCSAN: data-race in xfrm_lookup_with_ifid / xfrm_lookup_with_ifid (7)",
+  "mainline_sha": "de5724ca38fd5e442bae9c1fab31942b6544012d",
+  "all_shas_seen": [
+    "453b4249be2d6230df3fe02b5674d1467266b90c",
+    "de5724ca38fd5e442bae9c1fab31942b6544012d",
+    "5e62ed3b1c8a397185af53d6b94f04b9ff21ec7d"
+  ],
+  "c_paths": [
+    "net/xfrm/xfrm_policy.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

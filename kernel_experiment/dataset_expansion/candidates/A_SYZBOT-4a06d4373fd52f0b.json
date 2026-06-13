@@ -1,0 +1,53 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-4a06d4373fd52f0b",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+  "description": "KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "inotify_handle_inode_event",
+    "fn_b": "inotify_remove_from_idr"
+  },
+  "fix_commit": "c915d8f5918bea7c3962b09b8884ca128bfd9b0c",
+  "affected_files": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/notify/inotify/inotify_fsnotify.c",
+      "changed_lines": [
+        "-\tint len = 0;",
+        "+\tint len = 0, wd;",
+        "+\t/*",
+        "+\t * We can be racing with mark being detached. Don't report event with",
+        "+\t * invalid wd.",
+        "+\t */",
+        "+\twd = READ_ONCE(i_mark->wd);",
+        "+\tif (wd == -1)",
+        "+\t\treturn 0;",
+        "-\tevent->wd = i_mark->wd;",
+        "+\tevent->wd = wd;"
+      ],
+      "hunks": [
+        {
+          "old_start": 65,
+          "new_start": 65
+        },
+        {
+          "old_start": 80,
+          "new_start": 80
+        },
+        {
+          "old_start": 110,
+          "new_start": 117
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-4a06d4373fd52f0b/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-4a06d4373fd52f0b/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-4a06d4373fd52f0b"
+}

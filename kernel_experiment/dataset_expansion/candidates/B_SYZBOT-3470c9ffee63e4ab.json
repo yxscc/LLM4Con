@@ -1,0 +1,134 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-3470c9ffee63e4ab",
+  "source": "syzbot",
+  "title": "possible deadlock in xfs_ilock_attr_map_shared (2)",
+  "description": "possible deadlock in xfs_ilock_attr_map_shared (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in xfs_ilock_attr_map_shared (2)"
+  },
+  "fix_commit": "79357cd06d41d0f5a11b17d7c86176e395d10ef2",
+  "affected_files": [
+    "include/linux/kasan.h",
+    "mm/kasan/shadow.c",
+    "mm/vmalloc.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/linux/kasan.h",
+      "changed_lines": [
+        "-int kasan_populate_vmalloc(unsigned long addr, unsigned long size);",
+        "+int kasan_populate_vmalloc(unsigned long addr, unsigned long size, gfp_t gfp_mask);",
+        "-\t\t\t\t\tunsigned long size)",
+        "+\t\t\t\t\tunsigned long size, gfp_t gfp_mask)",
+        "-\t\t\t\t\tunsigned long size)",
+        "+\t\t\t\t\tunsigned long size, gfp_t gfp_mask)"
+      ],
+      "hunks": [
+        {
+          "old_start": 562,
+          "new_start": 562
+        },
+        {
+          "old_start": 574,
+          "new_start": 574
+        },
+        {
+          "old_start": 610,
+          "new_start": 610
+        }
+      ]
+    },
+    {
+      "path": "mm/kasan/shadow.c",
+      "changed_lines": [
+        "-static int ___alloc_pages_bulk(struct page **pages, int nr_pages)",
+        "+static int ___alloc_pages_bulk(struct page **pages, int nr_pages, gfp_t gfp_mask)",
+        "-\t\tnr_populated = alloc_pages_bulk(GFP_KERNEL, nr_pages, pages);",
+        "+\t\tnr_populated = alloc_pages_bulk(gfp_mask, nr_pages, pages);",
+        "-static int __kasan_populate_vmalloc(unsigned long start, unsigned long end)",
+        "+static int __kasan_populate_vmalloc(unsigned long start, unsigned long end, gfp_t gfp_mask)",
+        "+\tunsigned int flags;",
+        "-\tdata.pages = (struct page **)__get_free_page(GFP_KERNEL | __GFP_ZERO);",
+        "+\tdata.pages = (struct page **)__get_free_page(gfp_mask | __GFP_ZERO);",
+        "-\t\tret = ___alloc_pages_bulk(data.pages, nr_pages);",
+        "+\t\tret = ___alloc_pages_bulk(data.pages, nr_pages, gfp_mask);",
+        "+",
+        "+\t\t/*",
+        "+\t\t * page tables allocations ignore external gfp mask, enforce it",
+        "+\t\t * by the scope API",
+        "+\t\t */",
+        "+\t\tif ((gfp_mask & (__GFP_FS | __GFP_IO)) == __GFP_IO)",
+        "+\t\t\tflags = memalloc_nofs_save();",
+        "+\t\telse if ((gfp_mask & (__GFP_FS | __GFP_IO)) == 0)",
+        "+\t\t\tflags = memalloc_noio_save();",
+        "+",
+        "+",
+        "+\t\tif ((gfp_mask & (__GFP_FS | __GFP_IO)) == __GFP_IO)",
+        "+\t\t\tmemalloc_nofs_restore(flags);",
+        "+\t\telse if ((gfp_mask & (__GFP_FS | __GFP_IO)) == 0)",
+        "+\t\t\tmemalloc_noio_restore(flags);",
+        "+",
+        "-int kasan_populate_vmalloc(unsigned long addr, unsigned long size)",
+        "+int kasan_populate_vmalloc(unsigned long addr, unsigned long size, gfp_t gfp_mask)",
+        "-\tret = __kasan_populate_vmalloc(shadow_start, shadow_end);",
+        "+\tret = __kasan_populate_vmalloc(shadow_start, shadow_end, gfp_mask);"
+      ],
+      "hunks": [
+        {
+          "old_start": 336,
+          "new_start": 336
+        },
+        {
+          "old_start": 354,
+          "new_start": 354
+        },
+        {
+          "old_start": 386,
+          "new_start": 403
+        },
+        {
+          "old_start": 415,
+          "new_start": 432
+        }
+      ]
+    },
+    {
+      "path": "mm/vmalloc.c",
+      "changed_lines": [
+        "+\t/* Only reclaim behaviour flags are relevant. */",
+        "+\tgfp_mask = gfp_mask & GFP_RECLAIM_MASK;",
+        "-\t\tgfp_mask = gfp_mask & GFP_RECLAIM_MASK;",
+        "-",
+        "-\tret = kasan_populate_vmalloc(addr, size);",
+        "+\tret = kasan_populate_vmalloc(addr, size, gfp_mask);",
+        "-\t\tif (kasan_populate_vmalloc(vas[area]->va_start, sizes[area]))",
+        "+\t\tif (kasan_populate_vmalloc(vas[area]->va_start, sizes[area], GFP_KERNEL))"
+      ],
+      "hunks": [
+        {
+          "old_start": 2026,
+          "new_start": 2026
+        },
+        {
+          "old_start": 2038,
+          "new_start": 2040
+        },
+        {
+          "old_start": 2089,
+          "new_start": 2089
+        },
+        {
+          "old_start": 4826,
+          "new_start": 4826
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-3470c9ffee63e4ab/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-3470c9ffee63e4ab/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-3470c9ffee63e4ab"
+}

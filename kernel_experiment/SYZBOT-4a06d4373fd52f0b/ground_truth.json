@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-4a06d4373fd52f0b",
+  "fix_commit": "c915d8f5918bea7c3962b09b8884ca128bfd9b0c",
+  "files": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ],
+  "description": "KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+  "cwes": [],
+  "title": "KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "inotify_handle_inode_event",
+    "fn_b": "inotify_remove_from_idr"
+  },
+  "two_threads_summary": "KCSAN-reported two-context race. KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+  "audit_notes": "Subject: 'inotify: Avoid reporting event with invalid wd'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines).",
+  "fix_commit_message": "c915d8f5918bea7c3962b09b8884ca128bfd9b0c\ninotify: Avoid reporting event with invalid wd\n\nWhen inotify_freeing_mark() races with inotify_handle_inode_event() it\ncan happen that inotify_handle_inode_event() sees that i_mark->wd got\nalready reset to -1 and reports this value to userspace which can\nconfuse the inotify listener. Avoid the problem by validating that wd is\nsensible (and pretend the mark got removed before the event got\ngenerated otherwise).\n\nCC: stable@vger.kernel.org\nFixes: 7e790dd5fc93 (\"inotify: fix error paths in inotify_update_watch\")\nMessage-Id: <20230424163219.9250-1-jack@suse.cz>\nReported-by: syzbot+4a06d4373fd52f0b2f9c@syzkaller.appspotmail.com\nReviewed-by: Amir Goldstein <amir73il@gmail.com>\nSigned-off-by: Jan Kara <jack@suse.cz>",
+  "patch": "commit c915d8f5918bea7c3962b09b8884ca128bfd9b0c\nAuthor: Jan Kara <jack@suse.cz>\nDate:   Mon Apr 24 18:32:19 2023 +0200\n\n    inotify: Avoid reporting event with invalid wd\n    \n    When inotify_freeing_mark() races with inotify_handle_inode_event() it\n    can happen that inotify_handle_inode_event() sees that i_mark->wd got\n    already reset to -1 and reports this value to userspace which can\n    confuse the inotify listener. Avoid the problem by validating that wd is\n    sensible (and pretend the mark got removed before the event got\n    generated otherwise).\n    \n    CC: stable@vger.kernel.org\n    Fixes: 7e790dd5fc93 (\"inotify: fix error paths in inotify_update_watch\")\n    Message-Id: <20230424163219.9250-1-jack@suse.cz>\n    Reported-by: syzbot+4a06d4373fd52f0b2f9c@syzkaller.appspotmail.com\n    Reviewed-by: Amir Goldstein <amir73il@gmail.com>\n    Signed-off-by: Jan Kara <jack@suse.cz>\n\ndiff --git a/fs/notify/inotify/inotify_fsnotify.c b/fs/notify/inotify/inotify_fsnotify.c\nindex 49cfe2ae6d23..993375f0db67 100644\n--- a/fs/notify/inotify/inotify_fsnotify.c\n+++ b/fs/notify/inotify/inotify_fsnotify.c\n@@ -65,7 +65,7 @@ int inotify_handle_inode_event(struct fsnotify_mark *inode_mark, u32 mask,\n \tstruct fsnotify_event *fsn_event;\n \tstruct fsnotify_group *group = inode_mark->group;\n \tint ret;\n-\tint len = 0;\n+\tint len = 0, wd;\n \tint alloc_len = sizeof(struct inotify_event_info);\n \tstruct mem_cgroup *old_memcg;\n \n@@ -80,6 +80,13 @@ int inotify_handle_inode_event(struct fsnotify_mark *inode_mark, u32 mask,\n \ti_mark = container_of(inode_mark, struct inotify_inode_mark,\n \t\t\t      fsn_mark);\n \n+\t/*\n+\t * We can be racing with mark being detached. Don't report event with\n+\t * invalid wd.\n+\t */\n+\twd = READ_ONCE(i_mark->wd);\n+\tif (wd == -1)\n+\t\treturn 0;\n \t/*\n \t * Whoever is interested in the event, pays for the allocation. Do not\n \t * trigger OOM killer in the target monitoring memcg as it may have\n@@ -110,7 +117,7 @@ int inotify_handle_inode_event(struct fsnotify_mark *inode_mark, u32 mask,\n \tfsn_event = &event->fse;\n \tfsnotify_init_event(fsn_event);\n \tevent->mask = mask;\n-\tevent->wd = i_mark->wd;\n+\tevent->wd = wd;\n \tevent->sync_cookie = cookie;\n \tevent->name_len = len;\n \tif (len)\n",
+  "affected_files_from_patch": [
+    "fs/notify/inotify/inotify_fsnotify.c"
+  ]
+}

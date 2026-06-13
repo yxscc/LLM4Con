@@ -1,0 +1,201 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-55e0fc8b1eed5bc0",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in tcp_ack / tcp_poll (2)",
+  "description": "KCSAN: data-race in tcp_ack / tcp_poll (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "tcp_ack",
+    "fn_b": "tcp_poll"
+  },
+  "fix_commit": "ab4e846a82d0ae00176de19f2db3c5c64f8eb5f2",
+  "affected_files": [
+    "include/net/sock.h",
+    "include/trace/events/sock.h",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/inet_diag.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_output.c",
+    "net/sched/em_meta.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/sock.h",
+      "changed_lines": [
+        "-\treturn sk->sk_wmem_queued >> 1;",
+        "+\treturn READ_ONCE(sk->sk_wmem_queued) >> 1;",
+        "-\treturn READ_ONCE(sk->sk_sndbuf) - sk->sk_wmem_queued;",
+        "+\treturn READ_ONCE(sk->sk_sndbuf) - READ_ONCE(sk->sk_wmem_queued);",
+        "+}",
+        "+",
+        "+static inline void sk_wmem_queued_add(struct sock *sk, int val)",
+        "+{",
+        "+\tWRITE_ONCE(sk->sk_wmem_queued, sk->sk_wmem_queued + val);",
+        "-\tif (sk->sk_wmem_queued >= READ_ONCE(sk->sk_sndbuf))",
+        "+\tif (READ_ONCE(sk->sk_wmem_queued) >= READ_ONCE(sk->sk_sndbuf))",
+        "-\tsk->sk_wmem_queued -= skb->truesize;",
+        "+\tsk_wmem_queued_add(sk, -skb->truesize);",
+        "-\tsk->sk_wmem_queued   += copy;",
+        "+\tsk_wmem_queued_add(sk, copy);"
+      ],
+      "hunks": [
+        {
+          "old_start": 878,
+          "new_start": 878
+        },
+        {
+          "old_start": 1207,
+          "new_start": 1212
+        },
+        {
+          "old_start": 1467,
+          "new_start": 1472
+        },
+        {
+          "old_start": 2014,
+          "new_start": 2019
+        }
+      ]
+    },
+    {
+      "path": "include/trace/events/sock.h",
+      "changed_lines": [
+        "-\t\t__entry->wmem_queued = sk->sk_wmem_queued;",
+        "+\t\t__entry->wmem_queued = READ_ONCE(sk->sk_wmem_queued);"
+      ],
+      "hunks": [
+        {
+          "old_start": 115,
+          "new_start": 115
+        }
+      ]
+    },
+    {
+      "path": "net/core/datagram.c",
+      "changed_lines": [
+        "-\t\t\tsk->sk_wmem_queued += truesize;",
+        "+\t\t\tsk_wmem_queued_add(sk, truesize);"
+      ],
+      "hunks": [
+        {
+          "old_start": 640,
+          "new_start": 640
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-\tmem[SK_MEMINFO_WMEM_QUEUED] = sk->sk_wmem_queued;",
+        "+\tmem[SK_MEMINFO_WMEM_QUEUED] = READ_ONCE(sk->sk_wmem_queued);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3212,
+          "new_start": 3212
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/inet_diag.c",
+      "changed_lines": [
+        "-\t\t\t.idiag_wmem = sk->sk_wmem_queued,",
+        "+\t\t\t.idiag_wmem = READ_ONCE(sk->sk_wmem_queued),"
+      ],
+      "hunks": [
+        {
+          "old_start": 193,
+          "new_start": 193
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp.c",
+      "changed_lines": [
+        "-\tsk->sk_wmem_queued += skb->truesize;",
+        "+\tsk_wmem_queued_add(sk, skb->truesize);",
+        "-\t\tsk->sk_wmem_queued += copy;",
+        "+\t\tsk_wmem_queued_add(sk, copy);"
+      ],
+      "hunks": [
+        {
+          "old_start": 659,
+          "new_start": 659
+        },
+        {
+          "old_start": 1034,
+          "new_start": 1034
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp_output.c",
+      "changed_lines": [
+        "-\tsk->sk_wmem_queued += skb->truesize;",
+        "+\tsk_wmem_queued_add(sk, skb->truesize);",
+        "-\tsk->sk_wmem_queued += buff->truesize;",
+        "+\tsk_wmem_queued_add(sk, buff->truesize);",
+        "-\t\tsk->sk_wmem_queued -= delta_truesize;",
+        "+\t\tsk_wmem_queued_add(sk, -delta_truesize);",
+        "-\tsk->sk_wmem_queued += buff->truesize;",
+        "+\tsk_wmem_queued_add(sk, buff->truesize);",
+        "-\tsk->sk_wmem_queued += nskb->truesize;",
+        "+\tsk_wmem_queued_add(sk, nskb->truesize);",
+        "-\t\t\tsk->sk_wmem_queued += nskb->truesize;",
+        "+\t\t\tsk_wmem_queued_add(sk, nskb->truesize);",
+        "-\tsk->sk_wmem_queued += skb->truesize;",
+        "+\tsk_wmem_queued_add(sk, skb->truesize);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1199,
+          "new_start": 1199
+        },
+        {
+          "old_start": 1333,
+          "new_start": 1333
+        },
+        {
+          "old_start": 1443,
+          "new_start": 1443
+        },
+        {
+          "old_start": 1888,
+          "new_start": 1888
+        },
+        {
+          "old_start": 2152,
+          "new_start": 2152
+        },
+        {
+          "old_start": 3222,
+          "new_start": 3222
+        },
+        {
+          "old_start": 3447,
+          "new_start": 3447
+        }
+      ]
+    },
+    {
+      "path": "net/sched/em_meta.c",
+      "changed_lines": [
+        "-\tdst->value = sk->sk_wmem_queued;",
+        "+\tdst->value = READ_ONCE(sk->sk_wmem_queued);"
+      ],
+      "hunks": [
+        {
+          "old_start": 446,
+          "new_start": 446
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-55e0fc8b1eed5bc0/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-55e0fc8b1eed5bc0/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-55e0fc8b1eed5bc0"
+}

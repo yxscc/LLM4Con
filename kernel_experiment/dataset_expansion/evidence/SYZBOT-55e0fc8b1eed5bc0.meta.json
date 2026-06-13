@@ -1,0 +1,22 @@
+{
+  "bug_id": "SYZBOT-55e0fc8b1eed5bc0",
+  "tier": "A",
+  "title": "KCSAN: data-race in tcp_ack / tcp_poll (2)",
+  "mainline_sha": "ab4e846a82d0ae00176de19f2db3c5c64f8eb5f2",
+  "all_shas_seen": [
+    "55e0fc8b1eed5bc00a04e9feca83fc60ef301291",
+    "ab4e846a82d0ae00176de19f2db3c5c64f8eb5f2"
+  ],
+  "c_paths": [
+    "include/net/sock.h",
+    "include/trace/events/sock.h",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/inet_diag.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_output.c",
+    "net/sched/em_meta.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 10
+}

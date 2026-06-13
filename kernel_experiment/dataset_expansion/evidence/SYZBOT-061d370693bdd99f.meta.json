@@ -1,0 +1,20 @@
+{
+  "bug_id": "SYZBOT-061d370693bdd99f",
+  "tier": "A",
+  "title": "KCSAN: data-race in __mod_timer / kvfree_call_rcu",
+  "mainline_sha": "a23da88c6c80e41e0503e0b481a22c9eea63f263",
+  "all_shas_seen": [
+    "061d370693bdd99f9d34",
+    "a23da88c6c80e41e0503e0b481a22c9eea63f263",
+    "adc218676eef25575469234709c2d87185ca223a",
+    "b5a24181e461e8bfa8cdf35e1804679dc1bebcdd",
+    "4236f913808cebef1b9e078726a4e5d56064f7ad",
+    "715ca9dd687f89ddaac8ec8ccb3b5e5a30311a99",
+    "5b7c893ed5ed0fc1cbe28c0e3296a6fb45698486"
+  ],
+  "c_paths": [
+    "kernel/rcu/tree.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

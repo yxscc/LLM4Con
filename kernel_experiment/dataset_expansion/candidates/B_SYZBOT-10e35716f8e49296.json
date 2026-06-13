@@ -1,0 +1,203 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-10e35716f8e49296",
+  "source": "syzbot",
+  "title": "possible deadlock in vsock_linger",
+  "description": "possible deadlock in vsock_linger",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in vsock_linger"
+  },
+  "fix_commit": "6548d364a3e850326831799d7e3ea2d7bb97ba08",
+  "affected_files": [
+    "include/linux/cgroup-defs.h",
+    "kernel/cgroup/cgroup.c",
+    "tools/testing/selftests/cgroup/lib/include/cgroup_util.h",
+    "tools/testing/selftests/cgroup/test_cpu.c",
+    "include/linux/misc_cgroup.h",
+    "net/vmw_vsock/af_vsock.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/linux/cgroup-defs.h",
+      "changed_lines": [
+        "-\tseqcount_t freeze_seq;",
+        "+\tseqcount_spinlock_t freeze_seq;"
+      ],
+      "hunks": [
+        {
+          "old_start": 452,
+          "new_start": 452
+        }
+      ]
+    },
+    {
+      "path": "kernel/cgroup/cgroup.c",
+      "changed_lines": [
+        "-\tseqcount_init(&cgrp->freezer.freeze_seq);",
+        "+\tseqcount_spinlock_init(&cgrp->freezer.freeze_seq, &css_set_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 5892,
+          "new_start": 5892
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/cgroup/lib/include/cgroup_util.h",
+      "changed_lines": [
+        "+/*",
+        "+ * Checks if two given values differ by less than err% of their sum and assert",
+        "+ * with detailed debug info if not.",
+        "+ */",
+        "+static inline int values_close_report(long a, long b, int err)",
+        "+{",
+        "+\tlong diff  = labs(a - b);",
+        "+\tlong limit = (a + b) / 100 * err;",
+        "+\tdouble actual_err = (a + b) ? (100.0 * diff / (a + b)) : 0.0;",
+        "+\tint close = diff <= limit;",
+        "+",
+        "+\tif (!close)",
+        "+\t\tfprintf(stderr,",
+        "+\t\t\t\"[FAIL] actual=%ld expected=%ld | diff=%ld | limit=%ld | \"",
+        "+\t\t\t\"tolerance=%d%% | actual_error=%.2f%%\\n\",",
+        "+\t\t\ta, b, diff, limit, err, actual_err);",
+        "+",
+        "+\treturn close;",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        }
+      ]
+    },
+    {
+      "path": "tools/testing/selftests/cgroup/test_cpu.c",
+      "changed_lines": [
+        "-\tif (!values_close(usage_usec, expected_usage_usec, 1))",
+        "+\tif (!values_close_report(usage_usec, expected_usage_usec, 1))",
+        "-\t\tif (!values_close(nice_usec, expected_nice_usec, 1))",
+        "+\t\tif (!values_close_report(nice_usec, expected_nice_usec, 1))",
+        "-\t\tif (!values_close(delta, children[0].usage, 35))",
+        "+\t\tif (!values_close_report(delta, children[0].usage, 35))",
+        "-\t\tif (!values_close(children[i + 1].usage, children[0].usage, 15))",
+        "+\t\tif (!values_close_report(children[i + 1].usage, children[0].usage, 15))",
+        "-\t\tif (!values_close(leaf[0].usage, nested_leaf_usage, 15))",
+        "+\t\tif (!values_close_report(leaf[0].usage, nested_leaf_usage, 15))",
+        "-\t} else if (!values_close(leaf[0].usage * 2, nested_leaf_usage, 15))",
+        "+\t} else if (!values_close_report(leaf[0].usage * 2, nested_leaf_usage, 15))",
+        "-\tif (!values_close(child_usage, nested_leaf_usage, 1))",
+        "+\tif (!values_close_report(child_usage, nested_leaf_usage, 1))",
+        "-\tif (!values_close(usage_usec, expected_usage_usec, 10))",
+        "+\tif (!values_close_report(usage_usec, expected_usage_usec, 10))",
+        "-\tif (!values_close(usage_usec, expected_usage_usec, 10))",
+        "+\tif (!values_close_report(usage_usec, expected_usage_usec, 10))"
+      ],
+      "hunks": [
+        {
+          "old_start": 219,
+          "new_start": 219
+        },
+        {
+          "old_start": 291,
+          "new_start": 291
+        },
+        {
+          "old_start": 404,
+          "new_start": 404
+        },
+        {
+          "old_start": 444,
+          "new_start": 444
+        },
+        {
+          "old_start": 573,
+          "new_start": 573
+        },
+        {
+          "old_start": 691,
+          "new_start": 691
+        },
+        {
+          "old_start": 762,
+          "new_start": 762
+        }
+      ]
+    },
+    {
+      "path": "include/linux/misc_cgroup.h",
+      "changed_lines": [
+        "-\t/* Intel TDX HKIDs resource */",
+        "+\t/** @MISC_CG_RES_TDX: Intel TDX HKIDs resource */"
+      ],
+      "hunks": [
+        {
+          "old_start": 19,
+          "new_start": 19
+        }
+      ]
+    },
+    {
+      "path": "net/vmw_vsock/af_vsock.c",
+      "changed_lines": [
+        "-\tif (vsk->transport) {",
+        "-\t\tif (vsk->transport == new_transport) {",
+        "-\t\t\tret = 0;",
+        "-\t\t\tgoto err;",
+        "-\t\t}",
+        "+\tif (vsk->transport && vsk->transport == new_transport) {",
+        "+\t\tret = 0;",
+        "+\t\tgoto err;",
+        "+\t}",
+        "+\t/* We increase the module refcnt to prevent the transport unloading",
+        "+\t * while there are open sockets assigned to it.",
+        "+\t */",
+        "+\tif (!new_transport || !try_module_get(new_transport->module)) {",
+        "+\t\tret = -ENODEV;",
+        "+\t\tgoto err;",
+        "+\t}",
+        "+",
+        "+\t/* It's safe to release the mutex after a successful try_module_get().",
+        "+\t * Whichever transport `new_transport` points at, it won't go away until",
+        "+\t * the last module_put() below or in vsock_deassign_transport().",
+        "+\t */",
+        "+\tmutex_unlock(&vsock_register_mutex);",
+        "+",
+        "+\tif (vsk->transport) {",
+        "-\t/* We increase the module refcnt to prevent the transport unloading",
+        "-\t * while there are open sockets assigned to it.",
+        "-\t */",
+        "-\tif (!new_transport || !try_module_get(new_transport->module)) {",
+        "-\t\tret = -ENODEV;",
+        "-\t\tgoto err;",
+        "-\t}",
+        "-",
+        "-\t/* It's safe to release the mutex after a successful try_module_get().",
+        "-\t * Whichever transport `new_transport` points at, it won't go away until",
+        "-\t * the last module_put() below or in vsock_deassign_transport().",
+        "-\t */",
+        "-\tmutex_unlock(&vsock_register_mutex);",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 487,
+          "new_start": 487
+        },
+        {
+          "old_start": 512,
+          "new_start": 526
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-10e35716f8e49296/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-10e35716f8e49296/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-10e35716f8e49296"
+}

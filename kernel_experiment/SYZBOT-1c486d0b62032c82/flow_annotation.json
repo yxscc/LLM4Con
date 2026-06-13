@@ -1,0 +1,205 @@
+{
+  "bug_id": "SYZBOT-1c486d0b62032c82",
+  "status": "complete",
+  "summary": "Failed/successful execve paths clear fs_struct::in_exec outside the intended cred_guard_mutex window while clone(CLONE_FS) observes the flag.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "execve state writer",
+      "entry": {
+        "function": "bprm_execve",
+        "file": "fs/exec.c",
+        "kind": "syscall_exec_path"
+      },
+      "call_chain": [
+        {
+          "function": "bprm_execve",
+          "file": "fs/exec.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "execve path after prepare_bprm_creds"
+        },
+        {
+          "function": "check_unsafe_exec",
+          "file": "fs/exec.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "sets fs->in_exec while holding fs->lock and cred_guard_mutex"
+        }
+      ],
+      "bug_site": {
+        "function": "bprm_execve",
+        "file": "fs/exec.c",
+        "line": 1863,
+        "code": "current->fs->in_exec = 0;"
+      }
+    },
+    "thread_b": {
+      "role": "CLONE_FS observer",
+      "entry": {
+        "function": "copy_fs",
+        "file": "kernel/fork.c",
+        "kind": "syscall_clone_path"
+      },
+      "call_chain": [
+        {
+          "function": "copy_fs",
+          "file": "kernel/fork.c",
+          "present_in_src": false,
+          "present_in_bitcode": false,
+          "evidence": "ground truth names copy_fs as the clone(CLONE_FS) reader; fs/exec.c comments name copy_fs protection"
+        }
+      ],
+      "bug_site": {
+        "function": "copy_fs",
+        "file": "kernel/fork.c",
+        "line": 0,
+        "code": "reads fs->in_exec under fs->lock when deciding CLONE_FS sharing"
+      }
+    },
+    "interleaving": [
+      "Exec sets fs->in_exec=1 during unsafe-exec checks.",
+      "If exec fails or succeeds, the old code cleared current->fs->in_exec later without the same cred_guard_mutex ordering.",
+      "A sibling clone(CLONE_FS) path can observe or overwrite the flag, so the fix moves clearing into begin_new_exec()/free_bprm() while cred_guard_mutex is held."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct fs_struct::in_exec",
+    "access_a": {
+      "function": "bprm_execve",
+      "file": "fs/exec.c",
+      "line": 1863,
+      "kind": "write",
+      "code": "current->fs->in_exec = 0;"
+    },
+    "access_b": {
+      "function": "copy_fs",
+      "file": "kernel/fork.c",
+      "line": 0,
+      "kind": "read",
+      "code": "copy_fs reads fs->in_exec to reject CLONE_FS during exec"
+    },
+    "required_ordering": "The in_exec flag must be cleared while still protected by cred_guard_mutex so concurrent exec/clone users cannot observe a stale or prematurely cleared state."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct fs_struct::in_exec",
+    "object_kind": "state_flag",
+    "confidence": "high",
+    "why_relevant": "The boolean state flag gates clone(CLONE_FS) sharing during exec and is the exact field reordered by the patch.",
+    "aliases": [
+      {
+        "name": "p->fs->in_exec",
+        "function": "check_unsafe_exec",
+        "file": "fs/exec.c",
+        "evidence": "sets the flag after checking fs users"
+      },
+      {
+        "name": "current->fs->in_exec",
+        "function": "bprm_execve",
+        "file": "fs/exec.c",
+        "evidence": "old clear site after exec success/failure"
+      },
+      {
+        "name": "fs->in_exec",
+        "function": "copy_fs",
+        "file": "kernel/fork.c",
+        "evidence": "clone-side reader from ground truth"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "bprm_execve current task",
+          "to": "current->fs -> in_exec",
+          "evidence": "exec path owns the current fs_struct"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "clone copy_fs argument/current task",
+          "to": "shared fs_struct -> in_exec",
+          "evidence": "CLONE_FS attempts to share the same fs_struct"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "check_unsafe_exec",
+        "file": "fs/exec.c",
+        "line": 1633,
+        "kind": "write",
+        "code": "p->fs->in_exec = 1;"
+      },
+      {
+        "function": "bprm_execve",
+        "file": "fs/exec.c",
+        "line": 1863,
+        "kind": "write",
+        "code": "current->fs->in_exec = 0;"
+      },
+      {
+        "function": "copy_fs",
+        "file": "kernel/fork.c",
+        "line": 0,
+        "kind": "read",
+        "code": "fs->in_exec"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "fs_struct allocation for task filesystem state"
+      ],
+      "published_by": [
+        "CLONE_FS shares fs_struct among threads"
+      ],
+      "invalidated_by": [
+        "exec completion/failure clears in_exec"
+      ],
+      "freed_by": [
+        "task/fs_struct teardown after users drop"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "fs/exec.c"
+    ],
+    "candidate_files": [
+      "kernel/fork.c"
+    ],
+    "analysis_conclusion": "fs/exec.c contains the patch, the writer, and the comments documenting copy_fs protection. copy_fs is noted as an external stack/candidate file because the existing focused bitcode covers the patched behavior but not kernel/fork.c.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 4,
+    "src_file_count_after": 4,
+    "compiled_files": [
+      "fs/exec.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "exec.ll",
+    "bitcode_input_files": [
+      "exec.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 236
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Clears current->fs->in_exec in begin_new_exec() and free_bprm(); removes later clears in bprm_execve()."
+    ],
+    "indirect_edges": [
+      "exec_binprm() calls begin_new_exec() through binfmt handlers."
+    ],
+    "entry_discovery_log": [
+      "exec.ll contains bprm_execve, check_unsafe_exec, begin_new_exec, and free_bprm."
+    ],
+    "repair_commands": [],
+    "notes": [
+      "copy_fs is not present in the focused case source/bitcode; the two-context model is still supported by the commit message and fs/exec.c comments."
+    ]
+  }
+}

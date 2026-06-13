@@ -1,0 +1,70 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-148c2885d71194f1",
+  "source": "syzbot",
+  "title": "possible deadlock in vfs_fallocate",
+  "description": "possible deadlock in vfs_fallocate",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in vfs_fallocate"
+  },
+  "fix_commit": "fb4415a12632f0b9078a0aa80c16745d48fcfc74",
+  "affected_files": [
+    "drivers/staging/android/ashmem.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/staging/android/ashmem.c",
+      "changed_lines": [
+        "+static atomic_t ashmem_shrink_inflight = ATOMIC_INIT(0);",
+        "+static DECLARE_WAIT_QUEUE_HEAD(ashmem_shrink_wait);",
+        "+",
+        "-\tstruct ashmem_range *range, *next;",
+        "-\tlist_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {",
+        "+\twhile (!list_empty(&ashmem_lru_list)) {",
+        "+\t\tstruct ashmem_range *range =",
+        "+\t\t\tlist_first_entry(&ashmem_lru_list, typeof(*range), lru);",
+        "+\t\tstruct file *f = range->asma->file;",
+        "-\t\trange->asma->file->f_op->fallocate(range->asma->file,",
+        "-\t\t\t\tFALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,",
+        "-\t\t\t\tstart, end - start);",
+        "+\t\tget_file(f);",
+        "+\t\tatomic_inc(&ashmem_shrink_inflight);",
+        "+\t\tmutex_unlock(&ashmem_mutex);",
+        "+\t\tf->f_op->fallocate(f,",
+        "+\t\t\t\t   FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,",
+        "+\t\t\t\t   start, end - start);",
+        "+\t\tfput(f);",
+        "+\t\tif (atomic_dec_and_test(&ashmem_shrink_inflight))",
+        "+\t\t\twake_up_all(&ashmem_shrink_wait);",
+        "+\t\tif (!mutex_trylock(&ashmem_mutex))",
+        "+\t\t\tgoto out;",
+        "+out:",
+        "+\twait_event(ashmem_shrink_wait, !atomic_read(&ashmem_shrink_inflight));"
+      ],
+      "hunks": [
+        {
+          "old_start": 75,
+          "new_start": 75
+        },
+        {
+          "old_start": 439,
+          "new_start": 442
+        },
+        {
+          "old_start": 449,
+          "new_start": 451
+        },
+        {
+          "old_start": 714,
+          "new_start": 728
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-148c2885d71194f1/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-148c2885d71194f1/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-148c2885d71194f1"
+}

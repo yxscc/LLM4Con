@@ -1,0 +1,89 @@
+{
+  "bug_id": "SYZBOT-4a06d4373fd52f0b",
+  "status": "complete",
+  "summary": "Inotify event delivery can read an inotify mark watch descriptor while mark teardown concurrently resets the descriptor to -1.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "inotify inode event callback",
+      "entry": {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "kind": "fsnotify_callback"},
+      "call_chain": [
+        {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "inotify_fsnotify_ops.handle_inode_event points to this callback."}
+      ],
+      "bug_site": {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "line": 113, "code": "event->wd = i_mark->wd;"}
+    },
+    "thread_b": {
+      "role": "inotify mark removal",
+      "entry": {"function": "__x64_sys_inotify_rm_watch", "file": "fs/notify/inotify/inotify_user.c", "kind": "syscall"},
+      "call_chain": [
+        {"function": "__x64_sys_inotify_rm_watch", "file": "fs/notify/inotify/inotify_user.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "inotify_user.ll contains the syscall-generated removal entry."},
+        {"function": "fsnotify_destroy_mark", "file": "fs/notify/mark.c", "present_in_src": false, "present_in_bitcode": false, "evidence": "inotify_rm_watch calls fsnotify_destroy_mark on the mark."},
+        {"function": "inotify_ignored_and_remove_idr", "file": "fs/notify/inotify/inotify_user.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "inotify_freeing_mark invokes this helper through fsnotify ops."},
+        {"function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Helper removes the mark and resets wd."}
+      ],
+      "bug_site": {"function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "line": 511, "code": "i_mark->wd = -1;"}
+    },
+    "interleaving": [
+      "fsnotify dispatches an inode event to inotify_handle_inode_event and it derives i_mark from the fsnotify mark.",
+      "A concurrent watch removal destroys the mark, removes it from the inotify idr, and resets i_mark->wd to -1.",
+      "Without sampling and validating wd, event delivery can queue an event with invalid watch descriptor -1."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct inotify_inode_mark::wd",
+    "access_a": {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "line": 113, "kind": "read", "code": "event->wd = i_mark->wd;"},
+    "access_b": {"function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "line": 511, "kind": "write", "code": "i_mark->wd = -1;"},
+    "required_ordering": "Event delivery must not report a descriptor after mark teardown invalidates it; the fix samples wd with READ_ONCE and drops events with wd == -1."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct inotify_inode_mark::wd",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "wd is the userspace-visible watch descriptor; racing teardown can invalidate it while event delivery copies it into a queued event.",
+    "aliases": [
+      {"name": "i_mark->wd", "function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "evidence": "i_mark is container_of(inode_mark, struct inotify_inode_mark, fsn_mark)."},
+      {"name": "i_mark->wd", "function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "evidence": "Removal helper resets the watch descriptor after idr_remove."},
+      {"name": "event->wd", "function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "evidence": "The event stores a copy of i_mark->wd for userspace."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "fsnotify callback inode_mark", "to": "container_of(...)->wd", "evidence": "Event handler converts fsnotify_mark to inotify_inode_mark."}],
+      "thread_b": [{"from": "inotify_rm_watch wd/id", "to": "idr lookup i_mark->wd", "evidence": "Removal finds the mark in the group idr and passes it to inotify_remove_from_idr."}]
+    },
+    "access_sites": [
+      {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "line": 113, "kind": "read", "code": "event->wd = i_mark->wd;"},
+      {"function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "line": 511, "kind": "write", "code": "i_mark->wd = -1;"}
+    ],
+    "lifetime": {
+      "allocated_by": ["inotify watch creation allocates struct inotify_inode_mark"],
+      "published_by": ["watch insertion assigns wd and stores the mark in group->inotify_data.idr"],
+      "invalidated_by": ["inotify_remove_from_idr removes the idr entry and sets wd to -1"],
+      "freed_by": ["fsnotify mark reference release after destroy"]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["fs/notify/inotify/inotify_fsnotify.c", "fs/notify/inotify/inotify_user.c", "fs/notify/inotify/inotify.h"],
+    "candidate_files": ["fs/notify/mark.c"],
+    "analysis_conclusion": "The event callback, inotify ops, watch removal helper, and wd reset are represented; fsnotify core mark destruction is a candidate indirect caller outside the repaired source set.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": ["fs/notify/inotify/inotify_user.c", "fs/notify/fdinfo.h"],
+    "src_file_count_before": 1,
+    "src_file_count_after": 2,
+    "compiled_files": ["fs/notify/inotify/inotify_fsnotify.c", "fs/notify/inotify/inotify_user.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": ["inotify_fsnotify.ll", "inotify_user.ll"],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 93
+  },
+  "evidence": {
+    "patch_hunks": ["c915d8f5918b samples i_mark->wd with READ_ONCE, checks wd == -1, and copies the sampled wd into event->wd."],
+    "indirect_edges": ["inotify_fsnotify_ops.handle_inode_event = inotify_handle_inode_event.", "inotify_fsnotify_ops.freeing_mark = inotify_freeing_mark, which calls inotify_ignored_and_remove_idr."],
+    "entry_discovery_log": ["merged.ll defines inotify_handle_inode_event, inotify_ignored_and_remove_idr, and inotify_remove_from_idr."],
+    "repair_commands": ["Copied fs/notify/inotify/inotify_user.c from c915d8f5918b^.", "Created a temporary vulnerable-revision worktree, copied matching inotify.h and fdinfo.h, compiled inotify_user.c with clang-15 and -DCC_USING_FENTRY=1, and linked with inotify_fsnotify.ll."],
+    "notes": ["Initial compile against the main checkout failed due cross-revision fsnotify flag names and missing ../fdinfo.h; vulnerable-revision headers fixed it."]
+  }
+}

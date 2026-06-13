@@ -1,0 +1,18 @@
+{
+  "bug_id": "SYZBOT-3cc3a12efa69aa6f",
+  "tier": "A",
+  "title": "KCSAN: data-race in register_netdevice / type_show (2)",
+  "mainline_sha": "cc26c2661fefea215f41edb665193324a5f99021",
+  "all_shas_seen": [
+    "3cc3a12efa69aa6f0e9dd6faec52663ea8020bc0",
+    "cc26c2661fefea215f41edb665193324a5f99021",
+    "462abc9de7a13d90c5dcb81f440465041d06ba75",
+    "b13baccc3850ca8b8cccbf8ed9912dbaa0fdf7f3"
+  ],
+  "c_paths": [
+    "net/core/dev.c",
+    "net/core/net-sysfs.c"
+  ],
+  "n_files_shown": 2,
+  "n_functions_shown": 4
+}

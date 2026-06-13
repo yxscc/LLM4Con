@@ -1,0 +1,17 @@
+{
+  "bug_id": "SYZBOT-015a92c50abf7973",
+  "tier": "B",
+  "title": "possible deadlock in smc_shutdown (3)",
+  "mainline_sha": "9f7c02e031570e8291a63162c6c046dc15ff85b0",
+  "all_shas_seen": [
+    "015a92c50abf7973ea2105acabff6d1dbf17d703",
+    "9f7c02e031570e8291a63162c6c046dc15ff85b0",
+    "4f54dff818d7b5b1d84becd5d90bc46e6233c0d7",
+    "35aa5763e111b9aff896ec234b34b445fc0ac96e"
+  ],
+  "c_paths": [
+    "drivers/block/nbd.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 0
+}

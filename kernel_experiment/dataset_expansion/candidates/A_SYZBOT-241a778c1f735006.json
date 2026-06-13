@@ -1,0 +1,44 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-241a778c1f735006",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in udpv6_queue_rcv_one_skb / udpv6_queue_rcv_one_skb",
+  "description": "KCSAN: data-race in udpv6_queue_rcv_one_skb / udpv6_queue_rcv_one_skb",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "udpv6_queue_rcv_one_skb",
+    "fn_b": "udpv6_queue_rcv_one_skb"
+  },
+  "fix_commit": "ee8d153d46a3b98c064ee15c0c0a3bbf1450e5a1",
+  "affected_files": [
+    "include/net/busy_poll.h"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/busy_poll.h",
+      "changed_lines": [
+        "-\tsk->sk_napi_id = skb->napi_id;",
+        "+\tWRITE_ONCE(sk->sk_napi_id, skb->napi_id);",
+        "-\tif (!sk->sk_napi_id)",
+        "-\t\tsk->sk_napi_id = skb->napi_id;",
+        "+\tif (!READ_ONCE(sk->sk_napi_id))",
+        "+\t\tWRITE_ONCE(sk->sk_napi_id, skb->napi_id);"
+      ],
+      "hunks": [
+        {
+          "old_start": 122,
+          "new_start": 122
+        },
+        {
+          "old_start": 132,
+          "new_start": 132
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-241a778c1f735006/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-241a778c1f735006/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-241a778c1f735006"
+}

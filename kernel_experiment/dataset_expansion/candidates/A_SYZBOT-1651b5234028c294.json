@@ -1,0 +1,159 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-1651b5234028c294",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in ip_vs_add_service / ip_vs_out_hook",
+  "description": "KCSAN: data-race in ip_vs_add_service / ip_vs_out_hook",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "ip_vs_add_service",
+    "fn_b": "ip_vs_out_hook"
+  },
+  "fix_commit": "944b6b216c0387ac3050cd8b773819ae360bfb1c",
+  "affected_files": [
+    "net/netfilter/ipvs/ip_vs_conn.c",
+    "net/netfilter/ipvs/ip_vs_core.c",
+    "net/netfilter/ipvs/ip_vs_ctl.c",
+    "net/netfilter/ipvs/ip_vs_est.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/netfilter/ipvs/ip_vs_conn.c",
+      "changed_lines": [
+        "-\t\t\tif (ipvs->enable)",
+        "+\t\t\tif (READ_ONCE(ipvs->enable))",
+        "-\t\tif (!ipvs->enable)",
+        "+\t\tif (!READ_ONCE(ipvs->enable))"
+      ],
+      "hunks": [
+        {
+          "old_start": 885,
+          "new_start": 885
+        },
+        {
+          "old_start": 1439,
+          "new_start": 1439
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_core.c",
+      "changed_lines": [
+        "-\tif (!ipvs->enable)",
+        "-\t\treturn NF_ACCEPT;",
+        "-",
+        "-\tif (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))",
+        "+\tif (unlikely(sysctl_backup_only(ipvs)))",
+        "-\tif (unlikely(sysctl_backup_only(ipvs) || !ipvs->enable))",
+        "+\tif (unlikely(sysctl_backup_only(ipvs)))",
+        "-\tipvs->enable = 0;",
+        "+\tWRITE_ONCE(ipvs->enable, 0);",
+        "-\t\tipvs->enable = 0;\t/* Disable packet reception */",
+        "+\t\tWRITE_ONCE(ipvs->enable, 0);\t/* Disable packet reception */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1353,
+          "new_start": 1353
+        },
+        {
+          "old_start": 1940,
+          "new_start": 1937
+        },
+        {
+          "old_start": 2108,
+          "new_start": 2105
+        },
+        {
+          "old_start": 2295,
+          "new_start": 2292
+        },
+        {
+          "old_start": 2367,
+          "new_start": 2364
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_ctl.c",
+      "changed_lines": [
+        "-\t\tif (!ipvs->enable)",
+        "+\t\tif (!READ_ONCE(ipvs->enable))",
+        "-\tif (!ipvs->enable) {",
+        "+\tif (!READ_ONCE(ipvs->enable)) {",
+        "-\t\tipvs->enable = 1;",
+        "+\t\tWRITE_ONCE(ipvs->enable, 1);"
+      ],
+      "hunks": [
+        {
+          "old_start": 256,
+          "new_start": 256
+        },
+        {
+          "old_start": 1483,
+          "new_start": 1483
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_est.c",
+      "changed_lines": [
+        "-\tif (!ipvs->enable)",
+        "+\tif (!READ_ONCE(ipvs->enable))",
+        "-\t    ipvs->enable && ipvs->est_max_threads)",
+        "+\t    READ_ONCE(ipvs->enable) && ipvs->est_max_threads)",
+        "-\tif (ipvs->enable && !ip_vs_est_stopped(ipvs)) {",
+        "+\tif (READ_ONCE(ipvs->enable) && !ip_vs_est_stopped(ipvs)) {",
+        "-\tif (!ipvs->est_max_threads && ipvs->enable)",
+        "+\tif (!ipvs->est_max_threads && READ_ONCE(ipvs->enable))",
+        "-\t\t\tif (!ipvs->enable || kthread_should_stop())",
+        "+\t\t\tif (!READ_ONCE(ipvs->enable) || kthread_should_stop())",
+        "-\t\tif (!ipvs->enable || kthread_should_stop())",
+        "+\t\tif (!READ_ONCE(ipvs->enable) || kthread_should_stop())",
+        "-\t\tif (!ipvs->enable)",
+        "+\t\tif (!READ_ONCE(ipvs->enable))",
+        "-\tif (!ipvs->enable || kthread_should_stop())",
+        "+\tif (!READ_ONCE(ipvs->enable) || kthread_should_stop())"
+      ],
+      "hunks": [
+        {
+          "old_start": 231,
+          "new_start": 231
+        },
+        {
+          "old_start": 306,
+          "new_start": 306
+        },
+        {
+          "old_start": 343,
+          "new_start": 343
+        },
+        {
+          "old_start": 486,
+          "new_start": 486
+        },
+        {
+          "old_start": 663,
+          "new_start": 663
+        },
+        {
+          "old_start": 681,
+          "new_start": 681
+        },
+        {
+          "old_start": 757,
+          "new_start": 757
+        },
+        {
+          "old_start": 787,
+          "new_start": 787
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-1651b5234028c294/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-1651b5234028c294/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-1651b5234028c294"
+}

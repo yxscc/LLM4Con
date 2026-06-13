@@ -1,0 +1,41 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-30774a6acf6a2cf6",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in start_this_handle / start_this_handle",
+  "description": "KCSAN: data-race in start_this_handle / start_this_handle",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "start_this_handle",
+    "fn_b": "start_this_handle"
+  },
+  "fix_commit": "3b1833e92baba135923af4a07e73fe6e54be5a2f",
+  "affected_files": [
+    "fs/jbd2/transaction.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/jbd2/transaction.c",
+      "changed_lines": [
+        "-\tif (!journal->j_running_transaction) {",
+        "+\t/*",
+        "+\t * This check is racy but it is just an optimization of allocating new",
+        "+\t * transaction early if there are high chances we'll need it. If we",
+        "+\t * guess wrong, we'll retry or free unused transaction.",
+        "+\t */",
+        "+\tif (!data_race(journal->j_running_transaction)) {"
+      ],
+      "hunks": [
+        {
+          "old_start": 349,
+          "new_start": 349
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-30774a6acf6a2cf6/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-30774a6acf6a2cf6/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-30774a6acf6a2cf6"
+}

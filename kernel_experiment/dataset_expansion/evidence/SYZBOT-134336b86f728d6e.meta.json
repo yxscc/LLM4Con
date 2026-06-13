@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-134336b86f728d6e",
+  "tier": "A",
+  "title": "KCSAN: data-race in find_next_bit / rcu_report_exp_cpu_mult",
+  "mainline_sha": "15c7c972cd26d89a26788e609c53b5a465324a6c",
+  "all_shas_seen": [
+    "134336b86f728d6e55a0",
+    "15c7c972cd26d89a26788e609c53b5a465324a6c"
+  ],
+  "c_paths": [
+    "kernel/rcu/tree_exp.h"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 5
+}

@@ -1,0 +1,17 @@
+{
+  "commit": "153a0d187e767c68733b8e9f46218eb1f41ab902",
+  "user_seeds": [
+    "net/ipv4/raw.c"
+  ],
+  "patch_files": [
+    "net/ipv4/raw.c"
+  ],
+  "changed_symbols_sample": [
+    "lock_sock",
+    "release_sock"
+  ],
+  "expanded": [
+    "net/ipv4/raw.c"
+  ],
+  "added_by_expander": {}
+}

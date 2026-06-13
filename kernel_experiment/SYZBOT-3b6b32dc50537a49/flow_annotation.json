@@ -1,0 +1,91 @@
+{
+  "bug_id": "SYZBOT-3b6b32dc50537a49",
+  "status": "complete",
+  "summary": "Epoll removal updates file->f_ep while the __fput fast path reads the same pointer without taking the epoll semaphore.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "epoll item removal",
+      "entry": {"function": "do_epoll_ctl", "file": "fs/eventpoll.c", "kind": "syscall"},
+      "call_chain": [
+        {"function": "do_epoll_ctl", "file": "fs/eventpoll.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "epoll_ctl syscall entry in eventpoll.ll."},
+        {"function": "__ep_remove", "file": "fs/eventpoll.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Removal path clears file->f_ep when the last epitem is removed."}
+      ],
+      "bug_site": {"function": "__ep_remove", "file": "fs/eventpoll.c", "line": 826, "code": "file->f_ep = NULL;"}
+    },
+    "thread_b": {
+      "role": "file final put cleanup",
+      "entry": {"function": "__fput", "file": "fs/file_table.c", "kind": "task_work_or_delayed_fput"},
+      "call_chain": [
+        {"function": "__fput", "file": "fs/file_table.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "__fput calls eventpoll_release(file) early in file cleanup."},
+        {"function": "eventpoll_release", "file": "include/linux/eventpoll.h", "present_in_src": true, "present_in_bitcode": true, "evidence": "Inline fast path reads file->f_ep before calling eventpoll_release_file()."},
+        {"function": "eventpoll_release_file", "file": "fs/eventpoll.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Full cleanup path is present in merged.ll after repair."}
+      ],
+      "bug_site": {"function": "eventpoll_release", "file": "include/linux/eventpoll.h", "line": 45, "code": "if (likely(!file->f_ep))"}
+    },
+    "interleaving": [
+      "epoll_ctl removes the last epitem for a target file and clears file->f_ep.",
+      "A final fput on the same file concurrently runs eventpoll_release() and reads file->f_ep as a lockless fast-path check.",
+      "The fix documents the intentional race with READ_ONCE/WRITE_ONCE on file->f_ep."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct file::f_ep",
+    "access_a": {"function": "__ep_remove", "file": "fs/eventpoll.c", "line": 826, "kind": "write", "code": "file->f_ep = NULL;"},
+    "access_b": {"function": "eventpoll_release", "file": "include/linux/eventpoll.h", "line": 45, "kind": "read", "code": "if (likely(!file->f_ep))"},
+    "required_ordering": "The fput fast-path read intentionally runs outside the epoll semaphore but must be marked against epoll's updates to file->f_ep."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct file::f_ep",
+    "object_kind": "pointer",
+    "confidence": "high",
+    "why_relevant": "file->f_ep is the shared epoll hook pointer that lets both epoll_ctl removal and file finalization discover whether a file is linked to epoll state.",
+    "aliases": [
+      {"name": "file->f_ep", "function": "__ep_remove", "file": "fs/eventpoll.c", "evidence": "struct file *file is taken from epi->ffd.file."},
+      {"name": "file->f_ep", "function": "eventpoll_release", "file": "include/linux/eventpoll.h", "evidence": "__fput passes the struct file directly to the inline release helper."},
+      {"name": "head", "function": "__ep_remove", "file": "fs/eventpoll.c", "evidence": "head is assigned from file->f_ep before list removal."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "epitem epi->ffd.file", "to": "file->f_ep", "evidence": "__ep_remove gets the target file through the epitem and updates its epoll hook pointer."}],
+      "thread_b": [{"from": "__fput(struct file *file)", "to": "eventpoll_release(file)->file->f_ep", "evidence": "__fput calls the inline eventpoll_release helper on the same file object."}]
+    },
+    "access_sites": [
+      {"function": "__ep_remove", "file": "fs/eventpoll.c", "line": 824, "kind": "read", "code": "head = file->f_ep;"},
+      {"function": "__ep_remove", "file": "fs/eventpoll.c", "line": 826, "kind": "write", "code": "file->f_ep = NULL;"},
+      {"function": "attach_epitem", "file": "fs/eventpoll.c", "line": 1606, "kind": "write", "code": "file->f_ep = head;"},
+      {"function": "eventpoll_release", "file": "include/linux/eventpoll.h", "line": 45, "kind": "read", "code": "if (likely(!file->f_ep))"}
+    ],
+    "lifetime": {
+      "allocated_by": ["attach_epitem allocates an epitems_head when file->f_ep is empty"],
+      "published_by": ["attach_epitem stores head into file->f_ep under file->f_lock"],
+      "invalidated_by": ["__ep_remove clears file->f_ep when removing the last hook"],
+      "freed_by": ["free_ephead frees the detached epitems_head after unlink"]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["fs/eventpoll.c", "include/linux/eventpoll.h", "fs/file_table.c"],
+    "candidate_files": [],
+    "analysis_conclusion": "The confirmed interleaving needs eventpoll removal, the inline eventpoll_release fast path, and __fput as the file cleanup entry.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": ["fs/file_table.c", "include/linux/filelock.h"],
+    "src_file_count_before": 1,
+    "src_file_count_after": 2,
+    "compiled_files": ["fs/eventpoll.c", "fs/file_table.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": ["eventpoll.ll", "file_table.ll"],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 251
+  },
+  "evidence": {
+    "patch_hunks": ["6474353a5e3d annotates file->f_ep stores in __ep_remove/attach_epitem and the eventpoll_release fast-path read."],
+    "indirect_edges": ["__fput calls eventpoll_release(file) from include/linux/eventpoll.h.", "eventpoll_release_file repeatedly calls __ep_remove(ep, epi, true) for file->f_ep entries."],
+    "entry_discovery_log": ["merged.ll defines do_epoll_ctl, __ep_remove, eventpoll_release_file, and __fput."],
+    "repair_commands": ["Copied fs/file_table.c and include/linux/filelock.h from fix_commit^.", "Compiled fs/file_table.c in a temporary non-destructive worktree for 6474353a5e3d^ and linked eventpoll.ll + file_table.ll with external llvm-link."],
+    "notes": ["Initial file_table.c compile against the main checkout failed on cross-revision filelock.h definitions; compiling in the vulnerable-revision worktree resolved it."]
+  }
+}

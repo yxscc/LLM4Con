@@ -1,0 +1,96 @@
+{
+  "bug_id": "SYZBOT-4b16e156132582a9",
+  "status": "uncertain",
+  "summary": "The reported TCP backlog race is representable as two kernel contexts, but the patch annotates sk_rcvbuf/sk_sndbuf reads while the reported tcp_recvmsg line reads sk_backlog.tail.",
+  "dataset_decision": {
+    "dual_thread_model": false,
+    "decision": "exclude_candidate",
+    "exclude_candidate": true,
+    "reason": "The fix commit patches sk_add_backlog caller reads of sk_rcvbuf/sk_sndbuf, but the embedded KCSAN stack's peer access in tcp_recvmsg is the backlog-tail check at tcp.c:2048. That access pair does not match the patched behavior, so using it as ground truth would train on a sibling or benign race rather than the actual patch.",
+    "reviewed_at": "2026-06-01"
+  },
+  "true_interleaving": {
+    "thread_a": {
+      "role": "TCP receive softirq backlog append",
+      "entry": {"function": "tcp_add_backlog", "file": "net/ipv4/tcp_ipv4.c", "kind": "softirq_net_rx"},
+      "call_chain": [
+        {"function": "tcp_add_backlog", "file": "net/ipv4/tcp_ipv4.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN write stack reports tcp_add_backlog and merged.ll defines it."},
+        {"function": "sk_add_backlog", "file": "include/net/sock.h", "present_in_src": false, "present_in_bitcode": true, "evidence": "Inline backlog helper writes sk->sk_backlog.tail/len."}
+      ],
+      "bug_site": {"function": "__sk_add_backlog", "file": "include/net/sock.h", "line": 902, "code": "sk->sk_backlog.tail = skb;"}
+    },
+    "thread_b": {
+      "role": "TCP recvmsg backlog check",
+      "entry": {"function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "kind": "socket_ops_recvmsg"},
+      "call_chain": [
+        {"function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN read stack reports tcp_recvmsg and tcp.ll was repaired into merged.ll."}
+      ],
+      "bug_site": {"function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "line": 2048, "code": "if (copied >= target && !sk->sk_backlog.tail)"}
+    },
+    "interleaving": [
+      "The receive softirq appends an skb to sk->sk_backlog through tcp_add_backlog/sk_add_backlog.",
+      "A task in tcp_recvmsg checks sk->sk_backlog.tail while deciding whether to break out of receive processing.",
+      "This two-context pair is in the KCSAN report, but the patch does not annotate this backlog-tail access."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "ambiguous: reported struct sock::sk_backlog.tail, patched struct sock::sk_rcvbuf/sk_sndbuf",
+    "access_a": {"function": "__sk_add_backlog", "file": "include/net/sock.h", "line": 902, "kind": "write", "code": "sk->sk_backlog.tail = skb;"},
+    "access_b": {"function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "line": 2048, "kind": "read", "code": "if (copied >= target && !sk->sk_backlog.tail)"},
+    "required_ordering": "Uncertain: the reported backlog-tail pair differs from the sk_rcvbuf/sk_sndbuf access family actually annotated by the patch."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct sock::{sk_backlog.tail, sk_rcvbuf, sk_sndbuf}",
+    "object_kind": "unknown",
+    "confidence": "low",
+    "why_relevant": "The visible KCSAN pair centers on sk_backlog.tail, but the fix changes lockless reads of sk_rcvbuf/sk_sndbuf in backlog admission. The core surface cannot be assigned to one variable without contradicting either the report or the patch.",
+    "aliases": [
+      {"name": "sk->sk_backlog.tail", "function": "__sk_add_backlog", "file": "include/net/sock.h", "evidence": "Reported write site appends an skb to the socket backlog."},
+      {"name": "sk->sk_backlog.tail", "function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "evidence": "Reported read site checks whether the backlog is empty."},
+      {"name": "sk->sk_rcvbuf", "function": "tcp_add_backlog", "file": "net/ipv4/tcp_ipv4.c", "evidence": "Patch changes the backlog limit calculation to READ_ONCE(sk->sk_rcvbuf)."},
+      {"name": "sk->sk_sndbuf", "function": "tcp_add_backlog", "file": "net/ipv4/tcp_ipv4.c", "evidence": "Patch also changes READ_ONCE(sk->sk_sndbuf)."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "tcp_add_backlog(struct sock *sk)", "to": "sk->sk_backlog.tail and sk_rcvbuf/sk_sndbuf", "evidence": "tcp_add_backlog receives the socket directly and both appends backlog and computes the backlog limit."}],
+      "thread_b": [{"from": "tcp_recvmsg(struct sock *sk)", "to": "sk->sk_backlog.tail", "evidence": "tcp_recvmsg reads the same socket's backlog tail in the reported line."}]
+    },
+    "access_sites": [
+      {"function": "tcp_add_backlog", "file": "net/ipv4/tcp_ipv4.c", "line": 1647, "kind": "read", "code": "u32 limit = sk->sk_rcvbuf + sk->sk_sndbuf;"},
+      {"function": "__sk_add_backlog", "file": "include/net/sock.h", "line": 902, "kind": "write", "code": "sk->sk_backlog.tail = skb;"},
+      {"function": "tcp_recvmsg", "file": "net/ipv4/tcp.c", "line": 2048, "kind": "read", "code": "if (copied >= target && !sk->sk_backlog.tail)"}
+    ],
+    "lifetime": {
+      "allocated_by": ["socket allocation initializes struct sock"],
+      "published_by": ["TCP socket file descriptor and network receive path"],
+      "invalidated_by": ["TCP socket close/destruction"],
+      "freed_by": ["protocol socket destruction"]
+    },
+    "notes": ["Marked low confidence because the patch/report mismatch prevents a reliable primary object choice."]
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["net/ipv4/tcp_ipv4.c", "net/ipv4/tcp.c", "net/core/sock.c", "net/llc/llc_conn.c", "net/sctp/input.c", "net/tipc/socket.c", "net/x25/x25_dev.c"],
+    "candidate_files": ["include/net/sock.h", "drivers/net/virtio_net.c", "net/ipv4/ip_input.c", "net/socket.c"],
+    "analysis_conclusion": "All patched source files plus repaired tcp.c are present in source/IR, but the case is excluded because the reported access pair does not align with the patch's annotated object.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": ["net/ipv4/tcp.c"],
+    "src_file_count_before": 6,
+    "src_file_count_after": 7,
+    "compiled_files": ["net/core/sock.c", "net/ipv4/tcp_ipv4.c", "net/llc/llc_conn.c", "net/sctp/input.c", "net/tipc/socket.c", "net/x25/x25_dev.c", "net/ipv4/tcp.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": ["sock.ll", "tcp_ipv4.ll", "llc_conn.ll", "input.ll", "socket.ll", "x25_dev.ll", "tcp.ll"],
+    "bitcode_linked_file_count": 7,
+    "selected_bitcode_defined_function_count": 1625
+  },
+  "evidence": {
+    "patch_hunks": ["8265792bf887 adds READ_ONCE around sk_rcvbuf/sk_sndbuf reads in tcp_add_backlog and sk_add_backlog callers."],
+    "indirect_edges": ["KCSAN stack reports receive softirq path into tcp_add_backlog and userspace read path into tcp_recvmsg."],
+    "entry_discovery_log": ["merged.ll defines tcp_add_backlog and tcp_recvmsg after repair."],
+    "repair_commands": ["Copied net/ipv4/tcp.c from 8265792bf887^.", "Compiled tcp.c with clang-15 and linked it with existing sock/tcp_ipv4/llc/sctp/tipc/x25 IR using external llvm-link."],
+    "notes": ["Manual line check of 8265792bf887^:net/ipv4/tcp.c shows reported tcp_recvmsg line 2048 is sk->sk_backlog.tail, not sk_rcvbuf/sk_sndbuf."]
+  }
+}

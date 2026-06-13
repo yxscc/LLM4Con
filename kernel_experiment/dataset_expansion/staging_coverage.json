@@ -1,0 +1,7724 @@
+{
+  "counts": {
+    "PATCH": 64,
+    "MISSING": 1,
+    "FULL": 35
+  },
+  "details": {
+    "CVE-2013-1792": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "install_user_keyrings"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "install_user_keyrings"
+      ],
+      "coverage": [
+        {
+          "fn": "install_user_keyrings",
+          "src": "src/process_keys.c",
+          "ll": "process_keys.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "install_user_keyrings"
+      ]
+    },
+    "CVE-2015-7550": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "keyctl_read_key"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "keyctl_read_key"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/keyctl.c",
+          "ll": null
+        },
+        {
+          "fn": "keyctl_read_key",
+          "src": "src/keyctl.c",
+          "ll": "keyctl.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "keyctl_read_key"
+      ]
+    },
+    "CVE-2016-7911": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "get_task_ioprio"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "get_task_ioprio"
+      ],
+      "coverage": [
+        {
+          "fn": "get_task_ioprio",
+          "src": "src/ioprio.c",
+          "ll": "ioprio.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "get_task_ioprio"
+      ]
+    },
+    "CVE-2016-9806": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "netlink_dump"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "netlink_dump"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/af_netlink.c",
+          "ll": null
+        },
+        {
+          "fn": "netlink_dump",
+          "src": "src/af_netlink.c",
+          "ll": "af_netlink.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "netlink_dump"
+      ]
+    },
+    "CVE-2017-15265": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "port_subs_info_init",
+        "snd_seq_client_port",
+        "snd_seq_ioctl_create_port"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "port_subs_info_init",
+        "snd_seq_client_port",
+        "snd_seq_ioctl_create_port"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/seq_memory.c",
+          "ll": null
+        },
+        {
+          "fn": "port_subs_info_init",
+          "src": "src/seq_ports.c",
+          "ll": "seq_ports.ll"
+        },
+        {
+          "fn": "snd_seq_client_port",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "snd_seq_ioctl_create_port",
+          "src": "src/seq_clientmgr.c",
+          "ll": "seq_clientmgr.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "port_subs_info_init",
+        "snd_seq_ioctl_create_port"
+      ]
+    },
+    "CVE-2017-6346": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "fanout_add",
+        "fanout_release",
+        "fanout_release_data",
+        "if",
+        "read_pnet"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "fanout_add",
+        "fanout_release",
+        "fanout_release_data",
+        "if",
+        "read_pnet"
+      ],
+      "coverage": [
+        {
+          "fn": "fanout_add",
+          "src": "src/af_packet.c",
+          "ll": "af_packet.ll"
+        },
+        {
+          "fn": "fanout_release",
+          "src": "src/af_packet.c",
+          "ll": "af_packet.ll"
+        },
+        {
+          "fn": "fanout_release_data",
+          "src": "src/af_packet.c",
+          "ll": "af_packet.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/af_packet.c",
+          "ll": null
+        },
+        {
+          "fn": "read_pnet",
+          "src": "src/af_packet.c",
+          "ll": "af_packet.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "fanout_add",
+        "fanout_release",
+        "fanout_release_data",
+        "read_pnet"
+      ]
+    },
+    "CVE-2022-48830": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "isotp_init",
+        "isotp_rcv",
+        "isotp_sock",
+        "time"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "isotp_init",
+        "isotp_rcv",
+        "isotp_sock",
+        "time",
+        "concurrency",
+        "frame",
+        "isotp",
+        "potential",
+        "race",
+        "reception"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/can/isotp.c",
+          "ll": null
+        },
+        {
+          "fn": "isotp_init",
+          "src": "src/net/can/isotp.c",
+          "ll": "isotp.ll"
+        },
+        {
+          "fn": "isotp_rcv",
+          "src": "src/net/can/isotp.c",
+          "ll": "isotp.ll"
+        },
+        {
+          "fn": "isotp_sock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "time",
+          "src": "src/net/can/isotp.c",
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "frame",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "isotp",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "potential",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reception",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "isotp_init",
+        "isotp_rcv"
+      ]
+    },
+    "CVE-2022-48931": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "configfs_register_subsystem",
+        "configfs_unregister_subsystem",
+        "rmdir"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "configfs_register_subsystem",
+        "configfs_unregister_subsystem",
+        "rmdir",
+        "concurrency",
+        "configfs",
+        "configfs_",
+        "race",
+        "register_subsystem"
+      ],
+      "coverage": [
+        {
+          "fn": "configfs_register_subsystem",
+          "src": "src/fs/configfs/dir.c",
+          "ll": "dir.ll"
+        },
+        {
+          "fn": "configfs_unregister_subsystem",
+          "src": "src/fs/configfs/dir.c",
+          "ll": "dir.ll"
+        },
+        {
+          "fn": "rmdir",
+          "src": "src/fs/configfs/dir.c",
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "configfs",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "configfs_",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "register_subsystem",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "configfs_register_subsystem",
+        "configfs_unregister_subsystem"
+      ]
+    },
+    "CVE-2022-49215": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "EXPORT_SYMBOL",
+        "__poll_t",
+        "__xsk_sendmsg",
+        "bool",
+        "if",
+        "xsk_generic_xmit",
+        "xsk_no_wakeup",
+        "xsk_recvmsg",
+        "xsk_sendmsg",
+        "xsk_wakeup"
+      ],
+      "patch_def_fns": [
+        "__xsk_recvmsg",
+        "__xsk_sendmsg",
+        "if",
+        "xsk_recvmsg",
+        "xsk_sendmsg",
+        "xsk_xmit",
+        "xsk_zc_xmit"
+      ],
+      "all_candidates": [
+        "EXPORT_SYMBOL",
+        "__poll_t",
+        "__xsk_sendmsg",
+        "bool",
+        "if",
+        "xsk_generic_xmit",
+        "xsk_no_wakeup",
+        "xsk_recvmsg",
+        "xsk_sendmsg",
+        "xsk_wakeup",
+        "__xsk_recvmsg",
+        "xsk_xmit",
+        "xsk_zc_xmit",
+        "concurrency",
+        "race",
+        "socket",
+        "teardown"
+      ],
+      "coverage": [
+        {
+          "fn": "EXPORT_SYMBOL",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__poll_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__xsk_sendmsg",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/xdp/xsk.c",
+          "ll": null
+        },
+        {
+          "fn": "xsk_generic_xmit",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "xsk_no_wakeup",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "xsk_recvmsg",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "xsk_sendmsg",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "xsk_wakeup",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "__xsk_recvmsg",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "xsk_xmit",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "xsk_zc_xmit",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "socket",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "teardown",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__xsk_sendmsg",
+        "xsk_generic_xmit",
+        "xsk_no_wakeup",
+        "xsk_recvmsg",
+        "xsk_sendmsg",
+        "xsk_wakeup"
+      ]
+    },
+    "CVE-2022-49589": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "amt_build_igmp_gq",
+        "amt_newlink",
+        "bool",
+        "if",
+        "igmp_group_added",
+        "igmp_ifc_event",
+        "igmpv3_add_delrec",
+        "igmpv3_del_delrec",
+        "ip_mc_add_src",
+        "ip_mc_del1_src",
+        "ip_mc_del_src",
+        "ip_mc_filter_del",
+        "ip_mc_reset",
+        "ipv4_is_multicast",
+        "sk_buff"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "amt_build_igmp_gq",
+        "amt_newlink",
+        "bool",
+        "if",
+        "igmp_group_added",
+        "igmp_ifc_event",
+        "igmpv3_add_delrec",
+        "igmpv3_del_delrec",
+        "ip_mc_add_src",
+        "ip_mc_del1_src",
+        "ip_mc_del_src",
+        "ip_mc_filter_del",
+        "ip_mc_reset",
+        "ipv4_is_multicast",
+        "sk_buff",
+        "around",
+        "concurrency",
+        "data",
+        "igmp",
+        "races",
+        "sysctl_igmp_qrv"
+      ],
+      "coverage": [
+        {
+          "fn": "amt_build_igmp_gq",
+          "src": "src/drivers/net/amt.c",
+          "ll": "amt.ll"
+        },
+        {
+          "fn": "amt_newlink",
+          "src": null,
+          "ll": "amt.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/net/amt.c",
+          "ll": null
+        },
+        {
+          "fn": "igmp_group_added",
+          "src": "src/net/ipv4/igmp.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "igmp_ifc_event",
+          "src": "src/net/ipv4/igmp.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "igmpv3_add_delrec",
+          "src": null,
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "igmpv3_del_delrec",
+          "src": "src/net/ipv4/igmp.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ip_mc_add_src",
+          "src": null,
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ip_mc_del1_src",
+          "src": null,
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ip_mc_del_src",
+          "src": null,
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ip_mc_filter_del",
+          "src": "src/net/ipv4/igmp.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ip_mc_reset",
+          "src": "src/net/ipv4/igmp.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "ipv4_is_multicast",
+          "src": "src/drivers/net/amt.c",
+          "ll": "igmp.ll"
+        },
+        {
+          "fn": "sk_buff",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "around",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "igmp",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "races",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sysctl_igmp_qrv",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "amt_build_igmp_gq",
+        "amt_newlink",
+        "igmp_group_added",
+        "igmp_ifc_event",
+        "igmpv3_add_delrec",
+        "igmpv3_del_delrec",
+        "ip_mc_add_src",
+        "ip_mc_del1_src",
+        "ip_mc_del_src",
+        "ip_mc_filter_del",
+        "ip_mc_reset",
+        "ipv4_is_multicast"
+      ]
+    },
+    "CVE-2022-49607": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "mutex_lock_double",
+        "perf_copy_attr",
+        "perf_event_set_clock",
+        "perf_event_set_output",
+        "perf_mmap"
+      ],
+      "patch_def_fns": [
+        "if",
+        "mutex_lock_double"
+      ],
+      "all_candidates": [
+        "if",
+        "mutex_lock_double",
+        "perf_copy_attr",
+        "perf_event_set_clock",
+        "perf_event_set_output",
+        "perf_mmap",
+        "between",
+        "concurrency",
+        "core",
+        "data",
+        "perf",
+        "perf_mmap_close",
+        "race"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/kernel/events/core.c",
+          "ll": null
+        },
+        {
+          "fn": "mutex_lock_double",
+          "src": "src/kernel/events/core.c",
+          "ll": "core.ll"
+        },
+        {
+          "fn": "perf_copy_attr",
+          "src": null,
+          "ll": "core.ll"
+        },
+        {
+          "fn": "perf_event_set_clock",
+          "src": "src/kernel/events/core.c",
+          "ll": "core.ll"
+        },
+        {
+          "fn": "perf_event_set_output",
+          "src": "src/kernel/events/core.c",
+          "ll": "core.ll"
+        },
+        {
+          "fn": "perf_mmap",
+          "src": "src/kernel/events/core.c",
+          "ll": "core.ll"
+        },
+        {
+          "fn": "between",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "core",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "perf",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "perf_mmap_close",
+          "src": "src/kernel/events/core.c",
+          "ll": "core.ll"
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "mutex_lock_double",
+        "perf_copy_attr",
+        "perf_event_set_clock",
+        "perf_event_set_output",
+        "perf_mmap"
+      ]
+    },
+    "CVE-2022-49634": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "proc_dou8vec_minmax"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "proc_dou8vec_minmax",
+        "concurrency",
+        "data",
+        "races",
+        "sysctl"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/kernel/sysctl.c",
+          "ll": null
+        },
+        {
+          "fn": "proc_dou8vec_minmax",
+          "src": null,
+          "ll": "sysctl.ll"
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "races",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sysctl",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "proc_dou8vec_minmax"
+      ]
+    },
+    "CVE-2022-49641": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "do_proc_douintvec_conv",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "do_proc_douintvec_conv",
+        "if",
+        "concurrency",
+        "data",
+        "proc_douintvec",
+        "races",
+        "sysctl"
+      ],
+      "coverage": [
+        {
+          "fn": "do_proc_douintvec_conv",
+          "src": null,
+          "ll": "sysctl.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/kernel/sysctl.c",
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "proc_douintvec",
+          "src": null,
+          "ll": "sysctl.ll"
+        },
+        {
+          "fn": "races",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sysctl",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "do_proc_douintvec_conv"
+      ]
+    },
+    "CVE-2023-53046": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "hci_cmd_sync_clear",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "hci_cmd_sync_clear",
+        "if",
+        "Bluetooth",
+        "concurrency",
+        "condition",
+        "race"
+      ],
+      "coverage": [
+        {
+          "fn": "hci_cmd_sync_clear",
+          "src": "src/net/bluetooth/hci_sync.c",
+          "ll": "hci_sync.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/bluetooth/hci_sync.c",
+          "ll": null
+        },
+        {
+          "fn": "Bluetooth",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "condition",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "hci_cmd_sync_clear"
+      ]
+    },
+    "CVE-2024-26861": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "PACKET_CB",
+        "bool",
+        "counter_validate",
+        "decrypt_packet",
+        "wg_packet_rx_poll"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "PACKET_CB",
+        "bool",
+        "counter_validate",
+        "decrypt_packet",
+        "wg_packet_rx_poll",
+        "annotate",
+        "around",
+        "concurrency",
+        "counter",
+        "data",
+        "race",
+        "receive",
+        "receiving_counter",
+        "wireguard"
+      ],
+      "coverage": [
+        {
+          "fn": "PACKET_CB",
+          "src": "src/drivers/net/wireguard/receive.c",
+          "ll": null
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "counter_validate",
+          "src": "src/drivers/net/wireguard/receive.c",
+          "ll": "receive.ll"
+        },
+        {
+          "fn": "decrypt_packet",
+          "src": "src/drivers/net/wireguard/receive.c",
+          "ll": "receive.ll"
+        },
+        {
+          "fn": "wg_packet_rx_poll",
+          "src": "src/drivers/net/wireguard/receive.c",
+          "ll": "receive.ll"
+        },
+        {
+          "fn": "annotate",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "around",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "counter",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "receive",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "receiving_counter",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "wireguard",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "counter_validate",
+        "decrypt_packet",
+        "wg_packet_rx_poll"
+      ]
+    },
+    "CVE-2024-26862": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "dev_queue_xmit_nit",
+        "if",
+        "packet_getsockopt",
+        "packet_setsockopt",
+        "switch"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "dev_queue_xmit_nit",
+        "if",
+        "packet_getsockopt",
+        "packet_setsockopt",
+        "switch",
+        "annotate",
+        "around",
+        "concurrency",
+        "data",
+        "ignore_outgoing",
+        "packet",
+        "races"
+      ],
+      "coverage": [
+        {
+          "fn": "dev_queue_xmit_nit",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/packet/af_packet.c",
+          "ll": null
+        },
+        {
+          "fn": "packet_getsockopt",
+          "src": null,
+          "ll": "af_packet.ll"
+        },
+        {
+          "fn": "packet_setsockopt",
+          "src": null,
+          "ll": "af_packet.ll"
+        },
+        {
+          "fn": "switch",
+          "src": "src/net/packet/af_packet.c",
+          "ll": null
+        },
+        {
+          "fn": "annotate",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "around",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ignore_outgoing",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "packet",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "races",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "dev_queue_xmit_nit",
+        "packet_getsockopt",
+        "packet_setsockopt"
+      ]
+    },
+    "CVE-2024-26974": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "adf_dev_aer_schedule_reset",
+        "adf_device_reset_worker",
+        "adf_slot_reset",
+        "if",
+        "test_bit"
+      ],
+      "patch_def_fns": [
+        "completion_done",
+        "if"
+      ],
+      "all_candidates": [
+        "adf_dev_aer_schedule_reset",
+        "adf_device_reset_worker",
+        "adf_slot_reset",
+        "if",
+        "test_bit",
+        "completion_done"
+      ],
+      "coverage": [
+        {
+          "fn": "adf_dev_aer_schedule_reset",
+          "src": null,
+          "ll": "adf_aer.ll"
+        },
+        {
+          "fn": "adf_device_reset_worker",
+          "src": "src/adf_aer.c",
+          "ll": "adf_aer.ll"
+        },
+        {
+          "fn": "adf_slot_reset",
+          "src": "src/adf_aer.c",
+          "ll": "adf_aer.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/adf_dev_mgr.c",
+          "ll": null
+        },
+        {
+          "fn": "test_bit",
+          "src": "src/adf_init.c",
+          "ll": null
+        },
+        {
+          "fn": "completion_done",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "adf_dev_aer_schedule_reset",
+        "adf_device_reset_worker",
+        "adf_slot_reset"
+      ]
+    },
+    "CVE-2024-26984": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "nv50_instobj_acquire"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "nv50_instobj_acquire",
+        "around",
+        "concurrency",
+        "condition",
+        "instmem",
+        "nouveau",
+        "race",
+        "stores"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/nv50.c",
+          "ll": null
+        },
+        {
+          "fn": "nv50_instobj_acquire",
+          "src": "src/drivers/gpu/drm/nouveau/nvkm/subdev/instmem/nv50.c",
+          "ll": "nv50.ll"
+        },
+        {
+          "fn": "around",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "condition",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "instmem",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "nouveau",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "stores",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "nv50_instobj_acquire"
+      ]
+    },
+    "CVE-2024-27019": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__nft_obj_type_get",
+        "nft_obj_type_get",
+        "nft_object_type"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__nft_obj_type_get",
+        "nft_obj_type_get",
+        "nft_object_type",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "__nft_obj_type_get",
+          "src": "src/nf_tables_api.c",
+          "ll": "nf_tables_api.ll"
+        },
+        {
+          "fn": "nft_obj_type_get",
+          "src": "src/nf_tables_api.c",
+          "ll": "nf_tables_api.ll"
+        },
+        {
+          "fn": "nft_object_type",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/nf_tables_api.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__nft_obj_type_get",
+        "nft_obj_type_get"
+      ]
+    },
+    "CVE-2024-27030": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "irqreturn_t",
+        "rvu_mbox_intr_handler",
+        "rvu_queue_work",
+        "rvu_register_interrupts"
+      ],
+      "patch_def_fns": [
+        "rvu_mbox_intr_handler",
+        "rvu_mbox_pf_intr_handler"
+      ],
+      "all_candidates": [
+        "irqreturn_t",
+        "rvu_mbox_intr_handler",
+        "rvu_queue_work",
+        "rvu_register_interrupts",
+        "rvu_mbox_pf_intr_handler"
+      ],
+      "coverage": [
+        {
+          "fn": "irqreturn_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rvu_mbox_intr_handler",
+          "src": "src/drivers/net/ethernet/marvell/octeontx2/af/rvu.c",
+          "ll": "rvu.ll"
+        },
+        {
+          "fn": "rvu_queue_work",
+          "src": null,
+          "ll": "rvu.ll"
+        },
+        {
+          "fn": "rvu_register_interrupts",
+          "src": "src/drivers/net/ethernet/marvell/octeontx2/af/rvu.c",
+          "ll": "rvu.ll"
+        },
+        {
+          "fn": "rvu_mbox_pf_intr_handler",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "rvu_mbox_intr_handler",
+        "rvu_queue_work",
+        "rvu_register_interrupts"
+      ]
+    },
+    "CVE-2024-27404": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__mptcp_subflow_connect",
+        "fill_remote_addresses_vec",
+        "if",
+        "mptcp_for_each_subflow",
+        "mptcp_for_each_subflow_safe",
+        "mptcp_pm_nl_rm_addr_or_subflow",
+        "subflow_finish_connect",
+        "subflow_ulp_clone",
+        "subflow_ulp_release"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__mptcp_subflow_connect",
+        "fill_remote_addresses_vec",
+        "if",
+        "mptcp_for_each_subflow",
+        "mptcp_for_each_subflow_safe",
+        "mptcp_pm_nl_rm_addr_or_subflow",
+        "subflow_finish_connect",
+        "subflow_ulp_clone",
+        "subflow_ulp_release"
+      ],
+      "coverage": [
+        {
+          "fn": "__mptcp_subflow_connect",
+          "src": null,
+          "ll": "subflow.ll"
+        },
+        {
+          "fn": "fill_remote_addresses_vec",
+          "src": null,
+          "ll": "pm_netlink.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/mptcp/pm_netlink.c",
+          "ll": null
+        },
+        {
+          "fn": "mptcp_for_each_subflow",
+          "src": "src/net/mptcp/pm_netlink.c",
+          "ll": null
+        },
+        {
+          "fn": "mptcp_for_each_subflow_safe",
+          "src": "src/net/mptcp/pm_netlink.c",
+          "ll": null
+        },
+        {
+          "fn": "mptcp_pm_nl_rm_addr_or_subflow",
+          "src": null,
+          "ll": "pm_netlink.ll"
+        },
+        {
+          "fn": "subflow_finish_connect",
+          "src": "src/net/mptcp/subflow.c",
+          "ll": "subflow.ll"
+        },
+        {
+          "fn": "subflow_ulp_clone",
+          "src": null,
+          "ll": "subflow.ll"
+        },
+        {
+          "fn": "subflow_ulp_release",
+          "src": "src/net/mptcp/subflow.c",
+          "ll": "subflow.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__mptcp_subflow_connect",
+        "fill_remote_addresses_vec",
+        "mptcp_pm_nl_rm_addr_or_subflow",
+        "subflow_finish_connect",
+        "subflow_ulp_clone",
+        "subflow_ulp_release"
+      ]
+    },
+    "CVE-2024-35898": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__nft_flowtable_type_get",
+        "if",
+        "nft_flowtable_parse_hook",
+        "nft_flowtable_type_get"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__nft_flowtable_type_get",
+        "if",
+        "nft_flowtable_parse_hook",
+        "nft_flowtable_type_get"
+      ],
+      "coverage": [
+        {
+          "fn": "__nft_flowtable_type_get",
+          "src": "src/net/netfilter/nf_tables_api.c",
+          "ll": "nf_tables_api.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/netfilter/nf_tables_api.c",
+          "ll": null
+        },
+        {
+          "fn": "nft_flowtable_parse_hook",
+          "src": null,
+          "ll": "nf_tables_api.ll"
+        },
+        {
+          "fn": "nft_flowtable_type_get",
+          "src": "src/net/netfilter/nf_tables_api.c",
+          "ll": "nf_tables_api.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__nft_flowtable_type_get",
+        "nft_flowtable_parse_hook",
+        "nft_flowtable_type_get"
+      ]
+    },
+    "CVE-2024-35977": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "cros_ec_uart_probe"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "cros_ec_uart_probe"
+      ],
+      "coverage": [
+        {
+          "fn": "cros_ec_uart_probe",
+          "src": "src/cros_ec_uart.c",
+          "ll": "cros_ec_uart.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "cros_ec_uart_probe"
+      ]
+    },
+    "CVE-2024-35986": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "tusb1210",
+        "tusb1210_chargers",
+        "tusb1210_chg_det_work",
+        "tusb1210_get_online",
+        "tusb1210_remove_charger_detect"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "tusb1210",
+        "tusb1210_chargers",
+        "tusb1210_chg_det_work",
+        "tusb1210_get_online",
+        "tusb1210_remove_charger_detect",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "tusb1210",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tusb1210_chargers",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tusb1210_chg_det_work",
+          "src": "src/drivers/phy/ti/phy-tusb1210.c",
+          "ll": "phy-tusb1210.ll"
+        },
+        {
+          "fn": "tusb1210_get_online",
+          "src": "src/drivers/phy/ti/phy-tusb1210.c",
+          "ll": "phy-tusb1210.ll"
+        },
+        {
+          "fn": "tusb1210_remove_charger_detect",
+          "src": "src/drivers/phy/ti/phy-tusb1210.c",
+          "ll": "phy-tusb1210.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/phy/ti/phy-tusb1210.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "tusb1210_chg_det_work",
+        "tusb1210_get_online",
+        "tusb1210_remove_charger_detect"
+      ]
+    },
+    "CVE-2024-35999": {
+      "status": "MISSING",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "TCP_Server_Info",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "TCP_Server_Info",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "TCP_Server_Info",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/transport.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": []
+    },
+    "CVE-2024-36938": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "sk_psock_data_ready",
+        "sk_psock_put",
+        "sk_psock_verdict_data_ready"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "sk_psock_data_ready",
+        "sk_psock_put",
+        "sk_psock_verdict_data_ready"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/core/skmsg.c",
+          "ll": null
+        },
+        {
+          "fn": "sk_psock_data_ready",
+          "src": null,
+          "ll": "skmsg.ll"
+        },
+        {
+          "fn": "sk_psock_put",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sk_psock_verdict_data_ready",
+          "src": "src/net/core/skmsg.c",
+          "ll": "skmsg.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "sk_psock_data_ready",
+        "sk_psock_verdict_data_ready"
+      ]
+    },
+    "CVE-2024-38596": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "unix_stream_sendmsg"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "unix_stream_sendmsg"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/unix/af_unix.c",
+          "ll": null
+        },
+        {
+          "fn": "unix_stream_sendmsg",
+          "src": null,
+          "ll": "af_unix.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "unix_stream_sendmsg"
+      ]
+    },
+    "CVE-2024-39503": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "ip_set_destroy",
+        "ip_set_destroy_set",
+        "ip_set_destroy_set_rcu",
+        "ip_set_flush_set",
+        "ip_set_init",
+        "ip_set_net_init",
+        "ip_set_setname_policy",
+        "ip_set_timeout_expired",
+        "list_set_destroy",
+        "list_set_kadd",
+        "list_set_kdel",
+        "list_set_uadd",
+        "list_set_udel",
+        "list_set_utest"
+      ],
+      "patch_def_fns": [
+        "_destroy_all_sets",
+        "if",
+        "ip_set_destroy_set",
+        "ip_set_destroy_set_rcu",
+        "ip_set_net_exit",
+        "ip_set_net_pre_exit"
+      ],
+      "all_candidates": [
+        "if",
+        "ip_set_destroy",
+        "ip_set_destroy_set",
+        "ip_set_destroy_set_rcu",
+        "ip_set_flush_set",
+        "ip_set_init",
+        "ip_set_net_init",
+        "ip_set_setname_policy",
+        "ip_set_timeout_expired",
+        "list_set_destroy",
+        "list_set_kadd",
+        "list_set_kdel",
+        "list_set_uadd",
+        "list_set_udel",
+        "list_set_utest",
+        "_destroy_all_sets",
+        "ip_set_net_exit",
+        "ip_set_net_pre_exit"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/netfilter/ipset/ip_set_list_set.c",
+          "ll": null
+        },
+        {
+          "fn": "ip_set_destroy",
+          "src": null,
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_destroy_set",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_destroy_set_rcu",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_flush_set",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_init",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_net_init",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_setname_policy",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ip_set_timeout_expired",
+          "src": "src/net/netfilter/ipset/ip_set_list_set.c",
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_destroy",
+          "src": "src/net/netfilter/ipset/ip_set_list_set.c",
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_kadd",
+          "src": null,
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_kdel",
+          "src": null,
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_uadd",
+          "src": null,
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_udel",
+          "src": null,
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "list_set_utest",
+          "src": null,
+          "ll": "ip_set_list_set.ll"
+        },
+        {
+          "fn": "_destroy_all_sets",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ip_set_net_exit",
+          "src": "src/net/netfilter/ipset/ip_set_core.c",
+          "ll": "ip_set_core.ll"
+        },
+        {
+          "fn": "ip_set_net_pre_exit",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "ip_set_destroy",
+        "ip_set_destroy_set",
+        "ip_set_destroy_set_rcu",
+        "ip_set_flush_set",
+        "ip_set_init",
+        "ip_set_net_init",
+        "ip_set_timeout_expired",
+        "list_set_destroy",
+        "list_set_kadd",
+        "list_set_kdel",
+        "list_set_uadd",
+        "list_set_udel",
+        "list_set_utest"
+      ]
+    },
+    "CVE-2024-39508": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__io_worker_busy",
+        "__io_worker_idle",
+        "bool",
+        "create_io_worker",
+        "if",
+        "io_init_new_worker",
+        "io_worker",
+        "io_worker_exit",
+        "io_wq_acct",
+        "io_wq_dec_running",
+        "io_wq_enqueue",
+        "io_wq_get_acct",
+        "io_wq_worker",
+        "io_wq_worker_running",
+        "io_wq_worker_sleeping"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__io_worker_busy",
+        "__io_worker_idle",
+        "bool",
+        "create_io_worker",
+        "if",
+        "io_init_new_worker",
+        "io_worker",
+        "io_worker_exit",
+        "io_wq_acct",
+        "io_wq_dec_running",
+        "io_wq_enqueue",
+        "io_wq_get_acct",
+        "io_wq_worker",
+        "io_wq_worker_running",
+        "io_wq_worker_sleeping"
+      ],
+      "coverage": [
+        {
+          "fn": "__io_worker_busy",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "__io_worker_idle",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "create_io_worker",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/io_uring/io-wq.c",
+          "ll": null
+        },
+        {
+          "fn": "io_init_new_worker",
+          "src": null,
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_worker",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "io_worker_exit",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_acct",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "io_wq_dec_running",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_enqueue",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_get_acct",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_worker",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_worker_running",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        },
+        {
+          "fn": "io_wq_worker_sleeping",
+          "src": "src/io_uring/io-wq.c",
+          "ll": "io-wq.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__io_worker_busy",
+        "__io_worker_idle",
+        "create_io_worker",
+        "io_init_new_worker",
+        "io_worker_exit",
+        "io_wq_dec_running",
+        "io_wq_enqueue",
+        "io_wq_get_acct",
+        "io_wq_worker",
+        "io_wq_worker_running",
+        "io_wq_worker_sleeping"
+      ]
+    },
+    "CVE-2024-40953": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "kvm_vcpu_on_spin"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "kvm_vcpu_on_spin"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/virt/kvm/kvm_main.c",
+          "ll": null
+        },
+        {
+          "fn": "kvm_vcpu_on_spin",
+          "src": "src/virt/kvm/kvm_main.c",
+          "ll": "kvm_main.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "kvm_vcpu_on_spin"
+      ]
+    },
+    "CVE-2024-41005": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "netpoll_owner_active"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "netpoll_owner_active"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/core/netpoll.c",
+          "ll": null
+        },
+        {
+          "fn": "netpoll_owner_active",
+          "src": "src/net/core/netpoll.c",
+          "ll": "netpoll.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "netpoll_owner_active"
+      ]
+    },
+    "CVE-2024-41081": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "ila_output"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "ila_output"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/ipv6/ila/ila_lwt.c",
+          "ll": null
+        },
+        {
+          "fn": "ila_output",
+          "src": "src/net/ipv6/ila/ila_lwt.c",
+          "ll": "ila_lwt.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "ila_output"
+      ]
+    },
+    "CVE-2024-42234": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "folio_migrate_mapping",
+        "if",
+        "mem_cgroup_migrate"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "folio_migrate_mapping",
+        "if",
+        "mem_cgroup_migrate"
+      ],
+      "coverage": [
+        {
+          "fn": "folio_migrate_mapping",
+          "src": null,
+          "ll": "migrate.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/mm/migrate.c",
+          "ll": null
+        },
+        {
+          "fn": "mem_cgroup_migrate",
+          "src": "src/mm/memcontrol.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "folio_migrate_mapping"
+      ]
+    },
+    "CVE-2024-43830": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "led_trigger_set"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "led_trigger_set"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/led-triggers.c",
+          "ll": null
+        },
+        {
+          "fn": "led_trigger_set",
+          "src": "src/led-triggers.c",
+          "ll": "led-triggers.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "led_trigger_set"
+      ]
+    },
+    "CVE-2024-43891": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "event_callback",
+        "event_enable_read",
+        "event_enable_write",
+        "event_file_data",
+        "event_filter_read",
+        "event_filter_write",
+        "event_id_read",
+        "event_inject_write",
+        "event_trigger_regex_open",
+        "f_next",
+        "f_show",
+        "f_start",
+        "hist_debug_show",
+        "hist_show",
+        "if",
+        "p_stop",
+        "ssize_t",
+        "switch",
+        "trigger_start"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "event_callback",
+        "event_enable_read",
+        "event_enable_write",
+        "event_file_data",
+        "event_filter_read",
+        "event_filter_write",
+        "event_id_read",
+        "event_inject_write",
+        "event_trigger_regex_open",
+        "f_next",
+        "f_show",
+        "f_start",
+        "hist_debug_show",
+        "hist_show",
+        "if",
+        "p_stop",
+        "ssize_t",
+        "switch",
+        "trigger_start"
+      ],
+      "coverage": [
+        {
+          "fn": "event_callback",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "event_enable_read",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "event_enable_write",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "event_file_data",
+          "src": null,
+          "ll": "trace_events_hist.ll"
+        },
+        {
+          "fn": "event_filter_read",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "event_filter_write",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "event_id_read",
+          "src": "src/trace_events.c",
+          "ll": null
+        },
+        {
+          "fn": "event_inject_write",
+          "src": null,
+          "ll": "trace_events_inject.ll"
+        },
+        {
+          "fn": "event_trigger_regex_open",
+          "src": "src/trace_events_trigger.c",
+          "ll": "trace_events_trigger.ll"
+        },
+        {
+          "fn": "f_next",
+          "src": "src/trace_events.c",
+          "ll": null
+        },
+        {
+          "fn": "f_show",
+          "src": "src/trace_events.c",
+          "ll": null
+        },
+        {
+          "fn": "f_start",
+          "src": "src/trace_events.c",
+          "ll": null
+        },
+        {
+          "fn": "hist_debug_show",
+          "src": "src/trace_events_hist.c",
+          "ll": "trace_events_hist.ll"
+        },
+        {
+          "fn": "hist_show",
+          "src": "src/trace_events_hist.c",
+          "ll": "trace_events_hist.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/trace_events_trigger.c",
+          "ll": null
+        },
+        {
+          "fn": "p_stop",
+          "src": "src/trace_events.c",
+          "ll": null
+        },
+        {
+          "fn": "ssize_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "switch",
+          "src": "src/trace_events_hist.c",
+          "ll": null
+        },
+        {
+          "fn": "trigger_start",
+          "src": "src/trace_events_trigger.c",
+          "ll": "trace_events_trigger.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "event_file_data",
+        "event_inject_write",
+        "event_trigger_regex_open",
+        "hist_debug_show",
+        "hist_show",
+        "trigger_start"
+      ]
+    },
+    "CVE-2024-45000": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "fscache_cookie_state_machine",
+        "if"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "fscache_cookie_state_machine",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "fscache_cookie_state_machine",
+          "src": "src/fs/netfs/fscache_cookie.c",
+          "ll": "fscache_cookie.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/fs/netfs/fscache_cookie.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "fscache_cookie_state_machine"
+      ]
+    },
+    "CVE-2024-46704": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__flush_work",
+        "bool",
+        "if",
+        "while"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__flush_work",
+        "bool",
+        "if",
+        "while"
+      ],
+      "coverage": [
+        {
+          "fn": "__flush_work",
+          "src": "src/kernel/workqueue.c",
+          "ll": "workqueue.ll"
+        },
+        {
+          "fn": "bool",
+          "src": "src/kernel/workqueue.c",
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/kernel/workqueue.c",
+          "ll": null
+        },
+        {
+          "fn": "while",
+          "src": "src/kernel/workqueue.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__flush_work"
+      ]
+    },
+    "CVE-2024-47715": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "EXPORT_SYMBOL_GPL",
+        "mt76_wcid_cleanup"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "EXPORT_SYMBOL_GPL",
+        "mt76_wcid_cleanup"
+      ],
+      "coverage": [
+        {
+          "fn": "EXPORT_SYMBOL_GPL",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "mt76_wcid_cleanup",
+          "src": "src/drivers/net/wireless/mediatek/mt76/mac80211.c",
+          "ll": "mac80211.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "mt76_wcid_cleanup"
+      ]
+    },
+    "CVE-2024-50082": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "rq_depth_scale_down",
+        "rq_qos_wake_function"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "rq_depth_scale_down",
+        "rq_qos_wake_function"
+      ],
+      "coverage": [
+        {
+          "fn": "rq_depth_scale_down",
+          "src": "src/block/blk-rq-qos.c",
+          "ll": "blk-rq-qos.ll"
+        },
+        {
+          "fn": "rq_qos_wake_function",
+          "src": null,
+          "ll": "blk-rq-qos.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "rq_depth_scale_down",
+        "rq_qos_wake_function"
+      ]
+    },
+    "CVE-2024-53124": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "dccp_v6_do_rcv",
+        "tcp_v6_do_rcv"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "dccp_v6_do_rcv",
+        "tcp_v6_do_rcv",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "dccp_v6_do_rcv",
+          "src": "src/net/dccp/ipv6.c",
+          "ll": "ipv6.ll"
+        },
+        {
+          "fn": "tcp_v6_do_rcv",
+          "src": "src/net/ipv6/tcp_ipv6.c",
+          "ll": "tcp_ipv6.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv6/tcp_ipv6.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "dccp_v6_do_rcv",
+        "tcp_v6_do_rcv"
+      ]
+    },
+    "CVE-2024-53136": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "shmem_getattr"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "shmem_getattr"
+      ],
+      "coverage": [
+        {
+          "fn": "shmem_getattr",
+          "src": null,
+          "ll": "shmem.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "shmem_getattr"
+      ]
+    },
+    "CVE-2024-53160": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "krc_count",
+        "kvfree_call_rcu",
+        "kvfree_rcu_drain_ready",
+        "schedule_delayed_monitor_work"
+      ],
+      "patch_def_fns": [
+        "__schedule_delayed_monitor_work",
+        "schedule_delayed_monitor_work"
+      ],
+      "all_candidates": [
+        "if",
+        "krc_count",
+        "kvfree_call_rcu",
+        "kvfree_rcu_drain_ready",
+        "schedule_delayed_monitor_work",
+        "__schedule_delayed_monitor_work",
+        "__mod_timer",
+        "concurrency",
+        "data",
+        "kvfree",
+        "race"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": null
+        },
+        {
+          "fn": "krc_count",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "kvfree_call_rcu",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "kvfree_rcu_drain_ready",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "schedule_delayed_monitor_work",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "__schedule_delayed_monitor_work",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__mod_timer",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "kvfree",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "krc_count",
+        "kvfree_call_rcu",
+        "kvfree_rcu_drain_ready",
+        "schedule_delayed_monitor_work"
+      ]
+    },
+    "CVE-2024-53186": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "handle_ksmbd_work"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "handle_ksmbd_work",
+        "if",
+        "after",
+        "concurrency",
+        "free",
+        "handling",
+        "ksmbd",
+        "request"
+      ],
+      "coverage": [
+        {
+          "fn": "handle_ksmbd_work",
+          "src": "src/fs/smb/server/server.c",
+          "ll": "server.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/fs/smb/server/server.c",
+          "ll": null
+        },
+        {
+          "fn": "after",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "free",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "handling",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ksmbd",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "request",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "handle_ksmbd_work"
+      ]
+    },
+    "CVE-2024-56555": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "binder_add_freeze_work",
+        "if"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "binder_add_freeze_work",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "binder_add_freeze_work",
+          "src": "src/drivers/android/binder.c",
+          "ll": "binder.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/android/binder.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "binder_add_freeze_work"
+      ]
+    },
+    "CVE-2024-56788": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "netdev_tx_t",
+        "oa_tc6",
+        "oa_tc6_init",
+        "oa_tc6_prepare_spi_tx_buf_for_tx_skbs",
+        "oa_tc6_start_xmit"
+      ],
+      "patch_def_fns": [
+        "oa_tc6_prepare_spi_tx_buf_for_tx_skbs"
+      ],
+      "all_candidates": [
+        "if",
+        "netdev_tx_t",
+        "oa_tc6",
+        "oa_tc6_init",
+        "oa_tc6_prepare_spi_tx_buf_for_tx_skbs",
+        "oa_tc6_start_xmit"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/drivers/net/ethernet/oa_tc6.c",
+          "ll": null
+        },
+        {
+          "fn": "netdev_tx_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "oa_tc6",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "oa_tc6_init",
+          "src": "src/drivers/net/ethernet/oa_tc6.c",
+          "ll": "oa_tc6.ll"
+        },
+        {
+          "fn": "oa_tc6_prepare_spi_tx_buf_for_tx_skbs",
+          "src": "src/drivers/net/ethernet/oa_tc6.c",
+          "ll": "oa_tc6.ll"
+        },
+        {
+          "fn": "oa_tc6_start_xmit",
+          "src": "src/drivers/net/ethernet/oa_tc6.c",
+          "ll": "oa_tc6.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "oa_tc6_init",
+        "oa_tc6_prepare_spi_tx_buf_for_tx_skbs",
+        "oa_tc6_start_xmit"
+      ]
+    },
+    "CVE-2024-58072": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "EXPORT_SYMBOL",
+        "MODULE_AUTHOR",
+        "__init",
+        "bool",
+        "dig_t",
+        "rtl_intf_ops",
+        "rtl_pci_disconnect",
+        "rtl_pci_probe",
+        "rtl_scan_list",
+        "rtl_send_smps_action"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "EXPORT_SYMBOL",
+        "MODULE_AUTHOR",
+        "__init",
+        "bool",
+        "dig_t",
+        "rtl_intf_ops",
+        "rtl_pci_disconnect",
+        "rtl_pci_probe",
+        "rtl_scan_list",
+        "rtl_send_smps_action",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "EXPORT_SYMBOL",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "MODULE_AUTHOR",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__init",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "dig_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rtl_intf_ops",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rtl_pci_disconnect",
+          "src": "src/drivers/net/wireless/realtek/rtlwifi/pci.c",
+          "ll": "pci.ll"
+        },
+        {
+          "fn": "rtl_pci_probe",
+          "src": null,
+          "ll": "pci.ll"
+        },
+        {
+          "fn": "rtl_scan_list",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rtl_send_smps_action",
+          "src": null,
+          "ll": "base.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/net/wireless/realtek/rtlwifi/pci.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "rtl_pci_disconnect",
+        "rtl_pci_probe",
+        "rtl_send_smps_action"
+      ]
+    },
+    "CVE-2025-21732": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__mlx5_ib_dereg_mr",
+        "bool",
+        "destroy_unused_implicit_child_mr",
+        "if",
+        "mlx5_revoke_mr"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__mlx5_ib_dereg_mr",
+        "bool",
+        "destroy_unused_implicit_child_mr",
+        "if",
+        "mlx5_revoke_mr",
+        "concurrency",
+        "error",
+        "leads",
+        "mlx5",
+        "race",
+        "which",
+        "with"
+      ],
+      "coverage": [
+        {
+          "fn": "__mlx5_ib_dereg_mr",
+          "src": "src/drivers/infiniband/hw/mlx5/mr.c",
+          "ll": "mr.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "destroy_unused_implicit_child_mr",
+          "src": "src/drivers/infiniband/hw/mlx5/odp.c",
+          "ll": "odp.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/infiniband/hw/mlx5/mr.c",
+          "ll": null
+        },
+        {
+          "fn": "mlx5_revoke_mr",
+          "src": "src/drivers/infiniband/hw/mlx5/mr.c",
+          "ll": "mr.ll"
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "error",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "leads",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "mlx5",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "which",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "with",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__mlx5_ib_dereg_mr",
+        "destroy_unused_implicit_child_mr",
+        "mlx5_revoke_mr"
+      ]
+    },
+    "CVE-2025-22050": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "rx_submit",
+        "switch"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "rx_submit",
+        "switch"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/drivers/net/usb/usbnet.c",
+          "ll": null
+        },
+        {
+          "fn": "rx_submit",
+          "src": "src/drivers/net/usb/usbnet.c",
+          "ll": "usbnet.ll"
+        },
+        {
+          "fn": "switch",
+          "src": "src/drivers/net/usb/usbnet.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "rx_submit"
+      ]
+    },
+    "CVE-2025-23142": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "sctp_packet_empty",
+        "sctp_sendmsg_to_asoc",
+        "sctp_sock_rfree",
+        "sctp_transport",
+        "sctp_transport_free",
+        "sctp_wait_for_sndbuf"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "sctp_packet_empty",
+        "sctp_sendmsg_to_asoc",
+        "sctp_sock_rfree",
+        "sctp_transport",
+        "sctp_transport_free",
+        "sctp_wait_for_sndbuf"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/sctp/transport.c",
+          "ll": null
+        },
+        {
+          "fn": "sctp_packet_empty",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sctp_sendmsg_to_asoc",
+          "src": null,
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "sctp_sock_rfree",
+          "src": "src/net/sctp/socket.c",
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "sctp_transport",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sctp_transport_free",
+          "src": "src/net/sctp/transport.c",
+          "ll": "transport.ll"
+        },
+        {
+          "fn": "sctp_wait_for_sndbuf",
+          "src": null,
+          "ll": "socket.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "sctp_sendmsg_to_asoc",
+        "sctp_sock_rfree",
+        "sctp_transport_free",
+        "sctp_wait_for_sndbuf"
+      ]
+    },
+    "CVE-2025-23151": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "mhi_gen_tre"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "if",
+        "mhi_gen_tre"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/drivers/bus/mhi/host/main.c",
+          "ll": null
+        },
+        {
+          "fn": "mhi_gen_tre",
+          "src": null,
+          "ll": "main.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "mhi_gen_tre"
+      ]
+    },
+    "CVE-2025-37772": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "__rdma_create_id",
+        "cma_events",
+        "cma_id_put",
+        "cma_netevent_callback",
+        "rdma_event_msg"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__rdma_create_id",
+        "cma_events",
+        "cma_id_put",
+        "cma_netevent_callback",
+        "rdma_event_msg"
+      ],
+      "coverage": [
+        {
+          "fn": "__rdma_create_id",
+          "src": null,
+          "ll": "cma.ll"
+        },
+        {
+          "fn": "cma_events",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "cma_id_put",
+          "src": "src/drivers/infiniband/core/cma.c",
+          "ll": "cma.ll"
+        },
+        {
+          "fn": "cma_netevent_callback",
+          "src": null,
+          "ll": "cma.ll"
+        },
+        {
+          "fn": "rdma_event_msg",
+          "src": "src/drivers/infiniband/core/cma.c",
+          "ll": "cma.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "__rdma_create_id",
+        "cma_id_put",
+        "cma_netevent_callback",
+        "rdma_event_msg"
+      ]
+    },
+    "CVE-2025-37854": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "kfd_process_remove_sysfs",
+        "kfd_process_wq_release"
+      ],
+      "patch_def_fns": [
+        "kfd_process_wait_gpu_reset_complete"
+      ],
+      "all_candidates": [
+        "if",
+        "kfd_process_remove_sysfs",
+        "kfd_process_wq_release",
+        "kfd_process_wait_gpu_reset_complete"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/kfd_process.c",
+          "ll": null
+        },
+        {
+          "fn": "kfd_process_remove_sysfs",
+          "src": "src/kfd_process.c",
+          "ll": "kfd_process.ll"
+        },
+        {
+          "fn": "kfd_process_wq_release",
+          "src": "src/kfd_process.c",
+          "ll": "kfd_process.ll"
+        },
+        {
+          "fn": "kfd_process_wait_gpu_reset_complete",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "kfd_process_remove_sysfs",
+        "kfd_process_wq_release"
+      ]
+    },
+    "CVE-2025-37882": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "handle_tx_event",
+        "if"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "handle_tx_event",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "handle_tx_event",
+          "src": null,
+          "ll": "xhci-ring.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/xhci-ring.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "handle_tx_event"
+      ]
+    },
+    "CVE-2025-37920": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "xdp_sock",
+        "xsk_buff_pool",
+        "xsk_create",
+        "xsk_generic_rcv"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "xdp_sock",
+        "xsk_buff_pool",
+        "xsk_create",
+        "xsk_generic_rcv"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/net/xdp/xsk.c",
+          "ll": null
+        },
+        {
+          "fn": "xdp_sock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "xsk_buff_pool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "xsk_create",
+          "src": null,
+          "ll": "xsk.ll"
+        },
+        {
+          "fn": "xsk_generic_rcv",
+          "src": "src/net/xdp/xsk.c",
+          "ll": "xsk.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "xsk_create",
+        "xsk_generic_rcv"
+      ]
+    },
+    "CVE-2025-38037": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "bool",
+        "if",
+        "nla_put_u32",
+        "vxlan_cleanup",
+        "vxlan_fdb",
+        "vxlan_fdb_info",
+        "vxlan_fdb_update_existing"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "bool",
+        "if",
+        "nla_put_u32",
+        "vxlan_cleanup",
+        "vxlan_fdb",
+        "vxlan_fdb_info",
+        "vxlan_fdb_update_existing"
+      ],
+      "coverage": [
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/net/vxlan.c",
+          "ll": null
+        },
+        {
+          "fn": "nla_put_u32",
+          "src": "src/drivers/net/vxlan.c",
+          "ll": "vxlan.ll"
+        },
+        {
+          "fn": "vxlan_cleanup",
+          "src": "src/drivers/net/vxlan.c",
+          "ll": "vxlan.ll"
+        },
+        {
+          "fn": "vxlan_fdb",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "vxlan_fdb_info",
+          "src": null,
+          "ll": "vxlan.ll"
+        },
+        {
+          "fn": "vxlan_fdb_update_existing",
+          "src": null,
+          "ll": "vxlan.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "nla_put_u32",
+        "vxlan_cleanup",
+        "vxlan_fdb_info",
+        "vxlan_fdb_update_existing"
+      ]
+    },
+    "CVE-2025-38048": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "bool",
+        "virtqueue_enable_cb_delayed"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "bool",
+        "virtqueue_enable_cb_delayed"
+      ],
+      "coverage": [
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "virtqueue_enable_cb_delayed",
+          "src": "src/drivers/virtio/virtio_ring.c",
+          "ll": "virtio_ring.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "virtqueue_enable_cb_delayed"
+      ]
+    },
+    "CVE-2025-38078": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "snd_pcm_buffer_access_unlock",
+        "snd_pcm_lib_mmap_iomem",
+        "snd_pcm_mmap_data_close",
+        "snd_pcm_oss_change_params_locked"
+      ],
+      "patch_def_fns": [
+        "if",
+        "snd_pcm_runtime_buffer_set_silence"
+      ],
+      "all_candidates": [
+        "if",
+        "snd_pcm_buffer_access_unlock",
+        "snd_pcm_lib_mmap_iomem",
+        "snd_pcm_mmap_data_close",
+        "snd_pcm_oss_change_params_locked",
+        "snd_pcm_runtime_buffer_set_silence"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/sound/core/pcm_native.c",
+          "ll": null
+        },
+        {
+          "fn": "snd_pcm_buffer_access_unlock",
+          "src": "src/sound/core/pcm_native.c",
+          "ll": "pcm_native.ll"
+        },
+        {
+          "fn": "snd_pcm_lib_mmap_iomem",
+          "src": null,
+          "ll": "pcm_native.ll"
+        },
+        {
+          "fn": "snd_pcm_mmap_data_close",
+          "src": null,
+          "ll": "pcm_native.ll"
+        },
+        {
+          "fn": "snd_pcm_oss_change_params_locked",
+          "src": "src/sound/core/oss/pcm_oss.c",
+          "ll": "pcm_oss.ll"
+        },
+        {
+          "fn": "snd_pcm_runtime_buffer_set_silence",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "snd_pcm_buffer_access_unlock",
+        "snd_pcm_lib_mmap_iomem",
+        "snd_pcm_mmap_data_close",
+        "snd_pcm_oss_change_params_locked"
+      ]
+    },
+    "CVE-2025-38104": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "amdgpu_device_init",
+        "amdgpu_virt",
+        "amdgpu_virt_rlcg_reg_rw",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "amdgpu_device_init",
+        "amdgpu_virt",
+        "amdgpu_virt_rlcg_reg_rw",
+        "if",
+        "Inversion",
+        "Mutex",
+        "Priority",
+        "Replace",
+        "Spinlock",
+        "access",
+        "amdgpu",
+        "avoid",
+        "concurrency",
+        "with"
+      ],
+      "coverage": [
+        {
+          "fn": "amdgpu_device_init",
+          "src": null,
+          "ll": "amdgpu_device.ll"
+        },
+        {
+          "fn": "amdgpu_virt",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "amdgpu_virt_rlcg_reg_rw",
+          "src": "src/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c",
+          "ll": "amdgpu_virt.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c",
+          "ll": null
+        },
+        {
+          "fn": "Inversion",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "Mutex",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "Priority",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "Replace",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "Spinlock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "access",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "amdgpu",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "avoid",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrency",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "with",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "amdgpu_device_init",
+        "amdgpu_virt_rlcg_reg_rw"
+      ]
+    },
+    "CVE-2025-38165": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "alloc_sk_msg",
+        "if",
+        "sk_psock_skb_ingress",
+        "sk_psock_skb_ingress_enqueue",
+        "sk_psock_skb_ingress_self",
+        "sk_psock_verdict_apply"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "alloc_sk_msg",
+        "if",
+        "sk_psock_skb_ingress",
+        "sk_psock_skb_ingress_enqueue",
+        "sk_psock_skb_ingress_self",
+        "sk_psock_verdict_apply"
+      ],
+      "coverage": [
+        {
+          "fn": "alloc_sk_msg",
+          "src": "src/net/core/skmsg.c",
+          "ll": "skmsg.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/core/skmsg.c",
+          "ll": null
+        },
+        {
+          "fn": "sk_psock_skb_ingress",
+          "src": null,
+          "ll": "skmsg.ll"
+        },
+        {
+          "fn": "sk_psock_skb_ingress_enqueue",
+          "src": null,
+          "ll": "skmsg.ll"
+        },
+        {
+          "fn": "sk_psock_skb_ingress_self",
+          "src": null,
+          "ll": "skmsg.ll"
+        },
+        {
+          "fn": "sk_psock_verdict_apply",
+          "src": null,
+          "ll": "skmsg.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "alloc_sk_msg",
+        "sk_psock_skb_ingress",
+        "sk_psock_skb_ingress_enqueue",
+        "sk_psock_skb_ingress_self",
+        "sk_psock_verdict_apply"
+      ]
+    },
+    "CVE-2025-38217": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "fts_read",
+        "if",
+        "switch"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "fts_read",
+        "if",
+        "switch"
+      ],
+      "coverage": [
+        {
+          "fn": "fts_read",
+          "src": null,
+          "ll": "ftsteutates.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/ftsteutates.c",
+          "ll": null
+        },
+        {
+          "fn": "switch",
+          "src": "src/ftsteutates.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "fts_read"
+      ]
+    },
+    "CVE-2025-38242": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "move_pages_pte",
+        "move_swap_pte"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "move_pages_pte",
+        "move_swap_pte"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/mm/userfaultfd.c",
+          "ll": null
+        },
+        {
+          "fn": "move_pages_pte",
+          "src": null,
+          "ll": "userfaultfd.ll"
+        },
+        {
+          "fn": "move_swap_pte",
+          "src": null,
+          "ll": "userfaultfd.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "move_pages_pte",
+        "move_swap_pte"
+      ]
+    },
+    "CVE-2025-38250": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "DEFINE_IDA",
+        "adv_monitor",
+        "hci_alloc_dev_priv",
+        "hci_dev",
+        "hci_dev_do_reset",
+        "hci_dev_get",
+        "hci_dev_reset",
+        "hci_dev_reset_stat",
+        "hci_discovery_active",
+        "hci_discovery_set_state",
+        "hci_unregister_dev",
+        "if"
+      ],
+      "patch_def_fns": [
+        "hci_dev_put_srcu",
+        "if"
+      ],
+      "all_candidates": [
+        "DEFINE_IDA",
+        "adv_monitor",
+        "hci_alloc_dev_priv",
+        "hci_dev",
+        "hci_dev_do_reset",
+        "hci_dev_get",
+        "hci_dev_reset",
+        "hci_dev_reset_stat",
+        "hci_discovery_active",
+        "hci_discovery_set_state",
+        "hci_unregister_dev",
+        "if",
+        "hci_dev_put_srcu"
+      ],
+      "coverage": [
+        {
+          "fn": "DEFINE_IDA",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "adv_monitor",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "hci_alloc_dev_priv",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_dev",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "hci_dev_do_reset",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_dev_get",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_dev_reset",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_dev_reset_stat",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_discovery_active",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_discovery_set_state",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "hci_unregister_dev",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": "hci_core.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/bluetooth/hci_core.c",
+          "ll": null
+        },
+        {
+          "fn": "hci_dev_put_srcu",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "hci_alloc_dev_priv",
+        "hci_dev_do_reset",
+        "hci_dev_get",
+        "hci_dev_reset",
+        "hci_dev_reset_stat",
+        "hci_discovery_active",
+        "hci_discovery_set_state",
+        "hci_unregister_dev"
+      ]
+    },
+    "CVE-2025-38337": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "if",
+        "jbd2_journal_dirty_metadata"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "if",
+        "jbd2_journal_dirty_metadata"
+      ],
+      "coverage": [
+        {
+          "fn": "if",
+          "src": "src/fs/jbd2/transaction.c",
+          "ll": null
+        },
+        {
+          "fn": "jbd2_journal_dirty_metadata",
+          "src": "src/fs/jbd2/transaction.c",
+          "ll": "transaction.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "jbd2_journal_dirty_metadata"
+      ]
+    },
+    "CVE-2025-38383": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "bool",
+        "clear_vm_uninitialized_flag",
+        "for_each_node_state",
+        "if",
+        "list_for_each_entry",
+        "proc_vmalloc_init",
+        "show_numa_info",
+        "vmalloc_info_show",
+        "vmap_init_free_space"
+      ],
+      "patch_def_fns": [
+        "for_each_node_state",
+        "if",
+        "show_numa_info"
+      ],
+      "all_candidates": [
+        "bool",
+        "clear_vm_uninitialized_flag",
+        "for_each_node_state",
+        "if",
+        "list_for_each_entry",
+        "proc_vmalloc_init",
+        "show_numa_info",
+        "vmalloc_info_show",
+        "vmap_init_free_space"
+      ],
+      "coverage": [
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "clear_vm_uninitialized_flag",
+          "src": "src/mm/vmalloc.c",
+          "ll": "vmalloc.ll"
+        },
+        {
+          "fn": "for_each_node_state",
+          "src": "src/mm/vmalloc.c",
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/mm/vmalloc.c",
+          "ll": null
+        },
+        {
+          "fn": "list_for_each_entry",
+          "src": "src/mm/vmalloc.c",
+          "ll": null
+        },
+        {
+          "fn": "proc_vmalloc_init",
+          "src": "src/mm/vmalloc.c",
+          "ll": "vmalloc.ll"
+        },
+        {
+          "fn": "show_numa_info",
+          "src": "src/mm/vmalloc.c",
+          "ll": "vmalloc.ll"
+        },
+        {
+          "fn": "vmalloc_info_show",
+          "src": "src/mm/vmalloc.c",
+          "ll": "vmalloc.ll"
+        },
+        {
+          "fn": "vmap_init_free_space",
+          "src": "src/mm/vmalloc.c",
+          "ll": "vmalloc.ll"
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "clear_vm_uninitialized_flag",
+        "proc_vmalloc_init",
+        "show_numa_info",
+        "vmalloc_info_show",
+        "vmap_init_free_space"
+      ]
+    },
+    "CVE-2025-38429": {
+      "status": "PATCH",
+      "pair_from_hint": [],
+      "patch_enclosing_fns": [
+        "mhi_ep_ring_add_element",
+        "mhi_ep_ring_init"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "mhi_ep_ring_add_element",
+        "mhi_ep_ring_init",
+        "if"
+      ],
+      "coverage": [
+        {
+          "fn": "mhi_ep_ring_add_element",
+          "src": "src/drivers/bus/mhi/ep/ring.c",
+          "ll": "ring.ll"
+        },
+        {
+          "fn": "mhi_ep_ring_init",
+          "src": "src/drivers/bus/mhi/ep/ring.c",
+          "ll": "ring.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/bus/mhi/ep/ring.c",
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {},
+      "enclosing_in_ll": [
+        "mhi_ep_ring_add_element",
+        "mhi_ep_ring_init"
+      ]
+    },
+    "SYZBOT-01affb1491750534": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "process_one_work",
+        "process_one_work"
+      ],
+      "patch_enclosing_fns": [
+        "WFC",
+        "__acquires",
+        "rcu_preempt_depth"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "process_one_work",
+        "WFC",
+        "__acquires",
+        "rcu_preempt_depth",
+        "concurrently",
+        "critical",
+        "existing",
+        "increment",
+        "inside",
+        "lock",
+        "moves",
+        "pool",
+        "racing",
+        "section",
+        "stats",
+        "workers"
+      ],
+      "coverage": [
+        {
+          "fn": "process_one_work",
+          "src": "src/kernel/workqueue.c",
+          "ll": "workqueue.ll"
+        },
+        {
+          "fn": "WFC",
+          "src": "src/kernel/workqueue.c",
+          "ll": null
+        },
+        {
+          "fn": "__acquires",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rcu_preempt_depth",
+          "src": "src/kernel/workqueue.c",
+          "ll": null
+        },
+        {
+          "fn": "concurrently",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "critical",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "existing",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "increment",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "inside",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "lock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "moves",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "pool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "racing",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "section",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "stats",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "workers",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "process_one_work": true
+      },
+      "enclosing_in_ll": []
+    },
+    "SYZBOT-08f3e9d26e5541e1": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "process_srcu",
+        "synchronize_srcu"
+      ],
+      "patch_enclosing_fns": [
+        "bool",
+        "srcu_gp_end",
+        "srcu_might_be_idle"
+      ],
+      "patch_def_fns": [
+        "time_in_range_open"
+      ],
+      "all_candidates": [
+        "process_srcu",
+        "synchronize_srcu",
+        "bool",
+        "srcu_gp_end",
+        "srcu_might_be_idle",
+        "time_in_range_open",
+        "adds",
+        "called",
+        "from",
+        "reads",
+        "srcu_last_gp_end",
+        "workqueue",
+        "writes"
+      ],
+      "coverage": [
+        {
+          "fn": "process_srcu",
+          "src": "src/kernel/rcu/srcutree.c",
+          "ll": "srcutree.ll"
+        },
+        {
+          "fn": "synchronize_srcu",
+          "src": "src/kernel/rcu/srcutree.c",
+          "ll": "srcutree.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "srcu_gp_end",
+          "src": "src/kernel/rcu/srcutree.c",
+          "ll": "srcutree.ll"
+        },
+        {
+          "fn": "srcu_might_be_idle",
+          "src": "src/kernel/rcu/srcutree.c",
+          "ll": "srcutree.ll"
+        },
+        {
+          "fn": "time_in_range_open",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "adds",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "called",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "from",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reads",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "srcu_last_gp_end",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "workqueue",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "writes",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "process_srcu": true,
+        "synchronize_srcu": true
+      },
+      "enclosing_in_ll": [
+        "srcu_gp_end",
+        "srcu_might_be_idle"
+      ]
+    },
+    "SYZBOT-123b88b9ddea8e98": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_add_backlog",
+        "tcp_grow_window.isra.0"
+      ],
+      "patch_enclosing_fns": [
+        "if",
+        "inet_sctp_diag_fill",
+        "sk_get_meminfo",
+        "tcp_space",
+        "tcp_win_from_space",
+        "tipc_sk_dump"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "tcp_add_backlog",
+        "tcp_grow_window.isra.0",
+        "if",
+        "inet_sctp_diag_fill",
+        "sk_get_meminfo",
+        "tcp_space",
+        "tcp_win_from_space",
+        "tipc_sk_dump",
+        "Softirq",
+        "across",
+        "multiple",
+        "reads",
+        "recvmsg",
+        "sites",
+        "sk_backlog",
+        "tcp_grow_window",
+        "tcp_v4_rcv",
+        "uses",
+        "writes"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_add_backlog",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_grow_window.isra.0",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/tipc/socket.c",
+          "ll": null
+        },
+        {
+          "fn": "inet_sctp_diag_fill",
+          "src": null,
+          "ll": "diag.ll"
+        },
+        {
+          "fn": "sk_get_meminfo",
+          "src": "src/net/core/sock.c",
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "tcp_space",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_win_from_space",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tipc_sk_dump",
+          "src": "src/net/tipc/socket.c",
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "Softirq",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "across",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "multiple",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reads",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "recvmsg",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sites",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sk_backlog",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tcp_grow_window",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_v4_rcv",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "uses",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "writes",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_add_backlog": true,
+        "tcp_grow_window.isra.0": false
+      },
+      "enclosing_in_ll": [
+        "inet_sctp_diag_fill",
+        "sk_get_meminfo",
+        "tcp_space",
+        "tcp_win_from_space",
+        "tipc_sk_dump"
+      ]
+    },
+    "SYZBOT-1b830cb1f67689d4": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__skb_recv_udp",
+        "datagram_poll"
+      ],
+      "patch_enclosing_fns": [
+        "bool",
+        "chtls_recvmsg",
+        "if",
+        "nvme_tcp_free_ctrl",
+        "nvme_tcp_poll",
+        "sk_buff",
+        "sk_busy_loop_end",
+        "tcp_recvmsg"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__skb_recv_udp",
+        "datagram_poll",
+        "bool",
+        "chtls_recvmsg",
+        "if",
+        "nvme_tcp_free_ctrl",
+        "nvme_tcp_poll",
+        "sk_buff",
+        "sk_busy_loop_end",
+        "tcp_recvmsg",
+        "Softirq",
+        "__sock_queue_rcv_skb",
+        "reads",
+        "sk_receive_queue",
+        "writes"
+      ],
+      "coverage": [
+        {
+          "fn": "__skb_recv_udp",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "datagram_poll",
+          "src": null,
+          "ll": "datagram.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "chtls_recvmsg",
+          "src": null,
+          "ll": "chtls_io.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/nvme/host/tcp.c",
+          "ll": null
+        },
+        {
+          "fn": "nvme_tcp_free_ctrl",
+          "src": "src/drivers/nvme/host/tcp.c",
+          "ll": null
+        },
+        {
+          "fn": "nvme_tcp_poll",
+          "src": "src/drivers/nvme/host/tcp.c",
+          "ll": null
+        },
+        {
+          "fn": "sk_buff",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sk_busy_loop_end",
+          "src": "src/net/core/sock.c",
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "tcp_recvmsg",
+          "src": null,
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "Softirq",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__sock_queue_rcv_skb",
+          "src": "src/net/core/sock.c",
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "reads",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sk_receive_queue",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "writes",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__skb_recv_udp": false,
+        "datagram_poll": true
+      },
+      "enclosing_in_ll": [
+        "chtls_recvmsg",
+        "sk_busy_loop_end",
+        "tcp_recvmsg"
+      ]
+    },
+    "SYZBOT-1c486d0b62032c82": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "bprm_execve",
+        "copy_fs"
+      ],
+      "patch_enclosing_fns": [
+        "begin_new_exec",
+        "bprm_execve",
+        "check_unsafe_exec",
+        "free_bprm"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "bprm_execve",
+        "copy_fs",
+        "begin_new_exec",
+        "check_unsafe_exec",
+        "free_bprm",
+        "Race",
+        "clone",
+        "execve",
+        "in_exec",
+        "late",
+        "lock",
+        "reads",
+        "reset",
+        "thread",
+        "under",
+        "when",
+        "writes"
+      ],
+      "coverage": [
+        {
+          "fn": "bprm_execve",
+          "src": "src/fs/exec.c",
+          "ll": "exec.ll"
+        },
+        {
+          "fn": "copy_fs",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "begin_new_exec",
+          "src": "src/fs/exec.c",
+          "ll": "exec.ll"
+        },
+        {
+          "fn": "check_unsafe_exec",
+          "src": "src/fs/exec.c",
+          "ll": "exec.ll"
+        },
+        {
+          "fn": "free_bprm",
+          "src": "src/fs/exec.c",
+          "ll": "exec.ll"
+        },
+        {
+          "fn": "Race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "clone",
+          "src": "src/fs/exec.c",
+          "ll": null
+        },
+        {
+          "fn": "execve",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "in_exec",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "late",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "lock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reads",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reset",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "thread",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "under",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "when",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "writes",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "bprm_execve": true,
+        "copy_fs": false
+      },
+      "enclosing_in_ll": [
+        "begin_new_exec",
+        "bprm_execve",
+        "check_unsafe_exec",
+        "free_bprm"
+      ]
+    },
+    "SYZBOT-2d373c9936c00d7e": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "snd_seq_poll",
+        "snd_seq_pool_init"
+      ],
+      "patch_enclosing_fns": [
+        "__poll_t",
+        "if",
+        "snd_seq_kernel_client_write_poll",
+        "snd_seq_pool_poll_wait"
+      ],
+      "patch_def_fns": [
+        "if",
+        "snd_seq_pool_poll_wait"
+      ],
+      "all_candidates": [
+        "snd_seq_poll",
+        "snd_seq_pool_init",
+        "__poll_t",
+        "if",
+        "snd_seq_kernel_client_write_poll",
+        "snd_seq_pool_poll_wait",
+        "adds",
+        "around",
+        "buffer",
+        "concurrently",
+        "fields",
+        "guard",
+        "lock",
+        "poll",
+        "pool",
+        "racy",
+        "read",
+        "reading",
+        "resize",
+        "spinlock_irq",
+        "with"
+      ],
+      "coverage": [
+        {
+          "fn": "snd_seq_poll",
+          "src": "src/sound/core/seq/seq_clientmgr.c",
+          "ll": "seq_clientmgr.ll"
+        },
+        {
+          "fn": "snd_seq_pool_init",
+          "src": "src/sound/core/seq/seq_memory.c",
+          "ll": "seq_memory.ll"
+        },
+        {
+          "fn": "__poll_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/sound/core/seq/seq_memory.c",
+          "ll": null
+        },
+        {
+          "fn": "snd_seq_kernel_client_write_poll",
+          "src": "src/sound/core/seq/seq_clientmgr.c",
+          "ll": "seq_clientmgr.ll"
+        },
+        {
+          "fn": "snd_seq_pool_poll_wait",
+          "src": "src/sound/core/seq/seq_clientmgr.c",
+          "ll": "seq_memory.ll"
+        },
+        {
+          "fn": "adds",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "around",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "buffer",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "concurrently",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "fields",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "guard",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "lock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "poll",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "pool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "racy",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "read",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reading",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "resize",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "spinlock_irq",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "with",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "snd_seq_poll": true,
+        "snd_seq_pool_init": true
+      },
+      "enclosing_in_ll": [
+        "snd_seq_kernel_client_write_poll",
+        "snd_seq_pool_poll_wait"
+      ]
+    },
+    "SYZBOT-2e4de7fe846aba66": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "gro_normal_list.part.0",
+        "napi_busy_loop"
+      ],
+      "patch_enclosing_fns": [
+        "tun_napi_init",
+        "tun_napi_poll"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "gro_normal_list.part.0",
+        "napi_busy_loop",
+        "tun_napi_init",
+        "tun_napi_poll",
+        "another",
+        "both",
+        "different",
+        "gro_normal_list",
+        "model",
+        "napi_gro_frags",
+        "registration",
+        "switches",
+        "sync",
+        "touching",
+        "tx_napi",
+        "uses",
+        "which",
+        "writev"
+      ],
+      "coverage": [
+        {
+          "fn": "gro_normal_list.part.0",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "napi_busy_loop",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "tun_napi_init",
+          "src": null,
+          "ll": "tun.ll"
+        },
+        {
+          "fn": "tun_napi_poll",
+          "src": "src/drivers/net/tun.c",
+          "ll": "tun.ll"
+        },
+        {
+          "fn": "another",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "both",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "different",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "gro_normal_list",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "model",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "napi_gro_frags",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "registration",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "switches",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sync",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "touching",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tx_napi",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "uses",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "which",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "writev",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "gro_normal_list.part.0": false,
+        "napi_busy_loop": true
+      },
+      "enclosing_in_ll": [
+        "tun_napi_init",
+        "tun_napi_poll"
+      ]
+    },
+    "SYZBOT-35301db28c64310d": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "macsec_handle_frame",
+        "macsec_handle_frame"
+      ],
+      "patch_enclosing_fns": [
+        "bool",
+        "if",
+        "macsec_change_mtu",
+        "macsec_get_stats64",
+        "macsec_post_decrypt",
+        "netdev_tx_t",
+        "rx_handler_result",
+        "rx_handler_result_t"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "macsec_handle_frame",
+        "bool",
+        "if",
+        "macsec_change_mtu",
+        "macsec_get_stats64",
+        "macsec_post_decrypt",
+        "netdev_tx_t",
+        "rx_handler_result",
+        "rx_handler_result_t",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "macsec_handle_frame",
+          "src": "src/drivers/net/macsec.c",
+          "ll": "macsec.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/net/macsec.c",
+          "ll": null
+        },
+        {
+          "fn": "macsec_change_mtu",
+          "src": "src/drivers/net/macsec.c",
+          "ll": "macsec.ll"
+        },
+        {
+          "fn": "macsec_get_stats64",
+          "src": null,
+          "ll": "macsec.ll"
+        },
+        {
+          "fn": "macsec_post_decrypt",
+          "src": "src/drivers/net/macsec.c",
+          "ll": "macsec.ll"
+        },
+        {
+          "fn": "netdev_tx_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rx_handler_result",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rx_handler_result_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "macsec_handle_frame": true
+      },
+      "enclosing_in_ll": [
+        "macsec_change_mtu",
+        "macsec_get_stats64",
+        "macsec_post_decrypt"
+      ]
+    },
+    "SYZBOT-3536db46dfa58c57": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "bpf_lru_pop_free",
+        "bpf_lru_push_free"
+      ],
+      "patch_enclosing_fns": [
+        "WARN_ON_ONCE",
+        "bpf_lru_node",
+        "bpf_lru_pop_free"
+      ],
+      "patch_def_fns": [
+        "WARN_ON_ONCE"
+      ],
+      "all_candidates": [
+        "bpf_lru_pop_free",
+        "bpf_lru_push_free",
+        "WARN_ON_ONCE",
+        "bpf_lru_node",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "bpf_lru_pop_free",
+          "src": "src/kernel/bpf/bpf_lru_list.c",
+          "ll": "bpf_lru_list.ll"
+        },
+        {
+          "fn": "bpf_lru_push_free",
+          "src": "src/kernel/bpf/bpf_lru_list.c",
+          "ll": "bpf_lru_list.ll"
+        },
+        {
+          "fn": "WARN_ON_ONCE",
+          "src": "src/kernel/bpf/bpf_lru_list.c",
+          "ll": null
+        },
+        {
+          "fn": "bpf_lru_node",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "bpf_lru_pop_free": true,
+        "bpf_lru_push_free": true
+      },
+      "enclosing_in_ll": [
+        "bpf_lru_pop_free"
+      ]
+    },
+    "SYZBOT-371a9ea56d82de71": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_poll",
+        "tcp_recvmsg"
+      ],
+      "patch_enclosing_fns": [
+        "__poll_t",
+        "get_tcp4_sock",
+        "get_tcp6_sock",
+        "if",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_poll",
+        "tcp_rcv_state_process",
+        "tcp_rcv_synsent_state_process",
+        "tcp_read_sock",
+        "tcp_recvmsg",
+        "tcp_tx_timestamp",
+        "tcp_zerocopy_receive"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "tcp_poll",
+        "tcp_recvmsg",
+        "__poll_t",
+        "get_tcp4_sock",
+        "get_tcp6_sock",
+        "if",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_rcv_state_process",
+        "tcp_rcv_synsent_state_process",
+        "tcp_read_sock",
+        "tcp_tx_timestamp",
+        "tcp_zerocopy_receive",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_poll",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_recvmsg",
+          "src": null,
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "__poll_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "get_tcp4_sock",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "get_tcp6_sock",
+          "src": "src/net/ipv6/tcp_ipv6.c",
+          "ll": "tcp_ipv6.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv6/tcp_ipv6.c",
+          "ll": null
+        },
+        {
+          "fn": "tcp_connect_init",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_create_openreq_child",
+          "src": null,
+          "ll": "tcp_minisocks.ll"
+        },
+        {
+          "fn": "tcp_diag_get_info",
+          "src": null,
+          "ll": "tcp_diag.ll"
+        },
+        {
+          "fn": "tcp_disconnect",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_ioctl",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_rcv_state_process",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_rcv_synsent_state_process",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_read_sock",
+          "src": null,
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_tx_timestamp",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_zerocopy_receive",
+          "src": null,
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_poll": true,
+        "tcp_recvmsg": true
+      },
+      "enclosing_in_ll": [
+        "get_tcp4_sock",
+        "get_tcp6_sock",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_poll",
+        "tcp_rcv_state_process",
+        "tcp_rcv_synsent_state_process",
+        "tcp_read_sock",
+        "tcp_recvmsg",
+        "tcp_tx_timestamp",
+        "tcp_zerocopy_receive"
+      ]
+    },
+    "SYZBOT-373cf39d336f4370": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "sk_stream_wait_connect",
+        "tcp_disconnect"
+      ],
+      "patch_enclosing_fns": [
+        "EXPORT_SYMBOL",
+        "bool",
+        "if",
+        "int",
+        "llc_ui_wait_for_busy_core",
+        "llc_ui_wait_for_disc",
+        "sk_stream_closing",
+        "sk_stream_wait_connect",
+        "sk_stream_wait_memory",
+        "smc_close_stream_wait",
+        "smc_rx_wait",
+        "smc_tx_wait",
+        "tcp_msg_wait_data",
+        "tipc_sk_connected",
+        "tsk_rej_rx_queue",
+        "wait_on_pending_writer"
+      ],
+      "patch_def_fns": [
+        "READ_ONCE",
+        "if",
+        "sk_stream_closing",
+        "tipc_sk_connected"
+      ],
+      "all_candidates": [
+        "sk_stream_wait_connect",
+        "tcp_disconnect",
+        "EXPORT_SYMBOL",
+        "bool",
+        "if",
+        "int",
+        "llc_ui_wait_for_busy_core",
+        "llc_ui_wait_for_disc",
+        "sk_stream_closing",
+        "sk_stream_wait_memory",
+        "smc_close_stream_wait",
+        "smc_rx_wait",
+        "smc_tx_wait",
+        "tcp_msg_wait_data",
+        "tipc_sk_connected",
+        "tsk_rej_rx_queue",
+        "wait_on_pending_writer",
+        "READ_ONCE",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "sk_stream_wait_connect",
+          "src": "src/net/core/stream.c",
+          "ll": "stream.ll"
+        },
+        {
+          "fn": "tcp_disconnect",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "EXPORT_SYMBOL",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/tipc/socket.c",
+          "ll": null
+        },
+        {
+          "fn": "int",
+          "src": "src/net/smc/smc_rx.c",
+          "ll": null
+        },
+        {
+          "fn": "llc_ui_wait_for_busy_core",
+          "src": "src/net/llc/af_llc.c",
+          "ll": "af_llc.ll"
+        },
+        {
+          "fn": "llc_ui_wait_for_disc",
+          "src": "src/net/llc/af_llc.c",
+          "ll": "af_llc.ll"
+        },
+        {
+          "fn": "sk_stream_closing",
+          "src": "src/net/core/stream.c",
+          "ll": "stream.ll"
+        },
+        {
+          "fn": "sk_stream_wait_memory",
+          "src": "src/net/core/stream.c",
+          "ll": "stream.ll"
+        },
+        {
+          "fn": "smc_close_stream_wait",
+          "src": "src/net/smc/smc_close.c",
+          "ll": "smc_close.ll"
+        },
+        {
+          "fn": "smc_rx_wait",
+          "src": null,
+          "ll": "smc_rx.ll"
+        },
+        {
+          "fn": "smc_tx_wait",
+          "src": "src/net/smc/smc_tx.c",
+          "ll": "smc_tx.ll"
+        },
+        {
+          "fn": "tcp_msg_wait_data",
+          "src": null,
+          "ll": "tcp_bpf.ll"
+        },
+        {
+          "fn": "tipc_sk_connected",
+          "src": "src/net/tipc/socket.c",
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "tsk_rej_rx_queue",
+          "src": "src/net/tipc/socket.c",
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "wait_on_pending_writer",
+          "src": "src/net/tls/tls_main.c",
+          "ll": "tls_main.ll"
+        },
+        {
+          "fn": "READ_ONCE",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "sk_stream_wait_connect": true,
+        "tcp_disconnect": false
+      },
+      "enclosing_in_ll": [
+        "llc_ui_wait_for_busy_core",
+        "llc_ui_wait_for_disc",
+        "sk_stream_closing",
+        "sk_stream_wait_connect",
+        "sk_stream_wait_memory",
+        "smc_close_stream_wait",
+        "smc_rx_wait",
+        "smc_tx_wait",
+        "tcp_msg_wait_data",
+        "tipc_sk_connected",
+        "tsk_rej_rx_queue",
+        "wait_on_pending_writer"
+      ]
+    },
+    "SYZBOT-3872b8b1d5ece2a8": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__rcu_read_unlock",
+        "sync_rcu_exp_select_node_cpus"
+      ],
+      "patch_enclosing_fns": [
+        "__maybe_unused",
+        "dump_blkd_tasks",
+        "if",
+        "rcu_boost_kthread",
+        "rcu_preempt_ctxt_queue",
+        "rcu_preempt_deferred_qs_irqrestore",
+        "rcu_print_task_exp_stall",
+        "sync_rcu_exp_done",
+        "sync_rcu_exp_select_node_cpus",
+        "sync_sched_exp_online_cleanup",
+        "synchronize_rcu_expedited_wait"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__rcu_read_unlock",
+        "sync_rcu_exp_select_node_cpus",
+        "__maybe_unused",
+        "dump_blkd_tasks",
+        "if",
+        "rcu_boost_kthread",
+        "rcu_preempt_ctxt_queue",
+        "rcu_preempt_deferred_qs_irqrestore",
+        "rcu_print_task_exp_stall",
+        "sync_rcu_exp_done",
+        "sync_sched_exp_online_cleanup",
+        "synchronize_rcu_expedited_wait",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__rcu_read_unlock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "sync_rcu_exp_select_node_cpus",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "__maybe_unused",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "dump_blkd_tasks",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": null
+        },
+        {
+          "fn": "rcu_boost_kthread",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rcu_preempt_ctxt_queue",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rcu_preempt_deferred_qs_irqrestore",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "rcu_print_task_exp_stall",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "sync_rcu_exp_done",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "sync_sched_exp_online_cleanup",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "synchronize_rcu_expedited_wait",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__rcu_read_unlock": false,
+        "sync_rcu_exp_select_node_cpus": true
+      },
+      "enclosing_in_ll": [
+        "dump_blkd_tasks",
+        "rcu_print_task_exp_stall",
+        "sync_rcu_exp_done",
+        "sync_rcu_exp_select_node_cpus",
+        "sync_sched_exp_online_cleanup",
+        "synchronize_rcu_expedited_wait"
+      ]
+    },
+    "SYZBOT-392f4c8f5827466f": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "icmp_global_allow",
+        "icmp_global_allow"
+      ],
+      "patch_enclosing_fns": [
+        "bool",
+        "icmp_global_allow",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "icmp_global_allow",
+        "bool",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "icmp_global_allow",
+          "src": "src/net/ipv4/icmp.c",
+          "ll": "icmp.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv4/icmp.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "icmp_global_allow": true
+      },
+      "enclosing_in_ll": [
+        "icmp_global_allow"
+      ]
+    },
+    "SYZBOT-3b6b32dc50537a49": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__ep_remove",
+        "__fput"
+      ],
+      "patch_enclosing_fns": [
+        "__ep_remove",
+        "attach_epitem",
+        "bool",
+        "eventpoll_release",
+        "if"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__ep_remove",
+        "__fput",
+        "attach_epitem",
+        "bool",
+        "eventpoll_release",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__ep_remove",
+          "src": "src/fs/eventpoll.c",
+          "ll": "eventpoll.ll"
+        },
+        {
+          "fn": "__fput",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "attach_epitem",
+          "src": "src/fs/eventpoll.c",
+          "ll": "eventpoll.ll"
+        },
+        {
+          "fn": "bool",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "eventpoll_release",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/fs/eventpoll.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__ep_remove": true,
+        "__fput": false
+      },
+      "enclosing_in_ll": [
+        "__ep_remove",
+        "attach_epitem"
+      ]
+    },
+    "SYZBOT-3cc3a12efa69aa6f": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "register_netdevice",
+        "type_show"
+      ],
+      "patch_enclosing_fns": [
+        "__dev_change_net_namespace",
+        "dev_isalive",
+        "fmt_dec",
+        "if",
+        "list_netdevice",
+        "netdev_run_todo",
+        "register_netdevice",
+        "unlist_netdevice",
+        "unregister_netdevice_many"
+      ],
+      "patch_def_fns": [
+        "if",
+        "unlist_netdevice"
+      ],
+      "all_candidates": [
+        "register_netdevice",
+        "type_show",
+        "__dev_change_net_namespace",
+        "dev_isalive",
+        "fmt_dec",
+        "if",
+        "list_netdevice",
+        "netdev_run_todo",
+        "unlist_netdevice",
+        "unregister_netdevice_many",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "register_netdevice",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "type_show",
+          "src": null,
+          "ll": "net-sysfs.ll"
+        },
+        {
+          "fn": "__dev_change_net_namespace",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "dev_isalive",
+          "src": "src/net/core/net-sysfs.c",
+          "ll": "net-sysfs.ll"
+        },
+        {
+          "fn": "fmt_dec",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/core/dev.c",
+          "ll": null
+        },
+        {
+          "fn": "list_netdevice",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "netdev_run_todo",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "unlist_netdevice",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "unregister_netdevice_many",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "register_netdevice": true,
+        "type_show": true
+      },
+      "enclosing_in_ll": [
+        "__dev_change_net_namespace",
+        "dev_isalive",
+        "list_netdevice",
+        "netdev_run_todo",
+        "register_netdevice",
+        "unlist_netdevice",
+        "unregister_netdevice_many"
+      ]
+    },
+    "SYZBOT-416320b6b3545cbf": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__dev_queue_xmit",
+        "__dev_queue_xmit"
+      ],
+      "patch_enclosing_fns": [
+        "__netif_tx_lock",
+        "__netif_tx_lock_bh",
+        "__netif_tx_release",
+        "__netif_tx_trylock",
+        "__netif_tx_unlock",
+        "__netif_tx_unlock_bh",
+        "netif_msg_init",
+        "txq_trans_update"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "__dev_queue_xmit",
+        "__netif_tx_lock",
+        "__netif_tx_lock_bh",
+        "__netif_tx_release",
+        "__netif_tx_trylock",
+        "__netif_tx_unlock",
+        "__netif_tx_unlock_bh",
+        "netif_msg_init",
+        "txq_trans_update",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__dev_queue_xmit",
+          "src": "src/net/core/dev.c",
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "__netif_tx_lock",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "__netif_tx_lock_bh",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__netif_tx_release",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "__netif_tx_trylock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__netif_tx_unlock",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "__netif_tx_unlock_bh",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "netif_msg_init",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "txq_trans_update",
+          "src": null,
+          "ll": "dev.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/core/dev.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__dev_queue_xmit": true
+      },
+      "enclosing_in_ll": [
+        "__netif_tx_lock",
+        "__netif_tx_release",
+        "__netif_tx_unlock",
+        "txq_trans_update"
+      ]
+    },
+    "SYZBOT-417aeb05fd190f3a": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__unmap_hugepage_range",
+        "alloc_surplus_hugetlb_folio"
+      ],
+      "patch_enclosing_fns": [
+        "__unmap_hugepage_range",
+        "folio_test_anon",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__unmap_hugepage_range",
+        "alloc_surplus_hugetlb_folio",
+        "folio_test_anon",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__unmap_hugepage_range",
+          "src": null,
+          "ll": "hugetlb.ll"
+        },
+        {
+          "fn": "alloc_surplus_hugetlb_folio",
+          "src": null,
+          "ll": "hugetlb.ll"
+        },
+        {
+          "fn": "folio_test_anon",
+          "src": "src/mm/hugetlb.c",
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/mm/hugetlb.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__unmap_hugepage_range": true,
+        "alloc_surplus_hugetlb_folio": true
+      },
+      "enclosing_in_ll": [
+        "__unmap_hugepage_range"
+      ]
+    },
+    "SYZBOT-44cf88a58d91b12b": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__ip4_datagram_connect",
+        "raw_bind"
+      ],
+      "patch_enclosing_fns": [
+        "raw_bind"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__ip4_datagram_connect",
+        "raw_bind",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__ip4_datagram_connect",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "raw_bind",
+          "src": "src/net/ipv4/raw.c",
+          "ll": "raw.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__ip4_datagram_connect": false,
+        "raw_bind": true
+      },
+      "enclosing_in_ll": [
+        "raw_bind"
+      ]
+    },
+    "SYZBOT-453b4249be2d6230": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "xfrm_lookup_with_ifid",
+        "xfrm_lookup_with_ifid"
+      ],
+      "patch_enclosing_fns": [
+        "dst_entry",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "xfrm_lookup_with_ifid",
+        "dst_entry",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "xfrm_lookup_with_ifid",
+          "src": null,
+          "ll": "xfrm_policy.ll"
+        },
+        {
+          "fn": "dst_entry",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/xfrm/xfrm_policy.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "xfrm_lookup_with_ifid": true
+      },
+      "enclosing_in_ll": []
+    },
+    "SYZBOT-483d6c9b9231ea7e": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "p9_conn_cancel",
+        "p9_poll_workfn"
+      ],
+      "patch_enclosing_fns": [
+        "p9_conn_cancel",
+        "p9_fd_request",
+        "p9_poll_mux",
+        "p9_read_work",
+        "p9_write_work"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "p9_conn_cancel",
+        "p9_poll_workfn",
+        "p9_fd_request",
+        "p9_poll_mux",
+        "p9_read_work",
+        "p9_write_work",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "p9_conn_cancel",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "p9_poll_workfn",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "p9_fd_request",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "p9_poll_mux",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "p9_read_work",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "p9_write_work",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": "trans_fd.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/9p/trans_fd.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "p9_conn_cancel": true,
+        "p9_poll_workfn": true
+      },
+      "enclosing_in_ll": [
+        "p9_conn_cancel",
+        "p9_fd_request",
+        "p9_poll_mux",
+        "p9_read_work",
+        "p9_write_work"
+      ]
+    },
+    "SYZBOT-4a03518df1e31b53": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__es_find_extent_range",
+        "__es_find_extent_range"
+      ],
+      "patch_enclosing_fns": [
+        "__es_find_extent_range",
+        "ext4_es_lookup_extent",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__es_find_extent_range",
+        "ext4_es_lookup_extent",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__es_find_extent_range",
+          "src": null,
+          "ll": "extents_status.ll"
+        },
+        {
+          "fn": "ext4_es_lookup_extent",
+          "src": null,
+          "ll": "extents_status.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/fs/ext4/extents_status.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__es_find_extent_range": true
+      },
+      "enclosing_in_ll": [
+        "__es_find_extent_range",
+        "ext4_es_lookup_extent"
+      ]
+    },
+    "SYZBOT-4a06d4373fd52f0b": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "inotify_handle_inode_event",
+        "inotify_remove_from_idr"
+      ],
+      "patch_enclosing_fns": [
+        "inotify_handle_inode_event"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "inotify_handle_inode_event",
+        "inotify_remove_from_idr",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "inotify_handle_inode_event",
+          "src": null,
+          "ll": "inotify_fsnotify.ll"
+        },
+        {
+          "fn": "inotify_remove_from_idr",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "inotify_handle_inode_event": true,
+        "inotify_remove_from_idr": false
+      },
+      "enclosing_in_ll": [
+        "inotify_handle_inode_event"
+      ]
+    },
+    "SYZBOT-4b16e156132582a9": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_add_backlog",
+        "tcp_recvmsg"
+      ],
+      "patch_enclosing_fns": [
+        "__sk_receive_skb",
+        "if",
+        "llc_conn_handler",
+        "rcvbuf_limit",
+        "sctp_add_backlog",
+        "sctp_backlog_rcv",
+        "sock_queue_rcv_skb",
+        "tcp_add_backlog",
+        "tcp_v4_early_demux",
+        "x25_receive_data"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "tcp_add_backlog",
+        "tcp_recvmsg",
+        "__sk_receive_skb",
+        "if",
+        "llc_conn_handler",
+        "rcvbuf_limit",
+        "sctp_add_backlog",
+        "sctp_backlog_rcv",
+        "sock_queue_rcv_skb",
+        "tcp_v4_early_demux",
+        "x25_receive_data",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_add_backlog",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_recvmsg",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__sk_receive_skb",
+          "src": null,
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/tipc/socket.c",
+          "ll": null
+        },
+        {
+          "fn": "llc_conn_handler",
+          "src": "src/net/llc/llc_conn.c",
+          "ll": "llc_conn.ll"
+        },
+        {
+          "fn": "rcvbuf_limit",
+          "src": "src/net/tipc/socket.c",
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "sctp_add_backlog",
+          "src": "src/net/sctp/input.c",
+          "ll": "input.ll"
+        },
+        {
+          "fn": "sctp_backlog_rcv",
+          "src": "src/net/sctp/input.c",
+          "ll": "input.ll"
+        },
+        {
+          "fn": "sock_queue_rcv_skb",
+          "src": "src/net/core/sock.c",
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "tcp_v4_early_demux",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "x25_receive_data",
+          "src": "src/net/x25/x25_dev.c",
+          "ll": "x25_dev.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_add_backlog": true,
+        "tcp_recvmsg": false
+      },
+      "enclosing_in_ll": [
+        "__sk_receive_skb",
+        "llc_conn_handler",
+        "rcvbuf_limit",
+        "sctp_add_backlog",
+        "sctp_backlog_rcv",
+        "sock_queue_rcv_skb",
+        "tcp_add_backlog",
+        "tcp_v4_early_demux",
+        "x25_receive_data"
+      ]
+    },
+    "SYZBOT-4dfb96a94317a78f": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "call_rcu",
+        "rcu_gp_fqs_loop"
+      ],
+      "patch_enclosing_fns": [
+        "__call_rcu_core",
+        "if",
+        "rcu_do_batch",
+        "rcu_gp_fqs",
+        "rcu_segcblist_first_pend_cb",
+        "rcutree_prepare_cpu"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "call_rcu",
+        "rcu_gp_fqs_loop",
+        "__call_rcu_core",
+        "if",
+        "rcu_do_batch",
+        "rcu_gp_fqs",
+        "rcu_segcblist_first_pend_cb",
+        "rcutree_prepare_cpu",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "call_rcu",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "rcu_gp_fqs_loop",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "__call_rcu_core",
+          "src": null,
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": null
+        },
+        {
+          "fn": "rcu_do_batch",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "rcu_gp_fqs",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "rcu_segcblist_first_pend_cb",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": null
+        },
+        {
+          "fn": "rcutree_prepare_cpu",
+          "src": "src/kernel/rcu/tree.c",
+          "ll": "tree.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "call_rcu": true,
+        "rcu_gp_fqs_loop": true
+      },
+      "enclosing_in_ll": [
+        "__call_rcu_core",
+        "rcu_do_batch",
+        "rcu_gp_fqs",
+        "rcutree_prepare_cpu"
+      ]
+    },
+    "SYZBOT-52cb782c704e243e": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "find_match",
+        "find_match"
+      ],
+      "patch_enclosing_fns": [
+        "fib6_nh_init",
+        "if",
+        "rt6_probe"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "find_match",
+        "fib6_nh_init",
+        "if",
+        "rt6_probe",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "find_match",
+          "src": null,
+          "ll": "route.ll"
+        },
+        {
+          "fn": "fib6_nh_init",
+          "src": null,
+          "ll": "route.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv6/route.c",
+          "ll": null
+        },
+        {
+          "fn": "rt6_probe",
+          "src": "src/net/ipv6/route.c",
+          "ll": "route.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "find_match": true
+      },
+      "enclosing_in_ll": [
+        "fib6_nh_init",
+        "rt6_probe"
+      ]
+    },
+    "SYZBOT-52e3dbded1f71729": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "kcm_rfree",
+        "unreserve_rx_kcm"
+      ],
+      "patch_enclosing_fns": [
+        "if",
+        "kcm_done_work",
+        "kcm_rfree",
+        "kcm_sock",
+        "unreserve_rx_kcm"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "kcm_rfree",
+        "unreserve_rx_kcm",
+        "if",
+        "kcm_done_work",
+        "kcm_sock",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "kcm_rfree",
+          "src": "src/net/kcm/kcmsock.c",
+          "ll": "kcmsock.ll"
+        },
+        {
+          "fn": "unreserve_rx_kcm",
+          "src": null,
+          "ll": "kcmsock.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/kcm/kcmsock.c",
+          "ll": null
+        },
+        {
+          "fn": "kcm_done_work",
+          "src": "src/net/kcm/kcmsock.c",
+          "ll": "kcmsock.ll"
+        },
+        {
+          "fn": "kcm_sock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "kcm_rfree": true,
+        "unreserve_rx_kcm": true
+      },
+      "enclosing_in_ll": [
+        "kcm_done_work",
+        "kcm_rfree",
+        "unreserve_rx_kcm"
+      ]
+    },
+    "SYZBOT-5366159cc4c1d817": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "mod_timer",
+        "run_timer_softirq"
+      ],
+      "patch_enclosing_fns": [
+        "__remove_hrtimer",
+        "anyway",
+        "enqueue_hrtimer",
+        "hrtimer_get_remaining",
+        "hrtimer_is_queued",
+        "hrtimer_next_event_without",
+        "if",
+        "remove_hrtimer"
+      ],
+      "patch_def_fns": [
+        "hrtimer_is_queued"
+      ],
+      "all_candidates": [
+        "mod_timer",
+        "run_timer_softirq",
+        "__remove_hrtimer",
+        "anyway",
+        "enqueue_hrtimer",
+        "hrtimer_get_remaining",
+        "hrtimer_is_queued",
+        "hrtimer_next_event_without",
+        "if",
+        "remove_hrtimer",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "mod_timer",
+          "src": "src/kernel/time/timer.c",
+          "ll": "timer.ll"
+        },
+        {
+          "fn": "run_timer_softirq",
+          "src": "src/kernel/time/timer.c",
+          "ll": "timer.ll"
+        },
+        {
+          "fn": "__remove_hrtimer",
+          "src": null,
+          "ll": "hrtimer.ll"
+        },
+        {
+          "fn": "anyway",
+          "src": "src/kernel/time/hrtimer.c",
+          "ll": null
+        },
+        {
+          "fn": "enqueue_hrtimer",
+          "src": null,
+          "ll": "hrtimer.ll"
+        },
+        {
+          "fn": "hrtimer_get_remaining",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "hrtimer_is_queued",
+          "src": null,
+          "ll": "hrtimer.ll"
+        },
+        {
+          "fn": "hrtimer_next_event_without",
+          "src": "src/kernel/time/hrtimer.c",
+          "ll": "hrtimer.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/kernel/time/timer.c",
+          "ll": null
+        },
+        {
+          "fn": "remove_hrtimer",
+          "src": "src/kernel/time/hrtimer.c",
+          "ll": "hrtimer.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "mod_timer": true,
+        "run_timer_softirq": true
+      },
+      "enclosing_in_ll": [
+        "__remove_hrtimer",
+        "enqueue_hrtimer",
+        "hrtimer_is_queued",
+        "hrtimer_next_event_without",
+        "remove_hrtimer"
+      ]
+    },
+    "SYZBOT-565f500a8d3fb9b7": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "fib_create_info",
+        "free_fib_info"
+      ],
+      "patch_enclosing_fns": [
+        "fib_info",
+        "fib_release_info",
+        "free_fib_info",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "fib_create_info",
+        "free_fib_info",
+        "fib_info",
+        "fib_release_info",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "fib_create_info",
+          "src": null,
+          "ll": "fib_semantics.ll"
+        },
+        {
+          "fn": "free_fib_info",
+          "src": "src/net/ipv4/fib_semantics.c",
+          "ll": "fib_semantics.ll"
+        },
+        {
+          "fn": "fib_info",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "fib_release_info",
+          "src": "src/net/ipv4/fib_semantics.c",
+          "ll": "fib_semantics.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv4/fib_semantics.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "fib_create_info": true,
+        "free_fib_info": true
+      },
+      "enclosing_in_ll": [
+        "fib_release_info",
+        "free_fib_info"
+      ]
+    },
+    "SYZBOT-5676077ba016d741": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "ip_finish_output2",
+        "ip_tunnel_xmit"
+      ],
+      "patch_enclosing_fns": [],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "ip_finish_output2",
+        "ip_tunnel_xmit",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "ip_finish_output2",
+          "src": "src/net/ipv4/ip_output.c",
+          "ll": "ip_output.ll"
+        },
+        {
+          "fn": "ip_tunnel_xmit",
+          "src": null,
+          "ll": "ip_tunnel.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "ip_finish_output2": true,
+        "ip_tunnel_xmit": true
+      },
+      "enclosing_in_ll": []
+    },
+    "SYZBOT-5a486fef3de40e0d": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__se_sys_io_uring_register",
+        "io_sqe_files_register"
+      ],
+      "patch_enclosing_fns": [
+        "SYSCALL_DEFINE4",
+        "if"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__se_sys_io_uring_register",
+        "io_sqe_files_register",
+        "SYSCALL_DEFINE4",
+        "if",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__se_sys_io_uring_register",
+          "src": null,
+          "ll": "register.ll"
+        },
+        {
+          "fn": "io_sqe_files_register",
+          "src": null,
+          "ll": "rsrc.ll"
+        },
+        {
+          "fn": "SYSCALL_DEFINE4",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/io_uring/rsrc.c",
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__se_sys_io_uring_register": true,
+        "io_sqe_files_register": true
+      },
+      "enclosing_in_ll": []
+    },
+    "SYZBOT-5cce5938c6c2c518": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "__ip_make_skb",
+        "__ip_make_skb"
+      ],
+      "patch_enclosing_fns": [
+        "__ip4_datagram_connect",
+        "dccp_v4_connect",
+        "dccp_v4_init_sequence",
+        "dccp_v4_request_recv_sock",
+        "if",
+        "inet_create",
+        "inet_sk_bound_l3mdev",
+        "inet_sock",
+        "ip_dst_metrics_put",
+        "ip_select_ident_segs",
+        "make_established",
+        "sctp_copy_sock",
+        "tcp_v4_conn_request",
+        "tcp_v4_connect",
+        "tcp_v4_syn_recv_sock"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "__ip_make_skb",
+        "__ip4_datagram_connect",
+        "dccp_v4_connect",
+        "dccp_v4_init_sequence",
+        "dccp_v4_request_recv_sock",
+        "if",
+        "inet_create",
+        "inet_sk_bound_l3mdev",
+        "inet_sock",
+        "ip_dst_metrics_put",
+        "ip_select_ident_segs",
+        "make_established",
+        "sctp_copy_sock",
+        "tcp_v4_conn_request",
+        "tcp_v4_connect",
+        "tcp_v4_syn_recv_sock",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "__ip_make_skb",
+          "src": null,
+          "ll": "ip_output.ll"
+        },
+        {
+          "fn": "__ip4_datagram_connect",
+          "src": "src/net/ipv4/datagram.c",
+          "ll": "datagram.ll"
+        },
+        {
+          "fn": "dccp_v4_connect",
+          "src": "src/net/dccp/ipv4.c",
+          "ll": "ipv4.ll"
+        },
+        {
+          "fn": "dccp_v4_init_sequence",
+          "src": "src/net/dccp/ipv4.c",
+          "ll": "ipv4.ll"
+        },
+        {
+          "fn": "dccp_v4_request_recv_sock",
+          "src": null,
+          "ll": "ipv4.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+          "ll": null
+        },
+        {
+          "fn": "inet_create",
+          "src": null,
+          "ll": "af_inet.ll"
+        },
+        {
+          "fn": "inet_sk_bound_l3mdev",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "inet_sock",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ip_dst_metrics_put",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "ip_select_ident_segs",
+          "src": null,
+          "ll": "ip_output.ll"
+        },
+        {
+          "fn": "make_established",
+          "src": "src/drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+          "ll": "chtls_cm.ll"
+        },
+        {
+          "fn": "sctp_copy_sock",
+          "src": null,
+          "ll": "socket.ll"
+        },
+        {
+          "fn": "tcp_v4_conn_request",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_v4_connect",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_v4_syn_recv_sock",
+          "src": null,
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "__ip_make_skb": true
+      },
+      "enclosing_in_ll": [
+        "__ip4_datagram_connect",
+        "dccp_v4_connect",
+        "dccp_v4_init_sequence",
+        "dccp_v4_request_recv_sock",
+        "inet_create",
+        "ip_select_ident_segs",
+        "make_established",
+        "sctp_copy_sock",
+        "tcp_v4_conn_request",
+        "tcp_v4_connect",
+        "tcp_v4_syn_recv_sock"
+      ]
+    },
+    "SYZBOT-62955e4f963d38ab": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_event_new_data_sent",
+        "tcp_stream_memory_free"
+      ],
+      "patch_enclosing_fns": [
+        "if",
+        "tcp_connect",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_event_new_data_sent",
+        "tcp_ioctl",
+        "tcp_notsent_lowat",
+        "tcp_send_fin",
+        "tcp_stream_memory_free"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "tcp_event_new_data_sent",
+        "tcp_stream_memory_free",
+        "if",
+        "tcp_connect",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_ioctl",
+        "tcp_notsent_lowat",
+        "tcp_send_fin",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_event_new_data_sent",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_stream_memory_free",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": null
+        },
+        {
+          "fn": "tcp_connect",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_connect_init",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_create_openreq_child",
+          "src": null,
+          "ll": "tcp_minisocks.ll"
+        },
+        {
+          "fn": "tcp_ioctl",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_notsent_lowat",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tcp_send_fin",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_event_new_data_sent": true,
+        "tcp_stream_memory_free": false
+      },
+      "enclosing_in_ll": [
+        "tcp_connect",
+        "tcp_connect_init",
+        "tcp_create_openreq_child",
+        "tcp_event_new_data_sent",
+        "tcp_ioctl",
+        "tcp_send_fin"
+      ]
+    },
+    "SYZBOT-630679ddf6c0deba": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_add_backlog",
+        "tcp_try_rmem_schedule"
+      ],
+      "patch_enclosing_fns": [
+        "BPF_CALL_5",
+        "TRACE_EVENT",
+        "__field",
+        "if",
+        "sk_get_meminfo",
+        "sk_memory_allocated",
+        "skb_set_err_queue",
+        "sock_queue_err_skb",
+        "sock_setsockopt",
+        "switch",
+        "tcp_clamp_window",
+        "tcp_full_space",
+        "tcp_init_sock",
+        "tcp_rcv_space_adjust",
+        "tcp_set_rcvlowat",
+        "tcp_space",
+        "tcp_win_from_space"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "tcp_add_backlog",
+        "tcp_try_rmem_schedule",
+        "BPF_CALL_5",
+        "TRACE_EVENT",
+        "__field",
+        "if",
+        "sk_get_meminfo",
+        "sk_memory_allocated",
+        "skb_set_err_queue",
+        "sock_queue_err_skb",
+        "sock_setsockopt",
+        "switch",
+        "tcp_clamp_window",
+        "tcp_full_space",
+        "tcp_init_sock",
+        "tcp_rcv_space_adjust",
+        "tcp_set_rcvlowat",
+        "tcp_space",
+        "tcp_win_from_space",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_add_backlog",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tcp_try_rmem_schedule",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "BPF_CALL_5",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "TRACE_EVENT",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "__field",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": null
+        },
+        {
+          "fn": "sk_get_meminfo",
+          "src": "src/net/core/sock.c",
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "sk_memory_allocated",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "skb_set_err_queue",
+          "src": "src/net/core/skbuff.c",
+          "ll": "skbuff.ll"
+        },
+        {
+          "fn": "sock_queue_err_skb",
+          "src": "src/net/core/skbuff.c",
+          "ll": "skbuff.ll"
+        },
+        {
+          "fn": "sock_setsockopt",
+          "src": null,
+          "ll": "sock.ll"
+        },
+        {
+          "fn": "switch",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": null
+        },
+        {
+          "fn": "tcp_clamp_window",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_full_space",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_init_sock",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_rcv_space_adjust",
+          "src": "src/net/ipv4/tcp_input.c",
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_set_rcvlowat",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_space",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "tcp_win_from_space",
+          "src": null,
+          "ll": "tcp_input.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_add_backlog": false,
+        "tcp_try_rmem_schedule": true
+      },
+      "enclosing_in_ll": [
+        "sk_get_meminfo",
+        "sk_memory_allocated",
+        "skb_set_err_queue",
+        "sock_queue_err_skb",
+        "sock_setsockopt",
+        "tcp_clamp_window",
+        "tcp_full_space",
+        "tcp_init_sock",
+        "tcp_rcv_space_adjust",
+        "tcp_set_rcvlowat",
+        "tcp_space",
+        "tcp_win_from_space"
+      ]
+    },
+    "SYZBOT-63cbe31877bb80ef": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "snd_seq_check_queue",
+        "snd_seq_control_queue"
+      ],
+      "patch_enclosing_fns": [
+        "snd_seq_queue"
+      ],
+      "patch_def_fns": [],
+      "all_candidates": [
+        "snd_seq_check_queue",
+        "snd_seq_control_queue",
+        "snd_seq_queue",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "snd_seq_check_queue",
+          "src": "src/sound/core/seq/seq_queue.c",
+          "ll": "seq_queue.ll"
+        },
+        {
+          "fn": "snd_seq_control_queue",
+          "src": "src/sound/core/seq/seq_queue.c",
+          "ll": "seq_queue.ll"
+        },
+        {
+          "fn": "snd_seq_queue",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "snd_seq_check_queue": true,
+        "snd_seq_control_queue": true
+      },
+      "enclosing_in_ll": []
+    },
+    "SYZBOT-6a2a295ae3340e8e": {
+      "status": "FULL",
+      "pair_from_hint": [
+        "tcp_sendmsg_locked",
+        "tcp_stream_memory_free"
+      ],
+      "patch_enclosing_fns": [
+        "do_tcp_setsockopt",
+        "get_tcp4_sock",
+        "if",
+        "ssize_t",
+        "tcp_connect_queue_skb",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_notsent_lowat",
+        "tcp_queue_skb",
+        "tcp_sendmsg_locked",
+        "tcp_stream_memory_free",
+        "tcp_twsk_unique",
+        "tcp_v4_connect",
+        "tcp_v6_connect"
+      ],
+      "patch_def_fns": [
+        "if"
+      ],
+      "all_candidates": [
+        "tcp_sendmsg_locked",
+        "tcp_stream_memory_free",
+        "do_tcp_setsockopt",
+        "get_tcp4_sock",
+        "if",
+        "ssize_t",
+        "tcp_connect_queue_skb",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_notsent_lowat",
+        "tcp_queue_skb",
+        "tcp_twsk_unique",
+        "tcp_v4_connect",
+        "tcp_v6_connect",
+        "context",
+        "data",
+        "race",
+        "reported"
+      ],
+      "coverage": [
+        {
+          "fn": "tcp_sendmsg_locked",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_stream_memory_free",
+          "src": null,
+          "ll": "tcp_ipv6.ll"
+        },
+        {
+          "fn": "do_tcp_setsockopt",
+          "src": null,
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "get_tcp4_sock",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "if",
+          "src": "src/net/ipv6/tcp_ipv6.c",
+          "ll": null
+        },
+        {
+          "fn": "ssize_t",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "tcp_connect_queue_skb",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_create_openreq_child",
+          "src": null,
+          "ll": "tcp_minisocks.ll"
+        },
+        {
+          "fn": "tcp_diag_get_info",
+          "src": null,
+          "ll": "tcp_diag.ll"
+        },
+        {
+          "fn": "tcp_disconnect",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_ioctl",
+          "src": "src/net/ipv4/tcp.c",
+          "ll": "tcp.ll"
+        },
+        {
+          "fn": "tcp_notsent_lowat",
+          "src": null,
+          "ll": "tcp_ipv6.ll"
+        },
+        {
+          "fn": "tcp_queue_skb",
+          "src": "src/net/ipv4/tcp_output.c",
+          "ll": "tcp_output.ll"
+        },
+        {
+          "fn": "tcp_twsk_unique",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_v4_connect",
+          "src": "src/net/ipv4/tcp_ipv4.c",
+          "ll": "tcp_ipv4.ll"
+        },
+        {
+          "fn": "tcp_v6_connect",
+          "src": null,
+          "ll": "tcp_ipv6.ll"
+        },
+        {
+          "fn": "context",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "data",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "race",
+          "src": null,
+          "ll": null
+        },
+        {
+          "fn": "reported",
+          "src": null,
+          "ll": null
+        }
+      ],
+      "pair_in_ll": {
+        "tcp_sendmsg_locked": true,
+        "tcp_stream_memory_free": true
+      },
+      "enclosing_in_ll": [
+        "do_tcp_setsockopt",
+        "get_tcp4_sock",
+        "tcp_connect_queue_skb",
+        "tcp_create_openreq_child",
+        "tcp_diag_get_info",
+        "tcp_disconnect",
+        "tcp_ioctl",
+        "tcp_notsent_lowat",
+        "tcp_queue_skb",
+        "tcp_sendmsg_locked",
+        "tcp_stream_memory_free",
+        "tcp_twsk_unique",
+        "tcp_v4_connect",
+        "tcp_v6_connect"
+      ]
+    }
+  }
+}

@@ -1,0 +1,429 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 361830MB)
+InputSrcDir: src
+InputBCFileName: route.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 361830MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 218MB, Avail: 361641MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 218MB, Avail: 361641MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 3 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 29 ops-table member, 33 indirect-fork sink (59 unique function(s))
+[Auto-Entry] Total: 59 kernel entry point(s):
+  - rt6_nh_nlmsg_size
+  - ip6_route_net_exit_late
+  - ip6_dst_check
+  - fib6_nh_mtu_change
+  - ip6_pol_route_lookup
+  - ip6_route_net_init
+  - ipv6_inetpeer_init
+  - ip6_rt_update_pmtu
+  - fib6_nh_find_match
+  - fib6_nh_redirect_match
+  - ip6_negative_advice
+  - ip6_mtu
+  - rt6_stats_seq_show
+  - dst_discard
+  - rt6_nh_age_exceptions
+  - ip6_route_net_exit
+  - ip6_dst_gc
+  - ipv6_sysctl_rtcache_flush
+  - rt6_mtu_change_route
+  - trace_event_define_fields_fib6_table_lookup
+  ... and 39 more
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 442/442 functions...
+[Phasar] Location maps built. Total functions: 442
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 222MB, Avail: 361732MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 222MB, Avail: 361732MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 222MB, Avail: 361732MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 222MB, Avail: 361732MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "rt6_nh_nlmsg_size", fileName: "net/ipv6/route.c", lineNumber: 5267 }
+[DEBUG getMain] Looking for: funcName=rt6_nh_nlmsg_size, fileName=net/ipv6/route.c, fileName_last=route.c, lineNumber=5267
+[DEBUG getMain] methods from full path: 204
+[DEBUG getMain] Iterating 204 methods
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU_ALIGNED, line=130
+[DEBUG getMain] Checking method: name=RTF_RA_ROUTER, line=4448
+[DEBUG getMain] Checking method: name=EXPORT_TRACEPOINT_SYMBOL_GPL, line=73
+[DEBUG getMain] Checking method: name=ip6_route_cleanup, line=6408
+[DEBUG getMain] Checking method: name=ip6_route_init, line=6316
+[DEBUG getMain] Checking method: name=ip6_route_net_init_late, line=6241
+[DEBUG getMain] Checking method: name=inet6_rtm_getroute, line=5753
+[DEBUG getMain] Checking method: name=rt6_dump_route, line=5619
+[DEBUG getMain] Checking method: name=fib6_info_nh_uses_dev, line=5522
+[DEBUG getMain] Checking method: name=ip6_route_dev_notify, line=5960
+[DEBUG getMain] Checking method: name=rt6_fill_node, line=5353
+[DEBUG getMain] Checking method: name=rt6_fill_node_nexthop, line=5324
+[DEBUG getMain] Checking method: name=rt6_nh_nlmsg_size, line=5267
+[DEBUG getMain] Found main! Creating CCPGNode
+getAllEntryPointInfos: Returning 59 entry points for kernel module analysis
+[Kernel Module Mode] Adding 59 entry points as parallel entries
+  - Skipping (already main): rt6_nh_nlmsg_size
+  - Looking for: ip6_route_net_exit_late -> demangled: ip6_route_net_exit_late -> shortName: ip6_route_net_exit_late
+  - Not found in CPG: ip6_route_net_exit_late (tried: ip6_route_net_exit_late)
+  - Looking for: ip6_dst_check -> demangled: ip6_dst_check -> shortName: ip6_dst_check
+  - Found in CPG: ip6_dst_check at net/ipv6/route.c:2588
+  - Added entry: ip6_dst_check
+  - Looking for: fib6_nh_mtu_change -> demangled: fib6_nh_mtu_change -> shortName: fib6_nh_mtu_change
+  - Found in CPG: fib6_nh_mtu_change at net/ipv6/route.c:4738
+  - Added entry: fib6_nh_mtu_change
+  - Looking for: ip6_pol_route_lookup -> demangled: ip6_pol_route_lookup -> shortName: ip6_pol_route_lookup
+  - Found in CPG: ip6_pol_route_lookup at net/ipv6/route.c:1206
+  - Added entry: ip6_pol_route_lookup
+  - Looking for: ip6_route_net_init -> demangled: ip6_route_net_init -> shortName: ip6_route_net_init
+  - Found in CPG: ip6_route_net_init at net/ipv6/route.c:6151
+  - Added entry: ip6_route_net_init
+  - Looking for: ipv6_inetpeer_init -> demangled: ipv6_inetpeer_init -> shortName: ipv6_inetpeer_init
+  - Found in CPG: ipv6_inetpeer_init at net/ipv6/route.c:6265
+  - Added entry: ipv6_inetpeer_init
+  - Looking for: ip6_rt_update_pmtu -> demangled: ip6_rt_update_pmtu -> shortName: ip6_rt_update_pmtu
+  - Found in CPG: ip6_rt_update_pmtu at net/ipv6/route.c:2765
+  - Added entry: ip6_rt_update_pmtu
+  - Looking for: fib6_nh_find_match -> demangled: fib6_nh_find_match -> shortName: fib6_nh_find_match
+  - Found in CPG: fib6_nh_find_match at net/ipv6/route.c:1918
+  - Added entry: fib6_nh_find_match
+  - Looking for: fib6_nh_redirect_match -> demangled: fib6_nh_redirect_match -> shortName: fib6_nh_redirect_match
+  - Found in CPG: fib6_nh_redirect_match at net/ipv6/route.c:2868
+  - Added entry: fib6_nh_redirect_match
+  - Looking for: ip6_negative_advice -> demangled: ip6_negative_advice -> shortName: ip6_negative_advice
+  - Found in CPG: ip6_negative_advice at net/ipv6/route.c:2616
+  - Added entry: ip6_negative_advice
+  - Looking for: ip6_mtu -> demangled: ip6_mtu -> shortName: ip6_mtu
+  - Found in CPG: ip6_mtu at net/ipv6/route.c:3054
+  - Added entry: ip6_mtu
+  - Looking for: rt6_stats_seq_show -> demangled: rt6_stats_seq_show -> shortName: rt6_stats_seq_show
+  - Not found in CPG: rt6_stats_seq_show (tried: rt6_stats_seq_show)
+  - Looking for: dst_discard -> demangled: dst_discard -> shortName: dst_discard
+  - Not found in CPG: dst_discard (tried: dst_discard)
+  - Looking for: rt6_nh_age_exceptions -> demangled: rt6_nh_age_exceptions -> shortName: rt6_nh_age_exceptions
+  - Found in CPG: rt6_nh_age_exceptions at net/ipv6/route.c:2126
+  - Added entry: rt6_nh_age_exceptions
+  - Looking for: ip6_route_net_exit -> demangled: ip6_route_net_exit -> shortName: ip6_route_net_exit
+  - Found in CPG: ip6_route_net_exit at net/ipv6/route.c:6230
+  - Added entry: ip6_route_net_exit
+  - Looking for: ip6_dst_gc -> demangled: ip6_dst_gc -> shortName: ip6_dst_gc
+  - Found in CPG: ip6_dst_gc at net/ipv6/route.c:3157
+  - Added entry: ip6_dst_gc
+  - Looking for: ipv6_sysctl_rtcache_flush -> demangled: ipv6_sysctl_rtcache_flush -> shortName: ipv6_sysctl_rtcache_flush
+  - Not found in CPG: ipv6_sysctl_rtcache_flush (tried: ipv6_sysctl_rtcache_flush)
+  - Looking for: rt6_mtu_change_route -> demangled: rt6_mtu_change_route -> shortName: rt6_mtu_change_route
+  - Found in CPG: rt6_mtu_change_route at net/ipv6/route.c:4764
+  - Added entry: rt6_mtu_change_route
+  - Looking for: trace_event_define_fields_fib6_table_lookup -> demangled: trace_event_define_fields_fib6_table_lookup -> shortName: trace_event_define_fields_fib6_table_lookup
+  - Not found in CPG: trace_event_define_fields_fib6_table_lookup (tried: trace_event_define_fields_fib6_table_lookup)
+  - Looking for: fib6_clean_tohost -> demangled: fib6_clean_tohost -> shortName: fib6_clean_tohost
+  - Found in CPG: fib6_clean_tohost at net/ipv6/route.c:4451
+  - Added entry: fib6_clean_tohost
+  - Looking for: ip6_blackhole_mtu -> demangled: ip6_blackhole_mtu -> shortName: ip6_blackhole_mtu
+  - Found in CPG: ip6_blackhole_mtu at net/ipv6/route.c:259
+  - Added entry: ip6_blackhole_mtu
+  - Looking for: ip6_confirm_neigh -> demangled: ip6_confirm_neigh -> shortName: ip6_confirm_neigh
+  - Found in CPG: ip6_confirm_neigh at net/ipv6/route.c:225
+  - Added entry: ip6_confirm_neigh
+  - Looking for: rt6_do_redirect -> demangled: rt6_do_redirect -> shortName: rt6_do_redirect
+  - Found in CPG: rt6_do_redirect at net/ipv6/route.c:3934
+  - Added entry: rt6_do_redirect
+  - Looking for: ip6_dst_ifdown -> demangled: ip6_dst_ifdown -> shortName: ip6_dst_ifdown
+  - Found in CPG: ip6_dst_ifdown at net/ipv6/route.c:384
+  - Added entry: ip6_dst_ifdown
+  - Looking for: ip6_rt_blackhole_redirect -> demangled: ip6_rt_blackhole_redirect -> shortName: ip6_rt_blackhole_redirect
+  - Not found in CPG: ip6_rt_blackhole_redirect (tried: ip6_rt_blackhole_redirect)
+  - Looking for: ip6_route_init -> demangled: ip6_route_init -> shortName: ip6_route_init
+  - Found in CPG: ip6_route_init at net/ipv6/route.c:6316
+  - Added entry: ip6_route_init
+  - Looking for: rt6_nh_flush_exceptions -> demangled: rt6_nh_flush_exceptions -> shortName: rt6_nh_flush_exceptions
+  - Found in CPG: rt6_nh_flush_exceptions at net/ipv6/route.c:1740
+  - Added entry: rt6_nh_flush_exceptions
+  - Looking for: ip6_dst_destroy -> demangled: ip6_dst_destroy -> shortName: ip6_dst_destroy
+  - Found in CPG: ip6_dst_destroy at net/ipv6/route.c:365
+  - Added entry: ip6_dst_destroy
+  - Looking for: ip6_dst_neigh_lookup -> demangled: ip6_dst_neigh_lookup -> shortName: ip6_dst_neigh_lookup
+  - Found in CPG: ip6_dst_neigh_lookup at net/ipv6/route.c:215
+  - Added entry: ip6_dst_neigh_lookup
+  - Looking for: ip6_route_net_init_late -> demangled: ip6_route_net_init_late -> shortName: ip6_route_net_init_late
+  - Found in CPG: ip6_route_net_init_late at net/ipv6/route.c:6241
+  - Added entry: ip6_route_net_init_late
+  - Looking for: ipv6_inetpeer_exit -> demangled: ipv6_inetpeer_exit -> shortName: ipv6_inetpeer_exit
+  - Found in CPG: ipv6_inetpeer_exit at net/ipv6/route.c:6276
+  - Added entry: ipv6_inetpeer_exit
+  - Looking for: rt6_probe_deferred -> demangled: rt6_probe_deferred -> shortName: rt6_probe_deferred
+  - Not found in CPG: rt6_probe_deferred (tried: rt6_probe_deferred)
+  - Looking for: ip6_pol_route_output -> demangled: ip6_pol_route_output -> shortName: ip6_pol_route_output
+  - Found in CPG: ip6_pol_route_output at net/ipv6/route.c:2446
+  - Added entry: ip6_pol_route_output
+  - Looking for: ip6_pkt_discard -> demangled: ip6_pkt_discard -> shortName: ip6_pkt_discard
+  - Found in CPG: ip6_pkt_discard at net/ipv6/route.c:4355
+  - Added entry: ip6_pkt_discard
+  - Looking for: ip6_pkt_discard_out -> demangled: ip6_pkt_discard_out -> shortName: ip6_pkt_discard_out
+  - Found in CPG: ip6_pkt_discard_out at net/ipv6/route.c:4360
+  - Added entry: ip6_pkt_discard_out
+  - Looking for: ip6_rt_blackhole_update_pmtu -> demangled: ip6_rt_blackhole_update_pmtu -> shortName: ip6_rt_blackhole_update_pmtu
+  - Not found in CPG: ip6_rt_blackhole_update_pmtu (tried: ip6_rt_blackhole_update_pmtu)
+  - Looking for: ip6_pkt_prohibit -> demangled: ip6_pkt_prohibit -> shortName: ip6_pkt_prohibit
+  - Found in CPG: ip6_pkt_prohibit at net/ipv6/route.c:4366
+  - Added entry: ip6_pkt_prohibit
+  - Looking for: ip6_pol_route_input -> demangled: ip6_pol_route_input -> shortName: ip6_pol_route_input
+  - Found in CPG: ip6_pol_route_input at net/ipv6/route.c:2252
+  - Added entry: ip6_pol_route_input
+  - Looking for: fib6_nh_del_cached_rt -> demangled: fib6_nh_del_cached_rt -> shortName: fib6_nh_del_cached_rt
+  - Found in CPG: fib6_nh_del_cached_rt at net/ipv6/route.c:3828
+  - Added entry: fib6_nh_del_cached_rt
+  - Looking for: fib6_remove_prefsrc -> demangled: fib6_remove_prefsrc -> shortName: fib6_remove_prefsrc
+  - Found in CPG: fib6_remove_prefsrc at net/ipv6/route.c:4419
+  - Added entry: fib6_remove_prefsrc
+  - Looking for: fib6_info_nh_uses_dev -> demangled: fib6_info_nh_uses_dev -> shortName: fib6_info_nh_uses_dev
+  - Found in CPG: fib6_info_nh_uses_dev at net/ipv6/route.c:5522
+  - Added entry: fib6_info_nh_uses_dev
+  - Looking for: fib6_ifdown -> demangled: fib6_ifdown -> shortName: fib6_ifdown
+  - Found in CPG: fib6_ifdown at net/ipv6/route.c:4666
+  - Added entry: fib6_ifdown
+  - Looking for: ip6_route_init_special_entries -> demangled: ip6_route_init_special_entries -> shortName: ip6_route_init_special_entries
+  - Found in CPG: ip6_route_init_special_entries at net/ipv6/route.c:6300
+  - Added entry: ip6_route_init_special_entries
+  - Looking for: rt6_nh_dump_exceptions -> demangled: rt6_nh_dump_exceptions -> shortName: rt6_nh_dump_exceptions
+  - Found in CPG: rt6_nh_dump_exceptions at net/ipv6/route.c:5567
+  - Added entry: rt6_nh_dump_exceptions
+  - Looking for: ip6_default_advmss -> demangled: ip6_default_advmss -> shortName: ip6_default_advmss
+  - Found in CPG: ip6_default_advmss at net/ipv6/route.c:3032
+  - Added entry: ip6_default_advmss
+  - Looking for: ip6_route_dev_notify -> demangled: ip6_route_dev_notify -> shortName: ip6_route_dev_notify
+  - Found in CPG: ip6_route_dev_notify at net/ipv6/route.c:5960
+  - Added entry: ip6_route_dev_notify
+  - Looking for: fib6_ifup -> demangled: fib6_ifup -> shortName: fib6_ifup
+  - Found in CPG: fib6_ifup at net/ipv6/route.c:4581
+  - Added entry: fib6_ifup
+  - Looking for: inet6_rtm_newroute -> demangled: inet6_rtm_newroute -> shortName: inet6_rtm_newroute
+  - Found in CPG: inet6_rtm_newroute at net/ipv6/route.c:5247
+  - Added entry: inet6_rtm_newroute
+  - Looking for: inet6_rtm_delroute -> demangled: inet6_rtm_delroute -> shortName: inet6_rtm_delroute
+  - Found in CPG: inet6_rtm_delroute at net/ipv6/route.c:5223
+  - Added entry: inet6_rtm_delroute
+  - Looking for: inet6_rtm_getroute -> demangled: inet6_rtm_getroute -> shortName: inet6_rtm_getroute
+  - Found in CPG: inet6_rtm_getroute at net/ipv6/route.c:5753
+  - Added entry: inet6_rtm_getroute
+  - Looking for: neigh_key_eq128 -> demangled: neigh_key_eq128 -> shortName: neigh_key_eq128
+  - Not found in CPG: neigh_key_eq128 (tried: neigh_key_eq128)
+  - Looking for: ip6_pkt_prohibit_out -> demangled: ip6_pkt_prohibit_out -> shortName: ip6_pkt_prohibit_out
+  - Found in CPG: ip6_pkt_prohibit_out at net/ipv6/route.c:4371
+  - Added entry: ip6_pkt_prohibit_out
+  - Looking for: ip6_link_failure -> demangled: ip6_link_failure -> shortName: ip6_link_failure
+  - Found in CPG: ip6_link_failure at net/ipv6/route.c:2636
+  - Added entry: ip6_link_failure
+  - Looking for: ndisc_hashfn -> demangled: ndisc_hashfn -> shortName: ndisc_hashfn
+  - Not found in CPG: ndisc_hashfn (tried: ndisc_hashfn)
+  - Looking for: __rt6_nh_dev_match -> demangled: __rt6_nh_dev_match -> shortName: __rt6_nh_dev_match
+  - Found in CPG: __rt6_nh_dev_match at net/ipv6/route.c:502
+  - Added entry: __rt6_nh_dev_match
+  - Looking for: rt6_nh_find_match -> demangled: rt6_nh_find_match -> shortName: rt6_nh_find_match
+  - Found in CPG: rt6_nh_find_match at net/ipv6/route.c:778
+  - Added entry: rt6_nh_find_match
+  - Looking for: __ip6_route_redirect -> demangled: __ip6_route_redirect -> shortName: __ip6_route_redirect
+  - Found in CPG: __ip6_route_redirect at net/ipv6/route.c:2882
+  - Added entry: __ip6_route_redirect
+  - Looking for: rt6_nh_remove_exception_rt -> demangled: rt6_nh_remove_exception_rt -> shortName: rt6_nh_remove_exception_rt
+  - Found in CPG: rt6_nh_remove_exception_rt at net/ipv6/route.c:1847
+  - Added entry: rt6_nh_remove_exception_rt
+[Kernel Module Mode] Total entry functions: 49
+Warning: Could not map CPG function 'RTF_RA_ROUTER' to an llvm::Function.
+Warning: Could not map CPG function 'RTF_CACHE_GATEWAY' to an llvm::Function.
+Warning: Could not map CPG function 'FIB6_EXCEPTION_BUCKET_FLUSHED' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 49 entry points as parallel threads
+[Kernel Module Mode] Keeping all 49 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 222MB, Avail: 361747MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 222MB, Avail: 361747MB)
+[DEBUG PRINT] Phase 1: Found 260 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'inet6_rtm_newroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_newroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_newroute' as a candidate.
+  -> Found thread arg in function 'rt6_nh_remove_exception_rt' as a candidate.
+  -> Found thread arg in function 'rt6_nh_remove_exception_rt' as a candidate.
+  -> Found thread arg in function 'ip6_dst_destroy' as a candidate.
+  -> Found thread arg in function 'fib6_clean_tohost' as a candidate.
+  -> Found thread arg in function 'fib6_clean_tohost' as a candidate.
+  -> Found thread arg in function 'rt6_mtu_change_route' as a candidate.
+  -> Found thread arg in function 'rt6_mtu_change_route' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_output' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_output' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_output' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_output' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_output' as a candidate.
+  -> Found thread arg in function 'ip6_dst_check' as a candidate.
+  -> Found thread arg in function 'ip6_dst_check' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_discard' as a candidate.
+  -> Found thread arg in function 'ip6_dst_ifdown' as a candidate.
+  -> Found thread arg in function 'ip6_dst_ifdown' as a candidate.
+  -> Found thread arg in function 'ip6_dst_ifdown' as a candidate.
+  -> Found thread arg in function 'ip6_confirm_neigh' as a candidate.
+  -> Found thread arg in function 'ip6_confirm_neigh' as a candidate.
+  -> Found thread arg in function 'rt6_nh_flush_exceptions' as a candidate.
+  -> Found thread arg in function 'rt6_nh_flush_exceptions' as a candidate.
+  -> Found thread arg in function 'ip6_blackhole_mtu' as a candidate.
+  -> Found thread arg in function 'fib6_nh_mtu_change' as a candidate.
+  -> Found thread arg in function 'fib6_nh_mtu_change' as a candidate.
+  -> Found thread arg in function 'ip6_route_dev_notify' as a candidate.
+  -> Found thread arg in function 'ip6_route_dev_notify' as a candidate.
+  -> Found thread arg in function 'ip6_route_dev_notify' as a candidate.
+  -> Found thread arg in function 'fib6_remove_prefsrc' as a candidate.
+  -> Found thread arg in function 'fib6_remove_prefsrc' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_getroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_getroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_getroute' as a candidate.
+  -> Found thread arg in function 'ip6_negative_advice' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_input' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_input' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_input' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_input' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_input' as a candidate.
+  -> Found thread arg in function 'fib6_ifup' as a candidate.
+  -> Found thread arg in function 'fib6_ifup' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_pol_route_lookup' as a candidate.
+  -> Found thread arg in function 'fib6_nh_find_match' as a candidate.
+  -> Found thread arg in function 'fib6_nh_find_match' as a candidate.
+  -> Found thread arg in function 'rt6_nh_age_exceptions' as a candidate.
+  -> Found thread arg in function 'rt6_nh_age_exceptions' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_discard_out' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_discard_out' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_discard_out' as a candidate.
+  -> Found thread arg in function 'ip6_link_failure' as a candidate.
+  -> Found thread arg in function 'ip6_mtu' as a candidate.
+  -> Found thread arg in function 'fib6_ifdown' as a candidate.
+  -> Found thread arg in function 'fib6_ifdown' as a candidate.
+  -> Found thread arg in function 'rt6_nh_nlmsg_size' as a candidate.
+  -> Found thread arg in function 'rt6_nh_nlmsg_size' as a candidate.
+  -> Found thread arg in function 'ip6_rt_update_pmtu' as a candidate.
+  -> Found thread arg in function 'ip6_rt_update_pmtu' as a candidate.
+  -> Found thread arg in function 'ip6_rt_update_pmtu' as a candidate.
+  -> Found thread arg in function 'ip6_rt_update_pmtu' as a candidate.
+  -> Found thread arg in function '__rt6_nh_dev_match' as a candidate.
+  -> Found thread arg in function '__rt6_nh_dev_match' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_delroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_delroute' as a candidate.
+  -> Found thread arg in function 'inet6_rtm_delroute' as a candidate.
+  -> Found thread arg in function 'rt6_nh_find_match' as a candidate.
+  -> Found thread arg in function 'rt6_nh_find_match' as a candidate.
+  -> Found thread arg in function '__ip6_route_redirect' as a candidate.
+  -> Found thread arg in function '__ip6_route_redirect' as a candidate.
+  -> Found thread arg in function '__ip6_route_redirect' as a candidate.
+  -> Found thread arg in function '__ip6_route_redirect' as a candidate.
+  -> Found thread arg in function '__ip6_route_redirect' as a candidate.
+  -> Found thread arg in function 'rt6_do_redirect' as a candidate.
+  -> Found thread arg in function 'rt6_do_redirect' as a candidate.
+  -> Found thread arg in function 'rt6_do_redirect' as a candidate.
+  -> Found thread arg in function 'fib6_nh_redirect_match' as a candidate.
+  -> Found thread arg in function 'fib6_nh_redirect_match' as a candidate.
+  -> Found thread arg in function 'ip6_route_net_init_late' as a candidate.
+  -> Found thread arg in function 'ipv6_inetpeer_init' as a candidate.
+  -> Found thread arg in function 'fib6_nh_del_cached_rt' as a candidate.
+  -> Found thread arg in function 'fib6_nh_del_cached_rt' as a candidate.
+  -> Found thread arg in function 'rt6_nh_dump_exceptions' as a candidate.
+  -> Found thread arg in function 'rt6_nh_dump_exceptions' as a candidate.
+  -> Found thread arg in function 'ipv6_inetpeer_exit' as a candidate.
+  -> Found thread arg in function 'ip6_dst_gc' as a candidate.
+  -> Found thread arg in function 'fib6_info_nh_uses_dev' as a candidate.
+  -> Found thread arg in function 'fib6_info_nh_uses_dev' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_prohibit' as a candidate.
+  -> Found thread arg in function 'ip6_route_net_init' as a candidate.
+  -> Found thread arg in function 'ip6_route_net_exit' as a candidate.
+  -> Found thread arg in function 'ip6_default_advmss' as a candidate.
+  -> Found thread arg in function 'ip6_dst_neigh_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_dst_neigh_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_dst_neigh_lookup' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_prohibit_out' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_prohibit_out' as a candidate.
+  -> Found thread arg in function 'ip6_pkt_prohibit_out' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 226
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 49 threads...
+[VulnerabilitySurface] Collected 3568 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 930 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 392 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 14029 plain Load/Store accesses across 2 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 4 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 36 list-helper accesses (cluster-A fix; +3 bridged head-side deletes)
+[VulnerabilitySurface] Linked 290 parent-Free accesses into field-level groups (cross-thread UAF aggregation)
+[VulnerabilitySurface] Found 331 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 331 shared objects (221 high risk, 12 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-52cb782c704e243e_2026-05-14_22-53-04/vulnerability_surface.json"
+
+  Threads: 49, Conflicting pairs: 319, Shared objects: 331, High-risk objects: 233
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 6 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-52cb782c704e243e_2026-05-14_22-53-04/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 223MB, Avail: 361631MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 223MB, Avail: 361631MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL data_race VIOLATION FOUND: rt6i_flags_set_from_vs_dst_check_race
+    [VerificationAgent] Verifying hypothesis 'rt6i_flags_set_from_vs_dst_check_race' ...
+    [VerificationAgent] 'rt6i_flags_set_from_vs_dst_check_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: dst_expires_update_vs_dst_check_race
+    [VerificationAgent] Verifying hypothesis 'dst_expires_update_vs_dst_check_race' ...
+    [VerificationAgent] 'dst_expires_update_vs_dst_check_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: dst_error_route_output_vs_getroute_race
+    [VerificationAgent] Verifying hypothesis 'dst_error_route_output_vs_getroute_race' ...
+    [VerificationAgent] 'dst_error_route_output_vs_getroute_race' -> KEEP (true positive)
+    [!!!] POTENTIAL use_after_free VIOLATION FOUND: getroute_dst_error_use_vs_exception_flush_release
+    [VerificationAgent] Verifying hypothesis 'getroute_dst_error_use_vs_exception_flush_release' ...
+    [VerificationAgent] 'getroute_dst_error_use_vs_exception_flush_release' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: ip6_null_entry_dst_dev_notify_vs_destroy_race
+    [VerificationAgent] Verifying hypothesis 'ip6_null_entry_dst_dev_notify_vs_destroy_race' ...
+    [VerificationAgent] 'ip6_null_entry_dst_dev_notify_vs_destroy_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: rt6i_flags_set_from_vs_pmtu_update_race
+    [VerificationAgent] Verifying hypothesis 'rt6i_flags_set_from_vs_pmtu_update_race' ...
+    [VerificationAgent] 'rt6i_flags_set_from_vs_pmtu_update_race' -> KEEP (true positive)
+[Phase 4.5] LLM hypothesis-verifier filter: kept 6/6, dropped 0 false-positive(s).
+Bug detection complete. 6 potential bug(s) found.
+  - Hypothesis-Based Violations: 6
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-52cb782c704e243e_2026-05-14_22-53-04/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 223MB, Avail: 361743MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 782 seconds
+LLM API Requests: 57
+Total Prompt Tokens: 1813930
+Total Completion Tokens: 10868
+Total Tokens: 1824798
+==========================================

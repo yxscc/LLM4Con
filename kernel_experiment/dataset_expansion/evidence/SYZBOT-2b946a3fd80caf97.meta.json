@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-2b946a3fd80caf97",
+  "tier": "A",
+  "title": "KCSAN: data-race in io_sq_thread / io_sq_thread_park (9)",
+  "mainline_sha": "e4956dc7a84da074fd8dc10f7abd147f15b3ae58",
+  "all_shas_seen": [
+    "2b946a3fd80caf971b21",
+    "e4956dc7a84da074fd8dc10f7abd147f15b3ae58",
+    "6a0e38264012809afa24113ee2162dc07f4ed22b"
+  ],
+  "c_paths": [
+    "io_uring/sqpoll.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

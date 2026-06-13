@@ -1,0 +1,36 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-28abd693db9e92c1",
+  "source": "syzbot",
+  "title": "possible deadlock in io_poll_double_wake (2)",
+  "description": "possible deadlock in io_poll_double_wake (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in io_poll_double_wake (2)"
+  },
+  "fix_commit": "1c3b3e6527e57156bf4082f11c2151957560fe6a",
+  "affected_files": [
+    "fs/io_uring.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/io_uring.c",
+      "changed_lines": [
+        "+\t\t/* double add on the same waitqueue head, ignore */",
+        "+\t\tif (poll->head == head)",
+        "+\t\t\treturn;"
+      ],
+      "hunks": [
+        {
+          "old_start": 4959,
+          "new_start": 4959
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-28abd693db9e92c1/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-28abd693db9e92c1/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-28abd693db9e92c1"
+}

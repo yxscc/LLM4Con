@@ -1,0 +1,20 @@
+{
+  "bug_id": "SYZBOT-1b830cb1f67689d4",
+  "tier": "A",
+  "title": "KCSAN: data-race in __skb_recv_udp / datagram_poll",
+  "mainline_sha": "3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4",
+  "all_shas_seen": [
+    "1b830cb1f67689d40808274aedfcf72ae6e547fd",
+    "3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4"
+  ],
+  "c_paths": [
+    "drivers/crypto/chelsio/chtls/chtls_io.c",
+    "drivers/nvme/host/tcp.c",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/sctp/socket.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 6
+}

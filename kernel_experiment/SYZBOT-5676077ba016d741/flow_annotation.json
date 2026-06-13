@@ -1,0 +1,242 @@
+{
+  "bug_id": "SYZBOT-5676077ba016d741",
+  "status": "complete",
+  "summary": "Nested tunnel transmit and IPv4/IPv6 output paths race on net_device needed_headroom.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "tunnel transmit updates device headroom",
+      "entry": {
+        "function": "ipgre_xmit",
+        "file": "net/ipv4/ip_gre.c",
+        "kind": "netdev_xmit_ops"
+      },
+      "call_chain": [
+        {
+          "function": "ipgre_xmit",
+          "file": "net/ipv4/ip_gre.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "GRE ndo_start_xmit path in KCSAN stack."
+        },
+        {
+          "function": "ip_tunnel_xmit",
+          "file": "net/ipv4/ip_tunnel.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "race access site."
+        }
+      ],
+      "bug_site": {
+        "function": "ip_tunnel_xmit",
+        "file": "net/ipv4/ip_tunnel.c",
+        "line": 804,
+        "kind": "write",
+        "code": "dev->needed_headroom = max_headroom;"
+      }
+    },
+    "thread_b": {
+      "role": "packet output reads device headroom",
+      "entry": {
+        "function": "ip_output",
+        "file": "net/ipv4/ip_output.c",
+        "kind": "network_output"
+      },
+      "call_chain": [
+        {
+          "function": "ip_output",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines ip_output."
+        },
+        {
+          "function": "ip_finish_output",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines ip_finish_output."
+        },
+        {
+          "function": "ip_finish_output2",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "race read via LL_RESERVED_SPACE."
+        }
+      ],
+      "bug_site": {
+        "function": "ip_finish_output2",
+        "file": "net/ipv4/ip_output.c",
+        "line": 199,
+        "kind": "read",
+        "code": "unsigned int hh_len = LL_RESERVED_SPACE(dev);"
+      }
+    },
+    "interleaving": [
+      "A tunnel xmit path computes a larger headroom and stores dev->needed_headroom.",
+      "Another output path expands LL_RESERVED_SPACE(dev), reading the same field concurrently.",
+      "The fix annotates netdevice header helpers and tunnel writes with READ_ONCE/WRITE_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct net_device::needed_headroom",
+    "access_a": {
+      "function": "ip_tunnel_xmit",
+      "file": "net/ipv4/ip_tunnel.c",
+      "line": 804,
+      "kind": "write",
+      "code": "dev->needed_headroom = max_headroom;"
+    },
+    "access_b": {
+      "function": "LL_RESERVED_SPACE",
+      "file": "include/linux/netdevice.h",
+      "line": 300,
+      "kind": "read",
+      "code": "(dev)->needed_headroom"
+    },
+    "required_ordering": "Lockless readers in LL_RESERVED_SPACE must pair with annotated tunnel updates to avoid torn/unstable field accesses."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct net_device::needed_headroom",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This per-device headroom field is updated by tunnel transmit while generic output paths compute link-layer reserve space from it.",
+    "aliases": [
+      {
+        "name": "dev->needed_headroom",
+        "function": "ip_tunnel_xmit",
+        "file": "net/ipv4/ip_tunnel.c",
+        "evidence": "Direct conditional write."
+      },
+      {
+        "name": "(dev)->needed_headroom",
+        "function": "LL_RESERVED_SPACE",
+        "file": "include/linux/netdevice.h",
+        "evidence": "Macro reads field in ip_finish_output2."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "net_device passed to ndo_start_xmit",
+          "to": "ip_tunnel_xmit dev -> needed_headroom",
+          "evidence": "GRE xmit calls ip_tunnel_xmit."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "skb dst->dev",
+          "to": "ip_finish_output2 dev -> LL_RESERVED_SPACE(dev) -> needed_headroom",
+          "evidence": "ip_output.c reads dst->dev then macro."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "ip_tunnel_xmit",
+        "file": "net/ipv4/ip_tunnel.c",
+        "line": 804,
+        "kind": "write",
+        "code": "dev->needed_headroom = max_headroom;"
+      },
+      {
+        "function": "ip6_tnl_xmit",
+        "file": "net/ipv6/ip6_tunnel.c",
+        "line": 1244,
+        "kind": "write",
+        "code": "dev->needed_headroom = max_headroom;"
+      },
+      {
+        "function": "LL_RESERVED_SPACE",
+        "file": "include/linux/netdevice.h",
+        "line": 300,
+        "kind": "read",
+        "code": "(dev)->needed_headroom"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "net_device allocation for tunnel device"
+      ],
+      "published_by": [
+        "tunnel registration exposes net_device for xmit/output"
+      ],
+      "invalidated_by": [],
+      "freed_by": [
+        "net_device unregister/free outside this race"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "include/linux/netdevice.h",
+      "net/ipv4/ip_tunnel.c",
+      "net/ipv6/ip6_tunnel.c",
+      "net/ipv4/ip_output.c",
+      "net/ipv4/ip_gre.c",
+      "net/ipv4/ip_tunnel_core.c",
+      "net/ipv6/ip6_output.c",
+      "net/core/dev.c",
+      "net/core/neighbour.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "Existing merged.ll covers the primary read/write sites; repaired GRE/core output sources complete the indirect xmit/output context but are not linked into bitcode.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [
+      "net/ipv4/ip_gre.c",
+      "net/ipv4/ip_tunnel_core.c",
+      "net/ipv6/ip6_output.c",
+      "net/core/dev.c",
+      "net/core/neighbour.c"
+    ],
+    "src_file_count_before": 11,
+    "src_file_count_after": 16,
+    "compiled_files": [
+      "net/ipv4/ip_output.c",
+      "net/ipv4/ip_tunnel.c",
+      "net/ipv6/ip6_tunnel.c",
+      "net/ipv4/ip_gre.c",
+      "net/ipv4/ip_tunnel_core.c",
+      "net/ipv6/ip6_output.c",
+      "net/core/dev.c",
+      "net/core/neighbour.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "ip_output.ll",
+      "ip_tunnel.ll",
+      "ip6_tunnel.ll",
+      "ip_gre.ll",
+      "ip_tunnel_core.ll",
+      "ip6_output.ll",
+      "dev.ll",
+      "neighbour.ll"
+    ],
+    "bitcode_linked_file_count": 8,
+    "selected_bitcode_defined_function_count": 2299
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Patch annotates LL_RESERVED_SPACE helpers and tunnel writes to dev->needed_headroom."
+    ],
+    "indirect_edges": [
+      "GRE netdev xmit calls ip_tunnel_xmit; ip_finish_output2 reads dst->dev through LL_RESERVED_SPACE."
+    ],
+    "entry_discovery_log": [
+      "Direct define verification in merged.ll passed for modeled non-inline entries and access callers."
+    ],
+    "repair_commands": [
+      "git show 4b397c06cb987935b1b097336532aa6b4210e091^:<path> for five added call-chain files.",
+      "Prepared temporary git worktrees at each fix_commit^; compiled missing required C files with clang-15 -S -emit-llvm using kernel include/generated headers and linked merged.ll with external llvm-link."
+    ],
+    "notes": [
+      "merged.ll contains ip_tunnel_xmit, ip6_tnl_xmit, ip_finish_output2, ip_finish_output, and ip_output."
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-31ef9215c568bf85",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in sit_tunnel_xmit / sit_tunnel_xmit",
+  "description": "KCSAN: data-race in sit_tunnel_xmit / sit_tunnel_xmit",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "sit_tunnel_xmit",
+    "fn_b": "sit_tunnel_xmit"
+  },
+  "fix_commit": "cb34b7cf17ecf33499c9298943f85af247abc1e9",
+  "affected_files": [
+    "net/ipv6/sit.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/ipv6/sit.c",
+      "changed_lines": [
+        "-\t\t\ttunnel->dev->stats.rx_errors++;",
+        "+\t\t\tDEV_STATS_INC(tunnel->dev, rx_errors);",
+        "-\t\t\t\t++tunnel->dev->stats.rx_frame_errors;",
+        "-\t\t\t\t++tunnel->dev->stats.rx_errors;",
+        "+\t\t\t\tDEV_STATS_INC(tunnel->dev, rx_frame_errors);",
+        "+\t\t\t\tDEV_STATS_INC(tunnel->dev, rx_errors);",
+        "-\t\t\tdev->stats.tx_carrier_errors++;",
+        "+\t\t\tDEV_STATS_INC(dev, tx_carrier_errors);",
+        "-\t\tdev->stats.tx_carrier_errors++;",
+        "+\t\tDEV_STATS_INC(dev, tx_carrier_errors);",
+        "-\t\tdev->stats.collisions++;",
+        "+\t\tDEV_STATS_INC(dev, collisions);",
+        "-\t\t\tdev->stats.collisions++;",
+        "+\t\t\tDEV_STATS_INC(dev, collisions);",
+        "-\t\t\tdev->stats.tx_dropped++;",
+        "+\t\t\tDEV_STATS_INC(dev, tx_dropped);",
+        "-\tdev->stats.tx_errors++;",
+        "+\tDEV_STATS_INC(dev, tx_errors);",
+        "-\tdev->stats.tx_errors++;",
+        "+\tDEV_STATS_INC(dev, tx_errors);",
+        "-\tdev->stats.tx_errors++;",
+        "+\tDEV_STATS_INC(dev, tx_errors);"
+      ],
+      "hunks": [
+        {
+          "old_start": 694,
+          "new_start": 694
+        },
+        {
+          "old_start": 714,
+          "new_start": 714
+        },
+        {
+          "old_start": 942,
+          "new_start": 942
+        },
+        {
+          "old_start": 950,
+          "new_start": 950
+        },
+        {
+          "old_start": 970,
+          "new_start": 970
+        },
+        {
+          "old_start": 1009,
+          "new_start": 1009
+        },
+        {
+          "old_start": 1039,
+          "new_start": 1039
+        },
+        {
+          "old_start": 1058,
+          "new_start": 1058
+        },
+        {
+          "old_start": 1087,
+          "new_start": 1087
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-31ef9215c568bf85/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-31ef9215c568bf85/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-31ef9215c568bf85"
+}

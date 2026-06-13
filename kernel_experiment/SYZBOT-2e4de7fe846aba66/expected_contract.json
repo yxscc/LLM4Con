@@ -1,0 +1,51 @@
+{
+  "bug_id": "SYZBOT-2e4de7fe846aba66",
+  "shared_object": "struct napi_struct::rx_count / rx_list (tfile->napi)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "TUN write GRO producer",
+    "entry": "tun_chr_write_iter",
+    "clause": {
+      "resource": "struct napi_struct::rx_count",
+      "sites": [
+        {"function": "napi_gro_frags", "file": "net/core/dev.c", "line": 5990, "op_kind": "CALL"},
+        {"function": "gro_normal_list", "file": "net/core/dev.c", "line": 5809, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([access(napi->rx_count/rx_list)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "busy-poll reader",
+    "entry": "napi_busy_loop",
+    "clause": {
+      "resource": "struct napi_struct::rx_count",
+      "sites": [
+        {"function": "napi_busy_loop", "file": "net/core/dev.c", "line": 6348, "op_kind": "CALL"},
+        {"function": "gro_normal_list", "file": "net/core/dev.c", "line": 5809, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([access(napi->rx_count/rx_list)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([access(napi->rx_count/rx_list)]) from thread_a (its gro_normal_list update of the NAPI normal-GRO list must not be interleaved with a conflicting access of the same NAPI)",
+    "violating_event": "e@napi_busy_loop:6348 = access(napi->rx_count) via gro_normal_list(napi) on the busy-poll side",
+    "missing_guarantee": "the TUN write path invokes napi_gro_frags in process (writev) context, bypassing the NAPI poll scheduling discipline (NAPI_STATE_SCHED) that normally keeps gro_normal_list a single-accessor; busy-poll concurrently polls the same registered NAPI. No lock/order serializes the two accesses to this NAPI's GRO list",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic over a single access; two concurrent conflicting accesses to rx_count with no synchronization → data race"
+  },
+
+  "fix_maps_to": "netif_napi_add() -> netif_tx_napi_add() in tun_napi_init() marks the NAPI as tx-only, excluding it from busy-poll's napi_id-based polling. This ELIMINATES thread_b's access (makes concurrent=false) rather than adding a contract-site sync; it is not expressible as any of {serialize, order, counts} — the fix removes the interleaving instead of establishing ρ",
+
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Three risks: (1) object identity must be grounded across napi_busy_loop's napi_id global-hash lookup back to tfile->napi; static aliasing likely cannot prove same_location, risking an FN at grounding. (2) NAPI poll serialization (sched bit / epoch) is subtle — an LLM may wrongly conclude gro_normal_list is always serialized by the NAPI poll discipline and ADD a bogus order/serialize guarantee, suppressing the report. (3) The real fix is a registration-policy change that removes concurrency, which our closed algebra cannot express as an added guarantee; our framing relies on 'no guarantee establishes ρ' (true here) but diverges from the maintainer's mental model.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

@@ -1,0 +1,87 @@
+{
+  "bug_id": "SYZBOT-392f4c8f5827466f",
+  "status": "complete",
+  "summary": "Concurrent ICMP rate-limit checks race on the global token-bucket fields before the function takes the bucket spinlock.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "ICMP send rate-limit check",
+      "entry": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "kind": "exported_api"},
+      "call_chain": [
+        {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN read stack and EXPORT_SYMBOL(icmp_global_allow) identify this shared ICMP limiter entry."}
+      ],
+      "bug_site": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 254, "code": "if (!icmp_global.credit) {"}
+    },
+    "thread_b": {
+      "role": "concurrent ICMP send refill/update",
+      "entry": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "kind": "exported_api"},
+      "call_chain": [
+        {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN write stack reaches the same exported rate limiter from an independent packet transmit context."}
+      ],
+      "bug_site": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 272, "code": "icmp_global.credit = credit;"}
+    },
+    "interleaving": [
+      "CPU0 reads icmp_global.credit or icmp_global.stamp before acquiring icmp_global.lock.",
+      "CPU1 acquires the lock, refills the token bucket, and writes icmp_global.stamp/credit.",
+      "The unannotated lockless read races with the protected write; the fix pairs READ_ONCE with WRITE_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "icmp_global.credit / icmp_global.stamp",
+    "access_a": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 254, "kind": "read", "code": "if (!icmp_global.credit)"},
+    "access_b": {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 272, "kind": "write", "code": "icmp_global.credit = credit;"},
+    "required_ordering": "The lockless fast path must use single-copy atomic marked reads that are paired with the later marked writes under icmp_global.lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "static icmp_global.{credit,stamp}",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The race is possible because the global ICMP token-bucket fields are shared by all ICMP senders and are read before taking the bucket lock while later being written under that lock.",
+    "aliases": [
+      {"name": "icmp_global.credit", "function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "evidence": "Global anonymous struct field read at the fast-path empty-bucket check and written after token accounting."},
+      {"name": "icmp_global.stamp", "function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "evidence": "Global timestamp field read in delta calculation and written when refill increments are applied."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "exported ICMP limiter call", "to": "icmp_global.credit/stamp", "evidence": "icmp_global_allow directly dereferences the static global fields."}],
+      "thread_b": [{"from": "exported ICMP limiter call", "to": "icmp_global.credit/stamp", "evidence": "The same function updates the static global fields after acquiring icmp_global.lock."}]
+    },
+    "access_sites": [
+      {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 254, "kind": "read", "code": "if (!icmp_global.credit)"},
+      {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 255, "kind": "read", "code": "delta = min_t(u32, now - icmp_global.stamp, HZ);"},
+      {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 265, "kind": "write", "code": "icmp_global.stamp = now;"},
+      {"function": "icmp_global_allow", "file": "net/ipv4/icmp.c", "line": 272, "kind": "write", "code": "icmp_global.credit = credit;"}
+    ],
+    "lifetime": {
+      "allocated_by": ["static storage in net/ipv4/icmp.c"],
+      "published_by": ["EXPORT_SYMBOL(icmp_global_allow) exposes users of the limiter"],
+      "invalidated_by": [],
+      "freed_by": []
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["net/ipv4/icmp.c"],
+    "candidate_files": ["net/ipv6/icmp.c", "net/ipv6/ip6_icmp.c", "net/ipv4/ip_vti.c", "net/core/dev.c", "net/ipv6/ip6_output.c"],
+    "analysis_conclusion": "The patched and reported accesses are both inside the exported ICMP global limiter; caller files explain one observed stack but are not needed to represent the shared object access.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 1,
+    "src_file_count_after": 1,
+    "compiled_files": ["net/ipv4/icmp.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "icmp.ll",
+    "bitcode_input_files": ["icmp.ll"],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 110
+  },
+  "evidence": {
+    "patch_hunks": ["bbab7ef23503 adds READ_ONCE to icmp_global.credit/stamp reads and WRITE_ONCE to icmp_global.stamp/credit writes in icmp_global_allow()."],
+    "indirect_edges": ["icmp_global_allow is exported with EXPORT_SYMBOL; KCSAN reports IPv6 ICMP send paths as observed callers."],
+    "entry_discovery_log": ["define @icmp_global_allow present in icmp.ll"],
+    "repair_commands": [],
+    "notes": ["No repair was required."]
+  }
+}

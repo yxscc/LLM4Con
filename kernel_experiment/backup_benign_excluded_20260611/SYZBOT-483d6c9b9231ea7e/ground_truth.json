@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-483d6c9b9231ea7e",
+  "fix_commit": "fbc0283fbeae27b88448c90305e738991457fee2",
+  "files": [
+    "net/9p/trans_fd.c"
+  ],
+  "description": "KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+  "cwes": [],
+  "title": "KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "p9_conn_cancel",
+    "fn_b": "p9_poll_workfn"
+  },
+  "two_threads_summary": "KCSAN-reported two-context race. KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+  "audit_notes": "Subject: '9p/trans_fd: mark concurrent read and writes to p9_conn->err'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines).",
+  "fix_commit_message": "fbc0283fbeae27b88448c90305e738991457fee2\n9p/trans_fd: mark concurrent read and writes to p9_conn->err\n\nWrites for the error value of a connection are spinlock-protected inside\np9_conn_cancel, but lockless reads are present elsewhere to avoid\nperforming unnecessary work after an error has been met.\n\nMark the write and lockless reads to make KCSAN happy. Mark the write as\nexclusive following the recommendation in \"Lock-Protected Writes with\nLockless Reads\" in tools/memory-model/Documentation/access-marking.txt\nwhile we are at it.\n\nMark p9_fd_request and p9_conn_cancel m->err reads despite the fact that\nthey do not race with concurrent writes for stylistic reasons.\n\nReported-by: syzbot+d69a7cc8c683c2cb7506@syzkaller.appspotmail.com\nReported-by: syzbot+483d6c9b9231ea7e1851@syzkaller.appspotmail.com\nSigned-off-by: Ignacio Encinas <ignacio@iencinas.com>\nMessage-ID: <20250318-p9_conn_err_benign_data_race-v3-1-290bb18335cc@iencinas.com>\nSigned-off-by: Dominique Martinet <asmadeus@codewreck.org>",
+  "patch": "commit fbc0283fbeae27b88448c90305e738991457fee2\nAuthor: Ignacio Encinas <ignacio@iencinas.com>\nDate:   Tue Mar 18 22:39:02 2025 +0100\n\n    9p/trans_fd: mark concurrent read and writes to p9_conn->err\n    \n    Writes for the error value of a connection are spinlock-protected inside\n    p9_conn_cancel, but lockless reads are present elsewhere to avoid\n    performing unnecessary work after an error has been met.\n    \n    Mark the write and lockless reads to make KCSAN happy. Mark the write as\n    exclusive following the recommendation in \"Lock-Protected Writes with\n    Lockless Reads\" in tools/memory-model/Documentation/access-marking.txt\n    while we are at it.\n    \n    Mark p9_fd_request and p9_conn_cancel m->err reads despite the fact that\n    they do not race with concurrent writes for stylistic reasons.\n    \n    Reported-by: syzbot+d69a7cc8c683c2cb7506@syzkaller.appspotmail.com\n    Reported-by: syzbot+483d6c9b9231ea7e1851@syzkaller.appspotmail.com\n    Signed-off-by: Ignacio Encinas <ignacio@iencinas.com>\n    Message-ID: <20250318-p9_conn_err_benign_data_race-v3-1-290bb18335cc@iencinas.com>\n    Signed-off-by: Dominique Martinet <asmadeus@codewreck.org>\n\ndiff --git a/net/9p/trans_fd.c b/net/9p/trans_fd.c\nindex 2fea50bf047a..339ec4e54778 100644\n--- a/net/9p/trans_fd.c\n+++ b/net/9p/trans_fd.c\n@@ -192,12 +192,13 @@ static void p9_conn_cancel(struct p9_conn *m, int err)\n \n \tspin_lock(&m->req_lock);\n \n-\tif (m->err) {\n+\tif (READ_ONCE(m->err)) {\n \t\tspin_unlock(&m->req_lock);\n \t\treturn;\n \t}\n \n-\tm->err = err;\n+\tWRITE_ONCE(m->err, err);\n+\tASSERT_EXCLUSIVE_WRITER(m->err);\n \n \tlist_for_each_entry_safe(req, rtmp, &m->req_list, req_list) {\n \t\tlist_move(&req->req_list, &cancel_list);\n@@ -284,7 +285,7 @@ static void p9_read_work(struct work_struct *work)\n \n \tm = container_of(work, struct p9_conn, rq);\n \n-\tif (m->err < 0)\n+\tif (READ_ONCE(m->err) < 0)\n \t\treturn;\n \n \tp9_debug(P9_DEBUG_TRANS, \"start mux %p pos %zd\\n\", m, m->rc.offset);\n@@ -451,7 +452,7 @@ static void p9_write_work(struct work_struct *work)\n \n \tm = container_of(work, struct p9_conn, wq);\n \n-\tif (m->err < 0) {\n+\tif (READ_ONCE(m->err) < 0) {\n \t\tclear_bit(Wworksched, &m->wsched);\n \t\treturn;\n \t}\n@@ -623,7 +624,7 @@ static void p9_poll_mux(struct p9_conn *m)\n \t__poll_t n;\n \tint err = -ECONNRESET;\n \n-\tif (m->err < 0)\n+\tif (READ_ONCE(m->err) < 0)\n \t\treturn;\n \n \tn = p9_fd_poll(m->client, NULL, &err);\n@@ -666,6 +667,7 @@ static void p9_poll_mux(struct p9_conn *m)\n static int p9_fd_request(struct p9_client *client, struct p9_req_t *req)\n {\n \t__poll_t n;\n+\tint err;\n \tstruct p9_trans_fd *ts = client->trans;\n \tstruct p9_conn *m = &ts->conn;\n \n@@ -674,9 +676,10 @@ static int p9_fd_request(struct p9_client *client, struct p9_req_t *req)\n \n \tspin_lock(&m->req_lock);\n \n-\tif (m->err < 0) {\n+\terr = READ_ONCE(m->err);\n+\tif (err < 0) {\n \t\tspin_unlock(&m->req_lock);\n-\t\treturn m->err;\n+\t\treturn err;\n \t}\n \n \tWRITE_ONCE(req->status, REQ_STATUS_UNSENT);\n",
+  "affected_files_from_patch": [
+    "net/9p/trans_fd.c"
+  ]
+}

@@ -1,0 +1,494 @@
+{
+  "_doc": "Per-candidate audit verdicts. status: accept | reject | uncertain.",
+  "_audit_rubric": [
+    "ACCEPT iff: (a) KCSAN/lockdep report clearly identifies two distinct execution contexts in the stack traces, AND (b) the upstream fix uses real synchronization primitives (lock/atomic/READ_ONCE+WRITE_ONCE/smp_*/per-CPU/per-netns conversion that removes shared state), AND (c) the parent commit exists in our linux.git so the vulnerable source is extractable.",
+    "REJECT if the patch is only data_race() annotation, only ASSERT_EXCLUSIVE_*, only defensive input validation, or removes a lock with no replacement. These are marked benign by the maintainers and should not be in a 'concurrency defect' dataset."
+  ],
+  "candidates": {
+    "SYZBOT-061d370693bdd99f": {
+      "status": "accept",
+      "two_threads": "task: bpf syscall -> trie_update_elem -> kvfree_call_rcu -> schedule_delayed_monitor_work (reads krcp->monitor_work.timer.expires). worker: kfree_rcu_monitor work -> schedule_delayed_monitor_work (writes). Fix wraps the racy read in a new helper protected by krcp->lock.",
+      "notes": "Subject: rcu/kvfree: Fix data-race in __mod_timer / kvfree_call_rcu. Patch adds raw_spin_lock_irqsave(&krcp->lock)."
+    },
+    "SYZBOT-01affb1491750534": {
+      "status": "accept",
+      "two_threads": "Two workers concurrently in process_one_work() racing on pwq->stats[PWQ_STAT_COMPLETED]. Fix moves the increment inside the existing pool->lock critical section.",
+      "notes": "Race within already-locked region; reorganization fix; KCSAN stack trace explicit."
+    },
+    "SYZBOT-02a535c1117e6d07": {
+      "status": "reject",
+      "two_threads": "Real race exists (mmap thread vs mprotect thread on vma fields) but kernel maintainers marked it intentional",
+      "notes": "Patch only adds data_race() macro + ASSERT_EXCLUSIVE; commit subject 'Annotate a data race'. Benign-by-design."
+    },
+    "SYZBOT-0789a72b46fd9143": {
+      "status": "reject",
+      "two_threads": "Concurrent policy update from two tasks",
+      "notes": "Patch adds READ_ONCE+WRITE_ONCE BUT commit subject is 'ignore data race while checking quota'. Maintainers explicitly say the race is acceptable. To stay on the conservative side (user's 'be careful' instruction) we exclude annotation-class fixes."
+    },
+    "SYZBOT-08f3e9d26e5541e1": {
+      "status": "accept",
+      "two_threads": "srcu_gp_end() (called from process_srcu workqueue) writes ->srcu_last_gp_end; srcu_might_be_idle() called from synchronize_srcu (task) reads it. Fix adds WRITE_ONCE/READ_ONCE.",
+      "notes": "Real cross-context race fixed with paired *_ONCE."
+    },
+    "SYZBOT-0b272670f47bbf00": {
+      "status": "accept",
+      "two_threads": "Two netdevsim workqueue tasks (nsim_fib_event_work) concurrently update fa->offload/trap/offload_failed. Fix changes bit-field to plain u8 and uses READ_ONCE/WRITE_ONCE under RCU.",
+      "notes": "Bitfield-store tearing race; structural + R/W_ONCE fix."
+    },
+    "SYZBOT-0c155cd16222a6b8": {
+      "status": "accept",
+      "two_threads": "Task in sendmsg path reads qdisc->empty (process context); softirq net_tx_action -> qdisc_run_begin writes it. Fix uses READ_ONCE/WRITE_ONCE.",
+      "notes": "Classic task vs softirq race on qdisc state."
+    },
+    "SYZBOT-0e4bddc579aeb72e": {
+      "status": "reject",
+      "two_threads": "Two setsockopt tasks racing on static idx_generator",
+      "notes": "Fix moves static into per-netns struct, but within a netns the race technically persists. The fix narrows the window rather than ensuring atomicity. Conservative reject."
+    },
+    "SYZBOT-10a1def5445d4902": {
+      "status": "accept",
+      "two_threads": "Softirq RX path __udp_enqueue_schedule_skb writes sk->sk_receive_queue.prev; task in recvmmsg reads via __skb_wait_for_more_packets. Fix uses READ_ONCE.",
+      "notes": "Task vs softirq, READ_ONCE applied."
+    },
+    "SYZBOT-123b88b9ddea8e98": {
+      "status": "accept",
+      "two_threads": "Softirq TCP RX (tcp_v4_rcv -> tcp_add_backlog) writes sk_backlog.len; task recvmsg via tcp_grow_window reads it. Fix uses READ_ONCE across multiple sites.",
+      "notes": "Multi-site READ_ONCE annotation of a single field across sk_backlog accesses."
+    },
+    "SYZBOT-134336b86f728d6e": {
+      "status": "accept",
+      "two_threads": "RCU expedited grace period: one task reading rnp->expmask via for_each_leaf_node_cpu_mask while another (rcu_report_exp_cpu_mult) writes it. Paired READ_ONCE/WRITE_ONCE fix.",
+      "notes": "Lockless RCU bitmask race."
+    },
+    "SYZBOT-1651b5234028c294": {
+      "status": "accept",
+      "two_threads": "ipvs add_service vs ipvs out_hook on shared service config. Fix uses READ_ONCE/WRITE_ONCE and atomic operations.",
+      "notes": "12 READ_ONCE + 3 WRITE_ONCE + 1 atomic on added lines."
+    },
+    "SYZBOT-16bae128392924ec": {
+      "status": "accept",
+      "two_threads": "Two netlink_recvmsg invocations on same socket racing on sk->sk_err. Fix uses READ_ONCE/WRITE_ONCE.",
+      "notes": "Two-thread same-syscall race on shared sk field."
+    },
+    "SYZBOT-1b830cb1f67689d4": {
+      "status": "accept",
+      "two_threads": "Softirq __sock_queue_rcv_skb writes sk_receive_queue; task __skb_recv_udp / datagram_poll reads it. READ_ONCE fix.",
+      "notes": "Similar to 10a1def5445d4902 family."
+    },
+    "SYZBOT-1c486d0b62032c82": {
+      "status": "accept",
+      "two_threads": "execve thread A in bprm_execve writes fs->in_exec=0; clone(CLONE_FS) thread B in copy_fs reads in_exec under fs->lock. Race when in_exec is reset too late.",
+      "notes": "Fix reorders the assignment so it always happens within cred_guard_mutex's protection, before sibling threads can observe the half-finished state."
+    },
+    "SYZBOT-1f27d25f8a179480": {
+      "status": "accept",
+      "two_threads": "tcp_queue_rcv (softirq) writes tcp_sock state; tcp_poll (task) reads it. READ_ONCE/WRITE_ONCE family fix.",
+      "notes": ""
+    },
+    "SYZBOT-241a778c1f735006": {
+      "status": "accept",
+      "two_threads": "Two udpv6 RX softirqs (or task+softirq) on same UDP socket. R/W_ONCE fix.",
+      "notes": ""
+    },
+    "SYZBOT-250cfd1a3cbded62": {
+      "status": "accept",
+      "two_threads": "Softirq __sock_queue_rcv_skb vs task __skb_wait_for_more_packets. READ_ONCE.",
+      "notes": ""
+    },
+    "SYZBOT-250e1a870af0ced3": {
+      "status": "accept",
+      "two_threads": "Netlink dump worker vs netlink_recvmsg task. Adds READ_ONCE/WRITE_ONCE + atomic ops.",
+      "notes": ""
+    },
+    "SYZBOT-25ceba325246fa6c": {
+      "status": "accept",
+      "two_threads": "inet6_recvmsg (RX task) vs ipv6_setsockopt (control task) on inet sock options. R/W_ONCE.",
+      "notes": ""
+    },
+    "SYZBOT-2737094b72705e0f": {
+      "status": "accept",
+      "two_threads": "task connect() -> __inet_hash_connect writes inet_dport/daddr; another task in getsockname -> inet_getname reads them. Fix wraps inet_getname in lock_sock()/release_sock().",
+      "notes": "Real lock_sock() added; classifier mis-flagged because of lock_sock vocabulary."
+    },
+    "SYZBOT-282e13b9bc8ac284": {
+      "status": "accept",
+      "two_threads": "tcp_ack (softirq) vs sk_stream_wait_memory (task) on tcp_sock fields. R/W_ONCE + atomic_*.",
+      "notes": ""
+    },
+    "SYZBOT-2b946a3fd80caf97": {
+      "status": "reject",
+      "two_threads": "io_sq_thread (kernel thread) vs io_sq_thread_park (task)",
+      "notes": "data_race() annotation only ('annotate debug task == current with data_race()'); maintainer treats as benign."
+    },
+    "SYZBOT-2be2f8da254ea650": {
+      "status": "accept",
+      "two_threads": "Two RX softirqs on AF_PACKET fanout rollover. R/W_ONCE on fanout->next_idx.",
+      "notes": ""
+    },
+    "SYZBOT-2d373c9936c00d7e": {
+      "status": "accept",
+      "two_threads": "snd_seq_pool_init can resize pool buffer concurrently with snd_seq_poll reading pool fields. Fix adds spinlock_irq guard on pool->lock around the racy poll read.",
+      "notes": "Real spin_lock added; classifier missed guard() idiom."
+    },
+    "SYZBOT-2e4de7fe846aba66": {
+      "status": "accept",
+      "two_threads": "tun writev task in napi_gro_frags vs another task in napi_busy_loop, both touching gro_normal_list. Fix switches NAPI registration to tx_napi which uses different sync model.",
+      "notes": "Indirect fix via API change; race is real per KCSAN report."
+    },
+    "SYZBOT-30564052abaa0857": {
+      "status": "accept",
+      "two_threads": "RX softirq __skb_try_recv_datagram vs task sock_setsockopt on sk->sk_rcvtimeo. R/W_ONCE.",
+      "notes": ""
+    },
+    "SYZBOT-30774a6acf6a2cf6": {
+      "status": "reject",
+      "two_threads": "ext4 journal: two start_this_handle on same journal",
+      "notes": "data_race() annotation only; comment says 'racy but optimization'."
+    },
+    "SYZBOT-30c996283da1e6ce": {
+      "status": "accept",
+      "two_threads": "Softirq tcp_chrono_stop writes tp state; task tcp_recvmsg reads tp->recvmsg_inq. Fix hoists the read above the wait-loop (so reading happens before softirq can fire after release_sock).",
+      "notes": "Structural fix to avoid the race window."
+    },
+    "SYZBOT-319ed1769c007825": {
+      "status": "reject",
+      "two_threads": "selinux inode init vs file_open on same inode",
+      "notes": "data_race() annotation only; 'annotate false positive'."
+    },
+    "SYZBOT-31ef9215c568bf85": {
+      "status": "accept",
+      "two_threads": "Multi-queue sit_tunnel_xmit on different CPUs racing on tunnel->dev->stats counters. Fix uses DEV_STATS_INC (atomic) instead of ++.",
+      "notes": "Atomic fix for stats counters."
+    },
+    "SYZBOT-37918fd039da476c": {
+      "status": "accept",
+      "two_threads": "Two ipvs defense_work_handler workers (one per netns) racing on a function-local static. Fix moves static into per-netns struct so each netns has its own copy.",
+      "notes": "Per-netns separation; race truly resolved given one worker per netns."
+    },
+    "SYZBOT-3c750be01dab672c": {
+      "status": "accept",
+      "two_threads": "io_sq_thread (SQPOLL kthread) vs io_uring_try_cancel_requests (calling task). Race on ctx->sq_data->thread comparison with current. Fix replaces the racy read with explicit is_sqpoll_thread parameter.",
+      "notes": "Structural fix; KCSAN race report explicit."
+    },
+    "SYZBOT-479918f96105d14c": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in first_packet_length / udp_poll",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'udp: use skb_queue_empty_lockless()'. Real synchronization fix."
+    },
+    "SYZBOT-4f866e8996945198": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __skb_recv_udp / __udp_enqueue_schedule_skb",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'udp: use skb_queue_empty_lockless()'. Real synchronization fix."
+    },
+    "SYZBOT-576cc007eb9f2c96": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __snd_rawmidi_transmit_ack / snd_rawmidi_write",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'ALSA: rawmidi: Avoid bit fields for state flags'. Real synchronization fix."
+    },
+    "SYZBOT-5a486fef3de40e0d": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'io_uring: protect register tracing'. Real synchronization fix."
+    },
+    "SYZBOT-5b22981f6d3c7be1": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in br_handle_frame_finish / br_handle_frame_finish (8)",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'net: bridge: use DEV_STATS_INC()'. Real synchronization fix."
+    },
+    "SYZBOT-5c54bd3eb218bb59": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in do_timer_create / do_timer_create (8)",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'posix-timers: Ensure timer ID search-loop limit is valid'. Real synchronization fix."
+    },
+    "SYZBOT-63cbe31877bb80ef": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+      "notes": "Reviewed NEEDS_REVIEW. Subject: 'ALSA: seq: Use bool for snd_seq_queue internal flags'. Real synchronization fix."
+    },
+    "SYZBOT-3e77fd302e99f5af": {
+      "status": "reject",
+      "two_threads": "KCSAN: data-race in io_submit_sqes / io_uring_show_fdinfo",
+      "notes": "Patch adds data_race() annotation only. Subject: 'io_uring/fdinfo: annotate racy sq/cq head/tail reads'. Maintainer treats race as benign — exclude per audit rubric."
+    },
+    "SYZBOT-419c4b42acc36c42": {
+      "status": "reject",
+      "two_threads": "KCSAN: data-race in try_to_migrate_one / zap_page_range_single",
+      "notes": "Patch adds data_race() annotation only. Subject: 'mm: annotate data race in update_hiwater_rss'. Maintainer treats race as benign — exclude per audit rubric."
+    },
+    "SYZBOT-4f8bfd804b4a1f95": {
+      "status": "reject",
+      "two_threads": "KCSAN: data-race in sbitmap_queue_clear / sbitmap_queue_clear (3)",
+      "notes": "Patch adds data_race() annotation only. Subject: 'sbitmap: silence data race warning'. Maintainer treats race as benign — exclude per audit rubric."
+    },
+    "SYZBOT-52fced2d288f8ecd": {
+      "status": "reject",
+      "two_threads": "KCSAN: data-race in copy_process / copy_process (2)",
+      "notes": "Patch adds data_race() annotation only. Subject: 'fork: annotate data race in copy_process()'. Maintainer treats race as benign — exclude per audit rubric."
+    },
+    "SYZBOT-60192c8877d0bc92": {
+      "status": "reject",
+      "two_threads": "KCSAN: data-race in try_to_migrate_one / zap_page_range_single_batched",
+      "notes": "Patch adds data_race() annotation only. Subject: 'mm: silence data-race in update_hiwater_rss'. Maintainer treats race as benign — exclude per audit rubric."
+    },
+    "SYZBOT-347774706d75c17e": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __dev_queue_xmit / pfifo_fast_dequeue",
+      "notes": "Subject: 'net/sched: annotate lockless accesses to qdisc->empty'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-35301db28c64310d": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in macsec_handle_frame / macsec_handle_frame (3)",
+      "notes": "Subject: 'macsec: use DEV_STATS_INC()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-3536db46dfa58c57": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in bpf_lru_pop_free / bpf_lru_push_free",
+      "notes": "Subject: 'bpf_lru_list: Read double-checked variable once without lock'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-371a9ea56d82de71": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_poll / tcp_recvmsg (2)",
+      "notes": "Subject: 'tcp: annotate tp->copied_seq lockless reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-373cf39d336f4370": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in sk_stream_wait_connect / tcp_disconnect (2)",
+      "notes": "Subject: 'net: deal with most data-races in sk_wait_event()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-3872b8b1d5ece2a8": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __rcu_read_unlock / sync_rcu_exp_select_node_cpus (2)",
+      "notes": "Subject: 'rcu: Add *_ONCE() and data_race() to rcu_node ->exp_tasks plus locking'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-392f4c8f5827466f": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in icmp_global_allow / icmp_global_allow",
+      "notes": "Subject: 'net: icmp: fix data-race in cmp_global_allow()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-3b6b32dc50537a49": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __ep_remove / __fput (5)",
+      "notes": "Subject: 'epoll: annotate racy check'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-3cc3a12efa69aa6f": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in register_netdevice / type_show (2)",
+      "notes": "Subject: 'net: fix data-race in dev_isalive()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-3d367d1df1d2b67f": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in snd_rawmidi_poll / snd_rawmidi_proceed",
+      "notes": "Subject: 'ALSA: rawmidi: Access runtime->avail always in spinlock'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-416320b6b3545cbf": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __dev_queue_xmit / __dev_queue_xmit (5)",
+      "notes": "Subject: 'net: annotate data-races on txq->xmit_lock_owner'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-417aeb05fd190f3a": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __unmap_hugepage_range / alloc_surplus_hugetlb_folio",
+      "notes": "Subject: 'mm/hugetlb: add missing hugetlb_lock in __unmap_hugepage_range()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-44cf88a58d91b12b": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __ip4_datagram_connect / raw_bind (2)",
+      "notes": "Subject: 'ipv4: raw: lock the socket in raw_bind()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-453b4249be2d6230": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in xfrm_lookup_with_ifid / xfrm_lookup_with_ifid (7)",
+      "notes": "Subject: 'xfrm: fix a data-race in xfrm_lookup_with_ifid()'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-483d6c9b9231ea7e": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+      "notes": "Subject: '9p/trans_fd: mark concurrent read and writes to p9_conn->err'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-4a03518df1e31b53": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __es_find_extent_range / __es_find_extent_range (6)",
+      "notes": "Subject: 'ext4: fix data races when using cached status extents'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-4a06d4373fd52f0b": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in inotify_handle_inode_event / inotify_remove_from_idr",
+      "notes": "Subject: 'inotify: Avoid reporting event with invalid wd'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-4b16e156132582a9": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_add_backlog / tcp_recvmsg",
+      "notes": "Subject: 'net: silence KCSAN warnings around sk_add_backlog() calls'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-4dfb96a94317a78f": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in call_rcu / rcu_gp_fqs_loop",
+      "notes": "Subject: 'rcu: Mark accesses to rcu_state.n_force_qs'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-516acdb03d3e27d9": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __bpf_lru_list_rotate / bpf_lru_push_free (2)",
+      "notes": "Subject: 'bpf_lru_list: Read double-checked variable once without lock'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-52cb782c704e243e": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in find_match / find_match",
+      "notes": "Subject: 'ipv6: fixes rt6_probe() and fib6_nh->last_probe init'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-52e3dbded1f71729": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in kcm_rfree / unreserve_rx_kcm (3)",
+      "notes": "Subject: 'kcm: annotate data-races around kcm->rx_psock'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-5366159cc4c1d817": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in mod_timer / run_timer_softirq",
+      "notes": "Subject: 'hrtimer: Annotate lockless access to timer->state'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-548e316cdc0424e0": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __ip4_datagram_connect / skb_set_owner_w (2)",
+      "notes": "Subject: 'inet: annotate date races around sk->sk_txhash'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-55e0fc8b1eed5bc0": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_ack / tcp_poll (2)",
+      "notes": "Subject: 'tcp: annotate sk->sk_wmem_queued lockless reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-565f500a8d3fb9b7": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in fib_create_info / free_fib_info",
+      "notes": "Subject: 'ipv4: update fib_info_cnt under spinlock protection'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-5676077ba016d741": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in ip_finish_output2 / ip_tunnel_xmit",
+      "notes": "Subject: 'net: tunnels: annotate lockless accesses to dev->needed_headroom'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-5b3f051182e44d74": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in ip_finish_output2 / ip_finish_output2",
+      "notes": "Subject: 'net: avoid potential false sharing in neighbor related code'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-5cce5938c6c2c518": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __ip_make_skb / __ip_make_skb",
+      "notes": "Subject: 'ipv4: fix data-races around inet->inet_id'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-5f188c38f1541db5": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in __tcp_select_window / tcp_add_backlog",
+      "notes": "Subject: 'net: silence KCSAN warnings about sk->sk_backlog.len reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-6182afad5045e670": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in rxrpc_peer_keepalive_worker / rxrpc_send_data_packet",
+      "notes": "Subject: 'rxrpc: Fix data-race warning and potential load/store tearing'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-62955e4f963d38ab": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_event_new_data_sent / tcp_stream_memory_free",
+      "notes": "Subject: 'tcp: annotate tp->snd_nxt lockless reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-630679ddf6c0deba": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_add_backlog / tcp_try_rmem_schedule",
+      "notes": "Subject: 'tcp: annotate sk->sk_rcvbuf lockless reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-65c6c92d04304d0a": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in queue_access_lock / snd_seq_check_queue",
+      "notes": "Subject: 'ALSA: seq: Avoid concurrent access to queue flags'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "SYZBOT-6a2a295ae3340e8e": {
+      "status": "accept",
+      "two_threads": "KCSAN-reported two-context race. KCSAN: data-race in tcp_sendmsg_locked / tcp_stream_memory_free",
+      "notes": "Subject: 'tcp: annotate tp->write_seq lockless reads'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines)."
+    },
+    "CVE-2022-48830": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: can: isotp: fix potential CAN frame reception race in isotp_rcv()",
+      "notes": "Subject: 'can: isotp: fix potential CAN frame reception race in isotp_rcv()'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-48931": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: configfs: fix a race in configfs_{,un}register_subsystem()",
+      "notes": "Subject: 'configfs: fix a race in configfs_{,un}register_subsystem()'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49215": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: xsk: Fix race at socket teardown",
+      "notes": "Subject: 'xsk: Fix race at socket teardown'. CWEs=['CWE-362', 'CWE-476', 'CWE-476']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49443": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: list: fix a data-race around ep->rdllist",
+      "notes": "Subject: 'list: fix a data-race around ep->rdllist'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49578": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: ip: Fix data-races around sysctl_ip_prot_sock.",
+      "notes": "Subject: 'ip: Fix data-races around sysctl_ip_prot_sock.'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49589": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: igmp: Fix data-races around sysctl_igmp_qrv.",
+      "notes": "Subject: 'igmp: Fix data-races around sysctl_igmp_qrv.'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49607": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: perf/core: Fix data race between perf_event_set_output() and perf_mmap_close()",
+      "notes": "Subject: 'perf/core: Fix data race between perf_event_set_output() and perf_mmap_close()'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49634": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: sysctl: Fix data-races in proc_dou8vec_minmax().",
+      "notes": "Subject: 'sysctl: Fix data-races in proc_dou8vec_minmax().'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2022-49641": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: sysctl: Fix data races in proc_douintvec().",
+      "notes": "Subject: 'sysctl: Fix data races in proc_douintvec().'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2023-53046": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: Bluetooth: Fix race condition in hci_cmd_sync_clear",
+      "notes": "Subject: 'Bluetooth: Fix race condition in hci_cmd_sync_clear'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2024-26861": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: wireguard: receive: annotate data-race around receiving_counter.counter",
+      "notes": "Subject: 'wireguard: receive: annotate data-race around receiving_counter.counter'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2024-26862": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: packet: annotate data-races around ignore_outgoing",
+      "notes": "Subject: 'packet: annotate data-races around ignore_outgoing'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2024-26984": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: nouveau: fix instmem race condition around ptr stores",
+      "notes": "Subject: 'nouveau: fix instmem race condition around ptr stores'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2024-53160": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: rcu/kvfree: Fix data-race in __mod_timer / kvfree_call_rcu",
+      "notes": "Subject: 'rcu/kvfree: Fix data-race in __mod_timer / kvfree_call_rcu'. CWEs=['CWE-362', 'CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2024-53186": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: ksmbd: fix use-after-free in SMB request handling",
+      "notes": "Subject: 'ksmbd: fix use-after-free in SMB request handling'. CWEs=['CWE-362', 'CWE-416', 'CWE-416']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2025-21732": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: RDMA/mlx5: Fix a race for an ODP MR which leads to CQE with error",
+      "notes": "Subject: 'RDMA/mlx5: Fix a race for an ODP MR which leads to CQE with error'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    },
+    "CVE-2025-38104": {
+      "status": "accept",
+      "two_threads": "CWE-362 concurrency CVE: drm/amdgpu: Replace Mutex with Spinlock for RLCG register access to avoid Priority Inversion in SRIOV",
+      "notes": "Subject: 'drm/amdgpu: Replace Mutex with Spinlock for RLCG register access to avoid Priority Inversion in SRIOV'. CWEs=['CWE-362']. Pre-classifier PROBABLY_GOOD."
+    }
+  }
+}

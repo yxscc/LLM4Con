@@ -1,0 +1,246 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-08e3d39f3eb86432",
+  "source": "syzbot",
+  "title": "possible deadlock in dev_mc_unsync",
+  "description": "possible deadlock in dev_mc_unsync",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in dev_mc_unsync"
+  },
+  "fix_commit": "be74294ffa24f5fbc0d6643842e3e095447e17a2",
+  "affected_files": [
+    "drivers/net/macsec.c",
+    "drivers/net/macvlan.c",
+    "net/8021q/vlan_dev.c",
+    "include/net/genetlink.h",
+    "net/netlink/genetlink.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/net/macsec.c",
+      "changed_lines": [
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &macsec_netdev_addr_lock_key,",
+        "-\t\t\t\t       dev->lower_level);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &macsec_netdev_addr_lock_key);"
+      ],
+      "hunks": [
+        {
+          "old_start": 4052,
+          "new_start": 4052
+        }
+      ]
+    },
+    {
+      "path": "drivers/net/macvlan.c",
+      "changed_lines": [
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &macvlan_netdev_addr_lock_key,",
+        "-\t\t\t\t       dev->lower_level);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &macvlan_netdev_addr_lock_key);"
+      ],
+      "hunks": [
+        {
+          "old_start": 880,
+          "new_start": 880
+        }
+      ]
+    },
+    {
+      "path": "net/8021q/vlan_dev.c",
+      "changed_lines": [
+        "-static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)",
+        "+static void vlan_dev_set_lockdep_class(struct net_device *dev)",
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &vlan_netdev_addr_lock_key,",
+        "-\t\t\t\t       subclass);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &vlan_netdev_addr_lock_key);",
+        "-\tvlan_dev_set_lockdep_class(dev, dev->lower_level);",
+        "+\tvlan_dev_set_lockdep_class(dev);"
+      ],
+      "hunks": [
+        {
+          "old_start": 503,
+          "new_start": 503
+        },
+        {
+          "old_start": 601,
+          "new_start": 600
+        }
+      ]
+    },
+    {
+      "path": "drivers/net/macsec.c",
+      "changed_lines": [
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &macsec_netdev_addr_lock_key,",
+        "-\t\t\t\t       dev->lower_level);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &macsec_netdev_addr_lock_key);"
+      ],
+      "hunks": [
+        {
+          "old_start": 4052,
+          "new_start": 4052
+        }
+      ]
+    },
+    {
+      "path": "drivers/net/macvlan.c",
+      "changed_lines": [
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &macvlan_netdev_addr_lock_key,",
+        "-\t\t\t\t       dev->lower_level);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &macvlan_netdev_addr_lock_key);"
+      ],
+      "hunks": [
+        {
+          "old_start": 880,
+          "new_start": 880
+        }
+      ]
+    },
+    {
+      "path": "net/8021q/vlan_dev.c",
+      "changed_lines": [
+        "-static void vlan_dev_set_lockdep_class(struct net_device *dev, int subclass)",
+        "+static void vlan_dev_set_lockdep_class(struct net_device *dev)",
+        "-\tlockdep_set_class_and_subclass(&dev->addr_list_lock,",
+        "-\t\t\t\t       &vlan_netdev_addr_lock_key,",
+        "-\t\t\t\t       subclass);",
+        "+\tlockdep_set_class(&dev->addr_list_lock,",
+        "+\t\t\t  &vlan_netdev_addr_lock_key);",
+        "-\tvlan_dev_set_lockdep_class(dev, dev->lower_level);",
+        "+\tvlan_dev_set_lockdep_class(dev);"
+      ],
+      "hunks": [
+        {
+          "old_start": 503,
+          "new_start": 503
+        },
+        {
+          "old_start": 601,
+          "new_start": 600
+        }
+      ]
+    },
+    {
+      "path": "include/net/genetlink.h",
+      "changed_lines": [
+        "- * @attrbuf: buffer to store parsed attributes (private)",
+        "-\tstruct nlattr **\tattrbuf;\t/* private */"
+      ],
+      "hunks": [
+        {
+          "old_start": 41,
+          "new_start": 41
+        },
+        {
+          "old_start": 66,
+          "new_start": 65
+        }
+      ]
+    },
+    {
+      "path": "net/netlink/genetlink.c",
+      "changed_lines": [
+        "-\tif (family->maxattr && !family->parallel_ops) {",
+        "-\t\tfamily->attrbuf = kmalloc_array(family->maxattr + 1,",
+        "-\t\t\t\t\t\tsizeof(struct nlattr *),",
+        "-\t\t\t\t\t\tGFP_KERNEL);",
+        "-\t\tif (family->attrbuf == NULL) {",
+        "-\t\t\terr = -ENOMEM;",
+        "-\t\t\tgoto errout_locked;",
+        "-\t\t}",
+        "-\t} else",
+        "-\t\tfamily->attrbuf = NULL;",
+        "-",
+        "-\t\tgoto errout_free;",
+        "+\t\tgoto errout_locked;",
+        "-errout_free:",
+        "-\tkfree(family->attrbuf);",
+        "-\tkfree(family->attrbuf);",
+        "-",
+        "-\tif (family->parallel_ops) {",
+        "-\t\tattrbuf = kmalloc_array(family->maxattr + 1,",
+        "-\t\t\t\t\tsizeof(struct nlattr *), GFP_KERNEL);",
+        "-\t\tif (!attrbuf)",
+        "-\t\t\treturn ERR_PTR(-ENOMEM);",
+        "-\t} else {",
+        "-\t\tattrbuf = family->attrbuf;",
+        "-\t}",
+        "+\tattrbuf = kmalloc_array(family->maxattr + 1,",
+        "+\t\t\t\tsizeof(struct nlattr *), GFP_KERNEL);",
+        "+\tif (!attrbuf)",
+        "+\t\treturn ERR_PTR(-ENOMEM);",
+        "-\t\tif (family->parallel_ops)",
+        "-\t\t\tkfree(attrbuf);",
+        "+\t\tkfree(attrbuf);",
+        "-static void genl_family_rcv_msg_attrs_free(const struct genl_family *family,",
+        "-\t\t\t\t\t   struct nlattr **attrbuf)",
+        "+static void genl_family_rcv_msg_attrs_free(struct nlattr **attrbuf)",
+        "-\tif (family->parallel_ops)",
+        "-\t\tkfree(attrbuf);",
+        "+\tkfree(attrbuf);",
+        "-\t\tgenl_family_rcv_msg_attrs_free(ctx->family, attrs);",
+        "+\t\tgenl_family_rcv_msg_attrs_free(attrs);",
+        "-\t\tgenl_family_rcv_msg_attrs_free(info->family, info->attrs);",
+        "+\t\tgenl_family_rcv_msg_attrs_free(info->attrs);",
+        "-\tgenl_family_rcv_msg_attrs_free(info->family, info->attrs);",
+        "+\tgenl_family_rcv_msg_attrs_free(info->attrs);",
+        "-\tgenl_family_rcv_msg_attrs_free(info->family, info->attrs);",
+        "+\tgenl_family_rcv_msg_attrs_free(info->attrs);",
+        "-\tgenl_family_rcv_msg_attrs_free(family, attrbuf);",
+        "+\tgenl_family_rcv_msg_attrs_free(attrbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 351,
+          "new_start": 351
+        },
+        {
+          "old_start": 385,
+          "new_start": 374
+        },
+        {
+          "old_start": 419,
+          "new_start": 406
+        },
+        {
+          "old_start": 485,
+          "new_start": 470
+        },
+        {
+          "old_start": 542,
+          "new_start": 520
+        },
+        {
+          "old_start": 559,
+          "new_start": 537
+        },
+        {
+          "old_start": 588,
+          "new_start": 566
+        },
+        {
+          "old_start": 601,
+          "new_start": 579
+        },
+        {
+          "old_start": 694,
+          "new_start": 672
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-08e3d39f3eb86432/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-08e3d39f3eb86432/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-08e3d39f3eb86432"
+}

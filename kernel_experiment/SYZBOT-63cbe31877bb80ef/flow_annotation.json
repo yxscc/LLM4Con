@@ -1,0 +1,212 @@
+{
+  "bug_id": "SYZBOT-63cbe31877bb80ef",
+  "status": "complete",
+  "summary": "ALSA sequencer queue operations race on adjacent snd_seq_queue bitfields protected by different locks.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "queue check updates check bitfields",
+      "entry": {
+        "function": "snd_seq_check_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "kind": "sequencer_queue_check"
+      },
+      "call_chain": [
+        {
+          "function": "snd_seq_check_queue",
+          "file": "sound/core/seq/seq_queue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "seq_queue.ll defines check function."
+        }
+      ],
+      "bug_site": {
+        "function": "snd_seq_check_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 250,
+        "kind": "write",
+        "code": "q->check_again = 1;"
+      }
+    },
+    "thread_b": {
+      "role": "queue control updates owner bitfields",
+      "entry": {
+        "function": "snd_seq_control_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "kind": "sequencer_control_callback"
+      },
+      "call_chain": [
+        {
+          "function": "snd_seq_control_queue",
+          "file": "sound/core/seq/seq_queue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "exported timer control callback."
+        },
+        {
+          "function": "queue_access_lock",
+          "file": "sound/core/seq/seq_queue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "sets q->klocked under owner_lock."
+        },
+        {
+          "function": "queue_access_unlock",
+          "file": "sound/core/seq/seq_queue.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "clears q->klocked."
+        }
+      ],
+      "bug_site": {
+        "function": "queue_access_lock",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 359,
+        "kind": "write",
+        "code": "q->klocked = 1;"
+      }
+    },
+    "interleaving": [
+      "snd_seq_check_queue writes check_again/check_blocked under q->check_lock.",
+      "snd_seq_control_queue locks access and writes klocked under q->owner_lock.",
+      "Because the flags are C bitfields in one storage unit, independent locks still produce read-modify-write races; the fix converts them to separate bool fields."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "snd_seq_queue flag bitfield storage for locked/klocked/check_again/check_blocked",
+    "access_a": {
+      "function": "snd_seq_check_queue",
+      "file": "sound/core/seq/seq_queue.c",
+      "line": 250,
+      "kind": "write",
+      "code": "q->check_again = 1;"
+    },
+    "access_b": {
+      "function": "queue_access_lock",
+      "file": "sound/core/seq/seq_queue.c",
+      "line": 359,
+      "kind": "write",
+      "code": "q->klocked = 1;"
+    },
+    "required_ordering": "The flag fields must not share a bitfield storage word when protected by different locks."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct snd_seq_queue::{locked,klocked,check_again,check_blocked} bitfield word",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The bug surface is the compiler-managed bitfield storage unit, not one logical flag; different locks protect adjacent bits in the same word.",
+    "aliases": [
+      {
+        "name": "q->check_again/q->check_blocked",
+        "function": "snd_seq_check_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "evidence": "Protected by check_lock."
+      },
+      {
+        "name": "q->locked/q->klocked",
+        "function": "queue_access_lock",
+        "file": "sound/core/seq/seq_queue.c",
+        "evidence": "Protected by owner_lock."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "struct snd_seq_queue *q",
+          "to": "q bitfield word via check_again/check_blocked",
+          "evidence": "snd_seq_check_queue receives q directly."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "queueptr(ev->data.queue.queue)",
+          "to": "q bitfield word via klocked/locked",
+          "evidence": "snd_seq_control_queue obtains q then queue_access_lock."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "snd_seq_check_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 250,
+        "kind": "write",
+        "code": "q->check_again = 1;"
+      },
+      {
+        "function": "snd_seq_check_queue",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 254,
+        "kind": "write",
+        "code": "q->check_blocked = 1;"
+      },
+      {
+        "function": "queue_access_lock",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 359,
+        "kind": "write",
+        "code": "q->klocked = 1;"
+      },
+      {
+        "function": "snd_seq_queue_set_owner",
+        "file": "sound/core/seq/seq_queue.c",
+        "line": 409,
+        "kind": "write",
+        "code": "q->locked = locked ? 1 : 0;"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "queue_new allocates snd_seq_queue"
+      ],
+      "published_by": [
+        "queue_list[id] publishes the queue"
+      ],
+      "invalidated_by": [
+        "queue_delete removes queue from queue_list"
+      ],
+      "freed_by": [
+        "queue_delete/free path releases queue"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "sound/core/seq/seq_queue.c",
+      "sound/core/seq/seq_queue.h"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "Both racing contexts and the patched struct definition are present in source and seq_queue.ll.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 11,
+    "src_file_count_after": 11,
+    "compiled_files": [
+      "sound/core/seq/seq_queue.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "seq_queue.ll",
+    "bitcode_input_files": [
+      "seq_queue.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 42
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Patch changes locked, klocked, check_again, and check_blocked from bitfields to bools."
+    ],
+    "indirect_edges": [
+      "snd_seq_control_queue obtains q via queueptr and uses queue_access_lock/unlock; snd_seq_check_queue uses q->check_lock."
+    ],
+    "entry_discovery_log": [],
+    "repair_commands": [],
+    "notes": [
+      "seq_queue.ll contains snd_seq_check_queue, snd_seq_control_queue, snd_seq_queue_set_owner, and queue_broadcast_event."
+    ]
+  }
+}

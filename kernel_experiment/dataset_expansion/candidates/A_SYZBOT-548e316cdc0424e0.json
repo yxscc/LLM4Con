@@ -1,0 +1,48 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-548e316cdc0424e0",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __ip4_datagram_connect / skb_set_owner_w (2)",
+  "description": "KCSAN: data-race in __ip4_datagram_connect / skb_set_owner_w (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__ip4_datagram_connect",
+    "fn_b": "skb_set_owner_w"
+  },
+  "fix_commit": "b71eaed8c04f72a919a9c44e83e4ee254e69e7f3",
+  "affected_files": [
+    "include/net/sock.h"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/sock.h",
+      "changed_lines": [
+        "-\tsk->sk_txhash = net_tx_rndhash();",
+        "+\t/* This pairs with READ_ONCE() in skb_set_hash_from_sk() */",
+        "+\tWRITE_ONCE(sk->sk_txhash, net_tx_rndhash());",
+        "-\tif (sk->sk_txhash) {",
+        "+\t/* This pairs with WRITE_ONCE() in sk_set_txhash() */",
+        "+\tu32 txhash = READ_ONCE(sk->sk_txhash);",
+        "+",
+        "+\tif (txhash) {",
+        "-\t\tskb->hash = sk->sk_txhash;",
+        "+\t\tskb->hash = txhash;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1934,
+          "new_start": 1934
+        },
+        {
+          "old_start": 2206,
+          "new_start": 2207
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-548e316cdc0424e0/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-548e316cdc0424e0/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-548e316cdc0424e0"
+}

@@ -1,0 +1,149 @@
+[manual-entry] case=SYZBOT-1c486d0b62032c82 roots=['bprm_execve', 'copy_fs'] bc=exec.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 295645MB)
+InputSrcDir: src
+InputBCFileName: exec.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 295645MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 88MB, Avail: 295589MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 88MB, Avail: 295589MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 1 init/exit section, 13 EXPORT_SYMBOL, 16 syscall wrapper, 1 ops-table member, 0 indirect-fork sink, 0 public-wrapper alias, 1 cross-TU public (31 unique function(s))
+[Auto-Entry Cross-TU] +1 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 31 kernel entry point(s):
+  - remove_arg_zero
+  - unregister_binfmt
+  - __se_sys_execve
+  - __do_sys_uselib
+  - proc_dointvec_minmax_coredump
+  - __x64_sys_execveat
+  - begin_new_exec
+  - would_dump
+  - __se_sys_uselib
+  - __se_sys_execveat
+  - __x64_sys_execve
+  - __x64_sys_uselib
+  - init_fs_exec_sysctls
+  - open_exec
+  - __ia32_compat_sys_execveat
+  - copy_string_kernel
+  - setup_arg_pages
+  - __do_sys_execveat
+  - finalize_exec
+  - __register_binfmt
+  ... and 11 more
+[Auto-Entry Diag] strong+reachable=6 (ops/init-only prunable=0)
+[Auto-Entry Tiering] thread roots: 24/31 (strong=18, weak_kept=6, broad_mode=off, broad_added=0, weak_pruned_reachable=2, weak_pruned_no_strong_conflict=5, weak_pruned_total=7)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 238/238 functions...
+[Phasar] Location maps built. Total functions: 238
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 91MB, Avail: 295651MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 91MB, Avail: 295651MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 91MB, Avail: 295651MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 91MB, Avail: 295651MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "remove_arg_zero", fileName: "fs/exec.c", lineNumber: 1720, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=remove_arg_zero, fileName=fs/exec.c, fileName_last=exec.c, lineNumber=1720
+[DEBUG getMain] methods from full path: 58
+[DEBUG getMain] Iterating 58 methods
+[DEBUG getMain] Checking method: name=EXPORT_SYMBOL, line=96
+[DEBUG getMain] Checking method: name=sys_execveat, line=2117
+[DEBUG getMain] Checking method: name=set_binfmt, line=2085
+[DEBUG getMain] Checking method: name=do_execveat, line=2041
+[DEBUG getMain] Checking method: name=do_execve, line=2032
+[DEBUG getMain] Checking method: name=do_execveat_common, line=1888
+[DEBUG getMain] Checking method: name=remove_arg_zero, line=1720
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 2 configured thread root(s): bprm_execve copy_fs
+[Kernel Module Mode] Adding 2 thread-root entry points as parallel entries
+  - Looking for: bprm_execve -> demangled: bprm_execve -> shortName: bprm_execve [signals=manual]
+  - Found in CPG: bprm_execve at fs/exec.c:1833
+  - Added entry: bprm_execve
+  - Looking for: copy_fs -> demangled: copy_fs -> shortName: copy_fs [signals=manual]
+  - Not found in CPG: copy_fs (tried: copy_fs)
+[Kernel Module Mode] Total entry functions: 1
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 1 entry points as parallel threads
+[Kernel Module Mode] Keeping all 1 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 91MB, Avail: 295651MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 91MB, Avail: 295651MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 1 threads...
+[VulnerabilitySurface] Collected 61 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 31 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 2 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 478 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 6 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 2 list-helper accesses (cluster-A fix)
+[VulnerabilitySurface] Modeled 7 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 7 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 7 shared objects (7 high risk, 0 medium risk)
+
+  Threads: 1, Conflicting pairs: 17, Shared objects: 7
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=7, mhp_pairs=7, conflict_pairs=7, self_race_threads=0, candidate_threads=2
+
+[Phase A: Per-Thread Contracts] threads=2
+  [contract-parallel] workers=2
+  [contract 1/2 w0] thread 0 objects=7
+  [contract-parallel] generated 1/2 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=1
+  [session 1/1] candidates hi=4 med=0 low=0 (discharged=1) -> calibrate
+  [dedup] 4 -> 4 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 4 hypotheses (calibrated 1 sessions over 1 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 94MB, Avail: 296246MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 94MB, Avail: 296246MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+    [!!!] POTENTIAL C1 atomicity/data_race on bprm->unsafe RMW VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C2 atomicity/data_race on bprm->file interpreter handoff VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL C3 atomicity/data_race on bprm->interpreter handoff VIOLATION FOUND: interleave_3
+    [!!!] POTENTIAL C4 atomicity/data_race on bprm->executable check/set VIOLATION FOUND: interleave_4
+Bug detection complete. 4 potential bug(s) found.
+  - Mechanism-Rule Violations: 4
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-1c486d0b62032c82_2026-06-12_14-26-37/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 94MB, Avail: 296246MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 138 seconds
+LLM API Requests: 9
+Total Prompt Tokens: 100493
+Total Completion Tokens: 5157
+Total Tokens: 105650
+==========================================

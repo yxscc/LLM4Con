@@ -1,0 +1,224 @@
+[manual-entry] case=SYZBOT-2e4de7fe846aba66 roots=['tun_chr_write_iter', 'napi_busy_loop'] bc=merged.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 296311MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 296311MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 402MB, Avail: 295956MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 402MB, Avail: 295956MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 3 init/exit section, 182 EXPORT_SYMBOL, 0 syscall wrapper, 45 ops-table member, 19 indirect-fork sink, 4 public-wrapper alias, 17 cross-TU public (267 unique function(s))
+[Auto-Entry Cross-TU] +17 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 267 kernel entry point(s):
+  - dev_change_xdp_fd
+  - dev_get_alias
+  - netdev_boot_base
+  - dev_hard_start_xmit
+  - skb_crc32c_csum_help
+  - dev_ingress_queue_create
+  - dev_change_name
+  - __dev_change_flags
+  - netdev_run_todo
+  - netdev_adjacent_rename_links
+  - __dev_set_allmulti
+  - __netdev_printk
+  - net_rx_action
+  - __netdev_upper_dev_link
+  - net_tx_action
+  - tun_napi_poll
+  - __dev_forward_skb
+  - tun_get_socket
+  - register_netdevice_notifier_net
+  - netdev_emerg
+  ... and 247 more
+[Auto-Entry Diag] strong+reachable=6 (ops/init-only prunable=2)
+[Auto-Entry Tiering] thread roots: 166/267 (strong=66, weak_kept=100, broad_mode=off, broad_added=0, weak_pruned_reachable=78, weak_pruned_no_strong_conflict=23, weak_pruned_total=101)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 1000/1102 functions...
+[Phasar] Processed 1102/1102 functions...
+[Phasar] Location maps built. Total functions: 1102
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 405MB, Avail: 295865MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 405MB, Avail: 295865MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 405MB, Avail: 295865MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 405MB, Avail: 295865MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "dev_change_xdp_fd", fileName: "net/core/dev.c", lineNumber: 8596, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=dev_change_xdp_fd, fileName=net/core/dev.c, fileName_last=dev.c, lineNumber=8596
+[DEBUG getMain] methods from full path: 396
+[DEBUG getMain] Iterating 396 methods
+[DEBUG getMain] Checking method: name=DECLARE_WORK, line=1992
+[DEBUG getMain] Checking method: name=subsys_initcall, line=10477
+[DEBUG getMain] Checking method: name=LIST_HEAD, line=8684
+[DEBUG getMain] Checking method: name=N, line=1616
+[DEBUG getMain] Checking method: name=net_timestamp_check, line=2042
+[DEBUG getMain] Checking method: name=DEFINE_SPINLOCK, line=154
+[DEBUG getMain] Checking method: name=DEFINE_STATIC_KEY_FALSE, line=1946
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU_ALIGNED, line=393
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU, line=5445
+[DEBUG getMain] Checking method: name=rtnl_lock_unregistering, line=10321
+[DEBUG getMain] Checking method: name=netdev_info, line=10272
+[DEBUG getMain] Checking method: name=netdev_crit, line=10268
+[DEBUG getMain] Checking method: name=netdev_alert, line=10267
+[DEBUG getMain] Checking method: name=netdev_printk, line=10232
+[DEBUG getMain] Checking method: name=__netdev_printk, line=10213
+[DEBUG getMain] Checking method: name=unregister_netdev, line=9926
+[DEBUG getMain] Checking method: name=unregister_netdevice_queue, line=9881
+[DEBUG getMain] Checking method: name=alloc_netdev_mqs, line=9701
+[DEBUG getMain] Checking method: name=dev_ingress_queue_create, line=9653
+[DEBUG getMain] Checking method: name=DEFINE_RWLOCK, line=187
+[DEBUG getMain] Checking method: name=dev_get_stats, line=9633
+[DEBUG getMain] Checking method: name=netdev_wait_allrefs, line=9466
+[DEBUG getMain] Checking method: name=netdev_refcnt_read, line=9444
+[DEBUG getMain] Checking method: name=register_netdev, line=9432
+[DEBUG getMain] Checking method: name=init_dummy_netdev, line=9385
+[DEBUG getMain] Checking method: name=register_netdevice, line=9216
+[DEBUG getMain] Checking method: name=netdev_update_lockdep_key, line=9178
+[DEBUG getMain] Checking method: name=netdev_unregister_lockdep_key, line=9170
+[DEBUG getMain] Checking method: name=netdev_init_one_queue, line=9110
+[DEBUG getMain] Checking method: name=netif_free_rx_queues, line=9096
+[DEBUG getMain] Checking method: name=netif_stacked_transfer_operstate, line=9047
+[DEBUG getMain] Checking method: name=netdev_sync_lower_features, line=8813
+[DEBUG getMain] Checking method: name=netdev_sync_upper_features, line=8793
+[DEBUG getMain] Checking method: name=rollback_registered, line=8784
+[DEBUG getMain] Checking method: name=rollback_registered_many, line=8693
+[DEBUG getMain] Checking method: name=unregister_netdevice_many, line=9902
+[DEBUG getMain] Checking method: name=dev_new_index, line=8671
+[DEBUG getMain] Checking method: name=dev_change_xdp_fd, line=8596
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 2 configured thread root(s): tun_chr_write_iter napi_busy_loop
+[Kernel Module Mode] Adding 2 thread-root entry points as parallel entries
+  - Looking for: tun_chr_write_iter -> demangled: tun_chr_write_iter -> shortName: tun_chr_write_iter [signals=manual]
+  - Found in CPG: tun_chr_write_iter at drivers/net/tun.c:2012
+  - Added entry: tun_chr_write_iter
+  - Looking for: napi_busy_loop -> demangled: napi_busy_loop -> shortName: napi_busy_loop [signals=manual]
+  - Found in CPG: napi_busy_loop at net/core/dev.c:6307
+  - Added entry: napi_busy_loop
+[Kernel Module Mode] Total entry functions: 2
+Warning: Could not map CPG function 'BUSY_POLL_BUDGET' to an llvm::Function.
+Warning: Could not map CPG function 'GOODCOPY_LEN' to an llvm::Function.
+Warning: Could not map CPG function 'MAX_TAP_FLOWS' to an llvm::Function.
+[Thread Entry] mod_timer - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+Warning: Could not map CPG function 'TUN_RX_PAD' to an llvm::Function.
+Warning: Could not map CPG function 'TUN_VNET_LE' to an llvm::Function.
+Warning: Could not map CPG function 'net_timestamp_check' to an llvm::Function.
+Warning: Could not map CPG function 'GRO_MAX_HEAD' to an llvm::Function.
+Warning: Could not map CPG function 'tun_debug' to an llvm::Function.
+Warning: Could not map CPG function 'TUN_MASK_FLOW_ENTRIES' to an llvm::Function.
+Warning: Could not map CPG function 'TUN_FASYNC' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 2 entry points as parallel threads
+[Thread Entry] mod_timer - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+[Kernel Module Mode] Keeping all 2 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 405MB, Avail: 295772MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 405MB, Avail: 295772MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 2 threads...
+[VulnerabilitySurface] Collected 1430 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 270 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 98 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 3983 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 13 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 9 list-helper accesses (cluster-A fix; +3 actual-formal field aliases)
+[VulnerabilitySurface] Modeled 28 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 203 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 203 shared objects (122 high risk, 10 medium risk)
+
+  Threads: 2, Conflicting pairs: 1303, Shared objects: 203
+
+[Phase 2.5: Object Triage] candidates=203
+  -> keeping 156/203 objects for interleaving
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=156, mhp_pairs=156, conflict_pairs=106, self_race_threads=0, candidate_threads=4
+
+[Phase A: Per-Thread Contracts] threads=4
+  [contract-parallel] workers=4
+  [contract 1/4 w0] thread 0 objects=20
+  [contract 2/4 w1] thread 1 objects=20
+  [contract-parallel] generated 2/4 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=17
+  [session 1/17] no surviving candidate (discharged=0) -- skip
+  [session 2/17] candidates hi=9 med=1 low=0 (discharged=0) -> calibrate
+  [session 3/17] no surviving candidate (discharged=0) -- skip
+  [session 4/17] candidates hi=10 med=0 low=0 (discharged=0) -> calibrate
+  [session 5/17] candidates hi=9 med=0 low=0 (discharged=0) -> calibrate
+  [session 6/17] no surviving candidate (discharged=0) -- skip
+  [session 7/17] no surviving candidate (discharged=0) -- skip
+  [session 8/17] no surviving candidate (discharged=0) -- skip
+  [session 9/17] no surviving candidate (discharged=0) -- skip
+  [session 10/17] no surviving candidate (discharged=0) -- skip
+  [session 11/17] no surviving candidate (discharged=0) -- skip
+  [session 12/17] candidates hi=1 med=0 low=0 (discharged=0) -> calibrate
+  [session 13/17] no surviving candidate (discharged=0) -- skip
+  [session 14/17] no surviving candidate (discharged=0) -- skip
+  [session 15/17] no surviving candidate (discharged=0) -- skip
+  [session 16/17] no surviving candidate (discharged=0) -- skip
+  [session 17/17] no surviving candidate (discharged=0) -- skip
+  [dedup] 21 -> 14 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 14 hypotheses (calibrated 4 sessions over 17 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 409MB, Avail: 303437MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 409MB, Avail: 303437MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+    [!!!] POTENTIAL C5 atomicity/data_race on NAPI_GRO_CB(skb)->same_flow/GRO decision flags VIOLATION FOUND: interleave_6
+    [!!!] POTENTIAL C9 atomicity/data_race on skb tail/end boundary field VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C5 atomicity/data_race on NAPI_GRO_CB GRO decision flags VIOLATION FOUND: interleave_3
+    [!!!] POTENTIAL C2 atomicity/data_race on skb->cb / NAPI_GRO_CB frag0 VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL C1: atomicity/data_race on softnet_data->input_queue_tail VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C1 atomicity/data_race on skb->truesize VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C3 atomicity/data_race on softnet_data->rps_ipi_list VIOLATION FOUND: interleave_5
+    [!!!] POTENTIAL C4 atomicity/data_race on napi->rx_count VIOLATION FOUND: interleave_6
+    [!!!] POTENTIAL C5 atomicity/data_race on skb->sender_cpu/napi_id overlay VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL C6 atomicity/data_race on xdp->data_meta VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C6 atomicity/data_race on NAPI_GRO_CB frag0_len VIOLATION FOUND: interleave_4
+    [!!!] POTENTIAL C7 atomicity/data_race on rps_dev_flow->filter VIOLATION FOUND: interleave_8
+    [!!!] POTENTIAL C8 atomicity/data_race on skb->protocol VIOLATION FOUND: interleave_4
+    [!!!] POTENTIAL C8 atomicity/data_race on skb->protocol VIOLATION FOUND: interleave_3
+Bug detection complete. 14 potential bug(s) found.
+  - Mechanism-Rule Violations: 14
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-2e4de7fe846aba66_2026-06-12_14-28-55/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 409MB, Avail: 303436MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 2457 seconds
+LLM API Requests: 61
+Total Prompt Tokens: 1411265
+Total Completion Tokens: 87164
+Total Tokens: 1498429
+==========================================

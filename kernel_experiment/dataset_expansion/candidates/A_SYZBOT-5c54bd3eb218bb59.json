@@ -1,0 +1,79 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-5c54bd3eb218bb59",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in do_timer_create / do_timer_create (8)",
+  "description": "KCSAN: data-race in do_timer_create / do_timer_create (8)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "do_timer_create",
+    "fn_b": "do_timer_create"
+  },
+  "fix_commit": "8ce8849dd1e78dadcee0ec9acbd259d239b7069f",
+  "affected_files": [
+    "include/linux/sched/signal.h",
+    "kernel/time/posix-timers.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/linux/sched/signal.h",
+      "changed_lines": [
+        "-\tint\t\t\tposix_timer_id;",
+        "+\tunsigned int\t\tnext_posix_timer_id;"
+      ],
+      "hunks": [
+        {
+          "old_start": 135,
+          "new_start": 135
+        }
+      ]
+    },
+    {
+      "path": "kernel/time/posix-timers.c",
+      "changed_lines": [
+        "-\tint first_free_id = sig->posix_timer_id;",
+        "-\tint ret = -ENOENT;",
+        "+\tunsigned int cnt, id;",
+        "-\tdo {",
+        "+\t/*",
+        "+\t * FIXME: Replace this by a per signal struct xarray once there is",
+        "+\t * a plan to handle the resulting CRIU regression gracefully.",
+        "+\t */",
+        "+\tfor (cnt = 0; cnt <= INT_MAX; cnt++) {",
+        "-\t\thead = &posix_timers_hashtable[hash(sig, sig->posix_timer_id)];",
+        "-\t\tif (!__posix_timers_find(head, sig, sig->posix_timer_id)) {",
+        "+\t\tid = sig->next_posix_timer_id;",
+        "+",
+        "+\t\t/* Write the next ID back. Clamp it to the positive space */",
+        "+\t\tsig->next_posix_timer_id = (id + 1) & INT_MAX;",
+        "+",
+        "+\t\thead = &posix_timers_hashtable[hash(sig, id)];",
+        "+\t\tif (!__posix_timers_find(head, sig, id)) {",
+        "-\t\t\tret = sig->posix_timer_id;",
+        "+\t\t\tspin_unlock(&hash_lock);",
+        "+\t\t\treturn id;",
+        "-\t\tif (++sig->posix_timer_id < 0)",
+        "-\t\t\tsig->posix_timer_id = 0;",
+        "-\t\tif ((sig->posix_timer_id == first_free_id) && (ret == -ENOENT))",
+        "-\t\t\t/* Loop over all possible ids completed */",
+        "-\t\t\tret = -EAGAIN;",
+        "-\t} while (ret == -ENOENT);",
+        "-\treturn ret;",
+        "+\t}",
+        "+\t/* POSIX return code when no timer ID could be allocated */",
+        "+\treturn -EAGAIN;"
+      ],
+      "hunks": [
+        {
+          "old_start": 140,
+          "new_start": 140
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-5c54bd3eb218bb59/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-5c54bd3eb218bb59/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-5c54bd3eb218bb59"
+}

@@ -1,0 +1,88 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-3cc3a12efa69aa6f",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in register_netdevice / type_show (2)",
+  "description": "KCSAN: data-race in register_netdevice / type_show (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "register_netdevice",
+    "fn_b": "type_show"
+  },
+  "fix_commit": "cc26c2661fefea215f41edb665193324a5f99021",
+  "affected_files": [
+    "net/core/dev.c",
+    "net/core/net-sysfs.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/core/dev.c",
+      "changed_lines": [
+        "-static void unlist_netdevice(struct net_device *dev)",
+        "+static void unlist_netdevice(struct net_device *dev, bool lock)",
+        "-\twrite_lock(&dev_base_lock);",
+        "+\tif (lock)",
+        "+\t\twrite_lock(&dev_base_lock);",
+        "-\twrite_unlock(&dev_base_lock);",
+        "+\tif (lock)",
+        "+\t\twrite_unlock(&dev_base_lock);",
+        "-\tif (ret) {",
+        "-\t\tdev->reg_state = NETREG_UNREGISTERED;",
+        "+\twrite_lock(&dev_base_lock);",
+        "+\tdev->reg_state = ret ? NETREG_UNREGISTERED : NETREG_REGISTERED;",
+        "+\twrite_unlock(&dev_base_lock);",
+        "+\tif (ret)",
+        "-\t}",
+        "-\tdev->reg_state = NETREG_REGISTERED;",
+        "+\t\twrite_lock(&dev_base_lock);",
+        "+\t\twrite_unlock(&dev_base_lock);",
+        "-\t\tunlist_netdevice(dev);",
+        "-",
+        "+\t\twrite_lock(&dev_base_lock);",
+        "+\t\tunlist_netdevice(dev, false);",
+        "+\t\twrite_unlock(&dev_base_lock);",
+        "-\tunlist_netdevice(dev);",
+        "+\tunlist_netdevice(dev, true);"
+      ],
+      "hunks": [
+        {
+          "old_start": 397,
+          "new_start": 397
+        },
+        {
+          "old_start": 10043,
+          "new_start": 10045
+        },
+        {
+          "old_start": 10329,
+          "new_start": 10331
+        },
+        {
+          "old_start": 10810,
+          "new_start": 10814
+        },
+        {
+          "old_start": 10959,
+          "new_start": 10964
+        }
+      ]
+    },
+    {
+      "path": "net/core/net-sysfs.c",
+      "changed_lines": [
+        "+/* Caller holds RTNL or dev_base_lock */"
+      ],
+      "hunks": [
+        {
+          "old_start": 33,
+          "new_start": 33
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-3cc3a12efa69aa6f/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-3cc3a12efa69aa6f/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-3cc3a12efa69aa6f"
+}

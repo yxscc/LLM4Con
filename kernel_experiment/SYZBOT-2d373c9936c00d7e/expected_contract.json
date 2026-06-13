@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-2d373c9936c00d7e",
+  "shared_object": "struct snd_seq_pool::total_elements (client->pool)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "poll reader",
+    "entry": "snd_seq_poll",
+    "clause": {
+      "resource": "struct snd_seq_pool::total_elements",
+      "sites": [
+        {"function": "snd_seq_write_pool_allocated", "file": "sound/core/seq/seq_clientmgr.c", "line": 95, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(pool->total_elements)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "ioctl pool initializer",
+    "entry": "snd_seq_ioctl",
+    "clause": {
+      "resource": "struct snd_seq_pool::total_elements",
+      "sites": [
+        {"function": "snd_seq_pool_init", "file": "sound/core/seq/seq_memory.c", "line": 469, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(pool->lock, [pool init region 450-470])"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(total_elements)]) from thread_a (the lockless poll read must not be interleaved with a conflicting write)",
+    "violating_event": "e@snd_seq_pool_init:469 = mutate(pool->total_elements = pool->size)",
+    "missing_guarantee": "thread_b holds pool->lock during the write, but thread_a reads total_elements with NO lock; a one-sided lock does not serialize against an unlocked reader, so no g establishes atomic(read) on the poll side",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic over a single access (an unsynchronized read concurrent with a conflicting write) → data race"
+  },
+
+  "fix_maps_to": "guard(spinlock_irq)(&pool->lock) added inside snd_seq_pool_poll_wait() (and the lockless caller-side check dropped) → adds serialize(pool->lock, poll read) to the reader → establishes atomic(read) by making both sides hold the same lock",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Structurally a clean unprotected-read-vs-locked-write race that our atomic(single access) default captures. Risk: the maintainer notes the race is HARMLESS (poll of volatile state); an LLM may judge the unprotected read benign and decline to assert atomic(read), which would suppress the report. Object/threads are static-friendly (same poll/ioctl fops, surface pre-fills total_elements + pool->lock candidate).",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

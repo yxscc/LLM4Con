@@ -1,0 +1,245 @@
+{
+  "bug_id": "SYZBOT-52e3dbded1f71729",
+  "status": "complete",
+  "summary": "KCM receive teardown races a strparser workqueue update on kcm->rx_psock.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "strparser workqueue clears reserved psock",
+      "entry": {
+        "function": "strp_work",
+        "file": "net/strparser/strparser.c",
+        "kind": "workqueue"
+      },
+      "call_chain": [
+        {
+          "function": "strp_work",
+          "file": "net/strparser/strparser.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack workqueue entry."
+        },
+        {
+          "function": "strp_recv",
+          "file": "net/strparser/strparser.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "kcm_rcv_strparser",
+          "file": "net/kcm/kcmsock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "strp callback rcv_msg."
+        },
+        {
+          "function": "unreserve_rx_kcm",
+          "file": "net/kcm/kcmsock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "clears rx_psock."
+        }
+      ],
+      "bug_site": {
+        "function": "unreserve_rx_kcm",
+        "file": "net/kcm/kcmsock.c",
+        "line": 313,
+        "kind": "write",
+        "code": "kcm->rx_psock = NULL;"
+      }
+    },
+    "thread_b": {
+      "role": "KCM recvmsg skb free path tests psock",
+      "entry": {
+        "function": "kcm_recvmsg",
+        "file": "net/kcm/kcmsock.c",
+        "kind": "socket_recvmsg_ops"
+      },
+      "call_chain": [
+        {
+          "function": "kcm_recvmsg",
+          "file": "net/kcm/kcmsock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "kcm proto_ops .recvmsg."
+        },
+        {
+          "function": "kfree_skb_reason",
+          "file": "net/core/skbuff.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "kcm_rfree",
+          "file": "net/kcm/kcmsock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "skb destructor reads rx_psock."
+        }
+      ],
+      "bug_site": {
+        "function": "kcm_rfree",
+        "file": "net/kcm/kcmsock.c",
+        "line": 181,
+        "kind": "read",
+        "code": "if (!kcm->rx_wait && !kcm->rx_psock && ... )"
+      }
+    },
+    "interleaving": [
+      "The strparser worker reserves or unreserves a KCM socket and writes kcm->rx_psock under mux->rx_lock.",
+      "A recvmsg task frees an skb and kcm_rfree reads kcm->rx_psock locklessly after atomic accounting.",
+      "The fix annotates the pointer read and writes with READ_ONCE/WRITE_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct kcm_sock::rx_psock",
+    "access_a": {
+      "function": "unreserve_rx_kcm",
+      "file": "net/kcm/kcmsock.c",
+      "line": 313,
+      "kind": "write",
+      "code": "kcm->rx_psock = NULL;"
+    },
+    "access_b": {
+      "function": "kcm_rfree",
+      "file": "net/kcm/kcmsock.c",
+      "line": 181,
+      "kind": "read",
+      "code": "!kcm->rx_psock"
+    },
+    "required_ordering": "The lockless destructor read must observe an atomic pointer value paired with the reservation updates."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct kcm_sock::rx_psock",
+    "object_kind": "pointer",
+    "confidence": "high",
+    "why_relevant": "This pointer records which lower psock currently owns receive delivery for the KCM socket; the skb destructor tests it without taking mux->rx_lock.",
+    "aliases": [
+      {
+        "name": "kcm->rx_psock",
+        "function": "kcm_rfree",
+        "file": "net/kcm/kcmsock.c",
+        "evidence": "Lockless predicate."
+      },
+      {
+        "name": "psock->rx_kcm",
+        "function": "unreserve_rx_kcm",
+        "file": "net/kcm/kcmsock.c",
+        "evidence": "Reverse owner link used to recover kcm."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "strparser callback argument",
+          "to": "container_of(strp, struct kcm_psock, strp) -> psock->rx_kcm -> kcm->rx_psock",
+          "evidence": "kcm_rcv_strparser and unreserve_rx_kcm."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "skb->sk",
+          "to": "kcm_sk(sk) -> kcm->rx_psock",
+          "evidence": "kcm_rfree derives kcm from skb->sk."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "unreserve_rx_kcm",
+        "file": "net/kcm/kcmsock.c",
+        "line": 313,
+        "kind": "write",
+        "code": "kcm->rx_psock = NULL;"
+      },
+      {
+        "function": "reserve_rx_kcm",
+        "file": "net/kcm/kcmsock.c",
+        "line": 286,
+        "kind": "write",
+        "code": "kcm->rx_psock = psock;"
+      },
+      {
+        "function": "kcm_rfree",
+        "file": "net/kcm/kcmsock.c",
+        "line": 181,
+        "kind": "read",
+        "code": "kcm->rx_psock"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "kcm socket allocation initializes struct kcm_sock"
+      ],
+      "published_by": [
+        "reserve_rx_kcm stores psock in kcm->rx_psock"
+      ],
+      "invalidated_by": [
+        "unreserve_rx_kcm clears kcm->rx_psock"
+      ],
+      "freed_by": []
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "net/kcm/kcmsock.c",
+      "net/strparser/strparser.c",
+      "net/core/skbuff.c",
+      "net/ipv4/tcp.c",
+      "net/socket.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "kcmsock.c covers both race functions; added strparser, skb, TCP, and socket sources define the external workqueue and recvmsg path.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [
+      "net/strparser/strparser.c",
+      "net/core/skbuff.c",
+      "net/ipv4/tcp.c",
+      "net/socket.c"
+    ],
+    "src_file_count_before": 1,
+    "src_file_count_after": 5,
+    "compiled_files": [
+      "net/kcm/kcmsock.c",
+      "net/strparser/strparser.c",
+      "net/core/skbuff.c",
+      "net/ipv4/tcp.c",
+      "net/socket.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "kcmsock.ll",
+      "strparser.ll",
+      "skbuff.ll",
+      "tcp.ll",
+      "socket.ll"
+    ],
+    "bitcode_linked_file_count": 5,
+    "selected_bitcode_defined_function_count": 1337
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Patch changes kcm_rfree read to READ_ONCE(kcm->rx_psock) and reserve/unreserve writes to WRITE_ONCE."
+    ],
+    "indirect_edges": [
+      "strp_callbacks .rcv_msg = kcm_rcv_strparser; proto_ops .recvmsg = kcm_recvmsg."
+    ],
+    "entry_discovery_log": [
+      "Direct define verification in merged.ll passed for modeled non-inline entries and access callers."
+    ],
+    "repair_commands": [
+      "git show 15e4dabda11b0fa31d510a915d1a580f47dfc92e^:<path> for four added call-chain files.",
+      "Prepared temporary git worktrees at each fix_commit^; compiled missing required C files with clang-15 -S -emit-llvm using kernel include/generated headers and linked merged.ll with external llvm-link."
+    ],
+    "notes": [
+      "kcmsock.ll contains kcm_recvmsg, kcm_rfree, kcm_rcv_strparser, reserve_rx_kcm, and unreserve_rx_kcm."
+    ]
+  }
+}

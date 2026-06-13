@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-3872b8b1d5ece2a8",
+  "tier": "A",
+  "title": "KCSAN: data-race in __rcu_read_unlock / sync_rcu_exp_select_node_cpus (2)",
+  "mainline_sha": "314eeb43e5f22856b281c91c966e51e5782a3498",
+  "all_shas_seen": [
+    "3872b8b1d5ece2a81864f8e4b673c30e1682c026",
+    "314eeb43e5f22856b281c91c966e51e5782a3498"
+  ],
+  "c_paths": [
+    "kernel/rcu/tree_exp.h",
+    "kernel/rcu/tree_plugin.h"
+  ],
+  "n_files_shown": 2,
+  "n_functions_shown": 8
+}

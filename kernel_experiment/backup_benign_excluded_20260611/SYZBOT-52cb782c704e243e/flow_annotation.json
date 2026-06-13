@@ -1,0 +1,286 @@
+{
+  "bug_id": "SYZBOT-52cb782c704e243e",
+  "status": "complete",
+  "summary": "Two IPv6 route-output contexts race on fib6_nh->last_probe while deciding whether to schedule a neighbour probe.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "IPv6 TCP transmit route lookup updating probe timestamp",
+      "entry": {
+        "function": "tcp_xmit_probe_skb",
+        "file": "net/ipv4/tcp_output.c",
+        "kind": "tcp_timer_or_transmit_path"
+      },
+      "call_chain": [
+        {
+          "function": "tcp_xmit_probe_skb",
+          "file": "net/ipv4/tcp_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack reaches IPv6 route output from TCP probe transmit."
+        },
+        {
+          "function": "inet6_csk_xmit",
+          "file": "net/ipv6/inet6_connection_sock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "ip6_dst_lookup_flow",
+          "file": "net/ipv6/ip6_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "ip6_route_output_flags",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "route.ll defines ip6_route_output_flags."
+        },
+        {
+          "function": "fib6_table_lookup",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "route.ll defines fib6_table_lookup."
+        },
+        {
+          "function": "find_match",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "find_match calls rt6_probe."
+        },
+        {
+          "function": "rt6_probe",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "race access site."
+        }
+      ],
+      "bug_site": {
+        "function": "rt6_probe",
+        "file": "net/ipv6/route.c",
+        "line": 663,
+        "kind": "write",
+        "code": "fib6_nh->last_probe = jiffies;"
+      }
+    },
+    "thread_b": {
+      "role": "Concurrent IPv6 TCP transmit route lookup reading probe timestamp",
+      "entry": {
+        "function": "tcp_xmit_probe_skb",
+        "file": "net/ipv4/tcp_output.c",
+        "kind": "tcp_timer_or_transmit_path"
+      },
+      "call_chain": [
+        {
+          "function": "tcp_xmit_probe_skb",
+          "file": "net/ipv4/tcp_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "Same KCSAN stack on peer CPU."
+        },
+        {
+          "function": "inet6_csk_xmit",
+          "file": "net/ipv6/inet6_connection_sock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "ip6_dst_lookup_flow",
+          "file": "net/ipv6/ip6_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "ip6_route_output_flags",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "route.ll defines ip6_route_output_flags."
+        },
+        {
+          "function": "fib6_table_lookup",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "route.ll defines fib6_table_lookup."
+        },
+        {
+          "function": "find_match",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "find_match calls rt6_probe."
+        },
+        {
+          "function": "rt6_probe",
+          "file": "net/ipv6/route.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "race access site."
+        }
+      ],
+      "bug_site": {
+        "function": "rt6_probe",
+        "file": "net/ipv6/route.c",
+        "line": 657,
+        "kind": "read",
+        "code": "time_after(jiffies, fib6_nh->last_probe + idev->cnf.rtr_probe_interval)"
+      }
+    },
+    "interleaving": [
+      "CPU0 enters rt6_probe through IPv6 route lookup and reads fib6_nh->last_probe for rate limiting.",
+      "CPU1 enters the same route lookup before CPU0 is ordered and stores jiffies into fib6_nh->last_probe.",
+      "The unfenced read/write race can schedule duplicate deferred probes and trigger KCSAN."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct fib6_nh::last_probe",
+    "access_a": {
+      "function": "rt6_probe",
+      "file": "net/ipv6/route.c",
+      "line": 663,
+      "kind": "write",
+      "code": "fib6_nh->last_probe = jiffies;"
+    },
+    "access_b": {
+      "function": "rt6_probe",
+      "file": "net/ipv6/route.c",
+      "line": 657,
+      "kind": "read",
+      "code": "fib6_nh->last_probe + idev->cnf.rtr_probe_interval"
+    },
+    "required_ordering": "The timestamp check and timestamp update need single-copy atomic access; the fix uses READ_ONCE plus cmpxchg."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct fib6_nh::last_probe",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This timestamp is the shared rate-limit state for rt6_probe; concurrent route lookups read and update it without atomic access in the vulnerable revision.",
+    "aliases": [
+      {
+        "name": "fib6_nh->last_probe",
+        "function": "rt6_probe",
+        "file": "net/ipv6/route.c",
+        "evidence": "Direct read and write in rt6_probe."
+      },
+      {
+        "name": "nh->last_probe",
+        "function": "find_match",
+        "file": "net/ipv6/route.c",
+        "evidence": "find_match receives struct fib6_nh *nh and calls rt6_probe(nh)."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "TCP transmit route lookup result",
+          "to": "find_match nh -> rt6_probe fib6_nh -> last_probe",
+          "evidence": "KCSAN stack and route.c call chain."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "Concurrent TCP transmit route lookup result",
+          "to": "find_match nh -> rt6_probe fib6_nh -> last_probe",
+          "evidence": "Same KCSAN stack on peer CPU."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "rt6_probe",
+        "file": "net/ipv6/route.c",
+        "line": 657,
+        "kind": "read",
+        "code": "fib6_nh->last_probe"
+      },
+      {
+        "function": "rt6_probe",
+        "file": "net/ipv6/route.c",
+        "line": 663,
+        "kind": "write",
+        "code": "fib6_nh->last_probe = jiffies;"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "fib6_info/fib6_nh allocation before fib6_nh_init"
+      ],
+      "published_by": [
+        "fib6_nh_init initializes the nexthop used by route lookup"
+      ],
+      "invalidated_by": [],
+      "freed_by": []
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "net/ipv4/tcp_output.c",
+      "net/ipv6/inet6_connection_sock.c",
+      "net/ipv6/ip6_output.c",
+      "net/ipv6/fib6_rules.c",
+      "net/ipv6/route.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "route.c contains the confirmed race sites; the added TCP/IPv6 files define the upper stack needed to justify the execution context.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [
+      "net/ipv4/tcp_output.c",
+      "net/ipv6/inet6_connection_sock.c",
+      "net/ipv6/ip6_output.c",
+      "net/ipv6/fib6_rules.c"
+    ],
+    "src_file_count_before": 3,
+    "src_file_count_after": 7,
+    "compiled_files": [
+      "net/ipv6/route.c",
+      "net/ipv6/fib6_rules.c",
+      "net/ipv6/ip6_output.c",
+      "net/ipv6/inet6_connection_sock.c",
+      "net/ipv4/tcp_output.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "route.ll",
+      "fib6_rules.ll",
+      "ip6_output.ll",
+      "inet6_connection_sock.ll",
+      "tcp_output.ll"
+    ],
+    "bitcode_linked_file_count": 5,
+    "selected_bitcode_defined_function_count": 1082
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Fix replaces raw last_probe read/write with READ_ONCE and cmpxchg in rt6_probe."
+    ],
+    "indirect_edges": [
+      "fib6_rule_lookup calls ip6_pol_route_output callback; find_match calls rt6_probe for a fib6_nh."
+    ],
+    "entry_discovery_log": [
+      "Direct define verification in merged.ll passed for modeled non-inline entries and access callers."
+    ],
+    "repair_commands": [
+      "git show 1bef4c223b8588cf50433bdc2c6953d82949b3b3^:<path> for four added call-chain files.",
+      "Prepared temporary git worktrees at each fix_commit^; compiled missing required C files with clang-15 -S -emit-llvm using kernel include/generated headers and linked merged.ll with external llvm-link.",
+      "Retried fib6_rules.c with CONFIG_IPV6_MULTIPLE_TABLES=1 after the header initially exposed IPv6 rules stubs; final merged.ll defines fib6_rule_lookup."
+    ],
+    "notes": [
+      "Existing route.ll contains find_match, rt6_probe, fib6_table_lookup, ip6_pol_route, and ip6_route_output_flags."
+    ]
+  }
+}

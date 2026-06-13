@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-63cbe31877bb80ef",
+  "fix_commit": "4ebd47037027c4beae99680bff3b20fdee5d7c1e",
+  "files": [
+    "sound/core/seq/seq_queue.h"
+  ],
+  "description": "KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+  "cwes": [],
+  "title": "KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "snd_seq_check_queue",
+    "fn_b": "snd_seq_control_queue"
+  },
+  "two_threads_summary": "KCSAN-reported two-context race. KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+  "audit_notes": "Reviewed NEEDS_REVIEW. Subject: 'ALSA: seq: Use bool for snd_seq_queue internal flags'. Real synchronization fix.",
+  "fix_commit_message": "4ebd47037027c4beae99680bff3b20fdee5d7c1e\nALSA: seq: Use bool for snd_seq_queue internal flags\n\nThe snd_seq_queue struct contains various flags in the bit fields.\nThose are categorized to two different use cases, both of which are\nprotected by different spinlocks.  That implies that there are still\npotential risks of the bad operations for bit fields by concurrent\naccesses.\n\nFor addressing the problem, this patch rearranges those flags to be\na standard bool instead of a bit field.\n\nReported-by: syzbot+63cbe31877bb80ef58f5@syzkaller.appspotmail.com\nLink: https://lore.kernel.org/r/20201206083456.21110-1-tiwai@suse.de\nSigned-off-by: Takashi Iwai <tiwai@suse.de>",
+  "patch": "commit 4ebd47037027c4beae99680bff3b20fdee5d7c1e\nAuthor: Takashi Iwai <tiwai@suse.de>\nDate:   Sun Dec 6 09:34:56 2020 +0100\n\n    ALSA: seq: Use bool for snd_seq_queue internal flags\n    \n    The snd_seq_queue struct contains various flags in the bit fields.\n    Those are categorized to two different use cases, both of which are\n    protected by different spinlocks.  That implies that there are still\n    potential risks of the bad operations for bit fields by concurrent\n    accesses.\n    \n    For addressing the problem, this patch rearranges those flags to be\n    a standard bool instead of a bit field.\n    \n    Reported-by: syzbot+63cbe31877bb80ef58f5@syzkaller.appspotmail.com\n    Link: https://lore.kernel.org/r/20201206083456.21110-1-tiwai@suse.de\n    Signed-off-by: Takashi Iwai <tiwai@suse.de>\n\ndiff --git a/sound/core/seq/seq_queue.h b/sound/core/seq/seq_queue.h\nindex 1c3a8d3254d9..c69105dc1a10 100644\n--- a/sound/core/seq/seq_queue.h\n+++ b/sound/core/seq/seq_queue.h\n@@ -26,10 +26,10 @@ struct snd_seq_queue {\n \t\n \tstruct snd_seq_timer *timer;\t/* time keeper for this queue */\n \tint\towner;\t\t/* client that 'owns' the timer */\n-\tunsigned int\tlocked:1,\t/* timer is only accesibble by owner if set */\n-\t\tklocked:1,\t/* kernel lock (after START) */\t\n-\t\tcheck_again:1,\n-\t\tcheck_blocked:1;\n+\tbool\tlocked;\t\t/* timer is only accesibble by owner if set */\n+\tbool\tklocked;\t/* kernel lock (after START) */\n+\tbool\tcheck_again;\t/* concurrent access happened during check */\n+\tbool\tcheck_blocked;\t/* queue being checked */\n \n \tunsigned int flags;\t\t/* status flags */\n \tunsigned int info_flags;\t/* info for sync */\n",
+  "affected_files_from_patch": [
+    "sound/core/seq/seq_queue.h"
+  ]
+}

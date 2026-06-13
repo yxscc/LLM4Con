@@ -1,0 +1,784 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 362257MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 362257MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 795MB, Avail: 361486MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 795MB, Avail: 361486MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 5 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 133 ops-table member, 23 indirect-fork sink (161 unique function(s))
+[Auto-Entry] Total: 161 kernel entry point(s):
+  - sock_ofree
+  - sock_efree
+  - sock_wfree
+  - sock_def_destruct
+  - sock_def_error_report
+  - sock_def_readable
+  - sock_def_wakeup
+  - skb_ts_finish
+  - skb_ts_get_next_block
+  - sock_zerocopy_callback
+  - sock_spd_release
+  - neigh_key_eq32
+  - ndisc_hashfn
+  - bpf_skb_copy
+  - proto_seq_next
+  - proto_seq_stop
+  - proto_seq_start
+  - proto_exit_net
+  - tcp_splice_data_recv
+  - bpf_xdp_copy
+  ... and 141 more
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 1000/1990 functions...
+[Phasar] Processed 1990/1990 functions...
+[Phasar] Location maps built. Total functions: 1990
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 798MB, Avail: 361451MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 798MB, Avail: 361451MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 798MB, Avail: 361441MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 798MB, Avail: 361441MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "sock_ofree", fileName: "net/core/sock.c", lineNumber: 2102 }
+[DEBUG getMain] Looking for: funcName=sock_ofree, fileName=net/core/sock.c, fileName_last=sock.c, lineNumber=2102
+[DEBUG getMain] methods from full path: 122
+[DEBUG getMain] Iterating 122 methods
+[DEBUG getMain] Checking method: name=DEFINE_STATIC_KEY_FALSE, line=281
+[DEBUG getMain] Checking method: name=_sock_locks, line=210
+[DEBUG getMain] Checking method: name=DEFINE_MUTEX, line=141
+[DEBUG getMain] Checking method: name=__lock_sock, line=2401
+[DEBUG getMain] Checking method: name=proto_unregister, line=3430
+[DEBUG getMain] Checking method: name=proto_register, line=3366
+[DEBUG getMain] Checking method: name=req_prot_init, line=3341
+[DEBUG getMain] Checking method: name=req_prot_cleanup, line=3331
+[DEBUG getMain] Checking method: name=release_proto_idx, line=3322
+[DEBUG getMain] Checking method: name=sock_common_setsockopt, line=3142
+[DEBUG getMain] Checking method: name=sock_common_recvmsg, line=3124
+[DEBUG getMain] Checking method: name=sock_enable_timestamp, line=3041
+[DEBUG getMain] Checking method: name=sock_gettstamp, line=3002
+[DEBUG getMain] Checking method: name=release_sock, line=2947
+[DEBUG getMain] Checking method: name=lock_sock_nested, line=2931
+[DEBUG getMain] Checking method: name=sk_reset_timer, line=2835
+[DEBUG getMain] Checking method: name=sk_send_sigurg, line=2827
+[DEBUG getMain] Checking method: name=sock_def_destruct, line=2823
+[DEBUG getMain] Checking method: name=sock_def_write_space, line=2800
+[DEBUG getMain] Checking method: name=sock_def_readable, line=2787
+[DEBUG getMain] Checking method: name=sk_common_release, line=3165
+[DEBUG getMain] Checking method: name=lock_sock_fast, line=2979
+[DEBUG getMain] Checking method: name=sock_no_sendpage, line=2730
+[DEBUG getMain] Checking method: name=sock_no_recvmsg, line=2716
+[DEBUG getMain] Checking method: name=sock_no_sendmsg_locked, line=2710
+[DEBUG getMain] Checking method: name=sock_no_sendmsg, line=2704
+[DEBUG getMain] Checking method: name=sock_no_setsockopt, line=2690
+[DEBUG getMain] Checking method: name=sock_no_listen, line=2678
+[DEBUG getMain] Checking method: name=sk_stop_timer, line=2843
+[DEBUG getMain] Checking method: name=sock_def_wakeup, line=2764
+[DEBUG getMain] Checking method: name=sock_no_getsockopt, line=2697
+[DEBUG getMain] Checking method: name=sock_no_accept, line=2658
+[DEBUG getMain] Checking method: name=sock_no_getname, line=2665
+[DEBUG getMain] Checking method: name=sock_no_connect, line=2645
+[DEBUG getMain] Checking method: name=SKB_FRAG_PAGE_ORDER, line=2343
+[DEBUG getMain] Checking method: name=sock_no_bind, line=2639
+[DEBUG getMain] Checking method: name=sk_get_meminfo, line=3202
+[DEBUG getMain] Checking method: name=sk_set_peek_off, line=2625
+[DEBUG getMain] Checking method: name=sock_no_shutdown, line=2684
+[DEBUG getMain] Checking method: name=__sk_mem_reclaim, line=2617
+[DEBUG getMain] Checking method: name=__sk_mem_raise_allocated, line=2493
+[DEBUG getMain] Checking method: name=__sk_flush_backlog, line=2452
+[DEBUG getMain] Checking method: name=assign_proto_idx, line=3317
+[DEBUG getMain] Checking method: name=sock_cmsg_send, line=2303
+[DEBUG getMain] Checking method: name=skb_page_frag_refill, line=2356
+[DEBUG getMain] Checking method: name=sock_valbool_flag, line=690
+[DEBUG getMain] Checking method: name=sock_no_sendpage_locked, line=2744
+[DEBUG getMain] Checking method: name=sk_set_memalloc, line=292
+[DEBUG getMain] Checking method: name=sock_setbindtodevice, line=600
+[DEBUG getMain] Checking method: name=sk_mc_loop, line=698
+[DEBUG getMain] Checking method: name=sock_copy, line=1573
+[DEBUG getMain] Checking method: name=sock_load_diag_module, line=3450
+[DEBUG getMain] Checking method: name=sk_prot_alloc, line=1589
+[DEBUG getMain] Checking method: name=sk_clear_memalloc, line=300
+[DEBUG getMain] Checking method: name=sock_def_error_report, line=2775
+[DEBUG getMain] Checking method: name=sock_no_mmap, line=2723
+[DEBUG getMain] Checking method: name=sk_wait_data, line=2470
+[DEBUG getMain] Checking method: name=sock_omalloc, line=2109
+[DEBUG getMain] Checking method: name=can_skb_orphan_partial, line=2003
+[DEBUG getMain] Checking method: name=sk_setup_caps, line=1917
+[DEBUG getMain] Checking method: name=__sk_receive_skb, line=498
+[DEBUG getMain] Checking method: name=sk_ns_capable, line=156
+[DEBUG getMain] Checking method: name=sock_warn_obsolete_bsdism, line=417
+[DEBUG getMain] Checking method: name=__sk_mem_schedule, line=2580
+[DEBUG getMain] Checking method: name=sock_getsockopt, line=1213
+[DEBUG getMain] Checking method: name=sock_init_data, line=2850
+[DEBUG getMain] Checking method: name=sock_set_timeout, line=366
+[DEBUG getMain] Checking method: name=__release_sock, line=2419
+[DEBUG getMain] Checking method: name=sk_capable, line=173
+[DEBUG getMain] Checking method: name=sk_leave_memory_pressure, line=2330
+[DEBUG getMain] Checking method: name=groups_to_user, line=1201
+[DEBUG getMain] Checking method: name=sock_getbindtodevice, line=650
+[DEBUG getMain] Checking method: name=sock_disable_timestamp, line=440
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=sock_alloc_send_skb, line=2254
+[DEBUG getMain] Checking method: name=sk_net_capable, line=188
+[DEBUG getMain] Checking method: name=sk_alloc, line=1652
+[DEBUG getMain] Checking method: name=sk_free_unlock_clone, line=1907
+[DEBUG getMain] Checking method: name=sock_recv_errqueue, line=3058
+[DEBUG getMain] Checking method: name=sock_ofree, line=2102
+[DEBUG getMain] Found main! Creating CCPGNode
+getAllEntryPointInfos: Returning 161 entry points for kernel module analysis
+[Kernel Module Mode] Adding 161 entry points as parallel entries
+  - Skipping (already main): sock_ofree
+  - Looking for: sock_efree -> demangled: sock_efree -> shortName: sock_efree
+  - Found in CPG: sock_efree at net/core/sock.c:2057
+  - Added entry: sock_efree
+  - Looking for: sock_wfree -> demangled: sock_wfree -> shortName: sock_wfree
+  - Found in CPG: sock_wfree at net/core/sock.c:1947
+  - Added entry: sock_wfree
+  - Looking for: sock_def_destruct -> demangled: sock_def_destruct -> shortName: sock_def_destruct
+  - Not found in CPG: sock_def_destruct (tried: sock_def_destruct)
+  - Looking for: sock_def_error_report -> demangled: sock_def_error_report -> shortName: sock_def_error_report
+  - Found in CPG: sock_def_error_report at net/core/sock.c:2775
+  - Added entry: sock_def_error_report
+  - Looking for: sock_def_readable -> demangled: sock_def_readable -> shortName: sock_def_readable
+  - Found in CPG: sock_def_readable at net/core/sock.c:2787
+  - Added entry: sock_def_readable
+  - Looking for: sock_def_wakeup -> demangled: sock_def_wakeup -> shortName: sock_def_wakeup
+  - Found in CPG: sock_def_wakeup at net/core/sock.c:2764
+  - Added entry: sock_def_wakeup
+  - Looking for: skb_ts_finish -> demangled: skb_ts_finish -> shortName: skb_ts_finish
+  - Found in CPG: skb_ts_finish at net/core/skbuff.c:3555
+  - Added entry: skb_ts_finish
+  - Looking for: skb_ts_get_next_block -> demangled: skb_ts_get_next_block -> shortName: skb_ts_get_next_block
+  - Found in CPG: skb_ts_get_next_block at net/core/skbuff.c:3548
+  - Added entry: skb_ts_get_next_block
+  - Looking for: sock_zerocopy_callback -> demangled: sock_zerocopy_callback -> shortName: sock_zerocopy_callback
+  - Found in CPG: sock_zerocopy_callback at net/core/skbuff.c:1196
+  - Added entry: sock_zerocopy_callback
+  - Looking for: sock_spd_release -> demangled: sock_spd_release -> shortName: sock_spd_release
+  - Found in CPG: sock_spd_release at net/core/skbuff.c:2270
+  - Added entry: sock_spd_release
+  - Looking for: neigh_key_eq32 -> demangled: neigh_key_eq32 -> shortName: neigh_key_eq32
+  - Not found in CPG: neigh_key_eq32 (tried: neigh_key_eq32)
+  - Looking for: ndisc_hashfn -> demangled: ndisc_hashfn -> shortName: ndisc_hashfn
+  - Not found in CPG: ndisc_hashfn (tried: ndisc_hashfn)
+  - Looking for: bpf_skb_copy -> demangled: bpf_skb_copy -> shortName: bpf_skb_copy
+  - Found in CPG: bpf_skb_copy at net/core/filter.c:3781
+  - Added entry: bpf_skb_copy
+  - Looking for: proto_seq_next -> demangled: proto_seq_next -> shortName: proto_seq_next
+  - Not found in CPG: proto_seq_next (tried: proto_seq_next)
+  - Looking for: proto_seq_stop -> demangled: proto_seq_stop -> shortName: proto_seq_stop
+  - Not found in CPG: proto_seq_stop (tried: proto_seq_stop)
+  - Looking for: proto_seq_start -> demangled: proto_seq_start -> shortName: proto_seq_start
+  - Not found in CPG: proto_seq_start (tried: proto_seq_start)
+  - Looking for: proto_exit_net -> demangled: proto_exit_net -> shortName: proto_exit_net
+  - Not found in CPG: proto_exit_net (tried: proto_exit_net)
+  - Looking for: tcp_splice_data_recv -> demangled: tcp_splice_data_recv -> shortName: tcp_splice_data_recv
+  - Found in CPG: tcp_splice_data_recv at net/ipv4/tcp.c:729
+  - Added entry: tcp_splice_data_recv
+  - Looking for: bpf_xdp_copy -> demangled: bpf_xdp_copy -> shortName: bpf_xdp_copy
+  - Found in CPG: bpf_xdp_copy at net/core/filter.c:4129
+  - Added entry: bpf_xdp_copy
+  - Looking for: sock_inuse_init_net -> demangled: sock_inuse_init_net -> shortName: sock_inuse_init_net
+  - Not found in CPG: sock_inuse_init_net (tried: sock_inuse_init_net)
+  - Looking for: bpf_csum_update -> demangled: bpf_csum_update -> shortName: bpf_csum_update
+  - Not found in CPG: bpf_csum_update (tried: bpf_csum_update)
+  - Looking for: bpf_skb_pull_data -> demangled: bpf_skb_pull_data -> shortName: bpf_skb_pull_data
+  - Not found in CPG: bpf_skb_pull_data (tried: bpf_skb_pull_data)
+  - Looking for: bpf_skc_lookup_tcp -> demangled: bpf_skc_lookup_tcp -> shortName: bpf_skc_lookup_tcp
+  - Not found in CPG: bpf_skc_lookup_tcp (tried: bpf_skc_lookup_tcp)
+  - Looking for: bpf_xdp_adjust_tail -> demangled: bpf_xdp_adjust_tail -> shortName: bpf_xdp_adjust_tail
+  - Not found in CPG: bpf_xdp_adjust_tail (tried: bpf_xdp_adjust_tail)
+  - Looking for: bpf_get_socket_cookie -> demangled: bpf_get_socket_cookie -> shortName: bpf_get_socket_cookie
+  - Not found in CPG: bpf_get_socket_cookie (tried: bpf_get_socket_cookie)
+  - Looking for: sk_skb_pull_data -> demangled: sk_skb_pull_data -> shortName: sk_skb_pull_data
+  - Not found in CPG: sk_skb_pull_data (tried: sk_skb_pull_data)
+  - Looking for: bpf_get_listener_sock -> demangled: bpf_get_listener_sock -> shortName: bpf_get_listener_sock
+  - Not found in CPG: bpf_get_listener_sock (tried: bpf_get_listener_sock)
+  - Looking for: sk_reuseport_is_valid_access -> demangled: sk_reuseport_is_valid_access -> shortName: sk_reuseport_is_valid_access
+  - Not found in CPG: sk_reuseport_is_valid_access (tried: sk_reuseport_is_valid_access)
+  - Looking for: proto_init_net -> demangled: proto_init_net -> shortName: proto_init_net
+  - Not found in CPG: proto_init_net (tried: proto_init_net)
+  - Looking for: net_inuse_init -> demangled: net_inuse_init -> shortName: net_inuse_init
+  - Not found in CPG: net_inuse_init (tried: net_inuse_init)
+  - Looking for: bpf_setsockopt -> demangled: bpf_setsockopt -> shortName: bpf_setsockopt
+  - Not found in CPG: bpf_setsockopt (tried: bpf_setsockopt)
+  - Looking for: flow_dissector_is_valid_access -> demangled: flow_dissector_is_valid_access -> shortName: flow_dissector_is_valid_access
+  - Found in CPG: flow_dissector_is_valid_access at net/core/filter.c:7152
+  - Added entry: flow_dissector_is_valid_access
+  - Looking for: sock_ops_func_proto -> demangled: sock_ops_func_proto -> shortName: sock_ops_func_proto
+  - Found in CPG: sock_ops_func_proto at net/core/filter.c:6268
+  - Added entry: sock_ops_func_proto
+  - Looking for: sk_msg_convert_ctx_access -> demangled: sk_msg_convert_ctx_access -> shortName: sk_msg_convert_ctx_access
+  - Found in CPG: sk_msg_convert_ctx_access at net/core/filter.c:8329
+  - Added entry: sk_msg_convert_ctx_access
+  - Looking for: bpf_sockopt_event_output -> demangled: bpf_sockopt_event_output -> shortName: bpf_sockopt_event_output
+  - Not found in CPG: bpf_sockopt_event_output (tried: bpf_sockopt_event_output)
+  - Looking for: bpf_xdp_redirect -> demangled: bpf_xdp_redirect -> shortName: bpf_xdp_redirect
+  - Not found in CPG: bpf_xdp_redirect (tried: bpf_xdp_redirect)
+  - Looking for: sk_skb_convert_ctx_access -> demangled: sk_skb_convert_ctx_access -> shortName: sk_skb_convert_ctx_access
+  - Found in CPG: sk_skb_convert_ctx_access at net/core/filter.c:8304
+  - Added entry: sk_skb_convert_ctx_access
+  - Looking for: bpf_skb_store_bytes -> demangled: bpf_skb_store_bytes -> shortName: bpf_skb_store_bytes
+  - Not found in CPG: bpf_skb_store_bytes (tried: bpf_skb_store_bytes)
+  - Looking for: sk_skb_prologue -> demangled: sk_skb_prologue -> shortName: sk_skb_prologue
+  - Found in CPG: sk_skb_prologue at net/core/filter.c:7070
+  - Added entry: sk_skb_prologue
+  - Looking for: sk_skb_is_valid_access -> demangled: sk_skb_is_valid_access -> shortName: sk_skb_is_valid_access
+  - Found in CPG: sk_skb_is_valid_access at net/core/filter.c:7076
+  - Added entry: sk_skb_is_valid_access
+  - Looking for: sock_rmem_free -> demangled: sock_rmem_free -> shortName: sock_rmem_free
+  - Found in CPG: sock_rmem_free at net/core/skbuff.c:4396
+  - Added entry: sock_rmem_free
+  - Looking for: sk_skb_func_proto -> demangled: sk_skb_func_proto -> shortName: sk_skb_func_proto
+  - Found in CPG: sk_skb_func_proto at net/core/filter.c:6330
+  - Added entry: sk_skb_func_proto
+  - Looking for: arp_hashfn -> demangled: arp_hashfn -> shortName: arp_hashfn
+  - Not found in CPG: arp_hashfn (tried: arp_hashfn)
+  - Looking for: flow_dissector_convert_ctx_access -> demangled: flow_dissector_convert_ctx_access -> shortName: flow_dissector_convert_ctx_access
+  - Found in CPG: flow_dissector_convert_ctx_access at net/core/filter.c:7186
+  - Added entry: flow_dissector_convert_ctx_access
+  - Looking for: sock_ops_is_valid_access -> demangled: sock_ops_is_valid_access -> shortName: sock_ops_is_valid_access
+  - Found in CPG: sock_ops_is_valid_access at net/core/filter.c:7024
+  - Added entry: sock_ops_is_valid_access
+  - Looking for: xdp_convert_ctx_access -> demangled: xdp_convert_ctx_access -> shortName: xdp_convert_ctx_access
+  - Found in CPG: xdp_convert_ctx_access at net/core/filter.c:7763
+  - Added entry: xdp_convert_ctx_access
+  - Looking for: tc_cls_act_prologue -> demangled: tc_cls_act_prologue -> shortName: tc_cls_act_prologue
+  - Found in CPG: tc_cls_act_prologue at net/core/filter.c:6813
+  - Added entry: tc_cls_act_prologue
+  - Looking for: bpf_get_raw_cpu_id -> demangled: bpf_get_raw_cpu_id -> shortName: bpf_get_raw_cpu_id
+  - Not found in CPG: bpf_get_raw_cpu_id (tried: bpf_get_raw_cpu_id)
+  - Looking for: bpf_sock_convert_ctx_access -> demangled: bpf_sock_convert_ctx_access -> shortName: bpf_sock_convert_ctx_access
+  - Found in CPG: bpf_sock_convert_ctx_access at net/core/filter.c:7581
+  - Added entry: bpf_sock_convert_ctx_access
+  - Looking for: sk_skb_change_tail -> demangled: sk_skb_change_tail -> shortName: sk_skb_change_tail
+  - Not found in CPG: sk_skb_change_tail (tried: sk_skb_change_tail)
+  - Looking for: sk_reuseport_convert_ctx_access -> demangled: sk_reuseport_convert_ctx_access -> shortName: sk_reuseport_convert_ctx_access
+  - Not found in CPG: sk_reuseport_convert_ctx_access (tried: sk_reuseport_convert_ctx_access)
+  - Looking for: sk_reuseport_func_proto -> demangled: sk_reuseport_func_proto -> shortName: sk_reuseport_func_proto
+  - Not found in CPG: sk_reuseport_func_proto (tried: sk_reuseport_func_proto)
+  - Looking for: tc_cls_act_is_valid_access -> demangled: tc_cls_act_is_valid_access -> shortName: tc_cls_act_is_valid_access
+  - Found in CPG: tc_cls_act_is_valid_access at net/core/filter.c:6819
+  - Added entry: tc_cls_act_is_valid_access
+  - Looking for: sock_ops_convert_ctx_access -> demangled: sock_ops_convert_ctx_access -> shortName: sock_ops_convert_ctx_access
+  - Found in CPG: sock_ops_convert_ctx_access at net/core/filter.c:7973
+  - Added entry: sock_ops_convert_ctx_access
+  - Looking for: bpf_xdp_adjust_head -> demangled: bpf_xdp_adjust_head -> shortName: bpf_xdp_adjust_head
+  - Not found in CPG: bpf_xdp_adjust_head (tried: bpf_xdp_adjust_head)
+  - Looking for: tc_cls_act_func_proto -> demangled: tc_cls_act_func_proto -> shortName: tc_cls_act_func_proto
+  - Found in CPG: tc_cls_act_func_proto at net/core/filter.c:6117
+  - Added entry: tc_cls_act_func_proto
+  - Looking for: proto_seq_show -> demangled: proto_seq_show -> shortName: proto_seq_show
+  - Not found in CPG: proto_seq_show (tried: proto_seq_show)
+  - Looking for: bpf_gen_ld_abs -> demangled: bpf_gen_ld_abs -> shortName: bpf_gen_ld_abs
+  - Found in CPG: bpf_gen_ld_abs at net/core/filter.c:6778
+  - Added entry: bpf_gen_ld_abs
+  - Looking for: sk_reuseport_load_bytes_relative -> demangled: sk_reuseport_load_bytes_relative -> shortName: sk_reuseport_load_bytes_relative
+  - Not found in CPG: sk_reuseport_load_bytes_relative (tried: sk_reuseport_load_bytes_relative)
+  - Looking for: tc_cls_act_convert_ctx_access -> demangled: tc_cls_act_convert_ctx_access -> shortName: tc_cls_act_convert_ctx_access
+  - Found in CPG: tc_cls_act_convert_ctx_access at net/core/filter.c:7739
+  - Added entry: tc_cls_act_convert_ctx_access
+  - Looking for: sock_def_write_space -> demangled: sock_def_write_space -> shortName: sock_def_write_space
+  - Found in CPG: sock_def_write_space at net/core/sock.c:2800
+  - Added entry: sock_def_write_space
+  - Looking for: bpf_skb_get_tunnel_key -> demangled: bpf_skb_get_tunnel_key -> shortName: bpf_skb_get_tunnel_key
+  - Not found in CPG: bpf_skb_get_tunnel_key (tried: bpf_skb_get_tunnel_key)
+  - Looking for: warn_crc32c_csum_combine -> demangled: warn_crc32c_csum_combine -> shortName: warn_crc32c_csum_combine
+  - Found in CPG: warn_crc32c_csum_combine at net/core/skbuff.c:2877
+  - Added entry: warn_crc32c_csum_combine
+  - Looking for: sock_addr_func_proto -> demangled: sock_addr_func_proto -> shortName: sock_addr_func_proto
+  - Found in CPG: sock_addr_func_proto at net/core/filter.c:6024
+  - Added entry: sock_addr_func_proto
+  - Looking for: lwt_in_func_proto -> demangled: lwt_in_func_proto -> shortName: lwt_in_func_proto
+  - Found in CPG: lwt_in_func_proto at net/core/filter.c:6407
+  - Added entry: lwt_in_func_proto
+  - Looking for: sk_msg_is_valid_access -> demangled: sk_msg_is_valid_access -> shortName: sk_msg_is_valid_access
+  - Found in CPG: sk_msg_is_valid_access at net/core/filter.c:7113
+  - Added entry: sk_msg_is_valid_access
+  - Looking for: bpf_clone_redirect -> demangled: bpf_clone_redirect -> shortName: bpf_clone_redirect
+  - Not found in CPG: bpf_clone_redirect (tried: bpf_clone_redirect)
+  - Looking for: sock_addr_convert_ctx_access -> demangled: sock_addr_convert_ctx_access -> shortName: sock_addr_convert_ctx_access
+  - Found in CPG: sock_addr_convert_ctx_access at net/core/filter.c:7879
+  - Added entry: sock_addr_convert_ctx_access
+  - Looking for: bpf_l4_csum_replace -> demangled: bpf_l4_csum_replace -> shortName: bpf_l4_csum_replace
+  - Not found in CPG: bpf_l4_csum_replace (tried: bpf_l4_csum_replace)
+  - Looking for: bpf_skb_change_proto -> demangled: bpf_skb_change_proto -> shortName: bpf_skb_change_proto
+  - Not found in CPG: bpf_skb_change_proto (tried: bpf_skb_change_proto)
+  - Looking for: bpf_skb_load_bytes_relative -> demangled: bpf_skb_load_bytes_relative -> shortName: bpf_skb_load_bytes_relative
+  - Not found in CPG: bpf_skb_load_bytes_relative (tried: bpf_skb_load_bytes_relative)
+  - Looking for: bpf_sk_lookup_tcp -> demangled: bpf_sk_lookup_tcp -> shortName: bpf_sk_lookup_tcp
+  - Not found in CPG: bpf_sk_lookup_tcp (tried: bpf_sk_lookup_tcp)
+  - Looking for: sk_filter_is_valid_access -> demangled: sk_filter_is_valid_access -> shortName: sk_filter_is_valid_access
+  - Found in CPG: sk_filter_is_valid_access at net/core/filter.c:6526
+  - Added entry: sk_filter_is_valid_access
+  - Looking for: lwt_is_valid_access -> demangled: lwt_is_valid_access -> shortName: lwt_is_valid_access
+  - Found in CPG: lwt_is_valid_access at net/core/filter.c:6598
+  - Added entry: lwt_is_valid_access
+  - Looking for: bpf_csum_diff -> demangled: bpf_csum_diff -> shortName: bpf_csum_diff
+  - Not found in CPG: bpf_csum_diff (tried: bpf_csum_diff)
+  - Looking for: __sk_destruct -> demangled: __sk_destruct -> shortName: __sk_destruct
+  - Found in CPG: __sk_destruct at net/core/sock.c:1689
+  - Added entry: __sk_destruct
+  - Looking for: sk_filter_func_proto -> demangled: sk_filter_func_proto -> shortName: sk_filter_func_proto
+  - Found in CPG: sk_filter_func_proto at net/core/filter.c:6064
+  - Added entry: sk_filter_func_proto
+  - Looking for: flow_dissector_func_proto -> demangled: flow_dissector_func_proto -> shortName: flow_dissector_func_proto
+  - Found in CPG: flow_dissector_func_proto at net/core/filter.c:6369
+  - Added entry: flow_dissector_func_proto
+  - Looking for: lwt_out_func_proto -> demangled: lwt_out_func_proto -> shortName: lwt_out_func_proto
+  - Found in CPG: lwt_out_func_proto at net/core/filter.c:6380
+  - Added entry: lwt_out_func_proto
+  - Looking for: sock_inuse_exit_net -> demangled: sock_inuse_exit_net -> shortName: sock_inuse_exit_net
+  - Not found in CPG: sock_inuse_exit_net (tried: sock_inuse_exit_net)
+  - Looking for: skb_init -> demangled: skb_init -> shortName: skb_init
+  - Found in CPG: skb_init at net/core/skbuff.c:4144
+  - Added entry: skb_init
+  - Looking for: tcp_init -> demangled: tcp_init -> shortName: tcp_init
+  - Found in CPG: tcp_init at net/ipv4/tcp.c:3936
+  - Added entry: tcp_init
+  - Looking for: bpf_xdp_sk_lookup_udp -> demangled: bpf_xdp_sk_lookup_udp -> shortName: bpf_xdp_sk_lookup_udp
+  - Not found in CPG: bpf_xdp_sk_lookup_udp (tried: bpf_xdp_sk_lookup_udp)
+  - Looking for: lwt_xmit_func_proto -> demangled: lwt_xmit_func_proto -> shortName: lwt_xmit_func_proto
+  - Found in CPG: lwt_xmit_func_proto at net/core/filter.c:6418
+  - Added entry: lwt_xmit_func_proto
+  - Looking for: bpf_noop_prologue -> demangled: bpf_noop_prologue -> shortName: bpf_noop_prologue
+  - Found in CPG: bpf_noop_prologue at net/core/filter.c:6730
+  - Added entry: bpf_noop_prologue
+  - Looking for: tcp_init_mem -> demangled: tcp_init_mem -> shortName: tcp_init_mem
+  - Found in CPG: tcp_init_mem at net/ipv4/tcp.c:3926
+  - Added entry: tcp_init_mem
+  - Looking for: bpf_lwt_seg6_adjust_srh -> demangled: bpf_lwt_seg6_adjust_srh -> shortName: bpf_lwt_seg6_adjust_srh
+  - Not found in CPG: bpf_lwt_seg6_adjust_srh (tried: bpf_lwt_seg6_adjust_srh)
+  - Looking for: bpf_msg_pop_data -> demangled: bpf_msg_pop_data -> shortName: bpf_msg_pop_data
+  - Not found in CPG: bpf_msg_pop_data (tried: bpf_msg_pop_data)
+  - Looking for: sk_msg_func_proto -> demangled: sk_msg_func_proto -> shortName: sk_msg_func_proto
+  - Found in CPG: sk_msg_func_proto at net/core/filter.c:6304
+  - Added entry: sk_msg_func_proto
+  - Looking for: xdp_func_proto -> demangled: xdp_func_proto -> shortName: xdp_func_proto
+  - Found in CPG: xdp_func_proto at net/core/filter.c:6224
+  - Added entry: xdp_func_proto
+  - Looking for: cg_skb_func_proto -> demangled: cg_skb_func_proto -> shortName: cg_skb_func_proto
+  - Found in CPG: cg_skb_func_proto at net/core/filter.c:6086
+  - Added entry: cg_skb_func_proto
+  - Looking for: cg_skb_is_valid_access -> demangled: cg_skb_is_valid_access -> shortName: cg_skb_is_valid_access
+  - Found in CPG: cg_skb_is_valid_access at net/core/filter.c:6554
+  - Added entry: cg_skb_is_valid_access
+  - Looking for: bpf_xdp_event_output -> demangled: bpf_xdp_event_output -> shortName: bpf_xdp_event_output
+  - Not found in CPG: bpf_xdp_event_output (tried: bpf_xdp_event_output)
+  - Looking for: bpf_skb_load_bytes -> demangled: bpf_skb_load_bytes -> shortName: bpf_skb_load_bytes
+  - Not found in CPG: bpf_skb_load_bytes (tried: bpf_skb_load_bytes)
+  - Looking for: sock_filter_is_valid_access -> demangled: sock_filter_is_valid_access -> shortName: sock_filter_is_valid_access
+  - Found in CPG: sock_filter_is_valid_access at net/core/filter.c:6719
+  - Added entry: sock_filter_is_valid_access
+  - Looking for: bpf_skb_ecn_set_ce -> demangled: bpf_skb_ecn_set_ce -> shortName: bpf_skb_ecn_set_ce
+  - Not found in CPG: bpf_skb_ecn_set_ce (tried: bpf_skb_ecn_set_ce)
+  - Looking for: bpf_get_socket_uid -> demangled: bpf_get_socket_uid -> shortName: bpf_get_socket_uid
+  - Not found in CPG: bpf_get_socket_uid (tried: bpf_get_socket_uid)
+  - Looking for: bpf_set_hash_invalid -> demangled: bpf_set_hash_invalid -> shortName: bpf_set_hash_invalid
+  - Not found in CPG: bpf_set_hash_invalid (tried: bpf_set_hash_invalid)
+  - Looking for: proto_init -> demangled: proto_init -> shortName: proto_init
+  - Not found in CPG: proto_init (tried: proto_init)
+  - Looking for: lwt_seg6local_func_proto -> demangled: lwt_seg6local_func_proto -> shortName: lwt_seg6local_func_proto
+  - Found in CPG: lwt_seg6local_func_proto at net/core/filter.c:6455
+  - Added entry: lwt_seg6local_func_proto
+  - Looking for: sk_select_reuseport -> demangled: sk_select_reuseport -> shortName: sk_select_reuseport
+  - Not found in CPG: sk_select_reuseport (tried: sk_select_reuseport)
+  - Looking for: sk_filter_release_rcu -> demangled: sk_filter_release_rcu -> shortName: sk_filter_release_rcu
+  - Found in CPG: sk_filter_release_rcu at net/core/filter.c:1163
+  - Added entry: sk_filter_release_rcu
+  - Looking for: sock_filter_func_proto -> demangled: sock_filter_func_proto -> shortName: sock_filter_func_proto
+  - Found in CPG: sock_filter_func_proto at net/core/filter.c:6008
+  - Added entry: sock_filter_func_proto
+  - Looking for: bpf_get_cgroup_classid -> demangled: bpf_get_cgroup_classid -> shortName: bpf_get_cgroup_classid
+  - Not found in CPG: bpf_get_cgroup_classid (tried: bpf_get_cgroup_classid)
+  - Looking for: sock_rfree -> demangled: sock_rfree -> shortName: sock_rfree
+  - Found in CPG: sock_rfree at net/core/sock.c:2043
+  - Added entry: sock_rfree
+  - Looking for: bpf_skb_change_type -> demangled: bpf_skb_change_type -> shortName: bpf_skb_change_type
+  - Not found in CPG: bpf_skb_change_type (tried: bpf_skb_change_type)
+  - Looking for: bpf_sk_release -> demangled: bpf_sk_release -> shortName: bpf_sk_release
+  - Not found in CPG: bpf_sk_release (tried: bpf_sk_release)
+  - Looking for: bpf_get_socket_cookie_sock_addr -> demangled: bpf_get_socket_cookie_sock_addr -> shortName: bpf_get_socket_cookie_sock_addr
+  - Not found in CPG: bpf_get_socket_cookie_sock_addr (tried: bpf_get_socket_cookie_sock_addr)
+  - Looking for: bpf_skb_vlan_push -> demangled: bpf_skb_vlan_push -> shortName: bpf_skb_vlan_push
+  - Not found in CPG: bpf_skb_vlan_push (tried: bpf_skb_vlan_push)
+  - Looking for: bpf_skb_vlan_pop -> demangled: bpf_skb_vlan_pop -> shortName: bpf_skb_vlan_pop
+  - Not found in CPG: bpf_skb_vlan_pop (tried: bpf_skb_vlan_pop)
+  - Looking for: bpf_skb_adjust_room -> demangled: bpf_skb_adjust_room -> shortName: bpf_skb_adjust_room
+  - Not found in CPG: bpf_skb_adjust_room (tried: bpf_skb_adjust_room)
+  - Looking for: bpf_skb_change_tail -> demangled: bpf_skb_change_tail -> shortName: bpf_skb_change_tail
+  - Not found in CPG: bpf_skb_change_tail (tried: bpf_skb_change_tail)
+  - Looking for: xdp_is_valid_access -> demangled: xdp_is_valid_access -> shortName: xdp_is_valid_access
+  - Found in CPG: xdp_is_valid_access at net/core/filter.c:6868
+  - Added entry: xdp_is_valid_access
+  - Looking for: bpf_flow_dissector_load_bytes -> demangled: bpf_flow_dissector_load_bytes -> shortName: bpf_flow_dissector_load_bytes
+  - Not found in CPG: bpf_flow_dissector_load_bytes (tried: bpf_flow_dissector_load_bytes)
+  - Looking for: bpf_redirect -> demangled: bpf_redirect -> shortName: bpf_redirect
+  - Not found in CPG: bpf_redirect (tried: bpf_redirect)
+  - Looking for: bpf_get_route_realm -> demangled: bpf_get_route_realm -> shortName: bpf_get_route_realm
+  - Not found in CPG: bpf_get_route_realm (tried: bpf_get_route_realm)
+  - Looking for: bpf_lwt_xmit_push_encap -> demangled: bpf_lwt_xmit_push_encap -> shortName: bpf_lwt_xmit_push_encap
+  - Not found in CPG: bpf_lwt_xmit_push_encap (tried: bpf_lwt_xmit_push_encap)
+  - Looking for: bpf_skb_under_cgroup -> demangled: bpf_skb_under_cgroup -> shortName: bpf_skb_under_cgroup
+  - Not found in CPG: bpf_skb_under_cgroup (tried: bpf_skb_under_cgroup)
+  - Looking for: bpf_skb_fib_lookup -> demangled: bpf_skb_fib_lookup -> shortName: bpf_skb_fib_lookup
+  - Not found in CPG: bpf_skb_fib_lookup (tried: bpf_skb_fib_lookup)
+  - Looking for: bpf_l3_csum_replace -> demangled: bpf_l3_csum_replace -> shortName: bpf_l3_csum_replace
+  - Not found in CPG: bpf_l3_csum_replace (tried: bpf_l3_csum_replace)
+  - Looking for: bpf_skb_get_xfrm_state -> demangled: bpf_skb_get_xfrm_state -> shortName: bpf_skb_get_xfrm_state
+  - Not found in CPG: bpf_skb_get_xfrm_state (tried: bpf_skb_get_xfrm_state)
+  - Looking for: bpf_skb_cgroup_id -> demangled: bpf_skb_cgroup_id -> shortName: bpf_skb_cgroup_id
+  - Not found in CPG: bpf_skb_cgroup_id (tried: bpf_skb_cgroup_id)
+  - Looking for: neigh_key_eq128 -> demangled: neigh_key_eq128 -> shortName: neigh_key_eq128
+  - Not found in CPG: neigh_key_eq128 (tried: neigh_key_eq128)
+  - Looking for: bpf_skb_ancestor_cgroup_id -> demangled: bpf_skb_ancestor_cgroup_id -> shortName: bpf_skb_ancestor_cgroup_id
+  - Not found in CPG: bpf_skb_ancestor_cgroup_id (tried: bpf_skb_ancestor_cgroup_id)
+  - Looking for: bpf_sk_lookup_udp -> demangled: bpf_sk_lookup_udp -> shortName: bpf_sk_lookup_udp
+  - Not found in CPG: bpf_sk_lookup_udp (tried: bpf_sk_lookup_udp)
+  - Looking for: bpf_get_hash_recalc -> demangled: bpf_get_hash_recalc -> shortName: bpf_get_hash_recalc
+  - Not found in CPG: bpf_get_hash_recalc (tried: bpf_get_hash_recalc)
+  - Looking for: bpf_tcp_check_syncookie -> demangled: bpf_tcp_check_syncookie -> shortName: bpf_tcp_check_syncookie
+  - Not found in CPG: bpf_tcp_check_syncookie (tried: bpf_tcp_check_syncookie)
+  - Looking for: bpf_sk_fullsock -> demangled: bpf_sk_fullsock -> shortName: bpf_sk_fullsock
+  - Not found in CPG: bpf_sk_fullsock (tried: bpf_sk_fullsock)
+  - Looking for: bpf_tcp_gen_syncookie -> demangled: bpf_tcp_gen_syncookie -> shortName: bpf_tcp_gen_syncookie
+  - Not found in CPG: bpf_tcp_gen_syncookie (tried: bpf_tcp_gen_syncookie)
+  - Looking for: bpf_set_hash -> demangled: bpf_set_hash -> shortName: bpf_set_hash
+  - Not found in CPG: bpf_set_hash (tried: bpf_set_hash)
+  - Looking for: bpf_getsockopt -> demangled: bpf_getsockopt -> shortName: bpf_getsockopt
+  - Not found in CPG: bpf_getsockopt (tried: bpf_getsockopt)
+  - Looking for: bpf_skb_set_tunnel_key -> demangled: bpf_skb_set_tunnel_key -> shortName: bpf_skb_set_tunnel_key
+  - Not found in CPG: bpf_skb_set_tunnel_key (tried: bpf_skb_set_tunnel_key)
+  - Looking for: bpf_skb_event_output -> demangled: bpf_skb_event_output -> shortName: bpf_skb_event_output
+  - Not found in CPG: bpf_skb_event_output (tried: bpf_skb_event_output)
+  - Looking for: bpf_skb_set_tunnel_opt -> demangled: bpf_skb_set_tunnel_opt -> shortName: bpf_skb_set_tunnel_opt
+  - Not found in CPG: bpf_skb_set_tunnel_opt (tried: bpf_skb_set_tunnel_opt)
+  - Looking for: bpf_xdp_fib_lookup -> demangled: bpf_xdp_fib_lookup -> shortName: bpf_xdp_fib_lookup
+  - Not found in CPG: bpf_xdp_fib_lookup (tried: bpf_xdp_fib_lookup)
+  - Looking for: bpf_xdp_adjust_meta -> demangled: bpf_xdp_adjust_meta -> shortName: bpf_xdp_adjust_meta
+  - Not found in CPG: bpf_xdp_adjust_meta (tried: bpf_xdp_adjust_meta)
+  - Looking for: bpf_xdp_redirect_map -> demangled: bpf_xdp_redirect_map -> shortName: bpf_xdp_redirect_map
+  - Not found in CPG: bpf_xdp_redirect_map (tried: bpf_xdp_redirect_map)
+  - Looking for: bpf_xdp_sk_lookup_tcp -> demangled: bpf_xdp_sk_lookup_tcp -> shortName: bpf_xdp_sk_lookup_tcp
+  - Not found in CPG: bpf_xdp_sk_lookup_tcp (tried: bpf_xdp_sk_lookup_tcp)
+  - Looking for: bpf_xdp_skc_lookup_tcp -> demangled: bpf_xdp_skc_lookup_tcp -> shortName: bpf_xdp_skc_lookup_tcp
+  - Not found in CPG: bpf_xdp_skc_lookup_tcp (tried: bpf_xdp_skc_lookup_tcp)
+  - Looking for: bpf_skb_change_head -> demangled: bpf_skb_change_head -> shortName: bpf_skb_change_head
+  - Not found in CPG: bpf_skb_change_head (tried: bpf_skb_change_head)
+  - Looking for: bpf_skb_get_tunnel_opt -> demangled: bpf_skb_get_tunnel_opt -> shortName: bpf_skb_get_tunnel_opt
+  - Not found in CPG: bpf_skb_get_tunnel_opt (tried: bpf_skb_get_tunnel_opt)
+  - Looking for: bpf_lwt_seg6_store_bytes -> demangled: bpf_lwt_seg6_store_bytes -> shortName: bpf_lwt_seg6_store_bytes
+  - Not found in CPG: bpf_lwt_seg6_store_bytes (tried: bpf_lwt_seg6_store_bytes)
+  - Looking for: bpf_lwt_seg6_action -> demangled: bpf_lwt_seg6_action -> shortName: bpf_lwt_seg6_action
+  - Not found in CPG: bpf_lwt_seg6_action (tried: bpf_lwt_seg6_action)
+  - Looking for: sk_reuseport_load_bytes -> demangled: sk_reuseport_load_bytes -> shortName: sk_reuseport_load_bytes
+  - Not found in CPG: sk_reuseport_load_bytes (tried: sk_reuseport_load_bytes)
+  - Looking for: bpf_bind -> demangled: bpf_bind -> shortName: bpf_bind
+  - Not found in CPG: bpf_bind (tried: bpf_bind)
+  - Looking for: bpf_lwt_in_push_encap -> demangled: bpf_lwt_in_push_encap -> shortName: bpf_lwt_in_push_encap
+  - Not found in CPG: bpf_lwt_in_push_encap (tried: bpf_lwt_in_push_encap)
+  - Looking for: bpf_sock_addr_sk_lookup_tcp -> demangled: bpf_sock_addr_sk_lookup_tcp -> shortName: bpf_sock_addr_sk_lookup_tcp
+  - Not found in CPG: bpf_sock_addr_sk_lookup_tcp (tried: bpf_sock_addr_sk_lookup_tcp)
+  - Looking for: bpf_sock_addr_sk_lookup_udp -> demangled: bpf_sock_addr_sk_lookup_udp -> shortName: bpf_sock_addr_sk_lookup_udp
+  - Not found in CPG: bpf_sock_addr_sk_lookup_udp (tried: bpf_sock_addr_sk_lookup_udp)
+  - Looking for: sock_addr_is_valid_access -> demangled: sock_addr_is_valid_access -> shortName: sock_addr_is_valid_access
+  - Found in CPG: sock_addr_is_valid_access at net/core/filter.c:6908
+  - Added entry: sock_addr_is_valid_access
+  - Looking for: bpf_sock_addr_skc_lookup_tcp -> demangled: bpf_sock_addr_skc_lookup_tcp -> shortName: bpf_sock_addr_skc_lookup_tcp
+  - Not found in CPG: bpf_sock_addr_skc_lookup_tcp (tried: bpf_sock_addr_skc_lookup_tcp)
+  - Looking for: bpf_sock_ops_cb_flags_set -> demangled: bpf_sock_ops_cb_flags_set -> shortName: bpf_sock_ops_cb_flags_set
+  - Not found in CPG: bpf_sock_ops_cb_flags_set (tried: bpf_sock_ops_cb_flags_set)
+  - Looking for: sk_skb_change_head -> demangled: sk_skb_change_head -> shortName: sk_skb_change_head
+  - Not found in CPG: sk_skb_change_head (tried: sk_skb_change_head)
+  - Looking for: bpf_get_socket_cookie_sock_ops -> demangled: bpf_get_socket_cookie_sock_ops -> shortName: bpf_get_socket_cookie_sock_ops
+  - Not found in CPG: bpf_get_socket_cookie_sock_ops (tried: bpf_get_socket_cookie_sock_ops)
+  - Looking for: bpf_convert_ctx_access -> demangled: bpf_convert_ctx_access -> shortName: bpf_convert_ctx_access
+  - Found in CPG: bpf_convert_ctx_access at net/core/filter.c:7218
+  - Added entry: bpf_convert_ctx_access
+  - Looking for: bpf_msg_apply_bytes -> demangled: bpf_msg_apply_bytes -> shortName: bpf_msg_apply_bytes
+  - Not found in CPG: bpf_msg_apply_bytes (tried: bpf_msg_apply_bytes)
+  - Looking for: warn_crc32c_csum_update -> demangled: warn_crc32c_csum_update -> shortName: warn_crc32c_csum_update
+  - Found in CPG: warn_crc32c_csum_update at net/core/skbuff.c:2869
+  - Added entry: warn_crc32c_csum_update
+  - Looking for: bpf_tcp_sock -> demangled: bpf_tcp_sock -> shortName: bpf_tcp_sock
+  - Not found in CPG: bpf_tcp_sock (tried: bpf_tcp_sock)
+  - Looking for: bpf_msg_cork_bytes -> demangled: bpf_msg_cork_bytes -> shortName: bpf_msg_cork_bytes
+  - Not found in CPG: bpf_msg_cork_bytes (tried: bpf_msg_cork_bytes)
+  - Looking for: bpf_msg_pull_data -> demangled: bpf_msg_pull_data -> shortName: bpf_msg_pull_data
+  - Not found in CPG: bpf_msg_pull_data (tried: bpf_msg_pull_data)
+  - Looking for: bpf_msg_push_data -> demangled: bpf_msg_push_data -> shortName: bpf_msg_push_data
+  - Not found in CPG: bpf_msg_push_data (tried: bpf_msg_push_data)
+[Kernel Module Mode] Total entry functions: 61
+Warning: Could not map CPG function 'TS_SKB_CB' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_metrics_init' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_v4_init' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_tasklet_init' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_register_congestion_control' to an llvm::Function.
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+[Thread Entry] call_rcu uses arg2 -> sk_filter_release_rcu
+Warning: Could not map CPG function 'SKB_FRAG_PAGE_ORDER' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 61 entry points as parallel threads
+[Thread Entry] call_rcu uses arg2 -> sk_filter_release_rcu
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+[Kernel Module Mode] Keeping all 63 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 798MB, Avail: 361447MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 798MB, Avail: 361447MB)
+[DEBUG PRINT] Phase 1: Found 1505 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'sk_filter_release_rcu' as a candidate.
+  -> Found thread arg in function 'sock_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_release_rcu' as a candidate.
+  -> Found thread arg in function 'skb_ts_get_next_block' as a candidate.
+  -> Found thread arg in function 'skb_ts_get_next_block' as a candidate.
+  -> Found thread arg in function 'skb_ts_get_next_block' as a candidate.
+  -> Found thread arg in function 'skb_ts_get_next_block' as a candidate.
+  -> Found thread arg in function 'sock_addr_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_func_proto' as a candidate.
+  -> Found thread arg in function 'sk_filter_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_seg6local_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_seg6local_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_out_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_out_func_proto' as a candidate.
+  -> Found thread arg in function 'sk_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_filter_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_def_wakeup' as a candidate.
+  -> Found thread arg in function 'lwt_is_valid_access' as a candidate.
+  -> Found thread arg in function 'lwt_is_valid_access' as a candidate.
+  -> Found thread arg in function 'lwt_is_valid_access' as a candidate.
+  -> Found thread arg in function 'lwt_is_valid_access' as a candidate.
+  -> Found thread arg in function 'lwt_is_valid_access' as a candidate.
+  -> Found thread arg in function 'bpf_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'skb_ts_finish' as a candidate.
+  -> Found thread arg in function 'skb_ts_finish' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_prologue' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_prologue' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_prologue' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_copy' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_copy' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_copy' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_copy' as a candidate.
+  -> Found thread arg in function 'flow_dissector_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_prologue' as a candidate.
+  -> Found thread arg in function 'sk_skb_prologue' as a candidate.
+  -> Found thread arg in function 'sk_skb_prologue' as a candidate.
+  -> Found thread arg in function 'sock_def_error_report' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_func_proto' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_func_proto' as a candidate.
+  -> Found thread arg in function 'xdp_is_valid_access' as a candidate.
+  -> Found thread arg in function 'xdp_is_valid_access' as a candidate.
+  -> Found thread arg in function 'xdp_is_valid_access' as a candidate.
+  -> Found thread arg in function 'xdp_is_valid_access' as a candidate.
+  -> Found thread arg in function 'xdp_is_valid_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_is_valid_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_is_valid_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_is_valid_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_is_valid_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_rmem_free' as a candidate.
+  -> Found thread arg in function 'bpf_sock_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_sock_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_sock_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_sock_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_sock_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_ofree' as a candidate.
+  -> Found thread arg in function 'sock_ops_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_ops_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_spd_release' as a candidate.
+  -> Found thread arg in function 'sock_spd_release' as a candidate.
+  -> Found thread arg in function 'sock_addr_func_proto' as a candidate.
+  -> Found thread arg in function 'sock_addr_func_proto' as a candidate.
+  -> Found thread arg in function 'cg_skb_func_proto' as a candidate.
+  -> Found thread arg in function 'cg_skb_func_proto' as a candidate.
+  -> Found thread arg in function 'tcp_splice_data_recv' as a candidate.
+  -> Found thread arg in function 'tcp_splice_data_recv' as a candidate.
+  -> Found thread arg in function 'tcp_splice_data_recv' as a candidate.
+  -> Found thread arg in function 'tcp_splice_data_recv' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_update' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_update' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_update' as a candidate.
+  -> Found thread arg in function 'sk_msg_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_def_readable' as a candidate.
+  -> Found thread arg in function 'sock_addr_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_addr_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'bpf_noop_prologue' as a candidate.
+  -> Found thread arg in function 'bpf_noop_prologue' as a candidate.
+  -> Found thread arg in function 'bpf_noop_prologue' as a candidate.
+  -> Found thread arg in function 'sk_skb_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sk_skb_convert_ctx_access' as a candidate.
+  -> Found thread arg in function '__sk_destruct' as a candidate.
+  -> Found thread arg in function '__sk_destruct' as a candidate.
+  -> Found thread arg in function 'bpf_skb_copy' as a candidate.
+  -> Found thread arg in function 'bpf_skb_copy' as a candidate.
+  -> Found thread arg in function 'bpf_skb_copy' as a candidate.
+  -> Found thread arg in function 'bpf_skb_copy' as a candidate.
+  -> Found thread arg in function 'cg_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'cg_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'cg_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'cg_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'cg_skb_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sock_efree' as a candidate.
+  -> Found thread arg in function 'sock_rfree' as a candidate.
+  -> Found thread arg in function 'sk_msg_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_is_valid_access' as a candidate.
+  -> Found thread arg in function 'sk_msg_is_valid_access' as a candidate.
+  -> Found thread arg in function 'flow_dissector_func_proto' as a candidate.
+  -> Found thread arg in function 'flow_dissector_func_proto' as a candidate.
+  -> Found thread arg in function 'sock_zerocopy_callback' as a candidate.
+  -> Found thread arg in function 'sock_zerocopy_callback' as a candidate.
+  -> Found thread arg in function 'sock_wfree' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'tc_cls_act_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'sock_def_write_space' as a candidate.
+  -> Found thread arg in function 'sock_filter_func_proto' as a candidate.
+  -> Found thread arg in function 'sock_filter_func_proto' as a candidate.
+  -> Found thread arg in function 'bpf_gen_ld_abs' as a candidate.
+  -> Found thread arg in function 'bpf_gen_ld_abs' as a candidate.
+  -> Found thread arg in function 'sk_msg_func_proto' as a candidate.
+  -> Found thread arg in function 'sk_msg_func_proto' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_combine' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_combine' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_combine' as a candidate.
+  -> Found thread arg in function 'warn_crc32c_csum_combine' as a candidate.
+  -> Found thread arg in function 'xdp_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'xdp_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'xdp_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'xdp_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'xdp_convert_ctx_access' as a candidate.
+  -> Found thread arg in function 'lwt_in_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_in_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_xmit_func_proto' as a candidate.
+  -> Found thread arg in function 'lwt_xmit_func_proto' as a candidate.
+  -> Found thread arg in function 'sk_skb_func_proto' as a candidate.
+  -> Found thread arg in function 'sk_skb_func_proto' as a candidate.
+  -> Found thread arg in function 'sock_ops_func_proto' as a candidate.
+  -> Found thread arg in function 'sock_ops_func_proto' as a candidate.
+  -> Found thread arg in function 'xdp_func_proto' as a candidate.
+  -> Found thread arg in function 'xdp_func_proto' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 639
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 63 threads...
+[VulnerabilitySurface] Collected 464 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 225 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 451 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 10968 plain Load/Store accesses across 37 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 2 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Found 166 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 166 shared objects (132 high risk, 0 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-630679ddf6c0deba_2026-05-14_23-14-17/vulnerability_surface.json"
+
+  Threads: 63, Conflicting pairs: 359, Shared objects: 166, High-risk objects: 132
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 2 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-630679ddf6c0deba_2026-05-14_23-14-17/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 800MB, Avail: 360801MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 800MB, Avail: 360801MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL data_race VIOLATION FOUND: skb_seq_state_frag_data_finish_race
+    [VerificationAgent] Verifying hypothesis 'skb_seq_state_frag_data_finish_race' ...
+    [VerificationAgent] 'skb_seq_state_frag_data_finish_race' -> KEEP (true positive)
+    [!!!] POTENTIAL lifetime_race VIOLATION FOUND: splice_pipe_desc_release_vs_stack_descriptor_race
+    [VerificationAgent] Verifying hypothesis 'splice_pipe_desc_release_vs_stack_descriptor_race' ...
+    [VerificationAgent] 'splice_pipe_desc_release_vs_stack_descriptor_race' -> KEEP (true positive)
+[Phase 4.5] LLM hypothesis-verifier filter: kept 2/2, dropped 0 false-positive(s).
+Bug detection complete. 2 potential bug(s) found.
+  - Hypothesis-Based Violations: 2
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-630679ddf6c0deba_2026-05-14_23-14-17/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 800MB, Avail: 360982MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 1217 seconds
+LLM API Requests: 72
+Total Prompt Tokens: 2045365
+Total Completion Tokens: 19713
+Total Tokens: 2065078
+==========================================

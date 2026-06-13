@@ -1,0 +1,92 @@
+{
+  "bug_id": "SYZBOT-4dfb96a94317a78f",
+  "status": "complete",
+  "summary": "RCU callback enqueueing reads rcu_state.n_force_qs while the grace-period kthread increments the same global counter.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "call_rcu enqueue",
+      "entry": {"function": "call_rcu", "file": "kernel/rcu/tree.c", "kind": "exported_api"},
+      "call_chain": [
+        {"function": "call_rcu", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Exported RCU callback enqueue API."},
+        {"function": "__call_rcu", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "call_rcu delegates to __call_rcu."},
+        {"function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Patch hunk changes n_force_qs reads in this function."}
+      ],
+      "bug_site": {"function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "line": 2901, "code": "if (rcu_state.n_force_qs == rdp->n_force_qs_snap &&"}
+    },
+    "thread_b": {
+      "role": "RCU grace-period force-quiescent-state loop",
+      "entry": {"function": "rcu_gp_kthread", "file": "kernel/rcu/tree.c", "kind": "kthread"},
+      "call_chain": [
+        {"function": "rcu_gp_kthread", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "RCU grace-period kthread calls rcu_gp_fqs_loop."},
+        {"function": "rcu_gp_fqs_loop", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN peer function and bitcode definition present."},
+        {"function": "rcu_gp_fqs", "file": "kernel/rcu/tree.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Patch hunk increments n_force_qs here."}
+      ],
+      "bug_site": {"function": "rcu_gp_fqs", "file": "kernel/rcu/tree.c", "line": 1910, "code": "rcu_state.n_force_qs++;"}
+    },
+    "interleaving": [
+      "A CPU enqueues an RCU callback and __call_rcu_core compares rcu_state.n_force_qs with the per-CPU snapshot.",
+      "The RCU grace-period kthread concurrently executes rcu_gp_fqs and increments rcu_state.n_force_qs.",
+      "The fix marks the global counter reads and increment write with READ_ONCE/WRITE_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "rcu_state.n_force_qs",
+    "access_a": {"function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "line": 2901, "kind": "read", "code": "if (rcu_state.n_force_qs == rdp->n_force_qs_snap &&"},
+    "access_b": {"function": "rcu_gp_fqs", "file": "kernel/rcu/tree.c", "line": 1910, "kind": "write", "code": "rcu_state.n_force_qs++;"},
+    "required_ordering": "The global force-quiescent-state counter is shared between callback enqueue and grace-period progress code and must use marked accesses."
+  },
+  "vulnerability_surface": {
+    "primary_object": "rcu_state.n_force_qs",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "n_force_qs is the global sequence counter used by callback enqueueing to detect whether a force-quiescent-state scan has progressed.",
+    "aliases": [
+      {"name": "rcu_state.n_force_qs", "function": "rcu_gp_fqs", "file": "kernel/rcu/tree.c", "evidence": "Global rcu_state field incremented by grace-period force-QS processing."},
+      {"name": "rcu_state.n_force_qs", "function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "evidence": "Callback enqueue core compares the global value to rdp->n_force_qs_snap."},
+      {"name": "rdp->n_force_qs_snap", "function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "evidence": "Per-CPU snapshot stores the global counter value after reading it."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "call_rcu exported API", "to": "__call_rcu_core->rcu_state.n_force_qs", "evidence": "call_rcu calls __call_rcu, which reaches __call_rcu_core on the local rcu_data."}],
+      "thread_b": [{"from": "rcu_gp_kthread", "to": "rcu_gp_fqs->rcu_state.n_force_qs", "evidence": "The grace-period loop calls rcu_gp_fqs to force quiescent-state scans."}]
+    },
+    "access_sites": [
+      {"function": "rcu_gp_fqs", "file": "kernel/rcu/tree.c", "line": 1910, "kind": "write", "code": "rcu_state.n_force_qs++;"},
+      {"function": "rcu_do_batch", "file": "kernel/rcu/tree.c", "line": 2553, "kind": "read", "code": "rdp->n_force_qs_snap = rcu_state.n_force_qs;"},
+      {"function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "line": 2901, "kind": "read", "code": "if (rcu_state.n_force_qs == rdp->n_force_qs_snap &&"},
+      {"function": "__call_rcu_core", "file": "kernel/rcu/tree.c", "line": 2904, "kind": "read", "code": "rdp->n_force_qs_snap = rcu_state.n_force_qs;"}
+    ],
+    "lifetime": {
+      "allocated_by": ["static global rcu_state"],
+      "published_by": ["RCU core initialization"],
+      "invalidated_by": [],
+      "freed_by": []
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["kernel/rcu/tree.c"],
+    "candidate_files": [],
+    "analysis_conclusion": "The callback enqueue path, grace-period loop, shared global counter, and patch hunks are all in tree.c.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 1,
+    "src_file_count_after": 1,
+    "compiled_files": ["kernel/rcu/tree.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "tree.ll",
+    "bitcode_input_files": ["tree.ll"],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 409
+  },
+  "evidence": {
+    "patch_hunks": ["2431774f04d1 changes rcu_state.n_force_qs++ to WRITE_ONCE and wraps reads in rcu_do_batch, __call_rcu_core, and rcutree_prepare_cpu with READ_ONCE."],
+    "indirect_edges": ["call_rcu is exported and reaches __call_rcu_core.", "rcu_gp_kthread drives rcu_gp_fqs_loop, which calls rcu_gp_fqs."],
+    "entry_discovery_log": ["tree.ll defines call_rcu, __call_rcu_core, rcu_gp_fqs_loop, and rcu_gp_fqs."],
+    "repair_commands": [],
+    "notes": ["No repair was required."]
+  }
+}

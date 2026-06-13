@@ -1,0 +1,19 @@
+{
+  "commit": "1bef4c223b8588cf50433bdc2c6953d82949b3b3",
+  "user_seeds": [
+    "net/ipv6/route.c"
+  ],
+  "patch_files": [
+    "net/ipv6/route.c"
+  ],
+  "changed_symbols_sample": [
+    "CONFIG_IPV6_ROUTER_PREF",
+    "fib6_nh",
+    "last_probe",
+    "time_after"
+  ],
+  "expanded": [
+    "net/ipv6/route.c"
+  ],
+  "added_by_expander": {}
+}

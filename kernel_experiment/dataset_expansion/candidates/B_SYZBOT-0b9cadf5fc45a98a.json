@@ -1,0 +1,1486 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-0b9cadf5fc45a98a",
+  "source": "syzbot",
+  "title": "possible deadlock in f2fs_write_checkpoint",
+  "description": "possible deadlock in f2fs_write_checkpoint",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in f2fs_write_checkpoint"
+  },
+  "fix_commit": "c7f91bd4102902384137dd5c50d04bfed27050dd",
+  "affected_files": [
+    "fs/f2fs/f2fs.h",
+    "fs/f2fs/checkpoint.c",
+    "fs/f2fs/compress.c",
+    "fs/f2fs/data.c",
+    "fs/f2fs/dir.c",
+    "fs/f2fs/file.c",
+    "fs/f2fs/gc.c",
+    "fs/f2fs/inline.c",
+    "fs/f2fs/namei.c",
+    "fs/f2fs/node.c",
+    "fs/f2fs/recovery.c",
+    "fs/f2fs/segment.c",
+    "fs/f2fs/super.c",
+    "fs/f2fs/sysfs.c",
+    "fs/f2fs/verity.c",
+    "fs/f2fs/xattr.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/f2fs/f2fs.h",
+      "changed_lines": [
+        "-static inline void init_f2fs_rwsem(struct f2fs_rwsem *sem)",
+        "+#define init_f2fs_rwsem(sem)\t\t\t\t\t\\",
+        "+do {\t\t\t\t\t\t\t\t\\",
+        "+\tstatic struct lock_class_key __key;\t\t\t\\",
+        "+\t\t\t\t\t\t\t\t\\",
+        "+\t__init_f2fs_rwsem((sem), #sem, &__key);\t\t\t\\",
+        "+} while (0)",
+        "+",
+        "+static inline void __init_f2fs_rwsem(struct f2fs_rwsem *sem,",
+        "+\t\tconst char *sem_name, struct lock_class_key *key)",
+        "-\tinit_rwsem(&sem->internal_rwsem);",
+        "+\t__init_rwsem(&sem->internal_rwsem, sem_name, key);"
+      ],
+      "hunks": [
+        {
+          "old_start": 2115,
+          "new_start": 2115
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/checkpoint.c",
+      "changed_lines": [
+        "-\tif (!down_write_trylock(&sbi->cp_global_sem))",
+        "+\tif (!f2fs_down_write_trylock(&sbi->cp_global_sem))",
+        "-\tup_write(&sbi->cp_global_sem);",
+        "+\tf2fs_up_write(&sbi->cp_global_sem);",
+        "-\tif (!down_write_trylock(&sbi->quota_sem))",
+        "+\tif (!f2fs_down_write_trylock(&sbi->quota_sem))",
+        "-\tup_write(&sbi->quota_sem);",
+        "+\tf2fs_up_write(&sbi->quota_sem);",
+        "-\tdown_write(&sbi->node_change);",
+        "+\tf2fs_down_write(&sbi->node_change);",
+        "-\t\tup_write(&sbi->node_change);",
+        "+\t\tf2fs_up_write(&sbi->node_change);",
+        "-\tdown_write(&sbi->node_write);",
+        "+\tf2fs_down_write(&sbi->node_write);",
+        "-\t\tup_write(&sbi->node_write);",
+        "+\t\tf2fs_up_write(&sbi->node_write);",
+        "-\t\t\tup_write(&sbi->node_change);",
+        "+\t\t\tf2fs_up_write(&sbi->node_change);",
+        "-\tup_write(&sbi->node_change);",
+        "+\tf2fs_up_write(&sbi->node_change);",
+        "-\tup_write(&sbi->node_write);",
+        "+\tf2fs_up_write(&sbi->node_write);",
+        "-\t\tdown_write(&sbi->cp_global_sem);",
+        "+\t\tf2fs_down_write(&sbi->cp_global_sem);",
+        "-\t\tup_write(&sbi->cp_global_sem);",
+        "+\t\tf2fs_up_write(&sbi->cp_global_sem);",
+        "-\tdown_write(&sbi->gc_lock);",
+        "+\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\t\tdown_write(&sbi->gc_lock);",
+        "+\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\t\tup_write(&sbi->gc_lock);",
+        "+\t\tf2fs_up_write(&sbi->gc_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 351,
+          "new_start": 351
+        },
+        {
+          "old_start": 1159,
+          "new_start": 1159
+        },
+        {
+          "old_start": 1171,
+          "new_start": 1171
+        },
+        {
+          "old_start": 1228,
+          "new_start": 1228
+        },
+        {
+          "old_start": 1241,
+          "new_start": 1241
+        },
+        {
+          "old_start": 1262,
+          "new_start": 1262
+        },
+        {
+          "old_start": 1612,
+          "new_start": 1612
+        },
+        {
+          "old_start": 1693,
+          "new_start": 1693
+        },
+        {
+          "old_start": 1741,
+          "new_start": 1741
+        },
+        {
+          "old_start": 1831,
+          "new_start": 1831
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/compress.c",
+      "changed_lines": [
+        "-\t\tdown_read(&sbi->node_write);",
+        "+\t\tf2fs_down_read(&sbi->node_write);",
+        "-\t\tup_read(&sbi->node_write);",
+        "+\t\tf2fs_up_read(&sbi->node_write);",
+        "-\t\tup_read(&sbi->node_write);",
+        "+\t\tf2fs_up_read(&sbi->node_write);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1267,
+          "new_start": 1267
+        },
+        {
+          "old_start": 1384,
+          "new_start": 1384
+        },
+        {
+          "old_start": 1410,
+          "new_start": 1410
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/data.c",
+      "changed_lines": [
+        "-\tdown_write(&io->io_rwsem);",
+        "+\tf2fs_down_write(&io->io_rwsem);",
+        "-\tup_write(&io->io_rwsem);",
+        "+\tf2fs_up_write(&io->io_rwsem);",
+        "-\t\t\tdown_read(&io->io_rwsem);",
+        "+\t\t\tf2fs_down_read(&io->io_rwsem);",
+        "-\t\t\tup_read(&io->io_rwsem);",
+        "+\t\t\tf2fs_up_read(&io->io_rwsem);",
+        "-\tdown_write(&io->bio_list_lock);",
+        "+\tf2fs_down_write(&io->bio_list_lock);",
+        "-\tup_write(&io->bio_list_lock);",
+        "+\tf2fs_up_write(&io->bio_list_lock);",
+        "-\t\tdown_write(&io->bio_list_lock);",
+        "+\t\tf2fs_down_write(&io->bio_list_lock);",
+        "-\t\tup_write(&io->bio_list_lock);",
+        "+\t\tf2fs_up_write(&io->bio_list_lock);",
+        "-\t\tdown_read(&io->bio_list_lock);",
+        "+\t\tf2fs_down_read(&io->bio_list_lock);",
+        "-\t\tup_read(&io->bio_list_lock);",
+        "+\t\tf2fs_up_read(&io->bio_list_lock);",
+        "-\t\tdown_write(&io->bio_list_lock);",
+        "+\t\tf2fs_down_write(&io->bio_list_lock);",
+        "-\t\tup_write(&io->bio_list_lock);",
+        "+\t\tf2fs_up_write(&io->bio_list_lock);",
+        "-\tdown_write(&io->io_rwsem);",
+        "+\tf2fs_down_write(&io->io_rwsem);",
+        "-\tup_write(&io->io_rwsem);",
+        "+\tf2fs_up_write(&io->io_rwsem);",
+        "-\t\t\tdown_read(&sbi->node_change);",
+        "+\t\t\tf2fs_down_read(&sbi->node_change);",
+        "-\t\t\tup_read(&sbi->node_change);",
+        "+\t\t\tf2fs_up_read(&sbi->node_change);",
+        "-\t\t\tdown_read(&sbi->node_write);",
+        "+\t\t\tf2fs_down_read(&sbi->node_write);",
+        "-\t\t\tup_read(&sbi->node_write);",
+        "+\t\t\tf2fs_up_read(&sbi->node_write);",
+        "-\t\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\tdown_write(&sbi->pin_sem);",
+        "+\t\tf2fs_down_write(&sbi->pin_sem);",
+        "-\t\t\t\tup_write(&sbi->pin_sem);",
+        "+\t\t\t\tf2fs_up_write(&sbi->pin_sem);",
+        "-\t\tup_write(&sbi->pin_sem);",
+        "+\t\tf2fs_up_write(&sbi->pin_sem);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);"
+      ],
+      "hunks": [
+        {
+          "old_start": 590,
+          "new_start": 590
+        },
+        {
+          "old_start": 601,
+          "new_start": 601
+        },
+        {
+          "old_start": 616,
+          "new_start": 616
+        },
+        {
+          "old_start": 742,
+          "new_start": 742
+        },
+        {
+          "old_start": 766,
+          "new_start": 766
+        },
+        {
+          "old_start": 790,
+          "new_start": 790
+        },
+        {
+          "old_start": 816,
+          "new_start": 816
+        },
+        {
+          "old_start": 826,
+          "new_start": 826
+        },
+        {
+          "old_start": 846,
+          "new_start": 846
+        },
+        {
+          "old_start": 906,
+          "new_start": 906
+        },
+        {
+          "old_start": 973,
+          "new_start": 973
+        },
+        {
+          "old_start": 1383,
+          "new_start": 1383
+        },
+        {
+          "old_start": 2749,
+          "new_start": 2749
+        },
+        {
+          "old_start": 3213,
+          "new_start": 3213
+        },
+        {
+          "old_start": 3721,
+          "new_start": 3721
+        },
+        {
+          "old_start": 3741,
+          "new_start": 3741
+        },
+        {
+          "old_start": 3754,
+          "new_start": 3754
+        },
+        {
+          "old_start": 3765,
+          "new_start": 3765
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/dir.c",
+      "changed_lines": [
+        "-\t\tdown_write(&F2FS_I(inode)->i_sem);",
+        "+\t\tf2fs_down_write(&F2FS_I(inode)->i_sem);",
+        "-\t\tup_write(&F2FS_I(inode)->i_sem);",
+        "+\t\tf2fs_up_write(&F2FS_I(inode)->i_sem);",
+        "-\tdown_write(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_sem);",
+        "-\tup_write(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_sem);",
+        "-\tdown_write(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_sem);",
+        "-\tup_write(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 766,
+          "new_start": 766
+        },
+        {
+          "old_start": 793,
+          "new_start": 793
+        },
+        {
+          "old_start": 858,
+          "new_start": 858
+        },
+        {
+          "old_start": 869,
+          "new_start": 869
+        },
+        {
+          "old_start": 877,
+          "new_start": 877
+        },
+        {
+          "old_start": 888,
+          "new_start": 888
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/f2fs.h",
+      "changed_lines": [
+        "+/*",
+        "+ * An implementation of an rwsem that is explicitly unfair to readers. This",
+        "+ * prevents priority inversion when a low-priority reader acquires the read lock",
+        "+ * while sleeping on the write lock but the write lock is needed by",
+        "+ * higher-priority clients.",
+        "+ */",
+        "+",
+        "+struct f2fs_rwsem {",
+        "+        struct rw_semaphore internal_rwsem;",
+        "+        wait_queue_head_t read_waiters;",
+        "+};",
+        "+",
+        "-\tstruct rw_semaphore i_sem;\t/* protect fi info */",
+        "+\tstruct f2fs_rwsem i_sem;\t/* protect fi info */",
+        "-\tstruct rw_semaphore i_gc_rwsem[2];",
+        "-\tstruct rw_semaphore i_xattr_sem; /* avoid racing between reading and changing EAs */",
+        "+\tstruct f2fs_rwsem i_gc_rwsem[2];",
+        "+\tstruct f2fs_rwsem i_xattr_sem; /* avoid racing between reading and changing EAs */",
+        "-\tstruct rw_semaphore nat_tree_lock;\t/* protect nat entry tree */",
+        "+\tstruct f2fs_rwsem nat_tree_lock;\t/* protect nat entry tree */",
+        "-\tstruct rw_semaphore curseg_lock;\t/* for preventing curseg change */",
+        "+\tstruct f2fs_rwsem curseg_lock;\t/* for preventing curseg change */",
+        "-\tstruct rw_semaphore io_rwsem;\t/* blocking op for bio */",
+        "+\tstruct f2fs_rwsem io_rwsem;\t/* blocking op for bio */",
+        "-\tstruct rw_semaphore bio_list_lock;\t/* lock to protect bio entry list */",
+        "+\tstruct f2fs_rwsem bio_list_lock;\t/* lock to protect bio entry list */",
+        "-\tstruct rw_semaphore sb_lock;\t\t/* lock for raw super block */",
+        "+\tstruct f2fs_rwsem sb_lock;\t\t/* lock for raw super block */",
+        "-\tstruct rw_semaphore io_order_lock;",
+        "+\tstruct f2fs_rwsem io_order_lock;",
+        "-\tstruct rw_semaphore cp_global_sem;\t/* checkpoint procedure lock */",
+        "-\tstruct rw_semaphore cp_rwsem;\t\t/* blocking FS operations */",
+        "-\tstruct rw_semaphore node_write;\t\t/* locking node writes */",
+        "-\tstruct rw_semaphore node_change;\t/* locking node change */",
+        "+\tstruct f2fs_rwsem cp_global_sem;\t/* checkpoint procedure lock */",
+        "+\tstruct f2fs_rwsem cp_rwsem;\t\t/* blocking FS operations */",
+        "+\tstruct f2fs_rwsem node_write;\t\t/* locking node writes */",
+        "+\tstruct f2fs_rwsem node_change;\t/* locking node change */",
+        "-\tstruct rw_semaphore quota_sem;\t\t/* blocking cp for flags */",
+        "+\tstruct f2fs_rwsem quota_sem;\t\t/* blocking cp for flags */",
+        "-\tstruct rw_semaphore gc_lock;\t\t/*",
+        "+\tstruct f2fs_rwsem gc_lock;\t\t/*",
+        "-\tstruct rw_semaphore pin_sem;",
+        "+\tstruct f2fs_rwsem pin_sem;",
+        "+static inline void init_f2fs_rwsem(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\tinit_rwsem(&sem->internal_rwsem);",
+        "+\tinit_waitqueue_head(&sem->read_waiters);",
+        "+}",
+        "+",
+        "+static inline int f2fs_rwsem_is_locked(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\treturn rwsem_is_locked(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+static inline int f2fs_rwsem_is_contended(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\treturn rwsem_is_contended(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+static inline void f2fs_down_read(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\twait_event(sem->read_waiters, down_read_trylock(&sem->internal_rwsem));",
+        "+}",
+        "+",
+        "+static inline int f2fs_down_read_trylock(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\treturn down_read_trylock(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+#ifdef CONFIG_DEBUG_LOCK_ALLOC",
+        "+static inline void f2fs_down_read_nested(struct f2fs_rwsem *sem, int subclass)",
+        "+{",
+        "+\tdown_read_nested(&sem->internal_rwsem, subclass);",
+        "+}",
+        "+#else",
+        "+#define f2fs_down_read_nested(sem, subclass) f2fs_down_read(sem)",
+        "+#endif",
+        "+",
+        "+static inline void f2fs_up_read(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\tup_read(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+static inline void f2fs_down_write(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\tdown_write(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+static inline int f2fs_down_write_trylock(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\treturn down_write_trylock(&sem->internal_rwsem);",
+        "+}",
+        "+",
+        "+static inline void f2fs_up_write(struct f2fs_rwsem *sem)",
+        "+{",
+        "+\tup_write(&sem->internal_rwsem);",
+        "+\twake_up_all(&sem->read_waiters);",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 123,
+          "new_start": 123
+        },
+        {
+          "old_start": 752,
+          "new_start": 764
+        },
+        {
+          "old_start": 777,
+          "new_start": 789
+        },
+        {
+          "old_start": 904,
+          "new_start": 916
+        },
+        {
+          "old_start": 1017,
+          "new_start": 1029
+        },
+        {
+          "old_start": 1201,
+          "new_start": 1213
+        },
+        {
+          "old_start": 1571,
+          "new_start": 1583
+        },
+        {
+          "old_start": 1591,
+          "new_start": 1603
+        },
+        {
+          "old_start": 1599,
+          "new_start": 1611
+        },
+        {
+          "old_start": 1662,
+          "new_start": 1674
+        },
+        {
+          "old_start": 1678,
+          "new_start": 1690
+        },
+        {
+          "old_start": 1698,
+          "new_start": 1710
+        },
+        {
+          "old_start": 2092,
+          "new_start": 2104
+        },
+        {
+          "old_start": 2103,
+          "new_start": 2171
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/file.c",
+      "changed_lines": [
+        "-\tdown_write(&fi->i_sem);",
+        "+\tf2fs_down_write(&fi->i_sem);",
+        "-\tup_write(&fi->i_sem);",
+        "+\tf2fs_up_write(&fi->i_sem);",
+        "-\tdown_read(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_down_read(&F2FS_I(inode)->i_sem);",
+        "-\tup_read(&F2FS_I(inode)->i_sem);",
+        "+\tf2fs_up_read(&F2FS_I(inode)->i_sem);",
+        "-\t\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tdown_write(&sbi->gc_lock);",
+        "+\t\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\t\tdown_write(&sbi->pin_sem);",
+        "+\t\tf2fs_down_write(&sbi->pin_sem);",
+        "-\t\tup_write(&sbi->pin_sem);",
+        "+\t\tf2fs_up_write(&sbi->pin_sem);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&sbi->sb_lock);",
+        "+\tf2fs_down_write(&sbi->sb_lock);",
+        "-\tup_write(&sbi->sb_lock);",
+        "+\tf2fs_up_write(&sbi->sb_lock);",
+        "-\t\tif (!down_write_trylock(&sbi->gc_lock)) {",
+        "+\t\tif (!f2fs_down_write_trylock(&sbi->gc_lock)) {",
+        "-\t\tdown_write(&sbi->gc_lock);",
+        "+\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\t\tif (!down_write_trylock(&sbi->gc_lock)) {",
+        "+\t\tif (!f2fs_down_write_trylock(&sbi->gc_lock)) {",
+        "-\t\tdown_write(&sbi->gc_lock);",
+        "+\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tdown_write(&F2FS_I(src)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(src)->i_gc_rwsem[WRITE]);",
+        "-\t\tif (!down_write_trylock(&F2FS_I(dst)->i_gc_rwsem[WRITE]))",
+        "+\t\tif (!f2fs_down_write_trylock(&F2FS_I(dst)->i_gc_rwsem[WRITE]))",
+        "-\t\tup_write(&F2FS_I(dst)->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_up_write(&F2FS_I(dst)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(src)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(src)->i_gc_rwsem[WRITE]);",
+        "-\t\tif (!down_write_trylock(&sbi->gc_lock)) {",
+        "+\t\tif (!f2fs_down_write_trylock(&sbi->gc_lock)) {",
+        "-\t\tdown_write(&fi->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_down_write(&fi->i_gc_rwsem[WRITE]);",
+        "-\t\tup_write(&fi->i_gc_rwsem[WRITE]);",
+        "+\t\tf2fs_up_write(&fi->i_gc_rwsem[WRITE]);",
+        "-\tdown_read(&sbi->sb_lock);",
+        "+\tf2fs_down_read(&sbi->sb_lock);",
+        "-\tup_read(&sbi->sb_lock);",
+        "+\tf2fs_up_read(&sbi->sb_lock);",
+        "-\tdown_write(&sbi->sb_lock);",
+        "+\tf2fs_down_write(&sbi->sb_lock);",
+        "-\tup_write(&sbi->sb_lock);",
+        "+\tf2fs_up_write(&sbi->sb_lock);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\tif (!down_read_trylock(&fi->i_gc_rwsem[READ])) {",
+        "+\t\tif (!f2fs_down_read_trylock(&fi->i_gc_rwsem[READ])) {",
+        "-\t\tdown_read(&fi->i_gc_rwsem[READ]);",
+        "+\t\tf2fs_down_read(&fi->i_gc_rwsem[READ]);",
+        "-\tup_read(&fi->i_gc_rwsem[READ]);",
+        "+\tf2fs_up_read(&fi->i_gc_rwsem[READ]);",
+        "-\t\tif (!down_read_trylock(&fi->i_gc_rwsem[WRITE])) {",
+        "+\t\tif (!f2fs_down_read_trylock(&fi->i_gc_rwsem[WRITE])) {",
+        "-\t\tif (do_opu && !down_read_trylock(&fi->i_gc_rwsem[READ])) {",
+        "-\t\t\tup_read(&fi->i_gc_rwsem[WRITE]);",
+        "+\t\tif (do_opu && !f2fs_down_read_trylock(&fi->i_gc_rwsem[READ])) {",
+        "+\t\t\tf2fs_up_read(&fi->i_gc_rwsem[WRITE]);"
+      ],
+      "hunks": [
+        {
+          "old_start": 237,
+          "new_start": 237
+        },
+        {
+          "old_start": 318,
+          "new_start": 318
+        },
+        {
+          "old_start": 958,
+          "new_start": 958
+        },
+        {
+          "old_start": 970,
+          "new_start": 970
+        },
+        {
+          "old_start": 1112,
+          "new_start": 1112
+        },
+        {
+          "old_start": 1122,
+          "new_start": 1122
+        },
+        {
+          "old_start": 1355,
+          "new_start": 1355
+        },
+        {
+          "old_start": 1365,
+          "new_start": 1365
+        },
+        {
+          "old_start": 1500,
+          "new_start": 1500
+        },
+        {
+          "old_start": 1514,
+          "new_start": 1514
+        },
+        {
+          "old_start": 1526,
+          "new_start": 1526
+        },
+        {
+          "old_start": 1600,
+          "new_start": 1600
+        },
+        {
+          "old_start": 1618,
+          "new_start": 1618
+        },
+        {
+          "old_start": 1674,
+          "new_start": 1674
+        },
+        {
+          "old_start": 1690,
+          "new_start": 1690
+        },
+        {
+          "old_start": 2020,
+          "new_start": 2020
+        },
+        {
+          "old_start": 2031,
+          "new_start": 2031
+        },
+        {
+          "old_start": 2044,
+          "new_start": 2044
+        },
+        {
+          "old_start": 2351,
+          "new_start": 2351
+        },
+        {
+          "old_start": 2370,
+          "new_start": 2370
+        },
+        {
+          "old_start": 2447,
+          "new_start": 2447
+        },
+        {
+          "old_start": 2483,
+          "new_start": 2483
+        },
+        {
+          "old_start": 2820,
+          "new_start": 2820
+        },
+        {
+          "old_start": 2841,
+          "new_start": 2841
+        },
+        {
+          "old_start": 2938,
+          "new_start": 2938
+        },
+        {
+          "old_start": 3215,
+          "new_start": 3215
+        },
+        {
+          "old_start": 3294,
+          "new_start": 3294
+        },
+        {
+          "old_start": 3326,
+          "new_start": 3326
+        },
+        {
+          "old_start": 3336,
+          "new_start": 3336
+        },
+        {
+          "old_start": 3462,
+          "new_start": 3462
+        },
+        {
+          "old_start": 3499,
+          "new_start": 3499
+        },
+        {
+          "old_start": 3615,
+          "new_start": 3615
+        },
+        {
+          "old_start": 3652,
+          "new_start": 3652
+        },
+        {
+          "old_start": 3770,
+          "new_start": 3770
+        },
+        {
+          "old_start": 3859,
+          "new_start": 3859
+        },
+        {
+          "old_start": 4291,
+          "new_start": 4291
+        },
+        {
+          "old_start": 4315,
+          "new_start": 4315
+        },
+        {
+          "old_start": 4497,
+          "new_start": 4497
+        },
+        {
+          "old_start": 4511,
+          "new_start": 4511
+        },
+        {
+          "old_start": 4542,
+          "new_start": 4542
+        },
+        {
+          "old_start": 4644,
+          "new_start": 4644
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/gc.c",
+      "changed_lines": [
+        "-\t\t\tdown_write(&sbi->gc_lock);",
+        "+\t\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\t\t\tdown_write(&sbi->gc_lock);",
+        "+\t\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\t\t} else if (!down_write_trylock(&sbi->gc_lock)) {",
+        "+\t\t} else if (!f2fs_down_write_trylock(&sbi->gc_lock)) {",
+        "-\t\t\tup_write(&sbi->gc_lock);",
+        "+\t\t\tf2fs_up_write(&sbi->gc_lock);",
+        "-\t\tdown_write(&fio.sbi->io_order_lock);",
+        "+\t\tf2fs_down_write(&fio.sbi->io_order_lock);",
+        "-\t\tup_write(&fio.sbi->io_order_lock);",
+        "+\t\tf2fs_up_write(&fio.sbi->io_order_lock);",
+        "-\t\t\tif (!down_write_trylock(",
+        "+\t\t\tif (!f2fs_down_write_trylock(",
+        "-\t\t\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\t\t\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\t\t\t\tif (!down_write_trylock(&fi->i_gc_rwsem[READ])) {",
+        "+\t\t\t\tif (!f2fs_down_write_trylock(&fi->i_gc_rwsem[READ])) {",
+        "-\t\t\t\tif (!down_write_trylock(",
+        "+\t\t\t\tif (!f2fs_down_write_trylock(",
+        "-\t\t\t\t\tup_write(&fi->i_gc_rwsem[READ]);",
+        "+\t\t\t\t\tf2fs_up_write(&fi->i_gc_rwsem[READ]);",
+        "-\t\t\t\tup_write(&fi->i_gc_rwsem[WRITE]);",
+        "-\t\t\t\tup_write(&fi->i_gc_rwsem[READ]);",
+        "+\t\t\t\tf2fs_up_write(&fi->i_gc_rwsem[WRITE]);",
+        "+\t\t\t\tf2fs_up_write(&fi->i_gc_rwsem[READ]);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\tdown_write(&sbi->sb_lock);",
+        "+\tf2fs_down_write(&sbi->sb_lock);",
+        "-\tup_write(&sbi->sb_lock);",
+        "+\tf2fs_up_write(&sbi->sb_lock);",
+        "-\tif (!down_write_trylock(&sbi->gc_lock))",
+        "+\tif (!f2fs_down_write_trylock(&sbi->gc_lock))",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\tdown_write(&sbi->gc_lock);",
+        "-\tdown_write(&sbi->cp_global_sem);",
+        "+\tf2fs_down_write(&sbi->gc_lock);",
+        "+\tf2fs_down_write(&sbi->cp_global_sem);",
+        "-\tup_write(&sbi->cp_global_sem);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->cp_global_sem);",
+        "+\tf2fs_up_write(&sbi->gc_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 105,
+          "new_start": 105
+        },
+        {
+          "old_start": 1230,
+          "new_start": 1230
+        },
+        {
+          "old_start": 1316,
+          "new_start": 1316
+        },
+        {
+          "old_start": 1475,
+          "new_start": 1475
+        },
+        {
+          "old_start": 1488,
+          "new_start": 1488
+        },
+        {
+          "old_start": 1499,
+          "new_start": 1499
+        },
+        {
+          "old_start": 1518,
+          "new_start": 1518
+        },
+        {
+          "old_start": 1548,
+          "new_start": 1548
+        },
+        {
+          "old_start": 1807,
+          "new_start": 1807
+        },
+        {
+          "old_start": 1936,
+          "new_start": 1936
+        },
+        {
+          "old_start": 1957,
+          "new_start": 1957
+        },
+        {
+          "old_start": 2031,
+          "new_start": 2031
+        },
+        {
+          "old_start": 2051,
+          "new_start": 2051
+        },
+        {
+          "old_start": 2104,
+          "new_start": 2104
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/inline.c",
+      "changed_lines": [
+        "-\t\tdown_write(&F2FS_I(inode)->i_sem);",
+        "+\t\tf2fs_down_write(&F2FS_I(inode)->i_sem);",
+        "-\t\tup_write(&F2FS_I(inode)->i_sem);",
+        "+\t\tf2fs_up_write(&F2FS_I(inode)->i_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 629,
+          "new_start": 629
+        },
+        {
+          "old_start": 658,
+          "new_start": 658
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/namei.c",
+      "changed_lines": [
+        "-\tdown_read(&sbi->sb_lock);",
+        "+\tf2fs_down_read(&sbi->sb_lock);",
+        "-\tup_read(&sbi->sb_lock);",
+        "+\tf2fs_up_read(&sbi->sb_lock);",
+        "-\tdown_read(&sbi->sb_lock);",
+        "+\tf2fs_down_read(&sbi->sb_lock);",
+        "-\t\t\tup_read(&sbi->sb_lock);",
+        "+\t\t\tf2fs_up_read(&sbi->sb_lock);",
+        "-\tup_read(&sbi->sb_lock);",
+        "+\tf2fs_up_read(&sbi->sb_lock);",
+        "-\t\tdown_write(&F2FS_I(new_inode)->i_sem);",
+        "+\t\tf2fs_down_write(&F2FS_I(new_inode)->i_sem);",
+        "-\t\tup_write(&F2FS_I(new_inode)->i_sem);",
+        "+\t\tf2fs_up_write(&F2FS_I(new_inode)->i_sem);",
+        "-\tdown_write(&F2FS_I(old_inode)->i_sem);",
+        "+\tf2fs_down_write(&F2FS_I(old_inode)->i_sem);",
+        "-\tup_write(&F2FS_I(old_inode)->i_sem);",
+        "+\tf2fs_up_write(&F2FS_I(old_inode)->i_sem);",
+        "-\tdown_write(&F2FS_I(old_inode)->i_sem);",
+        "+\tf2fs_down_write(&F2FS_I(old_inode)->i_sem);",
+        "-\tup_write(&F2FS_I(old_inode)->i_sem);",
+        "+\tf2fs_up_write(&F2FS_I(old_inode)->i_sem);",
+        "-\t\tdown_write(&F2FS_I(old_dir)->i_sem);",
+        "+\t\tf2fs_down_write(&F2FS_I(old_dir)->i_sem);",
+        "-\t\tup_write(&F2FS_I(old_dir)->i_sem);",
+        "+\t\tf2fs_up_write(&F2FS_I(old_dir)->i_sem);",
+        "-\tdown_write(&F2FS_I(new_inode)->i_sem);",
+        "+\tf2fs_down_write(&F2FS_I(new_inode)->i_sem);",
+        "-\tup_write(&F2FS_I(new_inode)->i_sem);",
+        "+\tf2fs_up_write(&F2FS_I(new_inode)->i_sem);",
+        "-\t\tdown_write(&F2FS_I(new_dir)->i_sem);",
+        "+\t\tf2fs_down_write(&F2FS_I(new_dir)->i_sem);",
+        "-\t\tup_write(&F2FS_I(new_dir)->i_sem);",
+        "+\t\tf2fs_up_write(&F2FS_I(new_dir)->i_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 196,
+          "new_start": 196
+        },
+        {
+          "old_start": 206,
+          "new_start": 206
+        },
+        {
+          "old_start": 299,
+          "new_start": 299
+        },
+        {
+          "old_start": 1023,
+          "new_start": 1023
+        },
+        {
+          "old_start": 1048,
+          "new_start": 1048
+        },
+        {
+          "old_start": 1214,
+          "new_start": 1214
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/node.c",
+      "changed_lines": [
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tif (rwsem_is_locked(&sbi->cp_global_sem))",
+        "+\tif (f2fs_rwsem_is_locked(&sbi->cp_global_sem))",
+        "-\tdown_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_write(&nm_i->nat_tree_lock);",
+        "-\tup_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_write(&nm_i->nat_tree_lock);",
+        "-\tdown_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_write(&nm_i->nat_tree_lock);",
+        "-\tup_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_write(&nm_i->nat_tree_lock);",
+        "-\tif (!down_write_trylock(&nm_i->nat_tree_lock))",
+        "+\tif (!f2fs_down_write_trylock(&nm_i->nat_tree_lock))",
+        "-\tup_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_write(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\t\tup_read(&nm_i->nat_tree_lock);",
+        "+\t\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tif (!rwsem_is_locked(&sbi->cp_global_sem) || checkpoint_context) {",
+        "+\tif (!f2fs_rwsem_is_locked(&sbi->cp_global_sem) || checkpoint_context) {",
+        "-\t} else if (rwsem_is_contended(&nm_i->nat_tree_lock) ||",
+        "+\t} else if (f2fs_rwsem_is_contended(&nm_i->nat_tree_lock) ||",
+        "-\t\tup_read(&nm_i->nat_tree_lock);",
+        "+\t\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&curseg->journal_rwsem);",
+        "+        up_read(&curseg->journal_rwsem);",
+        "-\t\tup_read(&nm_i->nat_tree_lock);",
+        "+\t\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\t\tif (!down_read_trylock(&sbi->node_write))",
+        "+\t\tif (!f2fs_down_read_trylock(&sbi->node_write))",
+        "-\t\tdown_read(&sbi->node_write);",
+        "+\t\tf2fs_down_read(&sbi->node_write);",
+        "-\t\tup_read(&sbi->node_write);",
+        "+\t\tf2fs_up_read(&sbi->node_write);",
+        "-\t\tup_read(&sbi->node_write);",
+        "+\t\tf2fs_up_read(&sbi->node_write);",
+        "-\tup_read(&sbi->node_write);",
+        "+\tf2fs_up_read(&sbi->node_write);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\t\t\t\tup_read(&nm_i->nat_tree_lock);",
+        "+\t\t\t\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\tdown_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_read(&nm_i->nat_tree_lock);",
+        "-\tup_read(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_read(&nm_i->nat_tree_lock);",
+        "-\t\tdown_write(&nm_i->nat_tree_lock);",
+        "+\t\tf2fs_down_write(&nm_i->nat_tree_lock);",
+        "-\t\tup_write(&nm_i->nat_tree_lock);",
+        "+\t\tf2fs_up_write(&nm_i->nat_tree_lock);",
+        "-\tdown_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_write(&nm_i->nat_tree_lock);",
+        "-\tup_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_write(&nm_i->nat_tree_lock);",
+        "-\tinit_rwsem(&nm_i->nat_tree_lock);",
+        "+\tinit_f2fs_rwsem(&nm_i->nat_tree_lock);",
+        "-\tdown_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_down_write(&nm_i->nat_tree_lock);",
+        "-\tup_write(&nm_i->nat_tree_lock);",
+        "+\tf2fs_up_write(&nm_i->nat_tree_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 382,
+          "new_start": 382
+        },
+        {
+          "old_start": 399,
+          "new_start": 399
+        },
+        {
+          "old_start": 413,
+          "new_start": 413
+        },
+        {
+          "old_start": 431,
+          "new_start": 431
+        },
+        {
+          "old_start": 447,
+          "new_start": 447
+        },
+        {
+          "old_start": 459,
+          "new_start": 459
+        },
+        {
+          "old_start": 508,
+          "new_start": 508
+        },
+        {
+          "old_start": 516,
+          "new_start": 516
+        },
+        {
+          "old_start": 538,
+          "new_start": 538
+        },
+        {
+          "old_start": 560,
+          "new_start": 560
+        },
+        {
+          "old_start": 576,
+          "new_start": 576
+        },
+        {
+          "old_start": 589,
+          "new_start": 589
+        },
+        {
+          "old_start": 1609,
+          "new_start": 1609
+        },
+        {
+          "old_start": 1627,
+          "new_start": 1627
+        },
+        {
+          "old_start": 1648,
+          "new_start": 1648
+        },
+        {
+          "old_start": 2225,
+          "new_start": 2225
+        },
+        {
+          "old_start": 2415,
+          "new_start": 2415
+        },
+        {
+          "old_start": 2438,
+          "new_start": 2438
+        },
+        {
+          "old_start": 2473,
+          "new_start": 2473
+        },
+        {
+          "old_start": 2488,
+          "new_start": 2488
+        },
+        {
+          "old_start": 2508,
+          "new_start": 2508
+        },
+        {
+          "old_start": 2953,
+          "new_start": 2953
+        },
+        {
+          "old_start": 2973,
+          "new_start": 2973
+        },
+        {
+          "old_start": 3071,
+          "new_start": 3071
+        },
+        {
+          "old_start": 3108,
+          "new_start": 3108
+        },
+        {
+          "old_start": 3228,
+          "new_start": 3228
+        },
+        {
+          "old_start": 3334,
+          "new_start": 3334
+        },
+        {
+          "old_start": 3364,
+          "new_start": 3364
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/recovery.c",
+      "changed_lines": [
+        "-\tdown_write(&sbi->cp_global_sem);",
+        "+\tf2fs_down_write(&sbi->cp_global_sem);",
+        "-\tup_write(&sbi->cp_global_sem);",
+        "+\tf2fs_up_write(&sbi->cp_global_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 796,
+          "new_start": 796
+        },
+        {
+          "old_start": 845,
+          "new_start": 845
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/segment.c",
+      "changed_lines": [
+        "-\tdown_write(&fi->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&fi->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&fi->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&fi->i_gc_rwsem[WRITE]);",
+        "-\t\t\tdown_write(&sbi->gc_lock);",
+        "+\t\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tint factor = rwsem_is_locked(&sbi->cp_rwsem) ? 3 : 2;",
+        "+\tint factor = f2fs_rwsem_is_locked(&sbi->cp_rwsem) ? 3 : 2;",
+        "-\t\t(!f2fs_time_over(sbi, REQ_TIME) && rwsem_is_locked(&sbi->cp_rwsem)))",
+        "+\t\t(!f2fs_time_over(sbi, REQ_TIME) && f2fs_rwsem_is_locked(&sbi->cp_rwsem)))",
+        "-\tdown_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_read(&SM_I(sbi)->curseg_lock);",
+        "-\tup_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_read(&SM_I(sbi)->curseg_lock);",
+        "-\tdown_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_read(&SM_I(sbi)->curseg_lock);",
+        "-\tup_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_read(&SM_I(sbi)->curseg_lock);",
+        "-\tdown_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_read(&SM_I(sbi)->curseg_lock);",
+        "-\tup_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_read(&SM_I(sbi)->curseg_lock);",
+        "-\tdown_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_read(&SM_I(sbi)->curseg_lock);",
+        "-\tup_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_read(&SM_I(sbi)->curseg_lock);",
+        "-\tdown_write(&sbi->gc_lock);",
+        "+\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\tdown_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_read(&SM_I(sbi)->curseg_lock);",
+        "-\tup_read(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_read(&SM_I(sbi)->curseg_lock);",
+        "-\t\tdown_read(&fio->sbi->io_order_lock);",
+        "+\t\tf2fs_down_read(&fio->sbi->io_order_lock);",
+        "-\t\tup_read(&fio->sbi->io_order_lock);",
+        "+\t\tf2fs_up_read(&fio->sbi->io_order_lock);",
+        "-\tdown_write(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_down_write(&SM_I(sbi)->curseg_lock);",
+        "-\tup_write(&SM_I(sbi)->curseg_lock);",
+        "+\tf2fs_up_write(&SM_I(sbi)->curseg_lock);",
+        "-\tinit_rwsem(&sm_info->curseg_lock);",
+        "+\tinit_f2fs_rwsem(&sm_info->curseg_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 471,
+          "new_start": 471
+        },
+        {
+          "old_start": 483,
+          "new_start": 483
+        },
+        {
+          "old_start": 521,
+          "new_start": 521
+        },
+        {
+          "old_start": 529,
+          "new_start": 529
+        },
+        {
+          "old_start": 570,
+          "new_start": 570
+        },
+        {
+          "old_start": 2821,
+          "new_start": 2821
+        },
+        {
+          "old_start": 2831,
+          "new_start": 2831
+        },
+        {
+          "old_start": 2982,
+          "new_start": 2982
+        },
+        {
+          "old_start": 3006,
+          "new_start": 3006
+        },
+        {
+          "old_start": 3038,
+          "new_start": 3038
+        },
+        {
+          "old_start": 3192,
+          "new_start": 3192
+        },
+        {
+          "old_start": 3431,
+          "new_start": 3431
+        },
+        {
+          "old_start": 3514,
+          "new_start": 3514
+        },
+        {
+          "old_start": 3550,
+          "new_start": 3550
+        },
+        {
+          "old_start": 3570,
+          "new_start": 3570
+        },
+        {
+          "old_start": 3705,
+          "new_start": 3705
+        },
+        {
+          "old_start": 3774,
+          "new_start": 3774
+        },
+        {
+          "old_start": 5258,
+          "new_start": 5258
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/super.c",
+      "changed_lines": [
+        "-\tinit_rwsem(&fi->i_sem);",
+        "+\tinit_f2fs_rwsem(&fi->i_sem);",
+        "-\tinit_rwsem(&fi->i_gc_rwsem[READ]);",
+        "-\tinit_rwsem(&fi->i_gc_rwsem[WRITE]);",
+        "-\tinit_rwsem(&fi->i_xattr_sem);",
+        "+\tinit_f2fs_rwsem(&fi->i_gc_rwsem[READ]);",
+        "+\tinit_f2fs_rwsem(&fi->i_gc_rwsem[WRITE]);",
+        "+\tinit_f2fs_rwsem(&fi->i_xattr_sem);",
+        "-\t\tdown_write(&sbi->gc_lock);",
+        "+\t\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tdown_write(&sbi->gc_lock);",
+        "+\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\tdown_write(&sbi->gc_lock);",
+        "+\tf2fs_down_write(&sbi->gc_lock);",
+        "-\tup_write(&sbi->gc_lock);",
+        "+\tf2fs_up_write(&sbi->gc_lock);",
+        "-\t\t *  down_read(quota_sem)",
+        "+\t\t *  f2fs_down_read(quota_sem)",
+        "-\t\t *\t\t\t      down_read(quota_sem)",
+        "+\t\t *\t\t\t      f2fs_down_read(quota_sem)",
+        "-\t\tdown_read(&sbi->quota_sem);",
+        "+\t\tf2fs_down_read(&sbi->quota_sem);",
+        "-\t\tup_read(&sbi->quota_sem);",
+        "+\t\tf2fs_up_read(&sbi->quota_sem);",
+        "-\tdown_read_nested(&sbi->quota_sem, SINGLE_DEPTH_NESTING);",
+        "+\tf2fs_down_read_nested(&sbi->quota_sem, SINGLE_DEPTH_NESTING);",
+        "-\tup_read(&sbi->quota_sem);",
+        "+\tf2fs_up_read(&sbi->quota_sem);",
+        "-\tdown_read(&sbi->quota_sem);",
+        "+\tf2fs_down_read(&sbi->quota_sem);",
+        "-\tup_read(&sbi->quota_sem);",
+        "+\tf2fs_up_read(&sbi->quota_sem);",
+        "-\tinit_rwsem(&sbi->io_order_lock);",
+        "+\tinit_f2fs_rwsem(&sbi->io_order_lock);",
+        "-\tinit_rwsem(&sbi->sb_lock);",
+        "-\tinit_rwsem(&sbi->pin_sem);",
+        "+\tinit_f2fs_rwsem(&sbi->sb_lock);",
+        "+\tinit_f2fs_rwsem(&sbi->pin_sem);",
+        "-\tinit_rwsem(&sbi->gc_lock);",
+        "+\tinit_f2fs_rwsem(&sbi->gc_lock);",
+        "-\tinit_rwsem(&sbi->cp_global_sem);",
+        "-\tinit_rwsem(&sbi->node_write);",
+        "-\tinit_rwsem(&sbi->node_change);",
+        "+\tinit_f2fs_rwsem(&sbi->cp_global_sem);",
+        "+\tinit_f2fs_rwsem(&sbi->node_write);",
+        "+\tinit_f2fs_rwsem(&sbi->node_change);",
+        "-\t\t\tinit_rwsem(&sbi->write_io[i][j].io_rwsem);",
+        "+\t\t\tinit_f2fs_rwsem(&sbi->write_io[i][j].io_rwsem);",
+        "-\t\t\tinit_rwsem(&sbi->write_io[i][j].bio_list_lock);",
+        "+\t\t\tinit_f2fs_rwsem(&sbi->write_io[i][j].bio_list_lock);",
+        "-\tinit_rwsem(&sbi->cp_rwsem);",
+        "-\tinit_rwsem(&sbi->quota_sem);",
+        "+\tinit_f2fs_rwsem(&sbi->cp_rwsem);",
+        "+\tinit_f2fs_rwsem(&sbi->quota_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1355,
+          "new_start": 1355
+        },
+        {
+          "old_start": 2088,
+          "new_start": 2088
+        },
+        {
+          "old_start": 2110,
+          "new_start": 2110
+        },
+        {
+          "old_start": 2122,
+          "new_start": 2122
+        },
+        {
+          "old_start": 2142,
+          "new_start": 2142
+        },
+        {
+          "old_start": 2707,
+          "new_start": 2707
+        },
+        {
+          "old_start": 2843,
+          "new_start": 2843
+        },
+        {
+          "old_start": 2856,
+          "new_start": 2856
+        },
+        {
+          "old_start": 3601,
+          "new_start": 3601
+        },
+        {
+          "old_start": 4067,
+          "new_start": 4067
+        },
+        {
+          "old_start": 4092,
+          "new_start": 4092
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/sysfs.c",
+      "changed_lines": [
+        "-\t\tdown_write(&sbi->sb_lock);",
+        "+\t\tf2fs_down_write(&sbi->sb_lock);",
+        "-\t\tup_write(&sbi->sb_lock);",
+        "+\t\tf2fs_up_write(&sbi->sb_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 363,
+          "new_start": 363
+        },
+        {
+          "old_start": 373,
+          "new_start": 373
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/verity.c",
+      "changed_lines": [
+        "-\tdown_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "-\tup_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_gc_rwsem[WRITE]);"
+      ],
+      "hunks": [
+        {
+          "old_start": 208,
+          "new_start": 208
+        },
+        {
+          "old_start": 216,
+          "new_start": 216
+        }
+      ]
+    },
+    {
+      "path": "fs/f2fs/xattr.c",
+      "changed_lines": [
+        "-\tdown_read(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_down_read(&F2FS_I(inode)->i_xattr_sem);",
+        "-\tup_read(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_up_read(&F2FS_I(inode)->i_xattr_sem);",
+        "-\tdown_read(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_down_read(&F2FS_I(inode)->i_xattr_sem);",
+        "-\tup_read(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_up_read(&F2FS_I(inode)->i_xattr_sem);",
+        "-\tdown_write(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_down_write(&F2FS_I(inode)->i_xattr_sem);",
+        "-\tup_write(&F2FS_I(inode)->i_xattr_sem);",
+        "+\tf2fs_up_write(&F2FS_I(inode)->i_xattr_sem);"
+      ],
+      "hunks": [
+        {
+          "old_start": 525,
+          "new_start": 525
+        },
+        {
+          "old_start": 562,
+          "new_start": 562
+        },
+        {
+          "old_start": 786,
+          "new_start": 786
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-0b9cadf5fc45a98a/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-0b9cadf5fc45a98a/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-0b9cadf5fc45a98a"
+}

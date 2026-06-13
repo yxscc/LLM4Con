@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-4a06d4373fd52f0b",
+  "shared_object": "struct inotify_inode_mark::wd (i_mark->wd)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "inotify event delivery (reader of wd)",
+    "entry": "inotify_handle_inode_event",
+    "clause": {
+      "resource": "i_mark->wd",
+      "sites": [
+        {"function": "inotify_handle_inode_event", "file": "fs/notify/inotify/inotify_fsnotify.c", "line": 113, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(i_mark->wd), publish(event->wd)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "inotify mark removal (invalidating writer)",
+    "entry": "__x64_sys_inotify_rm_watch",
+    "clause": {
+      "resource": "i_mark->wd",
+      "sites": [
+        {"function": "inotify_remove_from_idr", "file": "fs/notify/inotify/inotify_user.c", "line": 511, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(i_mark->wd), publish into event->wd]) from thread_a -- event delivery must read a still-valid descriptor and report it without an invalidation interleaving",
+    "violating_event": "e@inotify_remove_from_idr:511 = WRITE(i_mark->wd = -1) (teardown invalidation) by thread_b",
+    "missing_guarantee": "no lock/quiesce orders mark teardown against in-flight event delivery for this field -> the invalidating write can interleave between the read and the report, so a -1 descriptor reaches userspace",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is a single-access read racing an invalidating write -> data race; semantically it manifests as reading a just-invalidated value (reports wd == -1 to userspace)"
+  },
+
+  "fix_maps_to": "patch samples wd = READ_ONCE(i_mark->wd) once, returns early if wd == -1, and reports the sampled value -> single-copy read + a validity guard; it does NOT add exclusion/order between teardown and delivery (the race is tolerated, but the invalid value is filtered)",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "More 'real' than the benign cohort (a -1 descriptor reaching userspace is a visible correctness bug), so the assume is a requirement the arbiter can defend. Risks: (1) object identity across two paths -- i_mark via container_of(fsnotify_mark) in delivery vs idr lookup in teardown -- must be unified; (2) static must connect the rm_watch syscall -> fsnotify_destroy_mark -> inotify_freeing_mark -> inotify_remove_from_idr chain (some frames are outside the compiled set); (3) the design may frame it as a plain data race and still match.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

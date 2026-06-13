@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-2e4de7fe846aba66",
+  "tier": "A",
+  "title": "KCSAN: data-race in gro_normal_list.part.0 / napi_busy_loop",
+  "mainline_sha": "c39e342a050a4425348e6fe7f75827c0a1a7ebc5",
+  "all_shas_seen": [
+    "2e4de7fe846aba6696770788e1c19316200199cc",
+    "c39e342a050a4425348e6fe7f75827c0a1a7ebc5"
+  ],
+  "c_paths": [
+    "drivers/net/tun.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

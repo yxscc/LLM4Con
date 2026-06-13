@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-548e316cdc0424e0",
+  "tier": "A",
+  "title": "KCSAN: data-race in __ip4_datagram_connect / skb_set_owner_w (2)",
+  "mainline_sha": "b71eaed8c04f72a919a9c44e83e4ee254e69e7f3",
+  "all_shas_seen": [
+    "548e316cdc0424e07eb86a0177f3a7622dfbdd98",
+    "b71eaed8c04f72a919a9c44e83e4ee254e69e7f3",
+    "5ff2756afde08b266fbb673849899fec694f39f1"
+  ],
+  "c_paths": [
+    "include/net/sock.h"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 2
+}

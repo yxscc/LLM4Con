@@ -1,0 +1,113 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-0b272670f47bbf00",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in fib_alias_hw_flags_set / fib_alias_hw_flags_set",
+  "description": "KCSAN: data-race in fib_alias_hw_flags_set / fib_alias_hw_flags_set",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "fib_alias_hw_flags_set",
+    "fn_b": "fib_alias_hw_flags_set"
+  },
+  "fix_commit": "9fcf986cc4bc6a3a39f23fbcbbc3a9e52d3c24fd",
+  "affected_files": [
+    "net/ipv4/fib_lookup.h",
+    "net/ipv4/fib_semantics.c",
+    "net/ipv4/fib_trie.c",
+    "net/ipv4/route.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/ipv4/fib_lookup.h",
+      "changed_lines": [
+        "-\tu8\t\t\toffload:1,",
+        "-\t\t\t\ttrap:1,",
+        "-\t\t\t\toffload_failed:1,",
+        "-\t\t\t\tunused:5;",
+        "+\tu8\t\t\toffload;",
+        "+\tu8\t\t\ttrap;",
+        "+\tu8\t\t\toffload_failed;"
+      ],
+      "hunks": [
+        {
+          "old_start": 16,
+          "new_start": 16
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/fib_semantics.c",
+      "changed_lines": [
+        "-\tfri.offload = fa->offload;",
+        "-\tfri.trap = fa->trap;",
+        "-\tfri.offload_failed = fa->offload_failed;",
+        "+\tfri.offload = READ_ONCE(fa->offload);",
+        "+\tfri.trap = READ_ONCE(fa->trap);",
+        "+\tfri.offload_failed = READ_ONCE(fa->offload_failed);"
+      ],
+      "hunks": [
+        {
+          "old_start": 525,
+          "new_start": 525
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/fib_trie.c",
+      "changed_lines": [
+        "-\tif (fa_match->offload == fri->offload && fa_match->trap == fri->trap &&",
+        "-\t    fa_match->offload_failed == fri->offload_failed)",
+        "+\t/* These are paired with the WRITE_ONCE() happening in this function.",
+        "+\t * The reason is that we are only protected by RCU at this point.",
+        "+\t */",
+        "+\tif (READ_ONCE(fa_match->offload) == fri->offload &&",
+        "+\t    READ_ONCE(fa_match->trap) == fri->trap &&",
+        "+\t    READ_ONCE(fa_match->offload_failed) == fri->offload_failed)",
+        "-\tfa_match->offload = fri->offload;",
+        "-\tfa_match->trap = fri->trap;",
+        "+\tWRITE_ONCE(fa_match->offload, fri->offload);",
+        "+\tWRITE_ONCE(fa_match->trap, fri->trap);",
+        "-\t    fa_match->offload_failed == fri->offload_failed)",
+        "+\t    READ_ONCE(fa_match->offload_failed) == fri->offload_failed)",
+        "-\tfa_match->offload_failed = fri->offload_failed;",
+        "+\tWRITE_ONCE(fa_match->offload_failed, fri->offload_failed);",
+        "-\t\t\t\tfri.offload = fa->offload;",
+        "-\t\t\t\tfri.trap = fa->trap;",
+        "-\t\t\t\tfri.offload_failed = fa->offload_failed;",
+        "+\t\t\t\tfri.offload = READ_ONCE(fa->offload);",
+        "+\t\t\t\tfri.trap = READ_ONCE(fa->trap);",
+        "+\t\t\t\tfri.offload_failed = READ_ONCE(fa->offload_failed);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1047,
+          "new_start": 1047
+        },
+        {
+          "old_start": 2297,
+          "new_start": 2301
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/route.c",
+      "changed_lines": [
+        "-\t\t\t\t\tfri.offload = fa->offload;",
+        "-\t\t\t\t\tfri.trap = fa->trap;",
+        "+\t\t\t\t\tfri.offload = READ_ONCE(fa->offload);",
+        "+\t\t\t\t\tfri.trap = READ_ONCE(fa->trap);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3395,
+          "new_start": 3395
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-0b272670f47bbf00/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-0b272670f47bbf00/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-0b272670f47bbf00"
+}

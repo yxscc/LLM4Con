@@ -1,0 +1,34 @@
+{
+  "commit": "8265792bf8871acc2d00fd03883d830e2249d395",
+  "user_seeds": [
+    "net/core/sock.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/llc/llc_conn.c",
+    "net/sctp/input.c",
+    "net/tipc/socket.c",
+    "net/x25/x25_dev.c"
+  ],
+  "patch_files": [
+    "net/core/sock.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/llc/llc_conn.c",
+    "net/sctp/input.c",
+    "net/tipc/socket.c",
+    "net/x25/x25_dev.c"
+  ],
+  "changed_symbols_sample": [
+    "msg_importance",
+    "sk_add_backlog",
+    "sk_rcvbuf",
+    "sk_sndbuf"
+  ],
+  "expanded": [
+    "net/core/sock.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/llc/llc_conn.c",
+    "net/sctp/input.c",
+    "net/tipc/socket.c",
+    "net/x25/x25_dev.c"
+  ],
+  "added_by_expander": {}
+}

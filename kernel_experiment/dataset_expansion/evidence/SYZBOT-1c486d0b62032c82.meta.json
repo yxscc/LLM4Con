@@ -1,0 +1,16 @@
+{
+  "bug_id": "SYZBOT-1c486d0b62032c82",
+  "tier": "A",
+  "title": "KCSAN: data-race in bprm_execve / copy_fs (4)",
+  "mainline_sha": "af7bb0d2ca459f15cb5ca604dab5d9af103643f0",
+  "all_shas_seen": [
+    "1c486d0b62032c82a968",
+    "af7bb0d2ca459f15cb5ca604dab5d9af103643f0",
+    "a7f2e10ecd8f18b83951b0bab47ddaf48f93bf47"
+  ],
+  "c_paths": [
+    "fs/exec.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 2
+}

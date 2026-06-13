@@ -1,0 +1,61 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-565f500a8d3fb9b7",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in fib_create_info / free_fib_info",
+  "description": "KCSAN: data-race in fib_create_info / free_fib_info",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "fib_create_info",
+    "fn_b": "free_fib_info"
+  },
+  "fix_commit": "0a6e6b3c7db6c34e3d149f09cd714972f8753e3f",
+  "affected_files": [
+    "net/ipv4/fib_semantics.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/ipv4/fib_semantics.c",
+      "changed_lines": [
+        "-\tfib_info_cnt--;",
+        "+",
+        "+\t\t/* Paired with READ_ONCE() in fib_create_info(). */",
+        "+\t\tWRITE_ONCE(fib_info_cnt, fib_info_cnt - 1);",
+        "+",
+        "-\tif (fib_info_cnt >= fib_info_hash_size) {",
+        "+",
+        "+\t/* Paired with WRITE_ONCE() in fib_release_info() */",
+        "+\tif (READ_ONCE(fib_info_cnt) >= fib_info_hash_size) {",
+        "-\tfib_info_cnt++;",
+        "+\tfib_info_cnt++;"
+      ],
+      "hunks": [
+        {
+          "old_start": 249,
+          "new_start": 249
+        },
+        {
+          "old_start": 260,
+          "new_start": 259
+        },
+        {
+          "old_start": 1430,
+          "new_start": 1433
+        },
+        {
+          "old_start": 1462,
+          "new_start": 1467
+        },
+        {
+          "old_start": 1591,
+          "new_start": 1595
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-565f500a8d3fb9b7/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-565f500a8d3fb9b7/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-565f500a8d3fb9b7"
+}

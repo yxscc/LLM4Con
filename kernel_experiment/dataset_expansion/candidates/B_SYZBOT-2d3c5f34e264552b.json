@@ -1,0 +1,112 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-2d3c5f34e264552b",
+  "source": "syzbot",
+  "title": "possible deadlock in pie_timer (2)",
+  "description": "possible deadlock in pie_timer (2)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in pie_timer (2)"
+  },
+  "fix_commit": "11b73313c12403f617b47752db0ab3deef201af7",
+  "affected_files": [
+    "net/sched/sch_netem.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/sched/sch_netem.c",
+      "changed_lines": [
+        "-static int get_dist_table(struct Qdisc *sch, struct disttable **tbl,",
+        "-\t\t\t  const struct nlattr *attr)",
+        "+static int get_dist_table(struct disttable **tbl, const struct nlattr *attr)",
+        "-\tspinlock_t *root_lock;",
+        "-\troot_lock = qdisc_root_sleeping_lock(sch);",
+        "-",
+        "-\tspin_lock_bh(root_lock);",
+        "-\tswap(*tbl, d);",
+        "-\tspin_unlock_bh(root_lock);",
+        "-",
+        "-\tdist_free(d);",
+        "+\t*tbl = d;",
+        "+\tstruct disttable *delay_dist = NULL;",
+        "+\tstruct disttable *slot_dist = NULL;",
+        "+\tif (tb[TCA_NETEM_DELAY_DIST]) {",
+        "+\t\tret = get_dist_table(&delay_dist, tb[TCA_NETEM_DELAY_DIST]);",
+        "+\t\tif (ret)",
+        "+\t\t\tgoto table_free;",
+        "+\t}",
+        "+",
+        "+\tif (tb[TCA_NETEM_SLOT_DIST]) {",
+        "+\t\tret = get_dist_table(&slot_dist, tb[TCA_NETEM_SLOT_DIST]);",
+        "+\t\tif (ret)",
+        "+\t\t\tgoto table_free;",
+        "+\t}",
+        "+",
+        "+\t\t\tq->clg = old_clg;",
+        "-\tif (tb[TCA_NETEM_DELAY_DIST]) {",
+        "-\t\tret = get_dist_table(sch, &q->delay_dist,",
+        "-\t\t\t\t     tb[TCA_NETEM_DELAY_DIST]);",
+        "-\t\tif (ret)",
+        "-\t\t\tgoto get_table_failure;",
+        "-\t}",
+        "-",
+        "-\tif (tb[TCA_NETEM_SLOT_DIST]) {",
+        "-\t\tret = get_dist_table(sch, &q->slot_dist,",
+        "-\t\t\t\t     tb[TCA_NETEM_SLOT_DIST]);",
+        "-\t\tif (ret)",
+        "-\t\t\tgoto get_table_failure;",
+        "-\t}",
+        "-",
+        "+\tif (delay_dist)",
+        "+\t\tswap(q->delay_dist, delay_dist);",
+        "+\tif (slot_dist)",
+        "+\t\tswap(q->slot_dist, slot_dist);",
+        "-\treturn ret;",
+        "-get_table_failure:",
+        "-\t/* recover clg and loss_model, in case of",
+        "-\t * q->clg and q->loss_model were modified",
+        "-\t * in get_loss_clg()",
+        "-\t */",
+        "-\tq->clg = old_clg;",
+        "-\tq->loss_model = old_loss_model;",
+        "-",
+        "-\tgoto unlock;",
+        "+table_free:",
+        "+\tdist_free(delay_dist);",
+        "+\tdist_free(slot_dist);",
+        "+\treturn ret;"
+      ],
+      "hunks": [
+        {
+          "old_start": 773,
+          "new_start": 773
+        },
+        {
+          "old_start": 793,
+          "new_start": 791
+        },
+        {
+          "old_start": 956,
+          "new_start": 948
+        },
+        {
+          "old_start": 966,
+          "new_start": 960
+        },
+        {
+          "old_start": 975,
+          "new_start": 981
+        },
+        {
+          "old_start": 1044,
+          "new_start": 1041
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2d3c5f34e264552b/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2d3c5f34e264552b/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2d3c5f34e264552b"
+}

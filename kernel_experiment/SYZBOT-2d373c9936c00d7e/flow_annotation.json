@@ -1,0 +1,219 @@
+{
+  "bug_id": "SYZBOT-2d373c9936c00d7e",
+  "status": "complete",
+  "summary": "ALSA sequencer poll reads output-pool allocation state while ioctl-side pool initialization updates that pool.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "poll reader",
+      "entry": {
+        "function": "snd_seq_poll",
+        "file": "sound/core/seq/seq_clientmgr.c",
+        "kind": "file_operation_poll"
+      },
+      "call_chain": [
+        {
+          "function": "snd_seq_poll",
+          "file": "sound/core/seq/seq_clientmgr.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "registered in snd_seq_f_ops .poll"
+        },
+        {
+          "function": "snd_seq_write_pool_allocated",
+          "file": "sound/core/seq/seq_clientmgr.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "inline pool allocation check"
+        },
+        {
+          "function": "snd_seq_pool_poll_wait",
+          "file": "sound/core/seq/seq_memory.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "poll wait helper checks output availability"
+        }
+      ],
+      "bug_site": {
+        "function": "snd_seq_write_pool_allocated",
+        "file": "sound/core/seq/seq_clientmgr.c",
+        "line": 95,
+        "code": "return snd_seq_total_cells(client->pool) > 0;"
+      }
+    },
+    "thread_b": {
+      "role": "ioctl pool initializer",
+      "entry": {
+        "function": "snd_seq_ioctl",
+        "file": "sound/core/seq/seq_clientmgr.c",
+        "kind": "file_operation_ioctl"
+      },
+      "call_chain": [
+        {
+          "function": "snd_seq_ioctl",
+          "file": "sound/core/seq/seq_clientmgr.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "ioctl file operation reaches pool resize/set-client-info paths"
+        },
+        {
+          "function": "snd_seq_pool_init",
+          "file": "sound/core/seq/seq_memory.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "allocates and publishes pool cells"
+        }
+      ],
+      "bug_site": {
+        "function": "snd_seq_pool_init",
+        "file": "sound/core/seq/seq_memory.c",
+        "line": 469,
+        "code": "pool->total_elements = pool->size;"
+      }
+    },
+    "interleaving": [
+      "A poll caller checks whether the client output pool has allocated cells.",
+      "A concurrent ioctl path initializes/resizes the same client->pool and writes pool fields under pool->lock.",
+      "The fix removes lockless allocation checks from callers and takes pool->lock inside snd_seq_pool_poll_wait()."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct snd_seq_pool::total_elements",
+    "access_a": {
+      "function": "snd_seq_write_pool_allocated",
+      "file": "sound/core/seq/seq_clientmgr.c",
+      "line": 95,
+      "kind": "read",
+      "code": "snd_seq_total_cells(client->pool) > 0"
+    },
+    "access_b": {
+      "function": "snd_seq_pool_init",
+      "file": "sound/core/seq/seq_memory.c",
+      "line": 469,
+      "kind": "write",
+      "code": "pool->total_elements = pool->size;"
+    },
+    "required_ordering": "Poll-side reads of pool availability must be serialized with pool initialization by pool->lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct snd_seq_pool::total_elements",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This allocation counter is read by snd_seq_write_pool_allocated() and written by snd_seq_pool_init() during pool setup.",
+    "aliases": [
+      {
+        "name": "client->pool",
+        "function": "snd_seq_poll",
+        "file": "sound/core/seq/seq_clientmgr.c",
+        "evidence": "file->private_data is the snd_seq_client"
+      },
+      {
+        "name": "pool",
+        "function": "snd_seq_pool_init",
+        "file": "sound/core/seq/seq_memory.c",
+        "evidence": "ioctl path passes client->pool"
+      },
+      {
+        "name": "pool->total_elements",
+        "function": "snd_seq_total_cells",
+        "file": "sound/core/seq/seq_memory.h",
+        "evidence": "inline total-cells accessor"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "file->private_data",
+          "to": "client -> client->pool -> total_elements",
+          "evidence": "poll path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "ioctl client lookup",
+          "to": "client -> client->pool -> snd_seq_pool_init(pool) -> total_elements",
+          "evidence": "ioctl resize/init path"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "snd_seq_write_pool_allocated",
+        "file": "sound/core/seq/seq_clientmgr.c",
+        "line": 95,
+        "kind": "read",
+        "code": "snd_seq_total_cells(client->pool)"
+      },
+      {
+        "function": "snd_seq_pool_init",
+        "file": "sound/core/seq/seq_memory.c",
+        "line": 469,
+        "kind": "write",
+        "code": "pool->total_elements = pool->size;"
+      },
+      {
+        "function": "snd_seq_pool_poll_wait",
+        "file": "sound/core/seq/seq_memory.c",
+        "line": 430,
+        "kind": "read",
+        "code": "snd_seq_output_ok(pool)"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "snd_seq_pool_new() allocates the pool object"
+      ],
+      "published_by": [
+        "snd_seq_client stores pool in client->pool"
+      ],
+      "invalidated_by": [
+        "snd_seq_pool_done() clears ptr/free/total_elements"
+      ],
+      "freed_by": [
+        "snd_seq_pool_delete() frees the pool"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "sound/core/seq/seq_clientmgr.c",
+      "sound/core/seq/seq_memory.c",
+      "sound/core/seq/seq_memory.h"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "seq_clientmgr.c defines the poll/ioctl entries and caller-side reads; seq_memory.c/h define pool initialization and inline pool counters.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 13,
+    "src_file_count_after": 13,
+    "compiled_files": [
+      "sound/core/seq/seq_memory.c",
+      "sound/core/seq/seq_clientmgr.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "seq_memory.ll",
+      "seq_clientmgr.ll"
+    ],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 162
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Removed snd_seq_write_pool_allocated() checks from poll callers; added guard(spinlock_irq)(&pool->lock) in snd_seq_pool_poll_wait()."
+    ],
+    "indirect_edges": [
+      "snd_seq_f_ops .poll = snd_seq_poll and .unlocked_ioctl = snd_seq_ioctl."
+    ],
+    "entry_discovery_log": [
+      "merged.ll contains snd_seq_poll, snd_seq_pool_init, snd_seq_pool_poll_wait, snd_seq_write_pool_allocated, and snd_seq_kernel_client_write_poll."
+    ],
+    "repair_commands": [],
+    "notes": []
+  }
+}

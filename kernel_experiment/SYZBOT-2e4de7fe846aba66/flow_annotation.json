@@ -1,0 +1,227 @@
+{
+  "bug_id": "SYZBOT-2e4de7fe846aba66",
+  "status": "complete",
+  "summary": "TUN write-side GRO frags and busy-poll polling concurrently manipulate/read the same NAPI GRO normal list state.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "TUN write GRO producer",
+      "entry": {
+        "function": "tun_chr_write_iter",
+        "file": "drivers/net/tun.c",
+        "kind": "file_operation_write_iter"
+      },
+      "call_chain": [
+        {
+          "function": "tun_chr_write_iter",
+          "file": "drivers/net/tun.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "tun file write_iter"
+        },
+        {
+          "function": "tun_get_user",
+          "file": "drivers/net/tun.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "copies user packet into TUN"
+        },
+        {
+          "function": "napi_gro_frags",
+          "file": "net/core/dev.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "GRO frags path"
+        },
+        {
+          "function": "gro_normal_list",
+          "file": "net/core/dev.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "flushes normal GRO list"
+        }
+      ],
+      "bug_site": {
+        "function": "gro_normal_list",
+        "file": "net/core/dev.c",
+        "line": 5809,
+        "code": "if (!napi->rx_count)"
+      }
+    },
+    "thread_b": {
+      "role": "busy-poll reader",
+      "entry": {
+        "function": "napi_busy_loop",
+        "file": "net/core/dev.c",
+        "kind": "busy_poll_task"
+      },
+      "call_chain": [
+        {
+          "function": "napi_busy_loop",
+          "file": "net/core/dev.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "busy poll finds the NAPI object by id"
+        },
+        {
+          "function": "gro_normal_list",
+          "file": "net/core/dev.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "busy-poll path also flushes/reads GRO normal list"
+        }
+      ],
+      "bug_site": {
+        "function": "gro_normal_list",
+        "file": "net/core/dev.c",
+        "line": 5809,
+        "code": "if (!napi->rx_count)"
+      }
+    },
+    "interleaving": [
+      "TUN registers tfile->napi with netif_napi_add(), making it visible to busy polling.",
+      "A writev path calls napi_gro_frags(&tfile->napi), which updates the GRO normal list state.",
+      "Another task in napi_busy_loop can poll the same NAPI and call gro_normal_list() concurrently; the fix uses netif_tx_napi_add() to change synchronization/visibility."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct napi_struct::rx_count / rx_list",
+    "access_a": {
+      "function": "gro_normal_list",
+      "file": "net/core/dev.c",
+      "line": 5809,
+      "kind": "write",
+      "code": "gro_normal_list(napi) consumes and resets the normal GRO list/count"
+    },
+    "access_b": {
+      "function": "napi_busy_loop",
+      "file": "net/core/dev.c",
+      "line": 6348,
+      "kind": "read",
+      "code": "gro_normal_list(napi) from busy poll reads the same NAPI list/count"
+    },
+    "required_ordering": "TUN NAPI used for transmit-side GRO frags must not be exposed to regular busy-poll polling via netif_napi_add()."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct tun_file::napi.rx_count",
+    "object_kind": "struct_field",
+    "confidence": "medium",
+    "why_relevant": "KCSAN reports gro_normal_list/napi_busy_loop on the NAPI GRO normal list; the concrete shared state is the embedded NAPI rx_count/rx_list reached through tfile->napi.",
+    "aliases": [
+      {
+        "name": "&tfile->napi",
+        "function": "tun_get_user",
+        "file": "drivers/net/tun.c",
+        "evidence": "napi_gro_frags(&tfile->napi)"
+      },
+      {
+        "name": "napi",
+        "function": "napi_busy_loop",
+        "file": "net/core/dev.c",
+        "evidence": "busy poll obtains a registered napi_struct by napi_id"
+      },
+      {
+        "name": "napi->rx_count",
+        "function": "gro_normal_list",
+        "file": "net/core/dev.c",
+        "evidence": "GRO normal list uses rx_count as the list occupancy field"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "tun file private data",
+          "to": "tfile -> tfile->napi -> rx_count/rx_list",
+          "evidence": "write path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "napi_id lookup",
+          "to": "registered napi_struct -> same tfile->napi -> rx_count/rx_list",
+          "evidence": "busy-poll path"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "napi_gro_frags",
+        "file": "net/core/dev.c",
+        "line": 5990,
+        "kind": "use",
+        "code": "napi_frags_finish(... gro_normal_list ...)"
+      },
+      {
+        "function": "napi_busy_loop",
+        "file": "net/core/dev.c",
+        "line": 6348,
+        "kind": "read",
+        "code": "gro_normal_list(napi)"
+      },
+      {
+        "function": "tun_napi_init",
+        "file": "drivers/net/tun.c",
+        "line": 316,
+        "kind": "publish",
+        "code": "netif_napi_add(tun->dev, &tfile->napi, tun_napi_poll, ...)"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "tun_attach/tun_napi_init initializes embedded tfile->napi"
+      ],
+      "published_by": [
+        "netif_napi_add() registers the NAPI object for polling"
+      ],
+      "invalidated_by": [
+        "netif_napi_del()/tun detach"
+      ],
+      "freed_by": [
+        "tun_file teardown after references drain"
+      ]
+    },
+    "notes": [
+      "Confidence is medium because the patch changes registration policy rather than directly annotating a single field, but the report and functions point to NAPI GRO list state."
+    ]
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "drivers/net/tun.c",
+      "net/core/dev.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "tun.c defines registration and TUN write entry; dev.c defines napi_gro_frags, gro_normal_list, netif_napi_add, and napi_busy_loop.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 4,
+    "src_file_count_after": 4,
+    "compiled_files": [
+      "net/core/dev.c",
+      "drivers/net/tun.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "dev.ll",
+      "tun.ll"
+    ],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 1100
+  },
+  "evidence": {
+    "patch_hunks": [
+      "tun_napi_init() changed netif_napi_add() to netif_tx_napi_add()."
+    ],
+    "indirect_edges": [
+      "tun_chr_fops .write_iter = tun_chr_write_iter; netif_napi_add registered tfile->napi for busy-poll lookup."
+    ],
+    "entry_discovery_log": [
+      "merged.ll contains tun_chr_write_iter, tun_get_user, tun_napi_init, napi_gro_frags, gro_normal_list, and napi_busy_loop."
+    ],
+    "repair_commands": [],
+    "notes": []
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-417aeb05fd190f3a",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __unmap_hugepage_range / alloc_surplus_hugetlb_folio",
+  "description": "KCSAN: data-race in __unmap_hugepage_range / alloc_surplus_hugetlb_folio",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__unmap_hugepage_range",
+    "fn_b": "alloc_surplus_hugetlb_folio"
+  },
+  "fix_commit": "21cc2b5c5062a256ae9064442d37ebbc23f5aef7",
+  "affected_files": [
+    "mm/hugetlb.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "mm/hugetlb.c",
+      "changed_lines": [
+        "-\tbool adjust_reservation = false;",
+        "+\tbool adjust_reservation;",
+        "+\t\tspin_unlock(ptl);",
+        "+\t\tadjust_reservation = false;",
+        "+",
+        "+\t\tspin_lock_irq(&hugetlb_lock);",
+        "-",
+        "-\t\tspin_unlock(ptl);",
+        "+\t\tspin_unlock_irq(&hugetlb_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 5851,
+          "new_start": 5851
+        },
+        {
+          "old_start": 5944,
+          "new_start": 5944
+        },
+        {
+          "old_start": 5951,
+          "new_start": 5952
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-417aeb05fd190f3a/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-417aeb05fd190f3a/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-417aeb05fd190f3a"
+}

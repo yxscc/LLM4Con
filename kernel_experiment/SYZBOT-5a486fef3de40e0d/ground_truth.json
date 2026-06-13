@@ -1,0 +1,32 @@
+{
+  "cve_id": "SYZBOT-5a486fef3de40e0d",
+  "fix_commit": "e358e09a894dbcd51fdbbcf62bec1df249915834",
+  "files": [
+    "io_uring/register.c",
+    "io_uring/rsrc.c"
+  ],
+  "description": "KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)",
+  "cwes": [],
+  "title": "KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__se_sys_io_uring_register",
+    "fn_b": "io_sqe_files_register"
+  },
+  "two_threads_summary": "KCSAN-reported two-context race. KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register (3)",
+  "audit_notes": "Reviewed NEEDS_REVIEW. Subject: 'io_uring: protect register tracing'. Real synchronization fix.",
+  "fix_commit_message": "e358e09a894dbcd51fdbbcf62bec1df249915834\nio_uring: protect register tracing\n\nSyz reports:\n\nBUG: KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register\n\nread-write to 0xffff8881021940b8 of 4 bytes by task 5923 on cpu 1:\n io_sqe_files_register+0x2c4/0x3b0 io_uring/rsrc.c:713\n __io_uring_register io_uring/register.c:403 [inline]\n __do_sys_io_uring_register io_uring/register.c:611 [inline]\n __se_sys_io_uring_register+0x8d0/0x1280 io_uring/register.c:591\n __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591\n x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428\n do_syscall_x64 arch/x86/entry/common.c:52 [inline]\n do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83\n entry_SYSCALL_64_after_hwframe+0x77/0x7f\n\nread to 0xffff8881021940b8 of 4 bytes by task 5924 on cpu 0:\n __do_sys_io_uring_register io_uring/register.c:613 [inline]\n __se_sys_io_uring_register+0xe4a/0x1280 io_uring/register.c:591\n __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591\n x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428\n do_syscall_x64 arch/x86/entry/common.c:52 [inline]\n do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83\n entry_SYSCALL_64_after_hwframe+0x77/0x7f\n\nWhich should be due to reading the table size after unlock. We don't\ncare much as it's just to print it in trace, but we might as well do it\nunder the lock.\n\nReported-by: syzbot+5a486fef3de40e0d8c76@syzkaller.appspotmail.com\nSigned-off-by: Pavel Begunkov <asml.silence@gmail.com>\nLink: https://lore.kernel.org/r/8233af2886a37b57f79e444e3db88fcfda1817ac.1731942203.git.asml.silence@gmail.com\nSigned-off-by: Jens Axboe <axboe@kernel.dk>",
+  "patch": "commit e358e09a894dbcd51fdbbcf62bec1df249915834\nAuthor: Pavel Begunkov <asml.silence@gmail.com>\nDate:   Mon Nov 18 15:14:50 2024 +0000\n\n    io_uring: protect register tracing\n    \n    Syz reports:\n    \n    BUG: KCSAN: data-race in __se_sys_io_uring_register / io_sqe_files_register\n    \n    read-write to 0xffff8881021940b8 of 4 bytes by task 5923 on cpu 1:\n     io_sqe_files_register+0x2c4/0x3b0 io_uring/rsrc.c:713\n     __io_uring_register io_uring/register.c:403 [inline]\n     __do_sys_io_uring_register io_uring/register.c:611 [inline]\n     __se_sys_io_uring_register+0x8d0/0x1280 io_uring/register.c:591\n     __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591\n     x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428\n     do_syscall_x64 arch/x86/entry/common.c:52 [inline]\n     do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83\n     entry_SYSCALL_64_after_hwframe+0x77/0x7f\n    \n    read to 0xffff8881021940b8 of 4 bytes by task 5924 on cpu 0:\n     __do_sys_io_uring_register io_uring/register.c:613 [inline]\n     __se_sys_io_uring_register+0xe4a/0x1280 io_uring/register.c:591\n     __x64_sys_io_uring_register+0x55/0x70 io_uring/register.c:591\n     x64_sys_call+0x202/0x2d60 arch/x86/include/generated/asm/syscalls_64.h:428\n     do_syscall_x64 arch/x86/entry/common.c:52 [inline]\n     do_syscall_64+0xc9/0x1c0 arch/x86/entry/common.c:83\n     entry_SYSCALL_64_after_hwframe+0x77/0x7f\n    \n    Which should be due to reading the table size after unlock. We don't\n    care much as it's just to print it in trace, but we might as well do it\n    under the lock.\n    \n    Reported-by: syzbot+5a486fef3de40e0d8c76@syzkaller.appspotmail.com\n    Signed-off-by: Pavel Begunkov <asml.silence@gmail.com>\n    Link: https://lore.kernel.org/r/8233af2886a37b57f79e444e3db88fcfda1817ac.1731942203.git.asml.silence@gmail.com\n    Signed-off-by: Jens Axboe <axboe@kernel.dk>\n\ndiff --git a/io_uring/register.c b/io_uring/register.c\nindex 1a60f4916649..1e99c783abdf 100644\n--- a/io_uring/register.c\n+++ b/io_uring/register.c\n@@ -905,9 +905,10 @@ SYSCALL_DEFINE4(io_uring_register, unsigned int, fd, unsigned int, opcode,\n \n \tmutex_lock(&ctx->uring_lock);\n \tret = __io_uring_register(ctx, opcode, arg, nr_args);\n-\tmutex_unlock(&ctx->uring_lock);\n+\n \ttrace_io_uring_register(ctx, opcode, ctx->file_table.data.nr,\n \t\t\t\tctx->buf_table.nr, ret);\n+\tmutex_unlock(&ctx->uring_lock);\n \tif (!use_registered_ring)\n \t\tfput(file);\n \treturn ret;\n",
+  "affected_files_from_patch": [
+    "io_uring/register.c",
+    "io_uring/rsrc.c"
+  ],
+  "coverage_augmentation": {
+    "added_files": [
+      "io_uring/rsrc.c"
+    ],
+    "rationale": "08_verify_coverage.py reported these source files as defining the audit-identified racing function whose body was not in the original compiled bitcode. Adding them so Lace can observe both sides of the race."
+  }
+}

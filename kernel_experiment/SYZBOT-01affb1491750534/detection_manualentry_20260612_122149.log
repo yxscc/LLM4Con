@@ -1,0 +1,224 @@
+[manual-entry] case=SYZBOT-01affb1491750534 roots=['worker_thread'] bc=workqueue.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 296511MB)
+InputSrcDir: src
+InputBCFileName: workqueue.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 296511MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 171MB, Avail: 295962MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 171MB, Avail: 295957MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 11 init/exit section, 37 EXPORT_SYMBOL, 0 syscall wrapper, 18 ops-table member, 17 indirect-fork sink, 3 public-wrapper alias, 21 cross-TU public (103 unique function(s))
+[Auto-Entry Cross-TU] +21 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 103 kernel entry point(s):
+  - wq_worker_sleeping
+  - disable_work
+  - workqueue_softirq_dead
+  - rcu_free_wq
+  - wq_worker_last_func
+  - wq_cpumask_show
+  - set_worker_desc
+  - __cancel_work_sync
+  - __flush_work
+  - wq_watchdog_timer_fn
+  - wq_sysfs_init
+  - destroy_workqueue
+  - work_for_cpu_fn
+  - drain_dead_softirq_workfn
+  - freeze_workqueues_begin
+  - rcu_free_pool
+  - rescuer_thread
+  - cpumask_isolated_show
+  - cpumask_requested_show
+  - cpumask_show
+  ... and 83 more
+[Auto-Entry Diag] strong+reachable=4 (ops/init-only prunable=4)
+[Auto-Entry Tiering] thread roots: 89/103 (strong=43, weak_kept=46, broad_mode=off, broad_added=0, weak_pruned_reachable=12, weak_pruned_no_strong_conflict=2, weak_pruned_total=14)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 394/394 functions...
+[Phasar] Location maps built. Total functions: 394
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 176MB, Avail: 296247MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 176MB, Avail: 296247MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 176MB, Avail: 296247MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 176MB, Avail: 296247MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "wq_worker_sleeping", fileName: "kernel/workqueue.c", lineNumber: 1419, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=wq_worker_sleeping, fileName=kernel/workqueue.c, fileName_last=workqueue.c, lineNumber=1419
+[DEBUG getMain] methods from full path: 228
+[DEBUG getMain] Iterating 228 methods
+[DEBUG getMain] Checking method: name=for_each_bh_worker_pool, line=544
+[DEBUG getMain] Checking method: name=BH_WORKER_RESTARTS, line=137
+[DEBUG getMain] Checking method: name=for_each_pwq, line=598
+[DEBUG getMain] Checking method: name=LIST_HEAD, line=446
+[DEBUG getMain] Checking method: name=DEFINE_MUTEX, line=440
+[DEBUG getMain] Checking method: name=BH_WORKER_JIFFIES, line=136
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU, line=465
+[DEBUG getMain] Checking method: name=maybe_create_worker, line=3052
+[DEBUG getMain] Checking method: name=assert_rcu_or_pool_mutex, line=533
+[DEBUG getMain] Checking method: name=workqueue_unbound_cpus_setup, line=8060
+[DEBUG getMain] Checking method: name=for_each_pool, line=566
+[DEBUG getMain] Checking method: name=__warn_flushing_systemwide_wq, line=8053
+[DEBUG getMain] Checking method: name=workqueue_init_topology, line=8021
+[DEBUG getMain] Checking method: name=cpus_share_numa, line=8009
+[DEBUG getMain] Checking method: name=cpus_dont_share, line=7995
+[DEBUG getMain] Checking method: name=init_pod_type, line=7957
+[DEBUG getMain] Checking method: name=workqueue_init_early, line=7745
+[DEBUG getMain] Checking method: name=init_cpu_worker_pool, line=7719
+[DEBUG getMain] Checking method: name=restrict_unbound_cpumask, line=7708
+[DEBUG getMain] Checking method: name=bh_pool_kick_highpri, line=7703
+[DEBUG getMain] Checking method: name=workqueue_sysfs_unregister, line=7461
+[DEBUG getMain] Checking method: name=wq_affn_dfl_set, line=6990
+[DEBUG getMain] Checking method: name=workqueue_unbound_exclude_cpumask, line=6949
+[DEBUG getMain] Checking method: name=workqueue_apply_unbound_cpumask, line=6906
+[DEBUG getMain] Checking method: name=wq_worker_comm, line=6456
+[DEBUG getMain] Checking method: name=wq_affn_dfl_get, line=7017
+[DEBUG getMain] Checking method: name=show_one_worker_pool, line=6363
+[DEBUG getMain] Checking method: name=show_one_workqueue, line=6319
+[DEBUG getMain] Checking method: name=pr_cont_work, line=6223
+[DEBUG getMain] Checking method: name=print_worker_info, line=6135
+[DEBUG getMain] Checking method: name=set_worker_desc, line=6109
+[DEBUG getMain] Checking method: name=work_busy, line=6076
+[DEBUG getMain] Checking method: name=workqueue_congested, line=6044
+[DEBUG getMain] Checking method: name=current_is_workqueue_rescuer, line=6018
+[DEBUG getMain] Checking method: name=current_work, line=6002
+[DEBUG getMain] Checking method: name=show_all_workqueues, line=6413
+[DEBUG getMain] Checking method: name=workqueue_set_min_active, line=5981
+[DEBUG getMain] Checking method: name=init_rescuer, line=5554
+[DEBUG getMain] Checking method: name=bh_pool_kick_normal, line=7698
+[DEBUG getMain] Checking method: name=unbound_wq_update_pwq, line=5421
+[DEBUG getMain] Checking method: name=show_pwq, line=6240
+[DEBUG getMain] Checking method: name=apply_workqueue_attrs_locked, line=5355
+[DEBUG getMain] Checking method: name=DEFINE_HASHTABLE, line=491
+[DEBUG getMain] Checking method: name=parse_affn_scope, line=6979
+[DEBUG getMain] Checking method: name=apply_wqattrs_commit, line=5329
+[DEBUG getMain] Checking method: name=apply_wqattrs_prepare, line=5259
+[DEBUG getMain] Checking method: name=<clinit>, line=5234
+[DEBUG getMain] Checking method: name=apply_wqattrs_unlock, line=5182
+[DEBUG getMain] Checking method: name=alloc_unbound_pwq, line=5155
+[DEBUG getMain] Checking method: name=link_pwq, line=5137
+[DEBUG getMain] Checking method: name=pwq_release_workfn, line=5064
+[DEBUG getMain] Checking method: name=wq_cpu_intensive_thresh_init, line=7851
+[DEBUG getMain] Checking method: name=alloc_and_link_pwqs, line=5471
+[DEBUG getMain] Checking method: name=put_unbound_pool, line=4927
+[DEBUG getMain] Checking method: name=DEFINE_RAW_SPINLOCK, line=442
+[DEBUG getMain] Checking method: name=rcu_free_pool, line=4907
+[DEBUG getMain] Checking method: name=rcu_free_wq, line=4893
+[DEBUG getMain] Checking method: name=alloc_node_nr_active, line=4866
+[DEBUG getMain] Checking method: name=wq_clamp_max_active, line=5540
+[DEBUG getMain] Checking method: name=init_node_nr_active, line=4854
+[DEBUG getMain] Checking method: name=free_node_nr_active, line=4841
+[DEBUG getMain] Checking method: name=wq_init_lockdep, line=4828
+[DEBUG getMain] Checking method: name=cpus_share_smt, line=8000
+[DEBUG getMain] Checking method: name=wqattrs_actualize_cpumask, line=4710
+[DEBUG getMain] Checking method: name=wqattrs_clear_for_pool, line=4671
+[DEBUG getMain] Checking method: name=alloc_workqueue_attrs, line=4630
+[DEBUG getMain] Checking method: name=schedule_on_each_cpu, line=4555
+[DEBUG getMain] Checking method: name=unplug_oldest_pwq, line=1824
+[DEBUG getMain] Checking method: name=pwq_is_empty, line=1668
+[DEBUG getMain] Checking method: name=EXPORT_SYMBOL, line=507
+[DEBUG getMain] Checking method: name=for_each_cpu_worker_pool, line=549
+[DEBUG getMain] Checking method: name=cancel_work, line=4375
+[DEBUG getMain] Checking method: name=execute_in_process_context, line=4593
+[DEBUG getMain] Checking method: name=put_pwq_unlocked, line=1655
+[DEBUG getMain] Checking method: name=pwq_activate_first_inactive, line=1788
+[DEBUG getMain] Checking method: name=apply_workqueue_attrs, line=5390
+[DEBUG getMain] Checking method: name=find_worker_executing_work, line=1109
+[DEBUG getMain] Checking method: name=pr_cont_worker_id, line=6184
+[DEBUG getMain] Checking method: name=get_pwq, line=1623
+[DEBUG getMain] Checking method: name=set_work_pool_and_keep_pending, line=799
+[DEBUG getMain] Checking method: name=__queue_delayed_work, line=2491
+[DEBUG getMain] Checking method: name=wq_worker_sleeping, line=1419
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 1 configured thread root(s): worker_thread
+[Kernel Module Mode] Adding 1 thread-root entry points as parallel entries
+  - Looking for: worker_thread -> demangled: worker_thread -> shortName: worker_thread [signals=manual]
+  - Found in CPG: worker_thread at kernel/workqueue.c:3345
+  - Added entry: worker_thread
+[Kernel Module Mode] Total entry functions: 1
+[Thread Entry] mod_timer - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 1 entry points as parallel threads
+[Thread Entry] mod_timer - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+[Kernel Module Mode] Keeping all 1 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 176MB, Avail: 296248MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 176MB, Avail: 296248MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 1 threads...
+[VulnerabilitySurface] Collected 84 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 64 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 2 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 1722 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] IR-walk fallback added 4 stats[] counter RMW accesses in non-empty threads
+[VulnerabilitySurface] Discovered 15 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 20 list-helper accesses (cluster-A fix; +5 bridged head-side deletes; +1 actual-formal field aliases)
+[VulnerabilitySurface] Modeled 22 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 22 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 22 shared objects (22 high risk, 0 medium risk)
+
+  Threads: 1, Conflicting pairs: 932, Shared objects: 22
+
+[Phase 2.5: Object Triage] candidates=22
+  -> keeping 22/22 objects for interleaving
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=22, mhp_pairs=22, conflict_pairs=22, self_race_threads=0, candidate_threads=2
+
+[Phase A: Per-Thread Contracts] threads=2
+  [contract-parallel] workers=2
+  [contract 1/2 w0] thread 0 objects=20
+  [contract-parallel] generated 1/2 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=3
+  [session 1/3] candidates hi=10 med=0 low=0 (discharged=0) -> calibrate
+  [session 2/3] candidates hi=9 med=0 low=0 (discharged=0) -> calibrate
+  [session 3/3] no surviving candidate (discharged=1) -- skip
+  [dedup] 0 -> 0 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 0 hypotheses (calibrated 2 sessions over 3 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 177MB, Avail: 295881MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 177MB, Avail: 295881MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+No bugs detected.
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 177MB, Avail: 295881MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 280 seconds
+LLM API Requests: 19
+Total Prompt Tokens: 282004
+Total Completion Tokens: 8809
+Total Tokens: 290813
+==========================================

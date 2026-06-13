@@ -1,0 +1,17 @@
+{
+  "commit": "15e4dabda11b0fa31d510a915d1a580f47dfc92e",
+  "user_seeds": [
+    "net/kcm/kcmsock.c"
+  ],
+  "patch_files": [
+    "net/kcm/kcmsock.c"
+  ],
+  "changed_symbols_sample": [
+    "rx_psock",
+    "rx_wait"
+  ],
+  "expanded": [
+    "net/kcm/kcmsock.c"
+  ],
+  "added_by_expander": {}
+}

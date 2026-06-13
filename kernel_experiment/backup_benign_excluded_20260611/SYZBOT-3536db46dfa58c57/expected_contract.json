@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-3536db46dfa58c57",
+  "shared_object": "struct bpf_lru_node::type",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "LRU pop/move writer",
+    "entry": "bpf_lru_pop_free",
+    "clause": {
+      "resource": "struct bpf_lru_node::type",
+      "sites": [
+        {"function": "__bpf_lru_node_move_in", "file": "kernel/bpf/bpf_lru_list.c", "line": 91, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(local/global LRU list lock, [node->type write])"]
+    }
+  },
+  "thread_b": {
+    "role": "LRU push/free reader (double-check)",
+    "entry": "bpf_lru_push_free",
+    "clause": {
+      "resource": "struct bpf_lru_node::type",
+      "sites": [
+        {"function": "bpf_common_lru_push_free", "file": "kernel/bpf/bpf_lru_list.c", "line": 507, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(node->type)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(node->type)]) from thread_b (its lockless double-check read of the 1-byte type field must not interleave with a conflicting write)",
+    "violating_event": "e@__bpf_lru_node_move_in:91 = mutate(node->type = tgt_type) from thread_a",
+    "missing_guarantee": "thread_a writes node->type while holding the LRU list lock, but thread_b reads node->type BEFORE acquiring that lock (the double-check); the writer's lock does not cover the reader's lockless read → no g establishes atomic(read)",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic over a single read; an unmarked concurrent read of a byte being written → data race (fixed by marking the access)"
+  },
+
+  "fix_maps_to": "u8 node_type = READ_ONCE(node->type) snapshot taken once before the lockless checks → marks the access so the read is a single well-defined access (establishes atomic(read) at the C-memory-model level), removing the data race; revalidation still occurs under the lock",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Clean unprotected-read-vs-locked-write race; the reader's missing protection yields atomic(read) directly. Risk: this is a double-checked-locking optimization where the value IS re-validated under the lock afterwards, so an LLM may judge the lockless read benign/intentional and ADD an order/serialize guarantee (or reject the assume), suppressing the report. Object identity (same node across pop and push paths) is easy to ground (single file, same struct field).",
+
+  "confidence": "medium",
+  "needs_human_review": false
+}

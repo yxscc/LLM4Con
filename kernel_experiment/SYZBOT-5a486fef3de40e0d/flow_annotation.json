@@ -1,0 +1,239 @@
+{
+  "bug_id": "SYZBOT-5a486fef3de40e0d",
+  "status": "complete",
+  "summary": "Concurrent io_uring_register syscalls race between file-table registration and post-unlock trace reads of the registered table size.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "io_uring file registration updates table size",
+      "entry": {
+        "function": "__x64_sys_io_uring_register",
+        "file": "io_uring/register.c",
+        "kind": "syscall"
+      },
+      "call_chain": [
+        {
+          "function": "__x64_sys_io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines syscall wrapper."
+        },
+        {
+          "function": "__se_sys_io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "__io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "dispatches IORING_REGISTER_FILES."
+        },
+        {
+          "function": "io_sqe_files_register",
+          "file": "io_uring/rsrc.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "race write side."
+        }
+      ],
+      "bug_site": {
+        "function": "io_sqe_files_register",
+        "file": "io_uring/rsrc.c",
+        "line": 541,
+        "kind": "write",
+        "code": "io_file_table_set_alloc_range(ctx, 0, ctx->file_table.data.nr);"
+      }
+    },
+    "thread_b": {
+      "role": "io_uring_register trace reads table size",
+      "entry": {
+        "function": "__x64_sys_io_uring_register",
+        "file": "io_uring/register.c",
+        "kind": "syscall"
+      },
+      "call_chain": [
+        {
+          "function": "__x64_sys_io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines syscall wrapper."
+        },
+        {
+          "function": "__se_sys_io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "KCSAN stack."
+        },
+        {
+          "function": "__io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "returns before trace."
+        },
+        {
+          "function": "trace_io_uring_register",
+          "file": "io_uring/register.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "trace call reads ctx->file_table.data.nr in caller."
+        }
+      ],
+      "bug_site": {
+        "function": "io_uring_register",
+        "file": "io_uring/register.c",
+        "line": 909,
+        "kind": "read",
+        "code": "trace_io_uring_register(ctx, opcode, ctx->file_table.data.nr, ctx->buf_table.nr, ret);"
+      }
+    },
+    "interleaving": [
+      "One syscall registers fixed files while holding ctx->uring_lock and updates file_table metadata.",
+      "Another syscall drops ctx->uring_lock, then reads ctx->file_table.data.nr only for trace output.",
+      "The fix moves the trace call before mutex_unlock so the read is protected."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "ctx->file_table.data.nr",
+    "access_a": {
+      "function": "io_sqe_files_register",
+      "file": "io_uring/rsrc.c",
+      "line": 541,
+      "kind": "write",
+      "code": "ctx->file_table.data.nr"
+    },
+    "access_b": {
+      "function": "io_uring_register",
+      "file": "io_uring/register.c",
+      "line": 909,
+      "kind": "read",
+      "code": "ctx->file_table.data.nr"
+    },
+    "required_ordering": "The trace read of file table size must remain under ctx->uring_lock while registration can mutate the table."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct io_ring_ctx::file_table.data.nr",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This table-size field is registration state shared by io_uring_register operations; the vulnerable trace read used it after dropping the mutex.",
+    "aliases": [
+      {
+        "name": "ctx->file_table.data.nr",
+        "function": "io_sqe_files_register",
+        "file": "io_uring/rsrc.c",
+        "evidence": "Registration rejects existing table and sets allocation range from the nr field."
+      },
+      {
+        "name": "ctx->file_table.data.nr",
+        "function": "io_uring_register",
+        "file": "io_uring/register.c",
+        "evidence": "Trace call reads it after unlock in vulnerable code."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "fd -> file->private_data",
+          "to": "ctx -> file_table.data.nr",
+          "evidence": "io_uring_register obtains ctx from file->private_data."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "same registered ring fd",
+          "to": "ctx -> trace_io_uring_register argument ctx->file_table.data.nr",
+          "evidence": "same syscall path."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "io_sqe_files_register",
+        "file": "io_uring/rsrc.c",
+        "line": 487,
+        "kind": "read",
+        "code": "if (ctx->file_table.data.nr)"
+      },
+      {
+        "function": "io_sqe_files_register",
+        "file": "io_uring/rsrc.c",
+        "line": 541,
+        "kind": "use",
+        "code": "ctx->file_table.data.nr"
+      },
+      {
+        "function": "io_uring_register",
+        "file": "io_uring/register.c",
+        "line": 909,
+        "kind": "read",
+        "code": "ctx->file_table.data.nr"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "io_uring context allocation before fd publication"
+      ],
+      "published_by": [
+        "io_uring fd exposes file->private_data ctx"
+      ],
+      "invalidated_by": [
+        "io_sqe_files_unregister frees file tables"
+      ],
+      "freed_by": [
+        "io ring teardown frees ctx"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "io_uring/register.c",
+      "io_uring/rsrc.c",
+      "io_uring/register.h",
+      "io_uring/rsrc.h",
+      "io_uring/io_uring.h",
+      "io_uring/filetable.h"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "Both syscall entry and registration mutation functions are in source and merged.ll.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 38,
+    "src_file_count_after": 38,
+    "compiled_files": [
+      "io_uring/register.c",
+      "io_uring/rsrc.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "register.ll",
+      "rsrc.ll"
+    ],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 129
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Patch keeps trace_io_uring_register under ctx->uring_lock."
+    ],
+    "indirect_edges": [
+      "SYSCALL_DEFINE4(io_uring_register) calls __io_uring_register; IORING_REGISTER_FILES dispatches to io_sqe_files_register."
+    ],
+    "entry_discovery_log": [],
+    "repair_commands": [],
+    "notes": [
+      "merged.ll contains __x64_sys_io_uring_register, __se_sys_io_uring_register, __io_uring_register, and io_sqe_files_register."
+    ]
+  }
+}

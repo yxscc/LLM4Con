@@ -1,0 +1,208 @@
+{
+  "bug_id": "SYZBOT-35301db28c64310d",
+  "status": "complete",
+  "summary": "Multiple MACsec RX/TX contexts update shared net_device stats counters with non-atomic increments.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "MACsec RX handler on one CPU",
+      "entry": {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "kind": "rx_handler"
+      },
+      "call_chain": [
+        {
+          "function": "macsec_handle_frame",
+          "file": "drivers/net/macsec.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "registered with netdev_rx_handler_register"
+        },
+        {
+          "function": "macsec_post_decrypt",
+          "file": "drivers/net/macsec.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "drop/error accounting after decrypt"
+        }
+      ],
+      "bug_site": {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "line": 1182,
+        "code": "secy->netdev->stats.rx_errors++;"
+      }
+    },
+    "thread_b": {
+      "role": "MACsec RX/TX handler on another CPU",
+      "entry": {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "kind": "rx_handler"
+      },
+      "call_chain": [
+        {
+          "function": "macsec_handle_frame",
+          "file": "drivers/net/macsec.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "same RX handler can run concurrently on another CPU"
+        }
+      ],
+      "bug_site": {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "line": 1233,
+        "code": "macsec->secy.netdev->stats.rx_dropped++;"
+      }
+    },
+    "interleaving": [
+      "MACsec registers macsec_handle_frame as the lower-device RX handler.",
+      "Two CPUs can process packets for the same MACsec net_device concurrently.",
+      "Both update dev->stats rx/tx fields with plain increments; the fix uses DEV_STATS_INC()/atomic reads."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct net_device::stats.rx_dropped/rx_errors/tx_dropped",
+    "access_a": {
+      "function": "macsec_handle_frame",
+      "file": "drivers/net/macsec.c",
+      "line": 1182,
+      "kind": "write",
+      "code": "secy->netdev->stats.rx_errors++;"
+    },
+    "access_b": {
+      "function": "macsec_handle_frame",
+      "file": "drivers/net/macsec.c",
+      "line": 1233,
+      "kind": "write",
+      "code": "macsec->secy.netdev->stats.rx_dropped++;"
+    },
+    "required_ordering": "Per-device stats increments from concurrent packet paths must use SMP-safe DEV_STATS_INC()/atomic counters."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct net_device::stats rx/tx counters",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The patched plain increments target shared net_device stats fields that can be updated from multiple packet-processing CPUs.",
+    "aliases": [
+      {
+        "name": "secy->netdev",
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "evidence": "SecY object points to MACsec net_device"
+      },
+      {
+        "name": "macsec->secy.netdev",
+        "function": "handle_not_macsec",
+        "file": "drivers/net/macsec.c",
+        "evidence": "macsec private object embeds secy with netdev"
+      },
+      {
+        "name": "dev->stats",
+        "function": "macsec_start_xmit",
+        "file": "drivers/net/macsec.c",
+        "evidence": "TX path uses the MACsec net_device directly"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "rx_handler skb",
+          "to": "skb device -> macsec rx handler -> macsec/secy -> netdev->stats",
+          "evidence": "RX path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "concurrent rx_handler or ndo_start_xmit",
+          "to": "macsec/secy/dev -> netdev->stats",
+          "evidence": "second packet context"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "line": 1182,
+        "kind": "write",
+        "code": "secy->netdev->stats.rx_errors++"
+      },
+      {
+        "function": "macsec_handle_frame",
+        "file": "drivers/net/macsec.c",
+        "line": 1233,
+        "kind": "write",
+        "code": "macsec->secy.netdev->stats.rx_dropped++"
+      },
+      {
+        "function": "macsec_start_xmit",
+        "file": "drivers/net/macsec.c",
+        "line": 3425,
+        "kind": "write",
+        "code": "dev->stats.tx_dropped++"
+      },
+      {
+        "function": "macsec_get_stats64",
+        "file": "drivers/net/macsec.c",
+        "line": 3670,
+        "kind": "read",
+        "code": "s->rx_dropped = dev->stats.rx_dropped"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "alloc_netdev for MACsec device"
+      ],
+      "published_by": [
+        "netdev_rx_handler_register(real_dev, macsec_handle_frame, rxd) and net_device ops"
+      ],
+      "invalidated_by": [
+        "netdev_rx_handler_unregister during teardown"
+      ],
+      "freed_by": [
+        "MACsec net_device unregister/free"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "drivers/net/macsec.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "macsec.c contains the rx handler, tx path, registration, and all patched stats access sites.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 1,
+    "src_file_count_after": 1,
+    "compiled_files": [
+      "drivers/net/macsec.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "macsec.ll",
+    "bitcode_input_files": [
+      "macsec.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 273
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Plain dev->stats increments replaced with DEV_STATS_INC(); stats64 reads changed to atomic_long_read of backing counters."
+    ],
+    "indirect_edges": [
+      "netdev_rx_handler_register(real_dev, macsec_handle_frame, rxd); macsec_netdev_ops .ndo_start_xmit = macsec_start_xmit."
+    ],
+    "entry_discovery_log": [
+      "macsec.ll contains macsec_handle_frame, handle_not_macsec, macsec_post_decrypt, macsec_start_xmit, and macsec_get_stats64."
+    ],
+    "repair_commands": [],
+    "notes": []
+  }
+}

@@ -1,0 +1,1588 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 362757MB)
+InputSrcDir: src
+InputBCFileName: dev.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 362764MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 340MB, Avail: 362311MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 340MB, Avail: 362311MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 1 init/exit section, 189 EXPORT_SYMBOL, 0 syscall wrapper, 11 ops-table member, 13 indirect-fork sink (214 unique function(s))
+[Auto-Entry] Total: 214 kernel entry point(s):
+  - net_rx_action
+  - net_tx_action
+  - process_backlog
+  - flush_backlog
+  - generic_xdp_install
+  - rps_trigger_softirq
+  - __netdev_update_lower_level
+  - netdev_exit
+  - netdev_notice
+  - netdev_warn
+  - netdev_info
+  - netdev_emerg
+  - netdev_increment_features
+  - __dev_change_net_namespace
+  - netdev_init
+  - synchronize_net
+  - free_netdev
+  - dev_get_tstats64
+  - dev_fetch_sw_netstats
+  - unregister_netdevice_many
+  ... and 194 more
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 840/840 functions...
+[Phasar] Location maps built. Total functions: 840
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 343MB, Avail: 362332MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 343MB, Avail: 362332MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 343MB, Avail: 362331MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 343MB, Avail: 362331MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "net_rx_action", fileName: "net/core/dev.c", lineNumber: 7151 }
+[DEBUG getMain] Looking for: funcName=net_rx_action, fileName=net/core/dev.c, fileName_last=dev.c, lineNumber=7151
+[DEBUG getMain] methods from full path: 412
+[DEBUG getMain] Iterating 412 methods
+[DEBUG getMain] Checking method: name=WAIT_REFS_MIN_MSECS, line=10479
+[DEBUG getMain] Checking method: name=WAIT_REFS_MAX_MSECS, line=10480
+[DEBUG getMain] Checking method: name=DECLARE_WAIT_QUEUE_HEAD, line=9807
+[DEBUG getMain] Checking method: name=EXPORT_SYMBOL, line=195
+[DEBUG getMain] Checking method: name=subsys_initcall, line=11703
+[DEBUG getMain] Checking method: name=N, line=1675
+[DEBUG getMain] Checking method: name=EXPORT_SYMBOL_GPL, line=732
+[DEBUG getMain] Checking method: name=net_timestamp_check, line=2151
+[DEBUG getMain] Checking method: name=DEFINE_MUTEX, line=197
+[DEBUG getMain] Checking method: name=DEFINE_SPINLOCK, line=161
+[DEBUG getMain] Checking method: name=RAW_NOTIFIER_HEAD, line=405
+[DEBUG getMain] Checking method: name=net_dev_init, line=11627
+[DEBUG getMain] Checking method: name=default_device_exit_batch, line=11576
+[DEBUG getMain] Checking method: name=netdev_notice, line=11498
+[DEBUG getMain] Checking method: name=netdev_warn, line=11497
+[DEBUG getMain] Checking method: name=netdev_err, line=11496
+[DEBUG getMain] Checking method: name=netdev_drivername, line=11424
+[DEBUG getMain] Checking method: name=netdev_init, line=11392
+[DEBUG getMain] Checking method: name=__dev_change_net_namespace, line=11157
+[DEBUG getMain] Checking method: name=unregister_netdevice_many, line=11023
+[DEBUG getMain] Checking method: name=unregister_netdevice_queue, line=11001
+[DEBUG getMain] Checking method: name=netdev_freemem, line=10778
+[DEBUG getMain] Checking method: name=netdev_set_default_ethtool_ops, line=10770
+[DEBUG getMain] Checking method: name=dev_ingress_queue_create, line=10750
+[DEBUG getMain] Checking method: name=dev_get_tstats64, line=10743
+[DEBUG getMain] Checking method: name=netdev_stats_to_stats64, line=10647
+[DEBUG getMain] Checking method: name=netdev_run_todo, line=10574
+[DEBUG getMain] Checking method: name=netdev_refcnt_read, line=10463
+[DEBUG getMain] Checking method: name=register_netdev, line=10451
+[DEBUG getMain] Checking method: name=init_dummy_netdev, line=10404
+[DEBUG getMain] Checking method: name=register_netdevice, line=10229
+[DEBUG getMain] Checking method: name=netif_alloc_netdev_queues, line=10179
+[DEBUG getMain] Checking method: name=netdev_init_one_queue, line=10160
+[DEBUG getMain] Checking method: name=netif_free_rx_queues, line=10146
+[DEBUG getMain] Checking method: name=netdev_change_features, line=10076
+[DEBUG getMain] Checking method: name=netdev_update_features, line=10059
+[DEBUG getMain] Checking method: name=netdev_exit, line=11501
+[DEBUG getMain] Checking method: name=netdev_fix_features, line=9859
+[DEBUG getMain] Checking method: name=netdev_sync_lower_features, line=9835
+[DEBUG getMain] Checking method: name=net_set_todo, line=9809
+[DEBUG getMain] Checking method: name=dev_change_xdp_fd, line=9749
+[DEBUG getMain] Checking method: name=bpf_xdp_link_update, line=9635
+[DEBUG getMain] Checking method: name=bpf_xdp_link_dealloc, line=9599
+[DEBUG getMain] Checking method: name=netdev_sync_upper_features, line=9815
+[DEBUG getMain] Checking method: name=bpf_xdp_link_detach, line=9593
+[DEBUG getMain] Checking method: name=bpf_xdp_link_release, line=9576
+[DEBUG getMain] Checking method: name=dev_xdp_detach_link, line=9557
+[DEBUG getMain] Checking method: name=dev_xdp_attach, line=9431
+[DEBUG getMain] Checking method: name=dev_xdp_install, line=9366
+[DEBUG getMain] Checking method: name=bpf_xdp_link_show_fdinfo, line=9606
+[DEBUG getMain] Checking method: name=dev_xdp_set_prog, line=9359
+[DEBUG getMain] Checking method: name=dev_xdp_set_link, line=9352
+[DEBUG getMain] Checking method: name=dev_xdp_prog_count, line=9333
+[DEBUG getMain] Checking method: name=dev_xdp_prog, line=9323
+[DEBUG getMain] Checking method: name=MAX_GRO_SKBS, line=156
+[DEBUG getMain] Checking method: name=dev_xdp_mode, line=9293
+[DEBUG getMain] Checking method: name=dev_change_proto_down_reason, line=9269
+[DEBUG getMain] Checking method: name=dev_change_proto_down_generic, line=9251
+[DEBUG getMain] Checking method: name=dev_change_proto_down, line=9231
+[DEBUG getMain] Checking method: name=netdev_port_same_parent_id, line=9210
+[DEBUG getMain] Checking method: name=dev_get_port_parent_id, line=9170
+[DEBUG getMain] Checking method: name=dev_get_phys_port_name, line=9147
+[DEBUG getMain] Checking method: name=dev_get_phys_port_id, line=9128
+[DEBUG getMain] Checking method: name=dev_get_mac_address, line=9074
+[DEBUG getMain] Checking method: name=dev_set_mac_address_user, line=9062
+[DEBUG getMain] Checking method: name=dev_set_mac_address, line=9035
+[DEBUG getMain] Checking method: name=dev_pre_changeaddr_notify, line=9012
+[DEBUG getMain] Checking method: name=dev_set_group, line=9000
+[DEBUG getMain] Checking method: name=dev_change_tx_queue_len, line=8968
+[DEBUG getMain] Checking method: name=dev_set_mtu, line=8950
+[DEBUG getMain] Checking method: name=dev_set_mtu_ext, line=8911
+[DEBUG getMain] Checking method: name=__dev_set_mtu, line=8874
+[DEBUG getMain] Checking method: name=dev_change_flags, line=8858
+[DEBUG getMain] Checking method: name=__dev_notify_flags, line=8821
+[DEBUG getMain] Checking method: name=__dev_set_rx_mode, line=8689
+[DEBUG getMain] Checking method: name=dev_set_allmulti, line=8677
+[DEBUG getMain] Checking method: name=__dev_set_allmulti, line=8633
+[DEBUG getMain] Checking method: name=dev_set_promiscuity, line=8619
+[DEBUG getMain] Checking method: name=netdev_increment_features, line=11360
+[DEBUG getMain] Checking method: name=netdev_lower_dev_get_private, line=8515
+[DEBUG getMain] Checking method: name=netdev_adjacent_rename_links, line=8490
+[DEBUG getMain] Checking method: name=netdev_adjacent_del_links, line=8465
+[DEBUG getMain] Checking method: name=netdev_adjacent_add_links, line=8440
+[DEBUG getMain] Checking method: name=netdev_sk_get_lowest_dev, line=8425
+[DEBUG getMain] Checking method: name=netdev_sk_get_lower_dev, line=8407
+[DEBUG getMain] Checking method: name=netdev_bonding_info_change, line=8370
+[DEBUG getMain] Checking method: name=netdev_adjacent_change_abort, line=8343
+[DEBUG getMain] Checking method: name=netdev_upper_dev_unlink, line=8256
+[DEBUG getMain] Checking method: name=netdev_wait_allrefs, line=10493
+[DEBUG getMain] Checking method: name=netdev_master_upper_dev_link, line=8201
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_link_neighbour, line=8072
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_link_lists, line=8039
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_insert, line=7937
+[DEBUG getMain] Checking method: name=netdev_adjacent_is_neigh_list, line=7928
+[DEBUG getMain] Checking method: name=netdev_adjacent_sysfs_del, line=7917
+[DEBUG getMain] Checking method: name=netdev_master_upper_dev_get_rcu, line=7894
+[DEBUG getMain] Checking method: name=netdev_lower_get_first_private_rcu, line=7875
+[DEBUG getMain] Checking method: name=skb_crc32c_csum_help, line=3260
+[DEBUG getMain] Checking method: name=skb_tx_hash, line=3161
+[DEBUG getMain] Checking method: name=__dev_kfree_skb_any, line=3116
+[DEBUG getMain] Checking method: name=netdev_lower_get_next_private, line=7542
+[DEBUG getMain] Checking method: name=__dev_kfree_skb_irq, line=3094
+[DEBUG getMain] Checking method: name=__netif_schedule, line=3053
+[DEBUG getMain] Checking method: name=netdev_upper_get_next_dev_rcu, line=7369
+[DEBUG getMain] Checking method: name=netif_set_real_num_queues, line=2991
+[DEBUG getMain] Checking method: name=netdev_info, line=11499
+[DEBUG getMain] Checking method: name=net_rps_action_and_irq_enable, line=6406
+[DEBUG getMain] Checking method: name=netif_set_real_num_tx_queues, line=2908
+[DEBUG getMain] Checking method: name=netdev_unbind_all_sb_channels, line=2786
+[DEBUG getMain] Checking method: name=dev_add_offload, line=619
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU_ALIGNED, line=412
+[DEBUG getMain] Checking method: name=skb_loop_sk, line=2239
+[DEBUG getMain] Checking method: name=__dev_forward_skb, line=2176
+[DEBUG getMain] Checking method: name=netif_device_attach, line=3147
+[DEBUG getMain] Checking method: name=__dev_forward_skb2, line=2163
+[DEBUG getMain] Checking method: name=is_skb_forwardable, line=2157
+[DEBUG getMain] Checking method: name=__dev_direct_xmit, line=4269
+[DEBUG getMain] Checking method: name=EXPORT_PER_CPU_SYMBOL, line=413
+[DEBUG getMain] Checking method: name=netdev_set_addr_lockdep_class, line=493
+[DEBUG getMain] Checking method: name=net_disable_timestamp, line=2124
+[DEBUG getMain] Checking method: name=call_netdevice_notifiers_extack, line=2005
+[DEBUG getMain] Checking method: name=__netif_reschedule, line=3039
+[DEBUG getMain] Checking method: name=dev_change_carrier, line=9109
+[DEBUG getMain] Checking method: name=enqueue_to_backlog, line=4631
+[DEBUG getMain] Checking method: name=skb_checksum_help, line=3219
+[DEBUG getMain] Checking method: name=call_netdevice_register_notifiers, line=1705
+[DEBUG getMain] Checking method: name=move_netdevice_notifiers_dev_net, line=1967
+[DEBUG getMain] Checking method: name=unregister_netdevice_notifier_dev_net, line=1953
+[DEBUG getMain] Checking method: name=DEFINE_PER_CPU, line=5753
+[DEBUG getMain] Checking method: name=netdev_name_node_add, line=270
+[DEBUG getMain] Checking method: name=illegal_highdma, line=3438
+[DEBUG getMain] Checking method: name=unregister_netdevice_notifier_net, line=1924
+[DEBUG getMain] Checking method: name=generic_xdp_install, line=5611
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_remove, line=7999
+[DEBUG getMain] Checking method: name=netdev_adjacent_get_private, line=7351
+[DEBUG getMain] Checking method: name=__netif_receive_skb_list_core, line=5514
+[DEBUG getMain] Checking method: name=register_netdevice_notifier_net, line=1897
+[DEBUG getMain] Checking method: name=call_netdevice_notifiers_mtu, line=2041
+[DEBUG getMain] Checking method: name=netdev_has_any_lower_dev, line=7344
+[DEBUG getMain] Checking method: name=__dev_get_by_flags, line=1028
+[DEBUG getMain] Checking method: name=call_netdevice_notifier, line=1695
+[DEBUG getMain] Checking method: name=qdisc_pkt_len_init, line=3738
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_set, line=8268
+[DEBUG getMain] Checking method: name=__netdev_find_adj, line=7217
+[DEBUG getMain] Checking method: name=netdev_cmd_to_name, line=1673
+[DEBUG getMain] Checking method: name=dflt_features_check, line=3503
+[DEBUG getMain] Checking method: name=call_netdevice_notifiers_info, line=1987
+[DEBUG getMain] Checking method: name=dev_close_many, line=1590
+[DEBUG getMain] Checking method: name=netif_tx_stop_all_queues, line=10200
+[DEBUG getMain] Checking method: name=__netif_napi_del, line=6987
+[DEBUG getMain] Checking method: name=__dev_close_many, line=1537
+[DEBUG getMain] Checking method: name=__dev_close, line=1581
+[DEBUG getMain] Checking method: name=__dev_remove_offload, line=646
+[DEBUG getMain] Checking method: name=init_gro_hash, line=6833
+[DEBUG getMain] Checking method: name=__unregister_netdevice_notifier_net, line=1869
+[DEBUG getMain] Checking method: name=__dev_remove_pack, line=566
+[DEBUG getMain] Checking method: name=netdev_set_xmit_lockdep_class, line=488
+[DEBUG getMain] Checking method: name=dev_get_iflink, line=699
+[DEBUG getMain] Checking method: name=dev_validate_mtu, line=8887
+[DEBUG getMain] Checking method: name=dev_queue_xmit, line=4257
+[DEBUG getMain] Checking method: name=dev_cpu_dead, line=11284
+[DEBUG getMain] Checking method: name=dev_add_pack, line=543
+[DEBUG getMain] Checking method: name=__netif_receive_skb_list, line=5581
+[DEBUG getMain] Checking method: name=netdev_lower_state_changed, line=8539
+[DEBUG getMain] Checking method: name=ptype_head, line=521
+[DEBUG getMain] Checking method: name=dev_xdp_link, line=9317
+[DEBUG getMain] Checking method: name=dev_valid_name, line=1054
+[DEBUG getMain] Checking method: name=dev_fill_metadata_dst, line=717
+[DEBUG getMain] Checking method: name=GRO_MAX_HEAD, line=159
+[DEBUG getMain] Checking method: name=dev_name_hash, line=213
+[DEBUG getMain] Checking method: name=netif_get_num_default_rss_queues, line=3032
+[DEBUG getMain] Checking method: name=unregister_netdev, line=11133
+[DEBUG getMain] Checking method: name=dev_forward_skb_nomtu, line=2206
+[DEBUG getMain] Checking method: name=net_enable_timestamp, line=2104
+[DEBUG getMain] Checking method: name=dev_remove_pack, line=598
+[DEBUG getMain] Checking method: name=__netdev_name_node_alt_destroy, line=331
+[DEBUG getMain] Checking method: name=default_device_exit, line=11514
+[DEBUG getMain] Checking method: name=register_netdevice_notifier, line=1777
+[DEBUG getMain] Checking method: name=flush_all_backlogs, line=5813
+[DEBUG getMain] Checking method: name=netdev_name_node_alt_create, line=312
+[DEBUG getMain] Checking method: name=dev_get_by_name_rcu, line=813
+[DEBUG getMain] Checking method: name=netdev_name_node_head_alloc, line=253
+[DEBUG getMain] Checking method: name=call_netdevice_unregister_net_notifiers, line=1752
+[DEBUG getMain] Checking method: name=netdev_set_sb_channel, line=2884
+[DEBUG getMain] Checking method: name=flush_gro_hash, line=6973
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=dev_get_alias, line=1352
+[DEBUG getMain] Checking method: name=bpf_xdp_link_fill_link_info, line=9620
+[DEBUG getMain] Checking method: name=net_timestamp_set, line=2144
+[DEBUG getMain] Checking method: name=netif_receive_skb_internal, line=5640
+[DEBUG getMain] Checking method: name=netdev_name_in_use, line=306
+[DEBUG getMain] Checking method: name=unlist_netdevice, line=387
+[DEBUG getMain] Checking method: name=skb_warn_bad_offload, line=3194
+[DEBUG getMain] Checking method: name=dev_get_by_index, line=907
+[DEBUG getMain] Checking method: name=__dev_xmit_skb, line=3791
+[DEBUG getMain] Checking method: name=dev_xdp_bpf_op, line=9304
+[DEBUG getMain] Checking method: name=netdev_notify_peers, line=1429
+[DEBUG getMain] Checking method: name=netif_receive_skb_list, line=5738
+[DEBUG getMain] Checking method: name=dev_index_hash, line=220
+[DEBUG getMain] Checking method: name=__dev_get_by_name, line=792
+[DEBUG getMain] Checking method: name=__dev_get_by_index, line=858
+[DEBUG getMain] Checking method: name=skb_network_protocol, line=3300
+[DEBUG getMain] Checking method: name=netdev_name_node_del, line=277
+[DEBUG getMain] Checking method: name=dev_get_by_index_rcu, line=882
+[DEBUG getMain] Checking method: name=__skb_gso_segment, line=3376
+[DEBUG getMain] Checking method: name=rps_lock, line=225
+[DEBUG getMain] Checking method: name=dev_change_rx_flags, line=8553
+[DEBUG getMain] Checking method: name=get_kfree_skb_cb, line=3064
+[DEBUG getMain] Checking method: name=netdev_get_name, line=950
+[DEBUG getMain] Checking method: name=netdev_txq_to_tc, line=2372
+[DEBUG getMain] Checking method: name=__netif_receive_skb, line=5556
+[DEBUG getMain] Checking method: name=dev_get_by_napi_id, line=929
+[DEBUG getMain] Checking method: name=netdev_bind_sb_channel_queue, line=2858
+[DEBUG getMain] Checking method: name=__napi_poll, line=7006
+[DEBUG getMain] Checking method: name=dev_remove_offload, line=677
+[DEBUG getMain] Checking method: name=netdev_name_node_alt_flush, line=359
+[DEBUG getMain] Checking method: name=netdev_name_node_alt_destroy, line=339
+[DEBUG getMain] Checking method: name=netdev_name_node_lookup_rcu, line=294
+[DEBUG getMain] Checking method: name=netif_stacked_transfer_operstate, line=10092
+[DEBUG getMain] Checking method: name=____netdev_has_upper_dev, line=7229
+[DEBUG getMain] Checking method: name=dev_close, line=1619
+[DEBUG getMain] Checking method: name=dev_pick_tx_zero, line=4048
+[DEBUG getMain] Checking method: name=netif_receive_skb, line=5715
+[DEBUG getMain] Checking method: name=rps_unlock, line=232
+[DEBUG getMain] Checking method: name=skb_csum_hwoffload_help, line=3633
+[DEBUG getMain] Checking method: name=call_netdevice_register_net_notifiers, line=1733
+[DEBUG getMain] Checking method: name=deliver_skb, line=2211
+[DEBUG getMain] Checking method: name=dev_fill_forward_path, line=744
+[DEBUG getMain] Checking method: name=net_rps_send_ipi, line=6389
+[DEBUG getMain] Checking method: name=dev_get_flags, line=8730
+[DEBUG getMain] Checking method: name=netif_setup_tc, line=2347
+[DEBUG getMain] Checking method: name=dev_alloc_name_ns, line=1152
+[DEBUG getMain] Checking method: name=netif_rx, line=4948
+[DEBUG getMain] Checking method: name=netif_schedule_queue, line=3069
+[DEBUG getMain] Checking method: name=napi_hash_add, line=6783
+[DEBUG getMain] Checking method: name=free_netdev, line=10924
+[DEBUG getMain] Checking method: name=deliver_ptype_list_skb, line=2221
+[DEBUG getMain] Checking method: name=skb_needs_check, line=3354
+[DEBUG getMain] Checking method: name=dev_change_name, line=1212
+[DEBUG getMain] Checking method: name=__dev_set_promiscuity, line=8561
+[DEBUG getMain] Checking method: name=netdev_get_xmit_slave, line=8395
+[DEBUG getMain] Checking method: name=__netif_receive_skb_one_core, line=5454
+[DEBUG getMain] Checking method: name=dev_getbyhwaddr_rcu, line=987
+[DEBUG getMain] Checking method: name=netdev_printk, line=11459
+[DEBUG getMain] Checking method: name=dev_forward_skb, line=2200
+[DEBUG getMain] Checking method: name=generic_xdp_tx, line=4844
+[DEBUG getMain] Checking method: name=netdev_name_node_alloc, line=239
+[DEBUG getMain] Checking method: name=__register_netdevice_notifier_net, line=1846
+[DEBUG getMain] Checking method: name=dev_get_by_name, line=834
+[DEBUG getMain] Checking method: name=__netdev_printk, line=11440
+[DEBUG getMain] Checking method: name=__dev_change_flags, line=8755
+[DEBUG getMain] Checking method: name=netdev_set_tc_queue, line=2811
+[DEBUG getMain] Checking method: name=napi_gro_frags, line=6349
+[DEBUG getMain] Checking method: name=dev_get_valid_name, line=1186
+[DEBUG getMain] Checking method: name=dev_set_alias, line=1315
+[DEBUG getMain] Checking method: name=netdev_emerg, line=11493
+[DEBUG getMain] Checking method: name=netdev_unbind_sb_channel, line=2840
+[DEBUG getMain] Checking method: name=dev_set_rx_mode, line=8717
+[DEBUG getMain] Checking method: name=netdev_features_change, line=1372
+[DEBUG getMain] Checking method: name=dev_queue_xmit_nit, line=2268
+[DEBUG getMain] Checking method: name=dev_xdp_uninstall, line=9400
+[DEBUG getMain] Checking method: name=dev_base_seq_inc, line=207
+[DEBUG getMain] Checking method: name=register_netdevice_notifier_dev_net, line=1936
+[DEBUG getMain] Checking method: name=netif_skb_features, line=3547
+[DEBUG getMain] Checking method: name=netdev_alert, line=11494
+[DEBUG getMain] Checking method: name=netif_device_detach, line=3132
+[DEBUG getMain] Checking method: name=__dev_alloc_name, line=1087
+[DEBUG getMain] Checking method: name=netif_get_rxqueue, line=4677
+[DEBUG getMain] Checking method: name=netif_free_tx_queues, line=10174
+[DEBUG getMain] Checking method: name=__netdev_notify_peers, line=1411
+[DEBUG getMain] Checking method: name=dev_get_stats, line=10681
+[DEBUG getMain] Checking method: name=dev_fwd_path, line=734
+[DEBUG getMain] Checking method: name=dev_nit_active, line=2257
+[DEBUG getMain] Checking method: name=skb_mac_gso_segment, line=3323
+[DEBUG getMain] Checking method: name=netdev_adjacent_dev_disable, line=8283
+[DEBUG getMain] Checking method: name=netdev_reset_tc, line=2797
+[DEBUG getMain] Checking method: name=__netdev_lower_depth, line=7775
+[DEBUG getMain] Checking method: name=dev_open, line=1519
+[DEBUG getMain] Checking method: name=dev_fetch_sw_netstats, line=10708
+[DEBUG getMain] Checking method: name=net_mpls_features, line=3469
+[DEBUG getMain] Checking method: name=DECLARE_RWSEM, line=205
+[DEBUG getMain] Checking method: name=skb_flow_limit, line=4591
+[DEBUG getMain] Checking method: name=netdev_set_num_tc, line=2825
+[DEBUG getMain] Checking method: name=get_xps_queue, line=4006
+[DEBUG getMain] Checking method: name=harmonize_features, line=3477
+[DEBUG getMain] Checking method: name=napi_kthread_create, line=1439
+[DEBUG getMain] Checking method: name=process_backlog, line=6432
+[DEBUG getMain] Checking method: name=__netdev_update_upper_level, line=7795
+[DEBUG getMain] Checking method: name=do_xdp_generic, line=4868
+[DEBUG getMain] Checking method: name=passthru_features_check, line=3495
+[DEBUG getMain] Checking method: name=__netdev_master_upper_dev_get, line=7321
+[DEBUG getMain] Checking method: name=gso_features_check, line=3510
+[DEBUG getMain] Checking method: name=xmit_one, line=3578
+[DEBUG getMain] Checking method: name=validate_xmit_vlan, line=3624
+[DEBUG getMain] Checking method: name=LIST_HEAD, line=9806
+[DEBUG getMain] Checking method: name=__napi_gro_flush_chain, line=5902
+[DEBUG getMain] Checking method: name=validate_xmit_skb_list, line=3710
+[DEBUG getMain] Checking method: name=netdev_core_pick_tx, line=4089
+[DEBUG getMain] Checking method: name=netif_alloc_rx_queues, line=10112
+[DEBUG getMain] Checking method: name=__dev_queue_xmit, line=4143
+[DEBUG getMain] Checking method: name=netdev_state_change, line=1386
+[DEBUG getMain] Checking method: name=dev_queue_xmit_accel, line=4263
+[DEBUG getMain] Checking method: name=dev_disable_gro_hw, line=1664
+[DEBUG getMain] Checking method: name=netdev_rx_handler_unregister, line=5199
+[DEBUG getMain] Checking method: name=netdev_walk_all_lower_dev_rcu, line=7819
+[DEBUG getMain] Checking method: name=____napi_schedule, line=4327
+[DEBUG getMain] Checking method: name=dev_alloc_name, line=1180
+[DEBUG getMain] Checking method: name=rps_ipi_queued, line=4571
+[DEBUG getMain] Checking method: name=dev_xdp_prog_id, line=9345
+[DEBUG getMain] Checking method: name=bpf_prog_run_generic_xdp, line=4700
+[DEBUG getMain] Checking method: name=netif_rx_any_context, line=4978
+[DEBUG getMain] Checking method: name=unregister_netdevice_notifier, line=1824
+[DEBUG getMain] Checking method: name=netif_receive_generic_xdp, line=4788
+[DEBUG getMain] Checking method: name=dev_loopback_xmit, line=3918
+[DEBUG getMain] Checking method: name=netif_rx_internal, line=4898
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_unlink_lists, line=8062
+[DEBUG getMain] Checking method: name=netif_rx_ni, line=4961
+[DEBUG getMain] Checking method: name=sch_handle_ingress, line=5081
+[DEBUG getMain] Checking method: name=netdev_adjacent_dev_enable, line=8289
+[DEBUG getMain] Checking method: name=__napi_schedule, line=6491
+[DEBUG getMain] Checking method: name=__netdev_walk_all_lower_dev, line=7691
+[DEBUG getMain] Checking method: name=netdev_is_rx_handler_busy, line=5152
+[DEBUG getMain] Checking method: name=dev_new_index, line=9793
+[DEBUG getMain] Checking method: name=netdev_rx_handler_register, line=5173
+[DEBUG getMain] Checking method: name=skb_pfmemalloc_protocol, line=5217
+[DEBUG getMain] Checking method: name=nf_ingress, line=5231
+[DEBUG getMain] Checking method: name=DEFINE_STATIC_KEY_FALSE, line=2086
+[DEBUG getMain] Checking method: name=validate_xmit_skb, line=3655
+[DEBUG getMain] Checking method: name=__netif_receive_skb_core, line=5250
+[DEBUG getMain] Checking method: name=netif_receive_skb_core, line=5482
+[DEBUG getMain] Checking method: name=dev_qdisc_enqueue, line=3779
+[DEBUG getMain] Checking method: name=__netif_receive_skb_list_ptype, line=5494
+[DEBUG getMain] Checking method: name=alloc_netdev_mqs, line=10798
+[DEBUG getMain] Checking method: name=netif_receive_skb_list_internal, line=5667
+[DEBUG getMain] Checking method: name=__netdev_update_features, line=9959
+[DEBUG getMain] Checking method: name=napi_disable, line=6924
+[DEBUG getMain] Checking method: name=netdev_name_node_lookup, line=282
+[DEBUG getMain] Checking method: name=flush_backlog, line=5756
+[DEBUG getMain] Checking method: name=netdev_next_lower_dev, line=7612
+[DEBUG getMain] Checking method: name=list_netdevice, line=368
+[DEBUG getMain] Checking method: name=flush_required, line=5786
+[DEBUG getMain] Checking method: name=netdev_walk_all_lower_dev, line=7644
+[DEBUG getMain] Checking method: name=gro_normal_list, line=5846
+[DEBUG getMain] Checking method: name=gro_normal_one, line=5858
+[DEBUG getMain] Checking method: name=synchronize_net, line=10978
+[DEBUG getMain] Checking method: name=__netdev_upper_dev_link, line=8090
+[DEBUG getMain] Checking method: name=gro_flush_oldest, line=6036
+[DEBUG getMain] Checking method: name=napi_gro_complete, line=5866
+[DEBUG getMain] Checking method: name=netdev_crit, line=11495
+[DEBUG getMain] Checking method: name=napi_gro_flush, line=5924
+[DEBUG getMain] Checking method: name=netdev_create_hash, line=11378
+[DEBUG getMain] Checking method: name=netdev_adjacent_sysfs_add, line=7906
+[DEBUG getMain] Checking method: name=gro_list_prepare, line=5937
+[DEBUG getMain] Checking method: name=netdev_adjacent_change_prepare, line=8295
+[DEBUG getMain] Checking method: name=netif_napi_add, line=6888
+[DEBUG getMain] Checking method: name=dev_hard_start_xmit, line=3596
+[DEBUG getMain] Checking method: name=gro_pull_from_frag0, line=6015
+[DEBUG getMain] Checking method: name=dev_gro_receive, line=6055
+[DEBUG getMain] Checking method: name=gro_find_receive_by_type, line=6165
+[DEBUG getMain] Checking method: name=napi_get_frags, line=6265
+[DEBUG getMain] Checking method: name=gro_find_complete_by_type, line=6179
+[DEBUG getMain] Checking method: name=dev_getfirstbyhwtype, line=1001
+[DEBUG getMain] Checking method: name=dev_disable_lro, line=1640
+[DEBUG getMain] Checking method: name=napi_skb_finish, line=6193
+[DEBUG getMain] Checking method: name=napi_gro_receive, line=6220
+[DEBUG getMain] Checking method: name=netdev_name_node_free, line=265
+[DEBUG getMain] Checking method: name=netdev_master_upper_dev_get, line=7304
+[DEBUG getMain] Checking method: name=__netdev_adjacent_dev_unlink_neighbour, line=8082
+[DEBUG getMain] Checking method: name=napi_frags_finish, line=6280
+[DEBUG getMain] Checking method: name=napi_frags_skb, line=6312
+[DEBUG getMain] Checking method: name=rtnl_lock_unregistering, line=11548
+[DEBUG getMain] Checking method: name=__netdev_update_lower_level, line=7802
+[DEBUG getMain] Checking method: name=netif_tx_wake_queue, line=3081
+[DEBUG getMain] Checking method: name=napi_complete_done, line=6553
+[DEBUG getMain] Checking method: name=netdev_has_upper_dev_all_rcu, line=7270
+[DEBUG getMain] Checking method: name=__skb_gro_checksum_complete, line=6366
+[DEBUG getMain] Checking method: name=sd_has_rps_ipi_waiting, line=6423
+[DEBUG getMain] Checking method: name=netdev_pick_tx, line=4062
+[DEBUG getMain] Checking method: name=napi_schedule_prep, line=6510
+[DEBUG getMain] Checking method: name=DEFINE_RWLOCK, line=194
+[DEBUG getMain] Checking method: name=__napi_schedule_irqoff, line=6544
+[DEBUG getMain] Checking method: name=napi_poll, line=7077
+[DEBUG getMain] Checking method: name=napi_by_id, line=6626
+[DEBUG getMain] Checking method: name=napi_hash_del, line=6806
+[DEBUG getMain] Checking method: name=napi_watchdog, line=6815
+[DEBUG getMain] Checking method: name=skb_gro_reset_offset, line=5996
+[DEBUG getMain] Checking method: name=dev_set_threaded, line=6844
+[DEBUG getMain] Checking method: name=napi_enable, line=6958
+[DEBUG getMain] Checking method: name=napi_thread_wait, line=7097
+[DEBUG getMain] Checking method: name=netdev_upper_dev_link, line=8173
+[DEBUG getMain] Checking method: name=napi_threaded_poll, line=7125
+[DEBUG getMain] Checking method: name=netdev_has_upper_dev, line=7246
+[DEBUG getMain] Checking method: name=napi_reuse_skb, line=6236
+[DEBUG getMain] Checking method: name=netdev_has_any_upper_dev, line=7289
+[DEBUG getMain] Checking method: name=__netdev_next_upper_dev, line=7387
+[DEBUG getMain] Checking method: name=netdev_next_upper_dev_rcu, line=7404
+[DEBUG getMain] Checking method: name=bpf_xdp_link_attach, line=9686
+[DEBUG getMain] Checking method: name=call_netdevice_notifiers, line=2026
+[DEBUG getMain] Checking method: name=__netdev_walk_all_upper_dev, line=7421
+[DEBUG getMain] Checking method: name=__dev_open, line=1458
+[DEBUG getMain] Checking method: name=__netdev_has_upper_dev, line=7517
+[DEBUG getMain] Checking method: name=call_netdevice_unregister_notifiers, line=1722
+[DEBUG getMain] Checking method: name=netdev_lower_get_next_private_rcu, line=7568
+[DEBUG getMain] Checking method: name=netdev_lower_get_next, line=7597
+[DEBUG getMain] Checking method: name=dev_xdp_attach_link, line=9550
+[DEBUG getMain] Checking method: name=netdev_walk_all_upper_dev_rcu, line=7470
+[DEBUG getMain] Checking method: name=__netdev_next_lower_dev, line=7627
+[DEBUG getMain] Checking method: name=netdev_adjacent_change_commit, line=8323
+[DEBUG getMain] Checking method: name=__netdev_upper_dev_unlink, line=8216
+[DEBUG getMain] Checking method: name=netdev_next_lower_dev_rcu, line=7740
+[DEBUG getMain] Checking method: name=dev_pick_tx_cpu_id, line=4055
+[DEBUG getMain] Checking method: name=__netdev_upper_depth, line=7755
+[DEBUG getMain] Main not found after iteration
+[DEBUG getMain] Closest method names in CPG: netif_testing_on netif_dormant_on net_rps_send_ipi netif_carrier_on net_prefetchw
+getAllEntryPointInfos: Returning 214 entry points for kernel module analysis
+[Kernel Module Mode] Adding 214 entry points as parallel entries
+  - Looking for: net_rx_action -> demangled: net_rx_action -> shortName: net_rx_action
+  - Not found in CPG: net_rx_action (tried: net_rx_action)
+  - Looking for: net_tx_action -> demangled: net_tx_action -> shortName: net_tx_action
+  - Not found in CPG: net_tx_action (tried: net_tx_action)
+  - Looking for: process_backlog -> demangled: process_backlog -> shortName: process_backlog
+  - Found in CPG: process_backlog at net/core/dev.c:6432
+  - Added entry: process_backlog
+  - Looking for: flush_backlog -> demangled: flush_backlog -> shortName: flush_backlog
+  - Found in CPG: flush_backlog at net/core/dev.c:5756
+  - Added entry: flush_backlog
+  - Looking for: generic_xdp_install -> demangled: generic_xdp_install -> shortName: generic_xdp_install
+  - Found in CPG: generic_xdp_install at net/core/dev.c:5611
+  - Added entry: generic_xdp_install
+  - Looking for: rps_trigger_softirq -> demangled: rps_trigger_softirq -> shortName: rps_trigger_softirq
+  - Not found in CPG: rps_trigger_softirq (tried: rps_trigger_softirq)
+  - Looking for: __netdev_update_lower_level -> demangled: __netdev_update_lower_level -> shortName: __netdev_update_lower_level
+  - Found in CPG: __netdev_update_lower_level at net/core/dev.c:7802
+  - Added entry: __netdev_update_lower_level
+  - Looking for: netdev_exit -> demangled: netdev_exit -> shortName: netdev_exit
+  - Found in CPG: netdev_exit at net/core/dev.c:11501
+  - Added entry: netdev_exit
+  - Looking for: netdev_notice -> demangled: netdev_notice -> shortName: netdev_notice
+  - Found in CPG: netdev_notice at net/core/dev.c:11498
+  - Added entry: netdev_notice
+  - Looking for: netdev_warn -> demangled: netdev_warn -> shortName: netdev_warn
+  - Found in CPG: netdev_warn at net/core/dev.c:11497
+  - Added entry: netdev_warn
+  - Looking for: netdev_info -> demangled: netdev_info -> shortName: netdev_info
+  - Found in CPG: netdev_info at net/core/dev.c:11499
+  - Added entry: netdev_info
+  - Looking for: netdev_emerg -> demangled: netdev_emerg -> shortName: netdev_emerg
+  - Found in CPG: netdev_emerg at net/core/dev.c:11493
+  - Added entry: netdev_emerg
+  - Looking for: netdev_increment_features -> demangled: netdev_increment_features -> shortName: netdev_increment_features
+  - Found in CPG: netdev_increment_features at net/core/dev.c:11360
+  - Added entry: netdev_increment_features
+  - Looking for: __dev_change_net_namespace -> demangled: __dev_change_net_namespace -> shortName: __dev_change_net_namespace
+  - Found in CPG: __dev_change_net_namespace at net/core/dev.c:11157
+  - Added entry: __dev_change_net_namespace
+  - Looking for: netdev_init -> demangled: netdev_init -> shortName: netdev_init
+  - Found in CPG: netdev_init at net/core/dev.c:11392
+  - Added entry: netdev_init
+  - Looking for: synchronize_net -> demangled: synchronize_net -> shortName: synchronize_net
+  - Found in CPG: synchronize_net at net/core/dev.c:10978
+  - Added entry: synchronize_net
+  - Looking for: free_netdev -> demangled: free_netdev -> shortName: free_netdev
+  - Found in CPG: free_netdev at net/core/dev.c:10924
+  - Added entry: free_netdev
+  - Looking for: dev_get_tstats64 -> demangled: dev_get_tstats64 -> shortName: dev_get_tstats64
+  - Found in CPG: dev_get_tstats64 at net/core/dev.c:10743
+  - Added entry: dev_get_tstats64
+  - Looking for: dev_fetch_sw_netstats -> demangled: dev_fetch_sw_netstats -> shortName: dev_fetch_sw_netstats
+  - Found in CPG: dev_fetch_sw_netstats at net/core/dev.c:10708
+  - Added entry: dev_fetch_sw_netstats
+  - Looking for: unregister_netdevice_many -> demangled: unregister_netdevice_many -> shortName: unregister_netdevice_many
+  - Found in CPG: unregister_netdevice_many at net/core/dev.c:11023
+  - Added entry: unregister_netdevice_many
+  - Looking for: netdev_stats_to_stats64 -> demangled: netdev_stats_to_stats64 -> shortName: netdev_stats_to_stats64
+  - Found in CPG: netdev_stats_to_stats64 at net/core/dev.c:10647
+  - Added entry: netdev_stats_to_stats64
+  - Looking for: netdev_refcnt_read -> demangled: netdev_refcnt_read -> shortName: netdev_refcnt_read
+  - Found in CPG: netdev_refcnt_read at net/core/dev.c:10463
+  - Added entry: netdev_refcnt_read
+  - Looking for: register_netdevice -> demangled: register_netdevice -> shortName: register_netdevice
+  - Found in CPG: register_netdevice at net/core/dev.c:10229
+  - Added entry: register_netdevice
+  - Looking for: netdev_change_features -> demangled: netdev_change_features -> shortName: netdev_change_features
+  - Found in CPG: netdev_change_features at net/core/dev.c:10076
+  - Added entry: netdev_change_features
+  - Looking for: netdev_update_features -> demangled: netdev_update_features -> shortName: netdev_update_features
+  - Found in CPG: netdev_update_features at net/core/dev.c:10059
+  - Added entry: netdev_update_features
+  - Looking for: bpf_xdp_link_update -> demangled: bpf_xdp_link_update -> shortName: bpf_xdp_link_update
+  - Found in CPG: bpf_xdp_link_update at net/core/dev.c:9635
+  - Added entry: bpf_xdp_link_update
+  - Looking for: bpf_xdp_link_detach -> demangled: bpf_xdp_link_detach -> shortName: bpf_xdp_link_detach
+  - Found in CPG: bpf_xdp_link_detach at net/core/dev.c:9593
+  - Added entry: bpf_xdp_link_detach
+  - Looking for: bpf_xdp_link_dealloc -> demangled: bpf_xdp_link_dealloc -> shortName: bpf_xdp_link_dealloc
+  - Found in CPG: bpf_xdp_link_dealloc at net/core/dev.c:9599
+  - Added entry: bpf_xdp_link_dealloc
+  - Looking for: bpf_xdp_link_release -> demangled: bpf_xdp_link_release -> shortName: bpf_xdp_link_release
+  - Found in CPG: bpf_xdp_link_release at net/core/dev.c:9576
+  - Added entry: bpf_xdp_link_release
+  - Looking for: bpf_xdp_link_fill_link_info -> demangled: bpf_xdp_link_fill_link_info -> shortName: bpf_xdp_link_fill_link_info
+  - Found in CPG: bpf_xdp_link_fill_link_info at net/core/dev.c:9620
+  - Added entry: bpf_xdp_link_fill_link_info
+  - Looking for: dev_change_proto_down_reason -> demangled: dev_change_proto_down_reason -> shortName: dev_change_proto_down_reason
+  - Found in CPG: dev_change_proto_down_reason at net/core/dev.c:9269
+  - Added entry: dev_change_proto_down_reason
+  - Looking for: dev_change_proto_down_generic -> demangled: dev_change_proto_down_generic -> shortName: dev_change_proto_down_generic
+  - Found in CPG: dev_change_proto_down_generic at net/core/dev.c:9251
+  - Added entry: dev_change_proto_down_generic
+  - Looking for: netdev_crit -> demangled: netdev_crit -> shortName: netdev_crit
+  - Found in CPG: netdev_crit at net/core/dev.c:11495
+  - Added entry: netdev_crit
+  - Looking for: netdev_port_same_parent_id -> demangled: netdev_port_same_parent_id -> shortName: netdev_port_same_parent_id
+  - Found in CPG: netdev_port_same_parent_id at net/core/dev.c:9210
+  - Added entry: netdev_port_same_parent_id
+  - Looking for: netdev_set_default_ethtool_ops -> demangled: netdev_set_default_ethtool_ops -> shortName: netdev_set_default_ethtool_ops
+  - Found in CPG: netdev_set_default_ethtool_ops at net/core/dev.c:10770
+  - Added entry: netdev_set_default_ethtool_ops
+  - Looking for: dev_get_port_parent_id -> demangled: dev_get_port_parent_id -> shortName: dev_get_port_parent_id
+  - Found in CPG: dev_get_port_parent_id at net/core/dev.c:9170
+  - Added entry: dev_get_port_parent_id
+  - Looking for: dev_get_phys_port_name -> demangled: dev_get_phys_port_name -> shortName: dev_get_phys_port_name
+  - Found in CPG: dev_get_phys_port_name at net/core/dev.c:9147
+  - Added entry: dev_get_phys_port_name
+  - Looking for: dev_get_phys_port_id -> demangled: dev_get_phys_port_id -> shortName: dev_get_phys_port_id
+  - Found in CPG: dev_get_phys_port_id at net/core/dev.c:9128
+  - Added entry: dev_get_phys_port_id
+  - Looking for: init_dummy_netdev -> demangled: init_dummy_netdev -> shortName: init_dummy_netdev
+  - Found in CPG: init_dummy_netdev at net/core/dev.c:10404
+  - Added entry: init_dummy_netdev
+  - Looking for: dev_set_mac_address_user -> demangled: dev_set_mac_address_user -> shortName: dev_set_mac_address_user
+  - Found in CPG: dev_set_mac_address_user at net/core/dev.c:9062
+  - Added entry: dev_set_mac_address_user
+  - Looking for: dev_set_mac_address -> demangled: dev_set_mac_address -> shortName: dev_set_mac_address
+  - Found in CPG: dev_set_mac_address at net/core/dev.c:9035
+  - Added entry: dev_set_mac_address
+  - Looking for: dev_pre_changeaddr_notify -> demangled: dev_pre_changeaddr_notify -> shortName: dev_pre_changeaddr_notify
+  - Found in CPG: dev_pre_changeaddr_notify at net/core/dev.c:9012
+  - Added entry: dev_pre_changeaddr_notify
+  - Looking for: dev_set_group -> demangled: dev_set_group -> shortName: dev_set_group
+  - Found in CPG: dev_set_group at net/core/dev.c:9000
+  - Added entry: dev_set_group
+  - Looking for: dev_change_flags -> demangled: dev_change_flags -> shortName: dev_change_flags
+  - Found in CPG: dev_change_flags at net/core/dev.c:8858
+  - Added entry: dev_change_flags
+  - Looking for: dev_get_flags -> demangled: dev_get_flags -> shortName: dev_get_flags
+  - Found in CPG: dev_get_flags at net/core/dev.c:8730
+  - Added entry: dev_get_flags
+  - Looking for: dev_set_allmulti -> demangled: dev_set_allmulti -> shortName: dev_set_allmulti
+  - Found in CPG: dev_set_allmulti at net/core/dev.c:8677
+  - Added entry: dev_set_allmulti
+  - Looking for: dev_get_mac_address -> demangled: dev_get_mac_address -> shortName: dev_get_mac_address
+  - Found in CPG: dev_get_mac_address at net/core/dev.c:9074
+  - Added entry: dev_get_mac_address
+  - Looking for: netdev_lower_state_changed -> demangled: netdev_lower_state_changed -> shortName: netdev_lower_state_changed
+  - Found in CPG: netdev_lower_state_changed at net/core/dev.c:8539
+  - Added entry: netdev_lower_state_changed
+  - Looking for: netdev_printk -> demangled: netdev_printk -> shortName: netdev_printk
+  - Found in CPG: netdev_printk at net/core/dev.c:11459
+  - Added entry: netdev_printk
+  - Looking for: netdev_lower_dev_get_private -> demangled: netdev_lower_dev_get_private -> shortName: netdev_lower_dev_get_private
+  - Found in CPG: netdev_lower_dev_get_private at net/core/dev.c:8515
+  - Added entry: netdev_lower_dev_get_private
+  - Looking for: dev_cpu_dead -> demangled: dev_cpu_dead -> shortName: dev_cpu_dead
+  - Found in CPG: dev_cpu_dead at net/core/dev.c:11284
+  - Added entry: dev_cpu_dead
+  - Looking for: netdev_sk_get_lowest_dev -> demangled: netdev_sk_get_lowest_dev -> shortName: netdev_sk_get_lowest_dev
+  - Found in CPG: netdev_sk_get_lowest_dev at net/core/dev.c:8425
+  - Added entry: netdev_sk_get_lowest_dev
+  - Looking for: netdev_get_xmit_slave -> demangled: netdev_get_xmit_slave -> shortName: netdev_get_xmit_slave
+  - Found in CPG: netdev_get_xmit_slave at net/core/dev.c:8395
+  - Added entry: netdev_get_xmit_slave
+  - Looking for: netdev_bonding_info_change -> demangled: netdev_bonding_info_change -> shortName: netdev_bonding_info_change
+  - Found in CPG: netdev_bonding_info_change at net/core/dev.c:8370
+  - Added entry: netdev_bonding_info_change
+  - Looking for: netdev_adjacent_change_abort -> demangled: netdev_adjacent_change_abort -> shortName: netdev_adjacent_change_abort
+  - Found in CPG: netdev_adjacent_change_abort at net/core/dev.c:8343
+  - Added entry: netdev_adjacent_change_abort
+  - Looking for: netdev_upper_dev_link -> demangled: netdev_upper_dev_link -> shortName: netdev_upper_dev_link
+  - Found in CPG: netdev_upper_dev_link at net/core/dev.c:8173
+  - Added entry: netdev_upper_dev_link
+  - Looking for: netdev_lower_get_first_private_rcu -> demangled: netdev_lower_get_first_private_rcu -> shortName: netdev_lower_get_first_private_rcu
+  - Found in CPG: netdev_lower_get_first_private_rcu at net/core/dev.c:7875
+  - Added entry: netdev_lower_get_first_private_rcu
+  - Looking for: netdev_walk_all_lower_dev_rcu -> demangled: netdev_walk_all_lower_dev_rcu -> shortName: netdev_walk_all_lower_dev_rcu
+  - Found in CPG: netdev_walk_all_lower_dev_rcu at net/core/dev.c:7819
+  - Added entry: netdev_walk_all_lower_dev_rcu
+  - Looking for: netif_stacked_transfer_operstate -> demangled: netif_stacked_transfer_operstate -> shortName: netif_stacked_transfer_operstate
+  - Found in CPG: netif_stacked_transfer_operstate at net/core/dev.c:10092
+  - Added entry: netif_stacked_transfer_operstate
+  - Looking for: netdev_next_lower_dev_rcu -> demangled: netdev_next_lower_dev_rcu -> shortName: netdev_next_lower_dev_rcu
+  - Found in CPG: netdev_next_lower_dev_rcu at net/core/dev.c:7740
+  - Added entry: netdev_next_lower_dev_rcu
+  - Looking for: netif_tx_stop_all_queues -> demangled: netif_tx_stop_all_queues -> shortName: netif_tx_stop_all_queues
+  - Found in CPG: netif_tx_stop_all_queues at net/core/dev.c:10200
+  - Added entry: netif_tx_stop_all_queues
+  - Looking for: netif_set_xps_queue -> demangled: netif_set_xps_queue -> shortName: netif_set_xps_queue
+  - Found in CPG: netif_set_xps_queue at include/linux/netdevice.h:3892
+  - Added entry: netif_set_xps_queue
+  - Looking for: __netif_set_xps_queue -> demangled: __netif_set_xps_queue -> shortName: __netif_set_xps_queue
+  - Found in CPG: __netif_set_xps_queue at include/linux/netdevice.h:3899
+  - Added entry: __netif_set_xps_queue
+  - Looking for: __dev_set_mtu -> demangled: __dev_set_mtu -> shortName: __dev_set_mtu
+  - Found in CPG: __dev_set_mtu at net/core/dev.c:8874
+  - Added entry: __dev_set_mtu
+  - Looking for: dev_queue_xmit_nit -> demangled: dev_queue_xmit_nit -> shortName: dev_queue_xmit_nit
+  - Found in CPG: dev_queue_xmit_nit at net/core/dev.c:2268
+  - Added entry: dev_queue_xmit_nit
+  - Looking for: dev_forward_skb -> demangled: dev_forward_skb -> shortName: dev_forward_skb
+  - Found in CPG: dev_forward_skb at net/core/dev.c:2200
+  - Added entry: dev_forward_skb
+  - Looking for: netdev_set_tc_queue -> demangled: netdev_set_tc_queue -> shortName: netdev_set_tc_queue
+  - Found in CPG: netdev_set_tc_queue at net/core/dev.c:2811
+  - Added entry: netdev_set_tc_queue
+  - Looking for: netdev_adjacent_change_prepare -> demangled: netdev_adjacent_change_prepare -> shortName: netdev_adjacent_change_prepare
+  - Found in CPG: netdev_adjacent_change_prepare at net/core/dev.c:8295
+  - Added entry: netdev_adjacent_change_prepare
+  - Looking for: is_skb_forwardable -> demangled: is_skb_forwardable -> shortName: is_skb_forwardable
+  - Found in CPG: is_skb_forwardable at net/core/dev.c:2157
+  - Added entry: is_skb_forwardable
+  - Looking for: netdev_master_upper_dev_get_rcu -> demangled: netdev_master_upper_dev_get_rcu -> shortName: netdev_master_upper_dev_get_rcu
+  - Found in CPG: netdev_master_upper_dev_get_rcu at net/core/dev.c:7894
+  - Added entry: netdev_master_upper_dev_get_rcu
+  - Looking for: do_xdp_generic -> demangled: do_xdp_generic -> shortName: do_xdp_generic
+  - Found in CPG: do_xdp_generic at net/core/dev.c:4868
+  - Added entry: do_xdp_generic
+  - Looking for: net_disable_timestamp -> demangled: net_disable_timestamp -> shortName: net_disable_timestamp
+  - Found in CPG: net_disable_timestamp at net/core/dev.c:2124
+  - Added entry: net_disable_timestamp
+  - Looking for: net_dec_egress_queue -> demangled: net_dec_egress_queue -> shortName: net_dec_egress_queue
+  - Not found in CPG: net_dec_egress_queue (tried: net_dec_egress_queue)
+  - Looking for: dev_get_stats -> demangled: dev_get_stats -> shortName: dev_get_stats
+  - Found in CPG: dev_get_stats at net/core/dev.c:10681
+  - Added entry: dev_get_stats
+  - Looking for: unregister_netdevice_notifier -> demangled: unregister_netdevice_notifier -> shortName: unregister_netdevice_notifier
+  - Found in CPG: unregister_netdevice_notifier at net/core/dev.c:1824
+  - Added entry: unregister_netdevice_notifier
+  - Looking for: netdev_state_change -> demangled: netdev_state_change -> shortName: netdev_state_change
+  - Found in CPG: netdev_state_change at net/core/dev.c:1386
+  - Added entry: netdev_state_change
+  - Looking for: net_inc_egress_queue -> demangled: net_inc_egress_queue -> shortName: net_inc_egress_queue
+  - Not found in CPG: net_inc_egress_queue (tried: net_inc_egress_queue)
+  - Looking for: dev_remove_offload -> demangled: dev_remove_offload -> shortName: dev_remove_offload
+  - Found in CPG: dev_remove_offload at net/core/dev.c:677
+  - Added entry: dev_remove_offload
+  - Looking for: bpf_xdp_link_show_fdinfo -> demangled: bpf_xdp_link_show_fdinfo -> shortName: bpf_xdp_link_show_fdinfo
+  - Found in CPG: bpf_xdp_link_show_fdinfo at net/core/dev.c:9606
+  - Added entry: bpf_xdp_link_show_fdinfo
+  - Looking for: napi_gro_frags -> demangled: napi_gro_frags -> shortName: napi_gro_frags
+  - Found in CPG: napi_gro_frags at net/core/dev.c:6349
+  - Added entry: napi_gro_frags
+  - Looking for: netdev_init_one_queue -> demangled: netdev_init_one_queue -> shortName: netdev_init_one_queue
+  - Found in CPG: netdev_init_one_queue at net/core/dev.c:10160
+  - Added entry: netdev_init_one_queue
+  - Looking for: dev_set_mtu -> demangled: dev_set_mtu -> shortName: dev_set_mtu
+  - Found in CPG: dev_set_mtu at net/core/dev.c:8950
+  - Added entry: dev_set_mtu
+  - Looking for: netdev_lower_get_next -> demangled: netdev_lower_get_next -> shortName: netdev_lower_get_next
+  - Found in CPG: netdev_lower_get_next at net/core/dev.c:7597
+  - Added entry: netdev_lower_get_next
+  - Looking for: dev_close -> demangled: dev_close -> shortName: dev_close
+  - Found in CPG: dev_close at net/core/dev.c:1619
+  - Added entry: dev_close
+  - Looking for: unregister_netdev -> demangled: unregister_netdev -> shortName: unregister_netdev
+  - Found in CPG: unregister_netdev at net/core/dev.c:11133
+  - Added entry: unregister_netdev
+  - Looking for: dev_close_many -> demangled: dev_close_many -> shortName: dev_close_many
+  - Found in CPG: dev_close_many at net/core/dev.c:1590
+  - Added entry: dev_close_many
+  - Looking for: dev_change_carrier -> demangled: dev_change_carrier -> shortName: dev_change_carrier
+  - Found in CPG: dev_change_carrier at net/core/dev.c:9109
+  - Added entry: dev_change_carrier
+  - Looking for: __dev_get_by_name -> demangled: __dev_get_by_name -> shortName: __dev_get_by_name
+  - Found in CPG: __dev_get_by_name at net/core/dev.c:792
+  - Added entry: __dev_get_by_name
+  - Looking for: dev_fill_forward_path -> demangled: dev_fill_forward_path -> shortName: dev_fill_forward_path
+  - Found in CPG: dev_fill_forward_path at net/core/dev.c:744
+  - Added entry: dev_fill_forward_path
+  - Looking for: netdev_set_num_tc -> demangled: netdev_set_num_tc -> shortName: netdev_set_num_tc
+  - Found in CPG: netdev_set_num_tc at net/core/dev.c:2825
+  - Added entry: netdev_set_num_tc
+  - Looking for: dev_fill_metadata_dst -> demangled: dev_fill_metadata_dst -> shortName: dev_fill_metadata_dst
+  - Found in CPG: dev_fill_metadata_dst at net/core/dev.c:717
+  - Added entry: dev_fill_metadata_dst
+  - Looking for: napi_threaded_poll -> demangled: napi_threaded_poll -> shortName: napi_threaded_poll
+  - Found in CPG: napi_threaded_poll at net/core/dev.c:7125
+  - Added entry: napi_threaded_poll
+  - Looking for: dev_get_iflink -> demangled: dev_get_iflink -> shortName: dev_get_iflink
+  - Found in CPG: dev_get_iflink at net/core/dev.c:699
+  - Added entry: dev_get_iflink
+  - Looking for: dev_add_offload -> demangled: dev_add_offload -> shortName: dev_add_offload
+  - Found in CPG: dev_add_offload at net/core/dev.c:619
+  - Added entry: dev_add_offload
+  - Looking for: __netdev_update_upper_level -> demangled: __netdev_update_upper_level -> shortName: __netdev_update_upper_level
+  - Found in CPG: __netdev_update_upper_level at net/core/dev.c:7795
+  - Added entry: __netdev_update_upper_level
+  - Looking for: netdev_notify_peers -> demangled: netdev_notify_peers -> shortName: netdev_notify_peers
+  - Found in CPG: netdev_notify_peers at net/core/dev.c:1429
+  - Added entry: netdev_notify_peers
+  - Looking for: default_device_exit_batch -> demangled: default_device_exit_batch -> shortName: default_device_exit_batch
+  - Found in CPG: default_device_exit_batch at net/core/dev.c:11576
+  - Added entry: default_device_exit_batch
+  - Looking for: dev_set_promiscuity -> demangled: dev_set_promiscuity -> shortName: dev_set_promiscuity
+  - Found in CPG: dev_set_promiscuity at net/core/dev.c:8619
+  - Added entry: dev_set_promiscuity
+  - Looking for: dev_get_by_napi_id -> demangled: dev_get_by_napi_id -> shortName: dev_get_by_napi_id
+  - Found in CPG: dev_get_by_napi_id at net/core/dev.c:929
+  - Added entry: dev_get_by_napi_id
+  - Looking for: register_netdev -> demangled: register_netdev -> shortName: register_netdev
+  - Found in CPG: register_netdev at net/core/dev.c:10451
+  - Added entry: register_netdev
+  - Looking for: netdev_name_node_alt_destroy -> demangled: netdev_name_node_alt_destroy -> shortName: netdev_name_node_alt_destroy
+  - Found in CPG: netdev_name_node_alt_destroy at net/core/dev.c:339
+  - Added entry: netdev_name_node_alt_destroy
+  - Looking for: dev_get_by_name -> demangled: dev_get_by_name -> shortName: dev_get_by_name
+  - Found in CPG: dev_get_by_name at net/core/dev.c:834
+  - Added entry: dev_get_by_name
+  - Looking for: skb_csum_hwoffload_help -> demangled: skb_csum_hwoffload_help -> shortName: skb_csum_hwoffload_help
+  - Found in CPG: skb_csum_hwoffload_help at net/core/dev.c:3633
+  - Added entry: skb_csum_hwoffload_help
+  - Looking for: netdev_name_node_alt_create -> demangled: netdev_name_node_alt_create -> shortName: netdev_name_node_alt_create
+  - Found in CPG: netdev_name_node_alt_create at net/core/dev.c:312
+  - Added entry: netdev_name_node_alt_create
+  - Looking for: call_netdevice_notifiers -> demangled: call_netdevice_notifiers -> shortName: call_netdevice_notifiers
+  - Found in CPG: call_netdevice_notifiers at net/core/dev.c:2026
+  - Added entry: call_netdevice_notifiers
+  - Looking for: __netif_schedule -> demangled: __netif_schedule -> shortName: __netif_schedule
+  - Found in CPG: __netif_schedule at net/core/dev.c:3053
+  - Added entry: __netif_schedule
+  - Looking for: __dev_remove_pack -> demangled: __dev_remove_pack -> shortName: __dev_remove_pack
+  - Found in CPG: __dev_remove_pack at net/core/dev.c:566
+  - Added entry: __dev_remove_pack
+  - Looking for: netdev_alert -> demangled: netdev_alert -> shortName: netdev_alert
+  - Found in CPG: netdev_alert at net/core/dev.c:11494
+  - Added entry: netdev_alert
+  - Looking for: __dev_kfree_skb_irq -> demangled: __dev_kfree_skb_irq -> shortName: __dev_kfree_skb_irq
+  - Found in CPG: __dev_kfree_skb_irq at net/core/dev.c:3094
+  - Added entry: __dev_kfree_skb_irq
+  - Looking for: dev_queue_xmit_accel -> demangled: dev_queue_xmit_accel -> shortName: dev_queue_xmit_accel
+  - Found in CPG: dev_queue_xmit_accel at net/core/dev.c:4263
+  - Added entry: dev_queue_xmit_accel
+  - Looking for: netdev_cmd_to_name -> demangled: netdev_cmd_to_name -> shortName: netdev_cmd_to_name
+  - Found in CPG: netdev_cmd_to_name at net/core/dev.c:1673
+  - Added entry: netdev_cmd_to_name
+  - Looking for: netdev_adjacent_change_commit -> demangled: netdev_adjacent_change_commit -> shortName: netdev_adjacent_change_commit
+  - Found in CPG: netdev_adjacent_change_commit at net/core/dev.c:8323
+  - Added entry: netdev_adjacent_change_commit
+  - Looking for: dev_nit_active -> demangled: dev_nit_active -> shortName: dev_nit_active
+  - Found in CPG: dev_nit_active at net/core/dev.c:2257
+  - Added entry: dev_nit_active
+  - Looking for: dev_alloc_name -> demangled: dev_alloc_name -> shortName: dev_alloc_name
+  - Found in CPG: dev_alloc_name at net/core/dev.c:1180
+  - Added entry: dev_alloc_name
+  - Looking for: dev_valid_name -> demangled: dev_valid_name -> shortName: dev_valid_name
+  - Found in CPG: dev_valid_name at net/core/dev.c:1054
+  - Added entry: dev_valid_name
+  - Looking for: net_dev_init -> demangled: net_dev_init -> shortName: net_dev_init
+  - Found in CPG: net_dev_init at net/core/dev.c:11627
+  - Added entry: net_dev_init
+  - Looking for: dev_get_by_name_rcu -> demangled: dev_get_by_name_rcu -> shortName: dev_get_by_name_rcu
+  - Found in CPG: dev_get_by_name_rcu at net/core/dev.c:813
+  - Added entry: dev_get_by_name_rcu
+  - Looking for: __dev_get_by_index -> demangled: __dev_get_by_index -> shortName: __dev_get_by_index
+  - Found in CPG: __dev_get_by_index at net/core/dev.c:858
+  - Added entry: __dev_get_by_index
+  - Looking for: gro_find_receive_by_type -> demangled: gro_find_receive_by_type -> shortName: gro_find_receive_by_type
+  - Found in CPG: gro_find_receive_by_type at net/core/dev.c:6165
+  - Added entry: gro_find_receive_by_type
+  - Looking for: netdev_lower_get_next_private_rcu -> demangled: netdev_lower_get_next_private_rcu -> shortName: netdev_lower_get_next_private_rcu
+  - Found in CPG: netdev_lower_get_next_private_rcu at net/core/dev.c:7568
+  - Added entry: netdev_lower_get_next_private_rcu
+  - Looking for: napi_busy_loop -> demangled: napi_busy_loop -> shortName: napi_busy_loop
+  - Not found in CPG: napi_busy_loop (tried: napi_busy_loop)
+  - Looking for: dev_add_pack -> demangled: dev_add_pack -> shortName: dev_add_pack
+  - Found in CPG: dev_add_pack at net/core/dev.c:543
+  - Added entry: dev_add_pack
+  - Looking for: __netif_napi_del -> demangled: __netif_napi_del -> shortName: __netif_napi_del
+  - Found in CPG: __netif_napi_del at net/core/dev.c:6987
+  - Added entry: __netif_napi_del
+  - Looking for: __dev_forward_skb -> demangled: __dev_forward_skb -> shortName: __dev_forward_skb
+  - Found in CPG: __dev_forward_skb at net/core/dev.c:2176
+  - Added entry: __dev_forward_skb
+  - Looking for: __netdev_notify_peers -> demangled: __netdev_notify_peers -> shortName: __netdev_notify_peers
+  - Found in CPG: __netdev_notify_peers at net/core/dev.c:1411
+  - Added entry: __netdev_notify_peers
+  - Looking for: dev_set_threaded -> demangled: dev_set_threaded -> shortName: dev_set_threaded
+  - Found in CPG: dev_set_threaded at net/core/dev.c:6844
+  - Added entry: dev_set_threaded
+  - Looking for: dev_get_by_index -> demangled: dev_get_by_index -> shortName: dev_get_by_index
+  - Found in CPG: dev_get_by_index at net/core/dev.c:907
+  - Added entry: dev_get_by_index
+  - Looking for: dev_queue_xmit -> demangled: dev_queue_xmit -> shortName: dev_queue_xmit
+  - Found in CPG: dev_queue_xmit at net/core/dev.c:4257
+  - Added entry: dev_queue_xmit
+  - Looking for: dev_disable_lro -> demangled: dev_disable_lro -> shortName: dev_disable_lro
+  - Found in CPG: dev_disable_lro at net/core/dev.c:1640
+  - Added entry: dev_disable_lro
+  - Looking for: dev_remove_pack -> demangled: dev_remove_pack -> shortName: dev_remove_pack
+  - Found in CPG: dev_remove_pack at net/core/dev.c:598
+  - Added entry: dev_remove_pack
+  - Looking for: napi_enable -> demangled: napi_enable -> shortName: napi_enable
+  - Found in CPG: napi_enable at net/core/dev.c:6958
+  - Added entry: napi_enable
+  - Looking for: __dev_get_by_flags -> demangled: __dev_get_by_flags -> shortName: __dev_get_by_flags
+  - Found in CPG: __dev_get_by_flags at net/core/dev.c:1028
+  - Added entry: __dev_get_by_flags
+  - Looking for: dev_set_alias -> demangled: dev_set_alias -> shortName: dev_set_alias
+  - Found in CPG: dev_set_alias at net/core/dev.c:1315
+  - Added entry: dev_set_alias
+  - Looking for: netdev_upper_dev_unlink -> demangled: netdev_upper_dev_unlink -> shortName: netdev_upper_dev_unlink
+  - Found in CPG: netdev_upper_dev_unlink at net/core/dev.c:8256
+  - Added entry: netdev_upper_dev_unlink
+  - Looking for: netif_get_num_default_rss_queues -> demangled: netif_get_num_default_rss_queues -> shortName: netif_get_num_default_rss_queues
+  - Not found in CPG: netif_get_num_default_rss_queues (tried: netif_get_num_default_rss_queues)
+  - Looking for: register_netdevice_notifier_dev_net -> demangled: register_netdevice_notifier_dev_net -> shortName: register_netdevice_notifier_dev_net
+  - Found in CPG: register_netdevice_notifier_dev_net at net/core/dev.c:1936
+  - Added entry: register_netdevice_notifier_dev_net
+  - Looking for: netif_set_real_num_queues -> demangled: netif_set_real_num_queues -> shortName: netif_set_real_num_queues
+  - Found in CPG: netif_set_real_num_queues at net/core/dev.c:2991
+  - Added entry: netif_set_real_num_queues
+  - Looking for: register_netdevice_notifier_net -> demangled: register_netdevice_notifier_net -> shortName: register_netdevice_notifier_net
+  - Found in CPG: register_netdevice_notifier_net at net/core/dev.c:1897
+  - Added entry: register_netdevice_notifier_net
+  - Looking for: ____netdev_has_upper_dev -> demangled: ____netdev_has_upper_dev -> shortName: ____netdev_has_upper_dev
+  - Found in CPG: ____netdev_has_upper_dev at net/core/dev.c:7229
+  - Added entry: ____netdev_has_upper_dev
+  - Looking for: netif_tx_wake_queue -> demangled: netif_tx_wake_queue -> shortName: netif_tx_wake_queue
+  - Found in CPG: netif_tx_wake_queue at net/core/dev.c:3081
+  - Added entry: netif_tx_wake_queue
+  - Looking for: napi_get_frags -> demangled: napi_get_frags -> shortName: napi_get_frags
+  - Found in CPG: napi_get_frags at net/core/dev.c:6265
+  - Added entry: napi_get_frags
+  - Looking for: default_device_exit -> demangled: default_device_exit -> shortName: default_device_exit
+  - Found in CPG: default_device_exit at net/core/dev.c:11514
+  - Added entry: default_device_exit
+  - Looking for: __napi_schedule -> demangled: __napi_schedule -> shortName: __napi_schedule
+  - Found in CPG: __napi_schedule at net/core/dev.c:6491
+  - Added entry: __napi_schedule
+  - Looking for: net_inc_ingress_queue -> demangled: net_inc_ingress_queue -> shortName: net_inc_ingress_queue
+  - Not found in CPG: net_inc_ingress_queue (tried: net_inc_ingress_queue)
+  - Looking for: netdev_features_change -> demangled: netdev_features_change -> shortName: netdev_features_change
+  - Found in CPG: netdev_features_change at net/core/dev.c:1372
+  - Added entry: netdev_features_change
+  - Looking for: unregister_netdevice_queue -> demangled: unregister_netdevice_queue -> shortName: unregister_netdevice_queue
+  - Found in CPG: unregister_netdevice_queue at net/core/dev.c:11001
+  - Added entry: unregister_netdevice_queue
+  - Looking for: __dev_kfree_skb_any -> demangled: __dev_kfree_skb_any -> shortName: __dev_kfree_skb_any
+  - Found in CPG: __dev_kfree_skb_any at net/core/dev.c:3116
+  - Added entry: __dev_kfree_skb_any
+  - Looking for: alloc_netdev_mqs -> demangled: alloc_netdev_mqs -> shortName: alloc_netdev_mqs
+  - Found in CPG: alloc_netdev_mqs at net/core/dev.c:10798
+  - Added entry: alloc_netdev_mqs
+  - Looking for: netdev_reset_tc -> demangled: netdev_reset_tc -> shortName: netdev_reset_tc
+  - Found in CPG: netdev_reset_tc at net/core/dev.c:2797
+  - Added entry: netdev_reset_tc
+  - Looking for: netdev_unbind_sb_channel -> demangled: netdev_unbind_sb_channel -> shortName: netdev_unbind_sb_channel
+  - Found in CPG: netdev_unbind_sb_channel at net/core/dev.c:2840
+  - Added entry: netdev_unbind_sb_channel
+  - Looking for: netdev_bind_sb_channel_queue -> demangled: netdev_bind_sb_channel_queue -> shortName: netdev_bind_sb_channel_queue
+  - Found in CPG: netdev_bind_sb_channel_queue at net/core/dev.c:2858
+  - Added entry: netdev_bind_sb_channel_queue
+  - Looking for: unregister_netdevice_notifier_net -> demangled: unregister_netdevice_notifier_net -> shortName: unregister_netdevice_notifier_net
+  - Found in CPG: unregister_netdevice_notifier_net at net/core/dev.c:1924
+  - Added entry: unregister_netdevice_notifier_net
+  - Looking for: netif_receive_skb_core -> demangled: netif_receive_skb_core -> shortName: netif_receive_skb_core
+  - Found in CPG: netif_receive_skb_core at net/core/dev.c:5482
+  - Added entry: netif_receive_skb_core
+  - Looking for: netif_napi_add -> demangled: netif_napi_add -> shortName: netif_napi_add
+  - Found in CPG: netif_napi_add at net/core/dev.c:6888
+  - Added entry: netif_napi_add
+  - Looking for: netdev_master_upper_dev_link -> demangled: netdev_master_upper_dev_link -> shortName: netdev_master_upper_dev_link
+  - Found in CPG: netdev_master_upper_dev_link at net/core/dev.c:8201
+  - Added entry: netdev_master_upper_dev_link
+  - Looking for: netdev_adjacent_get_private -> demangled: netdev_adjacent_get_private -> shortName: netdev_adjacent_get_private
+  - Found in CPG: netdev_adjacent_get_private at net/core/dev.c:7351
+  - Added entry: netdev_adjacent_get_private
+  - Looking for: netif_set_real_num_rx_queues -> demangled: netif_set_real_num_rx_queues -> shortName: netif_set_real_num_rx_queues
+  - Found in CPG: netif_set_real_num_rx_queues at include/linux/netdevice.h:3923
+  - Added entry: netif_set_real_num_rx_queues
+  - Looking for: napi_gro_receive -> demangled: napi_gro_receive -> shortName: napi_gro_receive
+  - Found in CPG: napi_gro_receive at net/core/dev.c:6220
+  - Added entry: napi_gro_receive
+  - Looking for: netif_schedule_queue -> demangled: netif_schedule_queue -> shortName: netif_schedule_queue
+  - Found in CPG: netif_schedule_queue at net/core/dev.c:3069
+  - Added entry: netif_schedule_queue
+  - Looking for: dev_loopback_xmit -> demangled: dev_loopback_xmit -> shortName: dev_loopback_xmit
+  - Found in CPG: dev_loopback_xmit at net/core/dev.c:3918
+  - Added entry: dev_loopback_xmit
+  - Looking for: net_enable_timestamp -> demangled: net_enable_timestamp -> shortName: net_enable_timestamp
+  - Found in CPG: net_enable_timestamp at net/core/dev.c:2104
+  - Added entry: net_enable_timestamp
+  - Looking for: netif_device_detach -> demangled: netif_device_detach -> shortName: netif_device_detach
+  - Found in CPG: netif_device_detach at net/core/dev.c:3132
+  - Added entry: netif_device_detach
+  - Looking for: netif_receive_skb -> demangled: netif_receive_skb -> shortName: netif_receive_skb
+  - Found in CPG: netif_receive_skb at net/core/dev.c:5715
+  - Added entry: netif_receive_skb
+  - Looking for: gro_find_complete_by_type -> demangled: gro_find_complete_by_type -> shortName: gro_find_complete_by_type
+  - Found in CPG: gro_find_complete_by_type at net/core/dev.c:6179
+  - Added entry: gro_find_complete_by_type
+  - Looking for: netif_device_attach -> demangled: netif_device_attach -> shortName: netif_device_attach
+  - Found in CPG: netif_device_attach at net/core/dev.c:3147
+  - Added entry: netif_device_attach
+  - Looking for: skb_checksum_help -> demangled: skb_checksum_help -> shortName: skb_checksum_help
+  - Found in CPG: skb_checksum_help at net/core/dev.c:3219
+  - Added entry: skb_checksum_help
+  - Looking for: register_netdevice_notifier -> demangled: register_netdevice_notifier -> shortName: register_netdevice_notifier
+  - Found in CPG: register_netdevice_notifier at net/core/dev.c:1777
+  - Added entry: register_netdevice_notifier
+  - Looking for: skb_mac_gso_segment -> demangled: skb_mac_gso_segment -> shortName: skb_mac_gso_segment
+  - Found in CPG: skb_mac_gso_segment at net/core/dev.c:3323
+  - Added entry: skb_mac_gso_segment
+  - Looking for: dev_pick_tx_cpu_id -> demangled: dev_pick_tx_cpu_id -> shortName: dev_pick_tx_cpu_id
+  - Found in CPG: dev_pick_tx_cpu_id at net/core/dev.c:4055
+  - Added entry: dev_pick_tx_cpu_id
+  - Looking for: unregister_netdevice_notifier_dev_net -> demangled: unregister_netdevice_notifier_dev_net -> shortName: unregister_netdevice_notifier_dev_net
+  - Found in CPG: unregister_netdevice_notifier_dev_net at net/core/dev.c:1953
+  - Added entry: unregister_netdevice_notifier_dev_net
+  - Looking for: netdev_master_upper_dev_get -> demangled: netdev_master_upper_dev_get -> shortName: netdev_master_upper_dev_get
+  - Found in CPG: netdev_master_upper_dev_get at net/core/dev.c:7304
+  - Added entry: netdev_master_upper_dev_get
+  - Looking for: dev_get_by_index_rcu -> demangled: dev_get_by_index_rcu -> shortName: dev_get_by_index_rcu
+  - Found in CPG: dev_get_by_index_rcu at net/core/dev.c:882
+  - Added entry: dev_get_by_index_rcu
+  - Looking for: netdev_rx_csum_fault -> demangled: netdev_rx_csum_fault -> shortName: netdev_rx_csum_fault
+  - Not found in CPG: netdev_rx_csum_fault (tried: netdev_rx_csum_fault)
+  - Looking for: dev_getfirstbyhwtype -> demangled: dev_getfirstbyhwtype -> shortName: dev_getfirstbyhwtype
+  - Found in CPG: dev_getfirstbyhwtype at net/core/dev.c:1001
+  - Added entry: dev_getfirstbyhwtype
+  - Looking for: passthru_features_check -> demangled: passthru_features_check -> shortName: passthru_features_check
+  - Found in CPG: passthru_features_check at net/core/dev.c:3495
+  - Added entry: passthru_features_check
+  - Looking for: napi_watchdog -> demangled: napi_watchdog -> shortName: napi_watchdog
+  - Found in CPG: napi_watchdog at net/core/dev.c:6815
+  - Added entry: napi_watchdog
+  - Looking for: netif_skb_features -> demangled: netif_skb_features -> shortName: netif_skb_features
+  - Found in CPG: netif_skb_features at net/core/dev.c:3547
+  - Added entry: netif_skb_features
+  - Looking for: validate_xmit_skb_list -> demangled: validate_xmit_skb_list -> shortName: validate_xmit_skb_list
+  - Found in CPG: validate_xmit_skb_list at net/core/dev.c:3710
+  - Added entry: validate_xmit_skb_list
+  - Looking for: netif_receive_skb_list -> demangled: netif_receive_skb_list -> shortName: netif_receive_skb_list
+  - Found in CPG: netif_receive_skb_list at net/core/dev.c:5738
+  - Added entry: netif_receive_skb_list
+  - Looking for: dev_getbyhwaddr_rcu -> demangled: dev_getbyhwaddr_rcu -> shortName: dev_getbyhwaddr_rcu
+  - Found in CPG: dev_getbyhwaddr_rcu at net/core/dev.c:987
+  - Added entry: dev_getbyhwaddr_rcu
+  - Looking for: dev_pick_tx_zero -> demangled: dev_pick_tx_zero -> shortName: dev_pick_tx_zero
+  - Found in CPG: dev_pick_tx_zero at net/core/dev.c:4048
+  - Added entry: dev_pick_tx_zero
+  - Looking for: netdev_pick_tx -> demangled: netdev_pick_tx -> shortName: netdev_pick_tx
+  - Found in CPG: netdev_pick_tx at net/core/dev.c:4062
+  - Added entry: netdev_pick_tx
+  - Looking for: netdev_txq_to_tc -> demangled: netdev_txq_to_tc -> shortName: netdev_txq_to_tc
+  - Found in CPG: netdev_txq_to_tc at net/core/dev.c:2372
+  - Added entry: netdev_txq_to_tc
+  - Looking for: rps_may_expire_flow -> demangled: rps_may_expire_flow -> shortName: rps_may_expire_flow
+  - Not found in CPG: rps_may_expire_flow (tried: rps_may_expire_flow)
+  - Looking for: net_dec_ingress_queue -> demangled: net_dec_ingress_queue -> shortName: net_dec_ingress_queue
+  - Not found in CPG: net_dec_ingress_queue (tried: net_dec_ingress_queue)
+  - Looking for: netif_rx -> demangled: netif_rx -> shortName: netif_rx
+  - Found in CPG: netif_rx at net/core/dev.c:4948
+  - Added entry: netif_rx
+  - Looking for: napi_disable -> demangled: napi_disable -> shortName: napi_disable
+  - Found in CPG: napi_disable at net/core/dev.c:6924
+  - Added entry: napi_disable
+  - Looking for: netif_rx_ni -> demangled: netif_rx_ni -> shortName: netif_rx_ni
+  - Found in CPG: netif_rx_ni at net/core/dev.c:4961
+  - Added entry: netif_rx_ni
+  - Looking for: netif_rx_any_context -> demangled: netif_rx_any_context -> shortName: netif_rx_any_context
+  - Found in CPG: netif_rx_any_context at net/core/dev.c:4978
+  - Added entry: netif_rx_any_context
+  - Looking for: dev_open -> demangled: dev_open -> shortName: dev_open
+  - Found in CPG: dev_open at net/core/dev.c:1519
+  - Added entry: dev_open
+  - Looking for: netdev_is_rx_handler_busy -> demangled: netdev_is_rx_handler_busy -> shortName: netdev_is_rx_handler_busy
+  - Found in CPG: netdev_is_rx_handler_busy at net/core/dev.c:5152
+  - Added entry: netdev_is_rx_handler_busy
+  - Looking for: netdev_set_sb_channel -> demangled: netdev_set_sb_channel -> shortName: netdev_set_sb_channel
+  - Found in CPG: netdev_set_sb_channel at net/core/dev.c:2884
+  - Added entry: netdev_set_sb_channel
+  - Looking for: netstamp_clear -> demangled: netstamp_clear -> shortName: netstamp_clear
+  - Not found in CPG: netstamp_clear (tried: netstamp_clear)
+  - Looking for: __skb_gso_segment -> demangled: __skb_gso_segment -> shortName: __skb_gso_segment
+  - Found in CPG: __skb_gso_segment at net/core/dev.c:3376
+  - Added entry: __skb_gso_segment
+  - Looking for: netdev_rx_handler_register -> demangled: netdev_rx_handler_register -> shortName: netdev_rx_handler_register
+  - Found in CPG: netdev_rx_handler_register at net/core/dev.c:5173
+  - Added entry: netdev_rx_handler_register
+  - Looking for: netdev_name_in_use -> demangled: netdev_name_in_use -> shortName: netdev_name_in_use
+  - Found in CPG: netdev_name_in_use at net/core/dev.c:306
+  - Added entry: netdev_name_in_use
+  - Looking for: netdev_has_any_upper_dev -> demangled: netdev_has_any_upper_dev -> shortName: netdev_has_any_upper_dev
+  - Found in CPG: netdev_has_any_upper_dev at net/core/dev.c:7289
+  - Added entry: netdev_has_any_upper_dev
+  - Looking for: netdev_rx_handler_unregister -> demangled: netdev_rx_handler_unregister -> shortName: netdev_rx_handler_unregister
+  - Found in CPG: netdev_rx_handler_unregister at net/core/dev.c:5199
+  - Added entry: netdev_rx_handler_unregister
+  - Looking for: napi_schedule_prep -> demangled: napi_schedule_prep -> shortName: napi_schedule_prep
+  - Found in CPG: napi_schedule_prep at net/core/dev.c:6510
+  - Added entry: napi_schedule_prep
+  - Looking for: dev_change_proto_down -> demangled: dev_change_proto_down -> shortName: dev_change_proto_down
+  - Found in CPG: dev_change_proto_down at net/core/dev.c:9231
+  - Added entry: dev_change_proto_down
+  - Looking for: napi_gro_flush -> demangled: napi_gro_flush -> shortName: napi_gro_flush
+  - Found in CPG: napi_gro_flush at net/core/dev.c:5924
+  - Added entry: napi_gro_flush
+  - Looking for: __skb_gro_checksum_complete -> demangled: __skb_gro_checksum_complete -> shortName: __skb_gro_checksum_complete
+  - Found in CPG: __skb_gro_checksum_complete at net/core/dev.c:6366
+  - Added entry: __skb_gro_checksum_complete
+  - Looking for: netif_set_real_num_tx_queues -> demangled: netif_set_real_num_tx_queues -> shortName: netif_set_real_num_tx_queues
+  - Found in CPG: netif_set_real_num_tx_queues at net/core/dev.c:2908
+  - Added entry: netif_set_real_num_tx_queues
+  - Looking for: napi_complete_done -> demangled: napi_complete_done -> shortName: napi_complete_done
+  - Found in CPG: napi_complete_done at net/core/dev.c:6553
+  - Added entry: napi_complete_done
+  - Looking for: __napi_schedule_irqoff -> demangled: __napi_schedule_irqoff -> shortName: __napi_schedule_irqoff
+  - Found in CPG: __napi_schedule_irqoff at net/core/dev.c:6544
+  - Added entry: __napi_schedule_irqoff
+  - Looking for: dev_xdp_prog_count -> demangled: dev_xdp_prog_count -> shortName: dev_xdp_prog_count
+  - Found in CPG: dev_xdp_prog_count at net/core/dev.c:9333
+  - Added entry: dev_xdp_prog_count
+  - Looking for: netdev_has_upper_dev -> demangled: netdev_has_upper_dev -> shortName: netdev_has_upper_dev
+  - Found in CPG: netdev_has_upper_dev at net/core/dev.c:7246
+  - Added entry: netdev_has_upper_dev
+  - Looking for: netdev_has_upper_dev_all_rcu -> demangled: netdev_has_upper_dev_all_rcu -> shortName: netdev_has_upper_dev_all_rcu
+  - Found in CPG: netdev_has_upper_dev_all_rcu at net/core/dev.c:7270
+  - Added entry: netdev_has_upper_dev_all_rcu
+  - Looking for: __dev_direct_xmit -> demangled: __dev_direct_xmit -> shortName: __dev_direct_xmit
+  - Found in CPG: __dev_direct_xmit at net/core/dev.c:4269
+  - Added entry: __dev_direct_xmit
+  - Looking for: netdev_upper_get_next_dev_rcu -> demangled: netdev_upper_get_next_dev_rcu -> shortName: netdev_upper_get_next_dev_rcu
+  - Found in CPG: netdev_upper_get_next_dev_rcu at net/core/dev.c:7369
+  - Added entry: netdev_upper_get_next_dev_rcu
+  - Looking for: netdev_walk_all_upper_dev_rcu -> demangled: netdev_walk_all_upper_dev_rcu -> shortName: netdev_walk_all_upper_dev_rcu
+  - Found in CPG: netdev_walk_all_upper_dev_rcu at net/core/dev.c:7470
+  - Added entry: netdev_walk_all_upper_dev_rcu
+  - Looking for: netdev_err -> demangled: netdev_err -> shortName: netdev_err
+  - Found in CPG: netdev_err at net/core/dev.c:11496
+  - Added entry: netdev_err
+  - Looking for: netdev_lower_get_next_private -> demangled: netdev_lower_get_next_private -> shortName: netdev_lower_get_next_private
+  - Found in CPG: netdev_lower_get_next_private at net/core/dev.c:7542
+  - Added entry: netdev_lower_get_next_private
+  - Looking for: netdev_walk_all_lower_dev -> demangled: netdev_walk_all_lower_dev -> shortName: netdev_walk_all_lower_dev
+  - Found in CPG: netdev_walk_all_lower_dev at net/core/dev.c:7644
+  - Added entry: netdev_walk_all_lower_dev
+[Kernel Module Mode] Total entry functions: 202
+Warning: Could not map CPG function 'dev_uc_flush' to an llvm::Function.
+Warning: Could not map CPG function 'dev_mc_flush' to an llvm::Function.
+Warning: Could not map CPG function 'netdev_change_owner' to an llvm::Function.
+Warning: Could not map CPG function 'dev_addr_flush' to an llvm::Function.
+Warning: Could not map CPG function 'netdev_unregister_kobject' to an llvm::Function.
+Warning: Could not map CPG function 'LIST_HEAD' to an llvm::Function.
+Warning: Could not map CPG function 'linkwatch_init_dev' to an llvm::Function.
+Warning: Could not map CPG function 'netdev_register_kobject' to an llvm::Function.
+Warning: Could not map CPG function 'netif_carrier_on' to an llvm::Function.
+Warning: Could not map CPG function 'netif_carrier_off' to an llvm::Function.
+Warning: Could not map CPG function 'netif_tx_stop_queue' to an llvm::Function.
+Warning: Could not map CPG function '__is_skb_forwardable' to an llvm::Function.
+Warning: Could not map CPG function 'N' to an llvm::Function.
+Warning: Could not map CPG function 'netdev_kobject_init' to an llvm::Function.
+Warning: Could not map CPG function 'GRO_MAX_HEAD' to an llvm::Function.
+Warning: Could not map CPG function 'dev_mc_init' to an llvm::Function.
+Warning: Could not map CPG function 'dev_addr_init' to an llvm::Function.
+Warning: Could not map CPG function 'dev_uc_init' to an llvm::Function.
+Warning: Could not map CPG function '__netdev_watchdog_up' to an llvm::Function.
+Warning: Could not map CPG function 'netdev_queue_update_kobjects' to an llvm::Function.
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'linkwatch_fire_event' to an llvm::Function.
+Warning: Could not map CPG function 'net_timestamp_check' to an llvm::Function.
+Warning: Could not map CPG function '____dev_forward_skb' to an llvm::Function.
+[Thread Entry] kthread_run uses arg1 -> napi_threaded_poll
+Warning: Could not map CPG function 'QUEUE_STATE_ANY_XOFF' to an llvm::Function.
+Warning: Could not map CPG function 'NAPI_GRO_CB' to an llvm::Function.
+Warning: Could not map CPG function 'QUEUE_STATE_DRV_XOFF_OR_FROZEN' to an llvm::Function.
+Warning: Could not map CPG function 'NET_XMIT_MASK' to an llvm::Function.
+Warning: Could not map CPG function 'XMIT_RECURSION_LIMIT' to an llvm::Function.
+Warning: Could not map CPG function 'NET_RX_DROP' to an llvm::Function.
+Warning: Could not map CPG function 'TC_BITMASK' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 202 entry points as parallel threads
+[Thread Entry] queue_work_on - direct arg lookup failed, trying LLM...
+[Thread Entry] kthread_run uses arg1 -> napi_threaded_poll
+[Kernel Module Mode] Keeping all 204 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 344MB, Avail: 361958MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 344MB, Avail: 361958MB)
+[DEBUG PRINT] Phase 1: Found 834 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'dev_queue_xmit' as a candidate.
+  -> Found thread arg in function 'dev_get_by_index' as a candidate.
+  -> Found thread arg in function 'dev_get_by_index' as a candidate.
+  -> Found thread arg in function '__netdev_notify_peers' as a candidate.
+  -> Found thread arg in function 'dev_add_pack' as a candidate.
+  -> Found thread arg in function 'netif_device_attach' as a candidate.
+  -> Found thread arg in function 'netdev_init' as a candidate.
+  -> Found thread arg in function '__dev_get_by_index' as a candidate.
+  -> Found thread arg in function '__dev_get_by_index' as a candidate.
+  -> Found thread arg in function 'netdev_txq_to_tc' as a candidate.
+  -> Found thread arg in function 'netdev_txq_to_tc' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_commit' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_commit' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_commit' as a candidate.
+  -> Found thread arg in function 'dev_remove_offload' as a candidate.
+  -> Found thread arg in function '__netif_schedule' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_release' as a candidate.
+  -> Found thread arg in function 'dev_change_flags' as a candidate.
+  -> Found thread arg in function 'dev_change_flags' as a candidate.
+  -> Found thread arg in function 'dev_change_flags' as a candidate.
+  -> Found thread arg in function 'netdev_name_node_alt_destroy' as a candidate.
+  -> Found thread arg in function 'netdev_name_node_alt_destroy' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function 'alloc_netdev_mqs' as a candidate.
+  -> Found thread arg in function '__skb_gro_checksum_complete' as a candidate.
+  -> Found thread arg in function 'dev_set_promiscuity' as a candidate.
+  -> Found thread arg in function 'dev_set_promiscuity' as a candidate.
+  -> Found thread arg in function 'napi_threaded_poll' as a candidate.
+  -> Found thread arg in function 'dev_close' as a candidate.
+  -> Found thread arg in function 'gro_find_receive_by_type' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier_net' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier_net' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next_private' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next_private' as a candidate.
+  -> Found thread arg in function 'napi_schedule_prep' as a candidate.
+  -> Found thread arg in function 'netdev_set_num_tc' as a candidate.
+  -> Found thread arg in function 'netdev_set_num_tc' as a candidate.
+  -> Found thread arg in function '__napi_schedule' as a candidate.
+  -> Found thread arg in function 'netdev_lower_state_changed' as a candidate.
+  -> Found thread arg in function 'netdev_lower_state_changed' as a candidate.
+  -> Found thread arg in function 'do_xdp_generic' as a candidate.
+  -> Found thread arg in function 'do_xdp_generic' as a candidate.
+  -> Found thread arg in function '__dev_get_by_flags' as a candidate.
+  -> Found thread arg in function '__dev_get_by_flags' as a candidate.
+  -> Found thread arg in function '__dev_get_by_flags' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_get_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_prepare' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_prepare' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_prepare' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_prepare' as a candidate.
+  -> Found thread arg in function 'is_skb_forwardable' as a candidate.
+  -> Found thread arg in function 'is_skb_forwardable' as a candidate.
+  -> Found thread arg in function 'dev_get_stats' as a candidate.
+  -> Found thread arg in function 'dev_get_stats' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_show_fdinfo' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_show_fdinfo' as a candidate.
+  -> Found thread arg in function '__netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function '__netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function '__netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function '__netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function 'netdev_has_upper_dev_all_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_has_upper_dev_all_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_exit' as a candidate.
+  -> Found thread arg in function 'napi_threaded_poll' as a candidate.
+  -> Found thread arg in function '__dev_kfree_skb_any' as a candidate.
+  -> Found thread arg in function '__dev_kfree_skb_any' as a candidate.
+  -> Found thread arg in function 'netif_tx_stop_all_queues' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_upper_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_upper_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_upper_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_rx_handler_register' as a candidate.
+  -> Found thread arg in function 'netdev_rx_handler_register' as a candidate.
+  -> Found thread arg in function 'netdev_rx_handler_register' as a candidate.
+  -> Found thread arg in function 'init_dummy_netdev' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_abort' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_abort' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_change_abort' as a candidate.
+  -> Found thread arg in function 'netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function 'netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function 'netif_set_xps_queue' as a candidate.
+  -> Found thread arg in function 'napi_gro_flush' as a candidate.
+  -> Found thread arg in function 'napi_gro_flush' as a candidate.
+  -> Found thread arg in function 'dev_pre_changeaddr_notify' as a candidate.
+  -> Found thread arg in function 'dev_pre_changeaddr_notify' as a candidate.
+  -> Found thread arg in function 'dev_pre_changeaddr_notify' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address_user' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address_user' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address_user' as a candidate.
+  -> Found thread arg in function 'netdev_bind_sb_channel_queue' as a candidate.
+  -> Found thread arg in function 'netdev_bind_sb_channel_queue' as a candidate.
+  -> Found thread arg in function 'netdev_bind_sb_channel_queue' as a candidate.
+  -> Found thread arg in function 'netdev_bind_sb_channel_queue' as a candidate.
+  -> Found thread arg in function 'netdev_bind_sb_channel_queue' as a candidate.
+  -> Found thread arg in function 'netdev_adjacent_get_private' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_queues' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_queues' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_queues' as a candidate.
+  -> Found thread arg in function 'generic_xdp_install' as a candidate.
+  -> Found thread arg in function 'generic_xdp_install' as a candidate.
+  -> Found thread arg in function 'skb_checksum_help' as a candidate.
+  -> Found thread arg in function 'netif_schedule_queue' as a candidate.
+  -> Found thread arg in function 'flush_backlog' as a candidate.
+  -> Found thread arg in function '__dev_direct_xmit' as a candidate.
+  -> Found thread arg in function '__dev_direct_xmit' as a candidate.
+  -> Found thread arg in function 'netdev_features_change' as a candidate.
+  -> Found thread arg in function '____netdev_has_upper_dev' as a candidate.
+  -> Found thread arg in function '____netdev_has_upper_dev' as a candidate.
+  -> Found thread arg in function 'netif_skb_features' as a candidate.
+  -> Found thread arg in function 'dev_get_iflink' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_update' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_update' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_update' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_cpu_id' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_cpu_id' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_cpu_id' as a candidate.
+  -> Found thread arg in function 'gro_find_complete_by_type' as a candidate.
+  -> Found thread arg in function '__netif_napi_del' as a candidate.
+  -> Found thread arg in function '__skb_gso_segment' as a candidate.
+  -> Found thread arg in function '__skb_gso_segment' as a candidate.
+  -> Found thread arg in function '__skb_gso_segment' as a candidate.
+  -> Found thread arg in function '__dev_forward_skb' as a candidate.
+  -> Found thread arg in function '__dev_forward_skb' as a candidate.
+  -> Found thread arg in function 'netif_receive_skb_list' as a candidate.
+  -> Found thread arg in function 'netdev_alert' as a candidate.
+  -> Found thread arg in function 'netdev_alert' as a candidate.
+  -> Found thread arg in function 'skb_mac_gso_segment' as a candidate.
+  -> Found thread arg in function 'skb_mac_gso_segment' as a candidate.
+  -> Found thread arg in function 'dev_open' as a candidate.
+  -> Found thread arg in function 'dev_open' as a candidate.
+  -> Found thread arg in function 'netdev_cmd_to_name' as a candidate.
+  -> Found thread arg in function 'dev_set_threaded' as a candidate.
+  -> Found thread arg in function 'dev_set_threaded' as a candidate.
+  -> Found thread arg in function 'dev_loopback_xmit' as a candidate.
+  -> Found thread arg in function 'dev_loopback_xmit' as a candidate.
+  -> Found thread arg in function 'dev_loopback_xmit' as a candidate.
+  -> Found thread arg in function 'napi_complete_done' as a candidate.
+  -> Found thread arg in function 'napi_complete_done' as a candidate.
+  -> Found thread arg in function 'netdev_is_rx_handler_busy' as a candidate.
+  -> Found thread arg in function 'dev_fill_forward_path' as a candidate.
+  -> Found thread arg in function 'dev_fill_forward_path' as a candidate.
+  -> Found thread arg in function 'dev_fill_forward_path' as a candidate.
+  -> Found thread arg in function 'netdev_next_lower_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_next_lower_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_upper_dev_unlink' as a candidate.
+  -> Found thread arg in function 'netdev_upper_dev_unlink' as a candidate.
+  -> Found thread arg in function 'dev_get_by_name_rcu' as a candidate.
+  -> Found thread arg in function 'dev_get_by_name_rcu' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_tx_queues' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_tx_queues' as a candidate.
+  -> Found thread arg in function '__dev_get_by_name' as a candidate.
+  -> Found thread arg in function '__dev_get_by_name' as a candidate.
+  -> Found thread arg in function 'unregister_netdev' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_queue' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_queue' as a candidate.
+  -> Found thread arg in function 'default_device_exit_batch' as a candidate.
+  -> Found thread arg in function 'dev_nit_active' as a candidate.
+  -> Found thread arg in function '__dev_remove_pack' as a candidate.
+  -> Found thread arg in function 'dev_get_by_index_rcu' as a candidate.
+  -> Found thread arg in function 'dev_get_by_index_rcu' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'netdev_has_upper_dev' as a candidate.
+  -> Found thread arg in function 'netdev_has_upper_dev' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier_net' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier_net' as a candidate.
+  -> Found thread arg in function 'netdev_upper_get_next_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_upper_get_next_dev_rcu' as a candidate.
+  -> Found thread arg in function 'dev_get_phys_port_id' as a candidate.
+  -> Found thread arg in function 'dev_get_phys_port_id' as a candidate.
+  -> Found thread arg in function 'netif_rx_any_context' as a candidate.
+  -> Found thread arg in function 'call_netdevice_notifiers' as a candidate.
+  -> Found thread arg in function 'call_netdevice_notifiers' as a candidate.
+  -> Found thread arg in function 'passthru_features_check' as a candidate.
+  -> Found thread arg in function 'passthru_features_check' as a candidate.
+  -> Found thread arg in function 'passthru_features_check' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down_generic' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down_generic' as a candidate.
+  -> Found thread arg in function 'validate_xmit_skb_list' as a candidate.
+  -> Found thread arg in function 'validate_xmit_skb_list' as a candidate.
+  -> Found thread arg in function 'validate_xmit_skb_list' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_walk_all_lower_dev_rcu' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_rx_queues' as a candidate.
+  -> Found thread arg in function 'netif_set_real_num_rx_queues' as a candidate.
+  -> Found thread arg in function 'napi_enable' as a candidate.
+  -> Found thread arg in function 'netif_receive_skb' as a candidate.
+  -> Found thread arg in function 'napi_disable' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down' as a candidate.
+  -> Found thread arg in function 'netif_rx' as a candidate.
+  -> Found thread arg in function 'dev_get_mac_address' as a candidate.
+  -> Found thread arg in function 'dev_get_mac_address' as a candidate.
+  -> Found thread arg in function 'dev_get_mac_address' as a candidate.
+  -> Found thread arg in function 'netif_tx_wake_queue' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next_private_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_next_private_rcu' as a candidate.
+  -> Found thread arg in function 'netif_stacked_transfer_operstate' as a candidate.
+  -> Found thread arg in function 'netif_stacked_transfer_operstate' as a candidate.
+  -> Found thread arg in function 'netif_receive_skb_core' as a candidate.
+  -> Found thread arg in function 'napi_get_frags' as a candidate.
+  -> Found thread arg in function 'dev_set_alias' as a candidate.
+  -> Found thread arg in function 'dev_set_alias' as a candidate.
+  -> Found thread arg in function 'dev_set_alias' as a candidate.
+  -> Found thread arg in function 'netdev_sk_get_lowest_dev' as a candidate.
+  -> Found thread arg in function 'netdev_sk_get_lowest_dev' as a candidate.
+  -> Found thread arg in function 'dev_get_flags' as a candidate.
+  -> Found thread arg in function 'netdev_init_one_queue' as a candidate.
+  -> Found thread arg in function 'netdev_init_one_queue' as a candidate.
+  -> Found thread arg in function 'netdev_init_one_queue' as a candidate.
+  -> Found thread arg in function 'netdev_lower_dev_get_private' as a candidate.
+  -> Found thread arg in function 'netdev_lower_dev_get_private' as a candidate.
+  -> Found thread arg in function 'napi_gro_receive' as a candidate.
+  -> Found thread arg in function 'napi_gro_receive' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_get' as a candidate.
+  -> Found thread arg in function 'netif_device_detach' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_zero' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_zero' as a candidate.
+  -> Found thread arg in function 'dev_pick_tx_zero' as a candidate.
+  -> Found thread arg in function 'netdev_lower_get_first_private_rcu' as a candidate.
+  -> Found thread arg in function 'netdev_reset_tc' as a candidate.
+  -> Found thread arg in function '__dev_change_net_namespace' as a candidate.
+  -> Found thread arg in function '__dev_change_net_namespace' as a candidate.
+  -> Found thread arg in function '__dev_change_net_namespace' as a candidate.
+  -> Found thread arg in function '__dev_change_net_namespace' as a candidate.
+  -> Found thread arg in function 'netdev_unbind_sb_channel' as a candidate.
+  -> Found thread arg in function 'netdev_unbind_sb_channel' as a candidate.
+  -> Found thread arg in function 'netdev_warn' as a candidate.
+  -> Found thread arg in function 'netdev_warn' as a candidate.
+  -> Found thread arg in function '__netdev_update_lower_level' as a candidate.
+  -> Found thread arg in function '__netdev_update_lower_level' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_dealloc' as a candidate.
+  -> Found thread arg in function 'dev_change_carrier' as a candidate.
+  -> Found thread arg in function 'dev_change_carrier' as a candidate.
+  -> Found thread arg in function 'netdev_err' as a candidate.
+  -> Found thread arg in function 'netdev_err' as a candidate.
+  -> Found thread arg in function 'netdev_rx_handler_unregister' as a candidate.
+  -> Found thread arg in function 'skb_csum_hwoffload_help' as a candidate.
+  -> Found thread arg in function 'skb_csum_hwoffload_help' as a candidate.
+  -> Found thread arg in function 'dev_set_allmulti' as a candidate.
+  -> Found thread arg in function 'dev_set_allmulti' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_fill_link_info' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_fill_link_info' as a candidate.
+  -> Found thread arg in function 'netif_napi_add' as a candidate.
+  -> Found thread arg in function 'netif_napi_add' as a candidate.
+  -> Found thread arg in function 'netif_napi_add' as a candidate.
+  -> Found thread arg in function 'netif_napi_add' as a candidate.
+  -> Found thread arg in function 'dev_disable_lro' as a candidate.
+  -> Found thread arg in function 'netdev_name_node_alt_create' as a candidate.
+  -> Found thread arg in function 'netdev_name_node_alt_create' as a candidate.
+  -> Found thread arg in function 'netdev_notify_peers' as a candidate.
+  -> Found thread arg in function 'netdev_has_any_upper_dev' as a candidate.
+  -> Found thread arg in function 'netdev_port_same_parent_id' as a candidate.
+  -> Found thread arg in function 'netdev_port_same_parent_id' as a candidate.
+  -> Found thread arg in function 'dev_fill_metadata_dst' as a candidate.
+  -> Found thread arg in function 'dev_fill_metadata_dst' as a candidate.
+  -> Found thread arg in function 'dev_xdp_prog_count' as a candidate.
+  -> Found thread arg in function 'netdev_stats_to_stats64' as a candidate.
+  -> Found thread arg in function 'netdev_stats_to_stats64' as a candidate.
+  -> Found thread arg in function 'napi_watchdog' as a candidate.
+  -> Found thread arg in function 'dev_get_by_napi_id' as a candidate.
+  -> Found thread arg in function 'netdev_crit' as a candidate.
+  -> Found thread arg in function 'netdev_crit' as a candidate.
+  -> Found thread arg in function 'netif_rx_ni' as a candidate.
+  -> Found thread arg in function 'netdev_get_xmit_slave' as a candidate.
+  -> Found thread arg in function 'netdev_get_xmit_slave' as a candidate.
+  -> Found thread arg in function 'netdev_get_xmit_slave' as a candidate.
+  -> Found thread arg in function 'netdev_increment_features' as a candidate.
+  -> Found thread arg in function 'netdev_increment_features' as a candidate.
+  -> Found thread arg in function 'netdev_increment_features' as a candidate.
+  -> Found thread arg in function 'netdev_set_sb_channel' as a candidate.
+  -> Found thread arg in function 'netdev_set_sb_channel' as a candidate.
+  -> Found thread arg in function 'dev_fetch_sw_netstats' as a candidate.
+  -> Found thread arg in function 'dev_fetch_sw_netstats' as a candidate.
+  -> Found thread arg in function '__dev_kfree_skb_irq' as a candidate.
+  -> Found thread arg in function '__dev_kfree_skb_irq' as a candidate.
+  -> Found thread arg in function 'dev_getbyhwaddr_rcu' as a candidate.
+  -> Found thread arg in function 'dev_getbyhwaddr_rcu' as a candidate.
+  -> Found thread arg in function 'dev_getbyhwaddr_rcu' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address' as a candidate.
+  -> Found thread arg in function 'dev_set_mac_address' as a candidate.
+  -> Found thread arg in function 'netdev_change_features' as a candidate.
+  -> Found thread arg in function '__netdev_update_upper_level' as a candidate.
+  -> Found thread arg in function '__netdev_update_upper_level' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_many' as a candidate.
+  -> Found thread arg in function 'dev_get_by_name' as a candidate.
+  -> Found thread arg in function 'dev_get_by_name' as a candidate.
+  -> Found thread arg in function 'flush_backlog' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down_reason' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down_reason' as a candidate.
+  -> Found thread arg in function 'dev_change_proto_down_reason' as a candidate.
+  -> Found thread arg in function 'dev_add_offload' as a candidate.
+  -> Found thread arg in function 'dev_set_mtu' as a candidate.
+  -> Found thread arg in function 'dev_set_mtu' as a candidate.
+  -> Found thread arg in function 'netdev_bonding_info_change' as a candidate.
+  -> Found thread arg in function 'netdev_bonding_info_change' as a candidate.
+  -> Found thread arg in function 'dev_alloc_name' as a candidate.
+  -> Found thread arg in function 'dev_alloc_name' as a candidate.
+  -> Found thread arg in function 'dev_cpu_dead' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_master_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_notice' as a candidate.
+  -> Found thread arg in function 'netdev_notice' as a candidate.
+  -> Found thread arg in function 'napi_gro_frags' as a candidate.
+  -> Found thread arg in function 'netdev_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_upper_dev_link' as a candidate.
+  -> Found thread arg in function 'netdev_set_tc_queue' as a candidate.
+  -> Found thread arg in function 'netdev_set_tc_queue' as a candidate.
+  -> Found thread arg in function 'netdev_set_tc_queue' as a candidate.
+  -> Found thread arg in function 'netdev_set_tc_queue' as a candidate.
+  -> Found thread arg in function 'netdev_set_default_ethtool_ops' as a candidate.
+  -> Found thread arg in function 'netdev_set_default_ethtool_ops' as a candidate.
+  -> Found thread arg in function 'dev_get_port_parent_id' as a candidate.
+  -> Found thread arg in function 'dev_get_port_parent_id' as a candidate.
+  -> Found thread arg in function 'dev_get_port_parent_id' as a candidate.
+  -> Found thread arg in function 'register_netdev' as a candidate.
+  -> Found thread arg in function 'process_backlog' as a candidate.
+  -> Found thread arg in function 'process_backlog' as a candidate.
+  -> Found thread arg in function 'dev_forward_skb' as a candidate.
+  -> Found thread arg in function 'dev_forward_skb' as a candidate.
+  -> Found thread arg in function 'dev_getfirstbyhwtype' as a candidate.
+  -> Found thread arg in function 'dev_getfirstbyhwtype' as a candidate.
+  -> Found thread arg in function 'dev_remove_pack' as a candidate.
+  -> Found thread arg in function 'dev_queue_xmit_nit' as a candidate.
+  -> Found thread arg in function 'dev_queue_xmit_nit' as a candidate.
+  -> Found thread arg in function 'netdev_emerg' as a candidate.
+  -> Found thread arg in function 'netdev_emerg' as a candidate.
+  -> Found thread arg in function 'netdev_pick_tx' as a candidate.
+  -> Found thread arg in function 'netdev_pick_tx' as a candidate.
+  -> Found thread arg in function 'netdev_pick_tx' as a candidate.
+  -> Found thread arg in function 'dev_get_phys_port_name' as a candidate.
+  -> Found thread arg in function 'dev_get_phys_port_name' as a candidate.
+  -> Found thread arg in function 'dev_get_phys_port_name' as a candidate.
+  -> Found thread arg in function 'free_netdev' as a candidate.
+  -> Found thread arg in function 'dev_valid_name' as a candidate.
+  -> Found thread arg in function 'dev_get_tstats64' as a candidate.
+  -> Found thread arg in function 'dev_get_tstats64' as a candidate.
+  -> Found thread arg in function 'netdev_info' as a candidate.
+  -> Found thread arg in function 'netdev_info' as a candidate.
+  -> Found thread arg in function 'netdev_printk' as a candidate.
+  -> Found thread arg in function 'netdev_printk' as a candidate.
+  -> Found thread arg in function 'netdev_printk' as a candidate.
+  -> Found thread arg in function 'unregister_netdevice_notifier' as a candidate.
+  -> Found thread arg in function 'netdev_state_change' as a candidate.
+  -> Found thread arg in function 'netdev_update_features' as a candidate.
+  -> Found thread arg in function 'netdev_refcnt_read' as a candidate.
+  -> Found thread arg in function 'default_device_exit' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'register_netdevice_notifier_dev_net' as a candidate.
+  -> Found thread arg in function 'bpf_xdp_link_detach' as a candidate.
+  -> Found thread arg in function 'netdev_name_in_use' as a candidate.
+  -> Found thread arg in function 'netdev_name_in_use' as a candidate.
+  -> Found thread arg in function '__dev_set_mtu' as a candidate.
+  -> Found thread arg in function '__dev_set_mtu' as a candidate.
+  -> Found thread arg in function 'dev_set_group' as a candidate.
+  -> Found thread arg in function 'dev_set_group' as a candidate.
+  -> Found thread arg in function 'dev_queue_xmit_accel' as a candidate.
+  -> Found thread arg in function 'dev_queue_xmit_accel' as a candidate.
+  -> Found thread arg in function 'register_netdevice' as a candidate.
+  -> Found thread arg in function 'dev_close_many' as a candidate.
+  -> Found thread arg in function 'dev_close_many' as a candidate.
+  -> Found thread arg in function '__napi_schedule_irqoff' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 902
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 204 threads...
+[VulnerabilitySurface] Collected 8112 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 2902 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 29 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 37384 plain Load/Store accesses across 13 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 21 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 300 list-helper accesses (cluster-A fix; +16 bridged head-side deletes)
+[VulnerabilitySurface] Found 478 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 478 shared objects (317 high risk, 18 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-416320b6b3545cbf_2026-05-14_22-02-45/vulnerability_surface.json"
+
+  Threads: 204, Conflicting pairs: 2540, Shared objects: 478, High-risk objects: 335
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 2 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-416320b6b3545cbf_2026-05-14_22-02-45/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 345MB, Avail: 361918MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 345MB, Avail: 361918MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL data_race VIOLATION FOUND: dev_boot_phase_init_vs_register_netdevice_plain_race
+    [VerificationAgent] Verifying hypothesis 'dev_boot_phase_init_vs_register_netdevice_plain_race' ...
+    [VerificationAgent] 'dev_boot_phase_init_vs_register_netdevice_plain_race' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: napi_defer_count_missing_atomic_annotation_hb_violation
+    [VerificationAgent] Verifying hypothesis 'napi_defer_count_missing_atomic_annotation_hb_violation' ...
+    [VerificationAgent] 'napi_defer_count_missing_atomic_annotation_hb_violation' -> KEEP (true positive)
+[Phase 4.5] LLM hypothesis-verifier filter: kept 2/2, dropped 0 false-positive(s).
+Bug detection complete. 2 potential bug(s) found.
+  - Hypothesis-Based Violations: 2
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-416320b6b3545cbf_2026-05-14_22-02-45/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 345MB, Avail: 362274MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 359 seconds
+LLM API Requests: 35
+Total Prompt Tokens: 1111001
+Total Completion Tokens: 8948
+Total Tokens: 1119949
+==========================================

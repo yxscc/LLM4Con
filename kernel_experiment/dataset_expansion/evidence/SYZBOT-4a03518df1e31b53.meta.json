@@ -1,0 +1,19 @@
+{
+  "bug_id": "SYZBOT-4a03518df1e31b53",
+  "tier": "A",
+  "title": "KCSAN: data-race in __es_find_extent_range / __es_find_extent_range (6)",
+  "mainline_sha": "492888df0c7b42fc0843631168b0021bc4caee84",
+  "all_shas_seen": [
+    "4a03518df1e31b537066",
+    "492888df0c7b42fc0843631168b0021bc4caee84",
+    "44149752e9987a9eac5ad78e6d3a20934b5e018d",
+    "8ca09d5fa3549d142c2080a72a4c70ce389163cd",
+    "2eb29d59ddf02e39774abfb60b2030b0b7e27c1f",
+    "47e9aa14ce5abca70d6584a8d8213707d197c38e"
+  ],
+  "c_paths": [
+    "fs/ext4/extents_status.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 2
+}

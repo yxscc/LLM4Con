@@ -1,0 +1,17 @@
+{
+  "bug_id": "SYZBOT-16bae128392924ec",
+  "tier": "A",
+  "title": "KCSAN: data-race in netlink_recvmsg / netlink_recvmsg (6)",
+  "mainline_sha": "a1865f2e7d10dde00d35a2122b38d2e469ae67ed",
+  "all_shas_seen": [
+    "16bae128392924ecea069e9247ddf3741f6ceb71",
+    "a1865f2e7d10dde00d35a2122b38d2e469ae67ed",
+    "5a57b48fdfcb1e196292665d87fac46180344f8a",
+    "9c1bec9c0b08abeac72ed6214b723adc224013bf"
+  ],
+  "c_paths": [
+    "net/netlink/af_netlink.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 2
+}

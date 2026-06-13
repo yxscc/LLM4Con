@@ -1,0 +1,23 @@
+{
+  "commit": "32d0a49d36a2a306c2e47fe5659361e424f0ed3f",
+  "user_seeds": [
+    "drivers/net/macsec.c"
+  ],
+  "patch_files": [
+    "drivers/net/macsec.c"
+  ],
+  "changed_symbols_sample": [
+    "DEV_STATS_INC",
+    "__rx_dropped",
+    "__rx_errors",
+    "__tx_dropped",
+    "atomic_long_read",
+    "rx_dropped",
+    "rx_errors",
+    "tx_dropped"
+  ],
+  "expanded": [
+    "drivers/net/macsec.c"
+  ],
+  "added_by_expander": {}
+}

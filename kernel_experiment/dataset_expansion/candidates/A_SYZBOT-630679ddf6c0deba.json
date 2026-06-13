@@ -1,0 +1,145 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-630679ddf6c0deba",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in tcp_add_backlog / tcp_try_rmem_schedule",
+  "description": "KCSAN: data-race in tcp_add_backlog / tcp_try_rmem_schedule",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "tcp_add_backlog",
+    "fn_b": "tcp_try_rmem_schedule"
+  },
+  "fix_commit": "ebb3b78db7bf842270a46fd4fe7cc45c78fa5ed6",
+  "affected_files": [
+    "include/net/tcp.h",
+    "include/trace/events/sock.h",
+    "net/core/filter.c",
+    "net/core/skbuff.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_input.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/tcp.h",
+      "changed_lines": [
+        "-\treturn tcp_win_from_space(sk, sk->sk_rcvbuf -",
+        "+\treturn tcp_win_from_space(sk, READ_ONCE(sk->sk_rcvbuf) -",
+        "-\treturn tcp_win_from_space(sk, sk->sk_rcvbuf);",
+        "+\treturn tcp_win_from_space(sk, READ_ONCE(sk->sk_rcvbuf));"
+      ],
+      "hunks": [
+        {
+          "old_start": 1380,
+          "new_start": 1380
+        }
+      ]
+    },
+    {
+      "path": "include/trace/events/sock.h",
+      "changed_lines": [
+        "-\t\t__entry->sk_rcvbuf  = sk->sk_rcvbuf;",
+        "+\t\t__entry->sk_rcvbuf  = READ_ONCE(sk->sk_rcvbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 82,
+          "new_start": 82
+        }
+      ]
+    },
+    {
+      "path": "net/core/filter.c",
+      "changed_lines": [
+        "-\t\t\tsk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);",
+        "+\t\t\tWRITE_ONCE(sk->sk_rcvbuf,",
+        "+\t\t\t\t   max_t(int, val * 2, SOCK_MIN_RCVBUF));"
+      ],
+      "hunks": [
+        {
+          "old_start": 4252,
+          "new_start": 4252
+        }
+      ]
+    },
+    {
+      "path": "net/core/skbuff.c",
+      "changed_lines": [
+        "-\t    (unsigned int)sk->sk_rcvbuf)",
+        "+\t    (unsigned int)READ_ONCE(sk->sk_rcvbuf))"
+      ],
+      "hunks": [
+        {
+          "old_start": 4415,
+          "new_start": 4415
+        }
+      ]
+    },
+    {
+      "path": "net/core/sock.c",
+      "changed_lines": [
+        "-\t\tsk->sk_rcvbuf = max_t(int, val * 2, SOCK_MIN_RCVBUF);",
+        "+\t\tWRITE_ONCE(sk->sk_rcvbuf,",
+        "+\t\t\t   max_t(int, val * 2, SOCK_MIN_RCVBUF));",
+        "-\tmem[SK_MEMINFO_RCVBUF] = sk->sk_rcvbuf;",
+        "+\tmem[SK_MEMINFO_RCVBUF] = READ_ONCE(sk->sk_rcvbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 831,
+          "new_start": 831
+        },
+        {
+          "old_start": 3204,
+          "new_start": 3205
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp.c",
+      "changed_lines": [
+        "-\tsk->sk_rcvbuf = sock_net(sk)->ipv4.sysctl_tcp_rmem[1];",
+        "+\tWRITE_ONCE(sk->sk_rcvbuf, sock_net(sk)->ipv4.sysctl_tcp_rmem[1]);",
+        "-\t\tsk->sk_rcvbuf = val;",
+        "+\t\tWRITE_ONCE(sk->sk_rcvbuf, val);"
+      ],
+      "hunks": [
+        {
+          "old_start": 451,
+          "new_start": 451
+        },
+        {
+          "old_start": 1711,
+          "new_start": 1711
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/tcp_input.c",
+      "changed_lines": [
+        "-\t\tsk->sk_rcvbuf = min(atomic_read(&sk->sk_rmem_alloc),",
+        "-\t\t\t\t    net->ipv4.sysctl_tcp_rmem[2]);",
+        "+\t\tWRITE_ONCE(sk->sk_rcvbuf,",
+        "+\t\t\t   min(atomic_read(&sk->sk_rmem_alloc),",
+        "+\t\t\t       net->ipv4.sysctl_tcp_rmem[2]));",
+        "-\t\t\tsk->sk_rcvbuf = rcvbuf;",
+        "+\t\t\tWRITE_ONCE(sk->sk_rcvbuf, rcvbuf);"
+      ],
+      "hunks": [
+        {
+          "old_start": 483,
+          "new_start": 483
+        },
+        {
+          "old_start": 648,
+          "new_start": 649
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-630679ddf6c0deba/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-630679ddf6c0deba/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-630679ddf6c0deba"
+}

@@ -1,0 +1,58 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-3b6b32dc50537a49",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __ep_remove / __fput (5)",
+  "description": "KCSAN: data-race in __ep_remove / __fput (5)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__ep_remove",
+    "fn_b": "__fput"
+  },
+  "fix_commit": "6474353a5e3d0b2cf610153cea0c61f576a36d0a",
+  "affected_files": [
+    "fs/eventpoll.c",
+    "include/linux/eventpoll.h"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/eventpoll.c",
+      "changed_lines": [
+        "-\t\tfile->f_ep = NULL;",
+        "+\t\t/* See eventpoll_release() for details. */",
+        "+\t\tWRITE_ONCE(file->f_ep, NULL);",
+        "-\t\tfile->f_ep = head;",
+        "+\t\t/* See eventpoll_release() for details. */",
+        "+\t\tWRITE_ONCE(file->f_ep, head);"
+      ],
+      "hunks": [
+        {
+          "old_start": 823,
+          "new_start": 823
+        },
+        {
+          "old_start": 1603,
+          "new_start": 1604
+        }
+      ]
+    },
+    {
+      "path": "include/linux/eventpoll.h",
+      "changed_lines": [
+        "-\tif (likely(!file->f_ep))",
+        "+\tif (likely(!READ_ONCE(file->f_ep)))"
+      ],
+      "hunks": [
+        {
+          "old_start": 42,
+          "new_start": 42
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-3b6b32dc50537a49/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-3b6b32dc50537a49/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-3b6b32dc50537a49"
+}

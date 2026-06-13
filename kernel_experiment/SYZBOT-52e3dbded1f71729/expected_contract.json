@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-52e3dbded1f71729",
+  "shared_object": "struct kcm_sock::rx_psock",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "strparser teardown (write path)",
+    "entry": "strp_work",
+    "clause": {
+      "resource": "kcm->rx_psock",
+      "sites": [
+        {"function": "unreserve_rx_kcm", "file": "net/kcm/kcmsock.c", "line": 313, "op_kind": "WRITE"},
+        {"function": "reserve_rx_kcm", "file": "net/kcm/kcmsock.c", "line": 286, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(mux->rx_lock, write(rx_psock))"]
+    }
+  },
+  "thread_b": {
+    "role": "recvmsg skb destructor (lockless read path)",
+    "entry": "kcm_recvmsg",
+    "clause": {
+      "resource": "kcm->rx_psock",
+      "sites": [
+        {"function": "kcm_rfree", "file": "net/kcm/kcmsock.c", "line": 181, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(rx_psock)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(rx_psock)]) from thread_b (the lockless destructor read must not be interleaved by a conflicting concurrent write)",
+    "violating_event": "e@unreserve_rx_kcm:313 = write(rx_psock = NULL)",
+    "missing_guarantee": "writer serializes the write under mux->rx_lock, but the reader in kcm_rfree reads rx_psock without taking mux->rx_lock; the two accesses share no lock, so no serialize(g) establishes the single-access atomicity the reader assumes",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write to the same pointer -> classic data race (KCSAN reported, value changed under the lockless read)"
+  },
+
+  "fix_maps_to": "patch adds WRITE_ONCE on reserve/unreserve writes and READ_ONCE on the kcm_rfree read -> makes the single conflicting access atomic, satisfying atomic([read(rx_psock)]); note: this is an annotation, not a lock/ordering guarantee, so it does not map cleanly onto serialize/order/counts",
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Object and both access sites are in the static surface, so the pair is findable. Risk is on adjudication: the reader is a best-effort re-arm predicate and the writer DOES hold mux->rx_lock, so the LLM may wrongly conclude the field is lock-protected (missing that the reader is lockless) and reject the race, or may judge the torn read benign. The assume is the default implicit-exclusion atomic(single access); no semantic flag-guard exists, so it sits near the 'pure syntactic race' boundary the design warns about.",
+
+  "confidence": "medium",
+  "needs_human_review": false
+}

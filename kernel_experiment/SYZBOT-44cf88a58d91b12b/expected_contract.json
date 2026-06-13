@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-44cf88a58d91b12b",
+  "shared_object": "struct inet_sock::{inet_rcv_saddr, inet_saddr}",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "raw socket bind (source-address writer)",
+    "entry": "raw_bind",
+    "clause": {
+      "resource": "inet_sk(sk)->inet_saddr / inet_rcv_saddr",
+      "sites": [
+        {"function": "raw_bind", "file": "net/ipv4/raw.c", "line": 739, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "IPv4 datagram connect (source-address reader)",
+    "entry": "ip4_datagram_connect",
+    "clause": {
+      "resource": "inet_sk(sk)->inet_saddr",
+      "sites": [
+        {"function": "__ip4_datagram_connect", "file": "net/ipv4/datagram.c", "line": 39, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(inet_saddr)])"],
+      "guarantee_protection": ["serialize(lock_sock(sk), [read source-address state])"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(inet_saddr)]) from thread_b -- connect reads the bound source address under the socket lock and assumes no concurrent unsynchronized mutation",
+    "violating_event": "e@raw_bind:739 = WRITE(inet_rcv_saddr = inet_saddr = addr->sin_addr.s_addr) by thread_a",
+    "missing_guarantee": "thread_b (connect) holds the socket lock, but thread_a (raw_bind) writes the fields WITHOUT lock_sock() -> the writer is outside the lock the reader relies on -> no common lock serializes bind against connect",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic(single access); a concurrent unlocked write to the same field breaks it -> data race (bind/connect must be serialized by the socket lock)"
+  },
+
+  "fix_maps_to": "patch wraps the raw_bind() body in lock_sock(sk)/release_sock(sk) -> adds serialize(socket lock, write) on the writer side -> both sides hold the same lock -> establishes ρ",
+
+  "recall_plausibility": "high",
+  "recall_risk_notes": "Textbook one-sided missing lock: the writer takes no socket lock while the reader path holds it. Static gives candidate 'no lock' on raw_bind vs lock_sock on connect -> not same_lock -> fires. Minor risk: the reader site is described generically ('source-address read' at datagram.c:39); LLM/static must confirm it actually reads inet_saddr. Object identity via inet_sk(sk) is clear.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

@@ -1,0 +1,817 @@
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 362548MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 362548MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 600MB, Avail: 361847MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 600MB, Avail: 361846MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 6 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 64 ops-table member, 21 indirect-fork sink (91 unique function(s))
+[Auto-Entry] Total: 91 kernel entry point(s):
+  - __tipc_nl_add_sk
+  - tipc_write_space
+  - tipc_sk_timeout
+  - sctp_tsp_dump_one
+  - sock_ofree
+  - sock_wfree
+  - sock_def_write_space
+  - sock_def_readable
+  - sctp_ep_dump
+  - sock_def_wakeup
+  - __sk_destruct
+  - tipc_sendmsg
+  - tipc_sk_backlog_rcv
+  - sock_no_listen
+  - sock_def_destruct
+  - tipc_send_packet
+  - sock_no_sendpage
+  - sock_no_mmap
+  - tipc_recvstream
+  - tipc_getsockopt
+  ... and 71 more
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 1000/1436 functions...
+[Phasar] Processed 1436/1436 functions...
+[Phasar] Location maps built. Total functions: 1436
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 603MB, Avail: 361880MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 603MB, Avail: 361880MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 603MB, Avail: 361881MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 603MB, Avail: 361881MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "__tipc_nl_add_sk", fileName: "net/tipc/socket.c", lineNumber: 3323 }
+[DEBUG getMain] Looking for: funcName=__tipc_nl_add_sk, fileName=net/tipc/socket.c, fileName_last=socket.c, lineNumber=3323
+[DEBUG getMain] methods from full path: 134
+[DEBUG getMain] Iterating 134 methods
+[DEBUG getMain] Checking method: name=SK_LMAX, line=53
+[DEBUG getMain] Checking method: name=SOCK_WAKEUP, line=85
+[DEBUG getMain] Checking method: name=TIPC_ACK_RATE, line=56
+[DEBUG getMain] Checking method: name=CONN_MANAGER, line=79
+[DEBUG getMain] Checking method: name=FLOWCTL_MSG_WIN, line=42
+[DEBUG getMain] Checking method: name=tipc_sk_filter_rcv, line=2144
+[DEBUG getMain] Checking method: name=__tipc_dump_start, line=3399
+[DEBUG getMain] Checking method: name=tipc_sock_destruct, line=1968
+[DEBUG getMain] Checking method: name=tipc_recvstream, line=1840
+[DEBUG getMain] Checking method: name=tipc_recvmsg, line=1732
+[DEBUG getMain] Checking method: name=tipc_sendmcast, line=773
+[DEBUG getMain] Checking method: name=tipc_sk_conn_proto_rcv, line=1216
+[DEBUG getMain] Checking method: name=tipc_wait_for_rcvmsg, line=1680
+[DEBUG getMain] Checking method: name=tipc_sk_send_ack, line=1652
+[DEBUG getMain] Checking method: name=__tipc_sendmsg, line=1296
+[DEBUG getMain] Checking method: name=tipc_sendmsg, line=1283
+[DEBUG getMain] Checking method: name=tipc_sk_insert, line=2815
+[DEBUG getMain] Checking method: name=tipc_sk_finish_conn, line=1512
+[DEBUG getMain] Checking method: name=GROUP_H_SIZE, line=95
+[DEBUG getMain] Checking method: name=ELINKCONG, line=46
+[DEBUG getMain] Checking method: name=tipc_dump_done, line=3417
+[DEBUG getMain] Checking method: name=tipc_sk_backlog_rcv, line=2209
+[DEBUG getMain] Checking method: name=tipc_sk_retry_connect, line=2656
+[DEBUG getMain] Checking method: name=TIPC_MAX_PORT, line=54
+[DEBUG getMain] Checking method: name=tipc_poll, line=721
+[DEBUG getMain] Checking method: name=tsk_conn_cong, line=200
+[DEBUG getMain] Checking method: name=tipc_shutdown, line=2601
+[DEBUG getMain] Checking method: name=tipc_sk_filter_connect, line=2017
+[DEBUG getMain] Checking method: name=tsk_blocks, line=205
+[DEBUG getMain] Checking method: name=tipc_sk_rht_destroy, line=2866
+[DEBUG getMain] Checking method: name=tipc_send_group_bcast, line=1017
+[DEBUG getMain] Checking method: name=tipc_sk_proto_rcv, line=1973
+[DEBUG getMain] Checking method: name=tipc_sk_rcv, line=2288
+[DEBUG getMain] Checking method: name=tipc_accept, line=2522
+[DEBUG getMain] Checking method: name=tipc_sk_enqueue, line=2235
+[DEBUG getMain] Checking method: name=tipc_setsockopt, line=2943
+[DEBUG getMain] Checking method: name=tipc_send_group_anycast, line=932
+[DEBUG getMain] Checking method: name=tipc_send_group_msg, line=837
+[DEBUG getMain] Checking method: name=tipc_socket_stop, line=3259
+[DEBUG getMain] Checking method: name=tsk_own_node, line=147
+[DEBUG getMain] Checking method: name=__tipc_nl_add_sk_publ, line=3502
+[DEBUG getMain] Checking method: name=tipc_send_group_mcast, line=1091
+[DEBUG getMain] Checking method: name=tsk_unreliable, line=162
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=tsk_unreturnable, line=172
+[DEBUG getMain] Checking method: name=BASIC_H_SIZE, line=92
+[DEBUG getMain] Checking method: name=tipc_sk_create, line=415
+[DEBUG getMain] Checking method: name=tipc_sk_set_orig_addr, line=1547
+[DEBUG getMain] Checking method: name=tipc_data_ready, line=1956
+[DEBUG getMain] Checking method: name=tsk_adv_blocks, line=214
+[DEBUG getMain] Checking method: name=tipc_getname, line=676
+[DEBUG getMain] Checking method: name=GROUP_PROTOCOL, line=80
+[DEBUG getMain] Checking method: name=tipc_send_group_unicast, line=888
+[DEBUG getMain] Checking method: name=tsk_inc, line=223
+[DEBUG getMain] Checking method: name=tsk_advance_rx_queue, line=235
+[DEBUG getMain] Checking method: name=__tipc_sendstream, line=1435
+[DEBUG getMain] Checking method: name=tipc_sk_anc_data_recv, line=1586
+[DEBUG getMain] Checking method: name=tipc_sk_rht_init, line=2859
+[DEBUG getMain] Checking method: name=tipc_sendstream, line=1423
+[DEBUG getMain] Checking method: name=tipc_wait_for_cond, line=380
+[DEBUG getMain] Checking method: name=tipc_sk_type_connectionless, line=281
+[DEBUG getMain] Checking method: name=RCVBUF_MIN, line=48
+[DEBUG getMain] Checking method: name=tipc_sk_filtering, line=3644
+[DEBUG getMain] Checking method: name=tsk_rej_rx_queue, line=263
+[DEBUG getMain] Checking method: name=tsk_peer_msg, line=291
+[DEBUG getMain] Checking method: name=tipc_set_sk_state, line=326
+[DEBUG getMain] Checking method: name=rcvbuf_limit, line=2116
+[DEBUG getMain] Checking method: name=TIPC_MIN_PORT, line=55
+[DEBUG getMain] Checking method: name=tipc_sk_sock_err, line=358
+[DEBUG getMain] Checking method: name=tsk_set_unreliable, line=167
+[DEBUG getMain] Checking method: name=tipc_dump_start, line=3393
+[DEBUG getMain] Checking method: name=__tipc_shutdown, line=502
+[DEBUG getMain] Checking method: name=tipc_sk, line=195
+[DEBUG getMain] Checking method: name=tsk_set_unreturnable, line=177
+[DEBUG getMain] Checking method: name=tipc_release, line=565
+[DEBUG getMain] Checking method: name=tipc_sk_check_probing_state, line=2630
+[DEBUG getMain] Checking method: name=tsk_peer_port, line=157
+[DEBUG getMain] Checking method: name=FLOWCTL_BLK_SZ, line=45
+[DEBUG getMain] Checking method: name=tipc_sk_reinit, line=2771
+[DEBUG getMain] Checking method: name=tipc_wait_for_connect, line=2334
+[DEBUG getMain] Checking method: name=tipc_sockaddr_is_sane, line=2357
+[DEBUG getMain] Checking method: name=tsk_peer_node, line=152
+[DEBUG getMain] Checking method: name=MCAST_H_SIZE, line=94
+[DEBUG getMain] Checking method: name=tipc_sk_respond, line=243
+[DEBUG getMain] Checking method: name=tipc_connect, line=2376
+[DEBUG getMain] Checking method: name=FLOWCTL_MSG_LIM, line=43
+[DEBUG getMain] Checking method: name=tipc_listen, line=2469
+[DEBUG getMain] Checking method: name=tipc_wait_for_accept, line=2481
+[DEBUG getMain] Checking method: name=tipc_sk_timeout, line=2669
+[DEBUG getMain] Checking method: name=tipc_sk_withdraw, line=2733
+[DEBUG getMain] Checking method: name=tipc_socketpair, line=3131
+[DEBUG getMain] Checking method: name=tipc_sock_get_portid, line=3694
+[DEBUG getMain] Checking method: name=tipc_sk_lookup, line=2801
+[DEBUG getMain] Checking method: name=tipc_sk_join, line=2876
+[DEBUG getMain] Checking method: name=tipc_write_space, line=1939
+[DEBUG getMain] Checking method: name=CONN_TIMEOUT_DEFAULT, line=51
+[DEBUG getMain] Checking method: name=tipc_sk_mcast_rcv, line=1131
+[DEBUG getMain] Checking method: name=<clinit>, line=58
+[DEBUG getMain] Checking method: name=tipc_bind, line=615
+[DEBUG getMain] Checking method: name=tipc_sk_leave, line=2914
+[DEBUG getMain] Checking method: name=SK_LMIN, line=52
+[DEBUG getMain] Checking method: name=tipc_ioctl, line=3099
+[DEBUG getMain] Checking method: name=tipc_send_packet, line=1502
+[DEBUG getMain] Checking method: name=tipc_getsockopt, line=3032
+[DEBUG getMain] Checking method: name=tipc_sk_remove, line=2838
+[DEBUG getMain] Checking method: name=tipc_socket_init, line=3236
+[DEBUG getMain] Checking method: name=__tipc_nl_add_sk_con, line=3266
+[DEBUG getMain] Checking method: name=tsk_importance, line=182
+[DEBUG getMain] Checking method: name=tipc_sk_overlimit2, line=3726
+[DEBUG getMain] Checking method: name=tipc_sk_fill_sock_diag, line=3427
+[DEBUG getMain] Checking method: name=__tipc_nl_add_sk, line=3323
+[DEBUG getMain] Found main! Creating CCPGNode
+getAllEntryPointInfos: Returning 91 entry points for kernel module analysis
+[Kernel Module Mode] Adding 91 entry points as parallel entries
+  - Skipping (already main): __tipc_nl_add_sk
+  - Looking for: tipc_write_space -> demangled: tipc_write_space -> shortName: tipc_write_space
+  - Found in CPG: tipc_write_space at net/tipc/socket.c:1939
+  - Added entry: tipc_write_space
+  - Looking for: tipc_sk_timeout -> demangled: tipc_sk_timeout -> shortName: tipc_sk_timeout
+  - Found in CPG: tipc_sk_timeout at net/tipc/socket.c:2669
+  - Added entry: tipc_sk_timeout
+  - Looking for: sctp_tsp_dump_one -> demangled: sctp_tsp_dump_one -> shortName: sctp_tsp_dump_one
+  - Found in CPG: sctp_tsp_dump_one at net/sctp/diag.c:252
+  - Added entry: sctp_tsp_dump_one
+  - Looking for: sock_ofree -> demangled: sock_ofree -> shortName: sock_ofree
+  - Found in CPG: sock_ofree at net/core/sock.c:2102
+  - Added entry: sock_ofree
+  - Looking for: sock_wfree -> demangled: sock_wfree -> shortName: sock_wfree
+  - Found in CPG: sock_wfree at net/core/sock.c:1947
+  - Added entry: sock_wfree
+  - Looking for: sock_def_write_space -> demangled: sock_def_write_space -> shortName: sock_def_write_space
+  - Found in CPG: sock_def_write_space at net/core/sock.c:2800
+  - Added entry: sock_def_write_space
+  - Looking for: sock_def_readable -> demangled: sock_def_readable -> shortName: sock_def_readable
+  - Found in CPG: sock_def_readable at net/core/sock.c:2787
+  - Added entry: sock_def_readable
+  - Looking for: sctp_ep_dump -> demangled: sctp_ep_dump -> shortName: sctp_ep_dump
+  - Found in CPG: sctp_ep_dump at net/sctp/diag.c:372
+  - Added entry: sctp_ep_dump
+  - Looking for: sock_def_wakeup -> demangled: sock_def_wakeup -> shortName: sock_def_wakeup
+  - Found in CPG: sock_def_wakeup at net/core/sock.c:2764
+  - Added entry: sock_def_wakeup
+  - Looking for: __sk_destruct -> demangled: __sk_destruct -> shortName: __sk_destruct
+  - Found in CPG: __sk_destruct at net/core/sock.c:1689
+  - Added entry: __sk_destruct
+  - Looking for: tipc_sendmsg -> demangled: tipc_sendmsg -> shortName: tipc_sendmsg
+  - Found in CPG: tipc_sendmsg at net/tipc/socket.c:1283
+  - Added entry: tipc_sendmsg
+  - Looking for: tipc_sk_backlog_rcv -> demangled: tipc_sk_backlog_rcv -> shortName: tipc_sk_backlog_rcv
+  - Found in CPG: tipc_sk_backlog_rcv at net/tipc/socket.c:2209
+  - Added entry: tipc_sk_backlog_rcv
+  - Looking for: sock_no_listen -> demangled: sock_no_listen -> shortName: sock_no_listen
+  - Found in CPG: sock_no_listen at net/core/sock.c:2678
+  - Added entry: sock_no_listen
+  - Looking for: sock_def_destruct -> demangled: sock_def_destruct -> shortName: sock_def_destruct
+  - Not found in CPG: sock_def_destruct (tried: sock_def_destruct)
+  - Looking for: tipc_send_packet -> demangled: tipc_send_packet -> shortName: tipc_send_packet
+  - Found in CPG: tipc_send_packet at net/tipc/socket.c:1502
+  - Added entry: tipc_send_packet
+  - Looking for: sock_no_sendpage -> demangled: sock_no_sendpage -> shortName: sock_no_sendpage
+  - Found in CPG: sock_no_sendpage at net/core/sock.c:2730
+  - Added entry: sock_no_sendpage
+  - Looking for: sock_no_mmap -> demangled: sock_no_mmap -> shortName: sock_no_mmap
+  - Found in CPG: sock_no_mmap at net/core/sock.c:2723
+  - Added entry: sock_no_mmap
+  - Looking for: tipc_recvstream -> demangled: tipc_recvstream -> shortName: tipc_recvstream
+  - Found in CPG: tipc_recvstream at net/tipc/socket.c:1840
+  - Added entry: tipc_recvstream
+  - Looking for: tipc_getsockopt -> demangled: tipc_getsockopt -> shortName: tipc_getsockopt
+  - Found in CPG: tipc_getsockopt at net/tipc/socket.c:3032
+  - Added entry: tipc_getsockopt
+  - Looking for: tipc_shutdown -> demangled: tipc_shutdown -> shortName: tipc_shutdown
+  - Found in CPG: tipc_shutdown at net/tipc/socket.c:2601
+  - Added entry: tipc_shutdown
+  - Looking for: sctp_sock_dump -> demangled: sctp_sock_dump -> shortName: sctp_sock_dump
+  - Found in CPG: sctp_sock_dump at net/sctp/diag.c:299
+  - Added entry: sctp_sock_dump
+  - Looking for: tcp_sk_exit -> demangled: tcp_sk_exit -> shortName: tcp_sk_exit
+  - Found in CPG: tcp_sk_exit at net/ipv4/tcp_ipv4.c:2615
+  - Added entry: tcp_sk_exit
+  - Looking for: tcp_v4_init_seq -> demangled: tcp_v4_init_seq -> shortName: tcp_v4_init_seq
+  - Found in CPG: tcp_v4_init_seq at net/ipv4/tcp_ipv4.c:93
+  - Added entry: tcp_v4_init_seq
+  - Looking for: tipc_sock_destruct -> demangled: tipc_sock_destruct -> shortName: tipc_sock_destruct
+  - Found in CPG: tipc_sock_destruct at net/tipc/socket.c:1968
+  - Added entry: tipc_sock_destruct
+  - Looking for: tipc_setsockopt -> demangled: tipc_setsockopt -> shortName: tipc_setsockopt
+  - Found in CPG: tipc_setsockopt at net/tipc/socket.c:2943
+  - Added entry: tipc_setsockopt
+  - Looking for: tcp_v4_connect -> demangled: tcp_v4_connect -> shortName: tcp_v4_connect
+  - Found in CPG: tcp_v4_connect at net/ipv4/tcp_ipv4.c:197
+  - Added entry: tcp_v4_connect
+  - Looking for: tcp_seq_next -> demangled: tcp_seq_next -> shortName: tcp_seq_next
+  - Not found in CPG: tcp_seq_next (tried: tcp_seq_next)
+  - Looking for: tipc_listen -> demangled: tipc_listen -> shortName: tipc_listen
+  - Found in CPG: tipc_listen at net/tipc/socket.c:2469
+  - Added entry: tipc_listen
+  - Looking for: sock_inuse_exit_net -> demangled: sock_inuse_exit_net -> shortName: sock_inuse_exit_net
+  - Not found in CPG: sock_inuse_exit_net (tried: sock_inuse_exit_net)
+  - Looking for: tcp_v4_init_req -> demangled: tcp_v4_init_req -> shortName: tcp_v4_init_req
+  - Found in CPG: tcp_v4_init_req at net/ipv4/tcp_ipv4.c:1345
+  - Added entry: tcp_v4_init_req
+  - Looking for: sock_def_error_report -> demangled: sock_def_error_report -> shortName: sock_def_error_report
+  - Found in CPG: sock_def_error_report at net/core/sock.c:2775
+  - Added entry: sock_def_error_report
+  - Looking for: tcp_v4_md5_lookup -> demangled: tcp_v4_md5_lookup -> shortName: tcp_v4_md5_lookup
+  - Not found in CPG: tcp_v4_md5_lookup (tried: tcp_v4_md5_lookup)
+  - Looking for: proto_seq_show -> demangled: proto_seq_show -> shortName: proto_seq_show
+  - Not found in CPG: proto_seq_show (tried: proto_seq_show)
+  - Looking for: tcp_seq_start -> demangled: tcp_seq_start -> shortName: tcp_seq_start
+  - Not found in CPG: tcp_seq_start (tried: tcp_seq_start)
+  - Looking for: tcp_v4_reqsk_destructor -> demangled: tcp_v4_reqsk_destructor -> shortName: tcp_v4_reqsk_destructor
+  - Found in CPG: tcp_v4_reqsk_destructor at net/ipv4/tcp_ipv4.c:969
+  - Added entry: tcp_v4_reqsk_destructor
+  - Looking for: tcp_v4_send_reset -> demangled: tcp_v4_send_reset -> shortName: tcp_v4_send_reset
+  - Found in CPG: tcp_v4_send_reset at net/ipv4/tcp_ipv4.c:648
+  - Added entry: tcp_v4_send_reset
+  - Looking for: tcp_v4_init_ts_off -> demangled: tcp_v4_init_ts_off -> shortName: tcp_v4_init_ts_off
+  - Found in CPG: tcp_v4_init_ts_off at net/ipv4/tcp_ipv4.c:101
+  - Added entry: tcp_v4_init_ts_off
+  - Looking for: net_inuse_init -> demangled: net_inuse_init -> shortName: net_inuse_init
+  - Not found in CPG: net_inuse_init (tried: net_inuse_init)
+  - Looking for: inet_sk_rx_dst_set -> demangled: inet_sk_rx_dst_set -> shortName: inet_sk_rx_dst_set
+  - Found in CPG: inet_sk_rx_dst_set at net/ipv4/tcp_ipv4.c:2033
+  - Added entry: inet_sk_rx_dst_set
+  - Looking for: tcp_sk_exit_batch -> demangled: tcp_sk_exit_batch -> shortName: tcp_sk_exit_batch
+  - Found in CPG: tcp_sk_exit_batch at net/ipv4/tcp_ipv4.c:2738
+  - Added entry: tcp_sk_exit_batch
+  - Looking for: tcp_v4_reqsk_send_ack -> demangled: tcp_v4_reqsk_send_ack -> shortName: tcp_v4_reqsk_send_ack
+  - Found in CPG: tcp_v4_reqsk_send_ack at net/ipv4/tcp_ipv4.c:904
+  - Added entry: tcp_v4_reqsk_send_ack
+  - Looking for: proto_seq_next -> demangled: proto_seq_next -> shortName: proto_seq_next
+  - Not found in CPG: proto_seq_next (tried: proto_seq_next)
+  - Looking for: tcp4_proc_init -> demangled: tcp4_proc_init -> shortName: tcp4_proc_init
+  - Not found in CPG: tcp4_proc_init (tried: tcp4_proc_init)
+  - Looking for: tcp_v4_init -> demangled: tcp_v4_init -> shortName: tcp_v4_init
+  - Found in CPG: tcp_v4_init at net/ipv4/tcp_ipv4.c:2754
+  - Added entry: tcp_v4_init
+  - Looking for: tipc_data_ready -> demangled: tipc_data_ready -> shortName: tipc_data_ready
+  - Found in CPG: tipc_data_ready at net/tipc/socket.c:1956
+  - Added entry: tipc_data_ready
+  - Looking for: proto_init_net -> demangled: proto_init_net -> shortName: proto_init_net
+  - Not found in CPG: proto_init_net (tried: proto_init_net)
+  - Looking for: sock_inuse_init_net -> demangled: sock_inuse_init_net -> shortName: sock_inuse_init_net
+  - Not found in CPG: sock_inuse_init_net (tried: sock_inuse_init_net)
+  - Looking for: sctp_diag_init -> demangled: sctp_diag_init -> shortName: sctp_diag_init
+  - Found in CPG: sctp_diag_init at net/sctp/diag.c:530
+  - Added entry: sctp_diag_init
+  - Looking for: proto_init -> demangled: proto_init -> shortName: proto_init
+  - Not found in CPG: proto_init (tried: proto_init)
+  - Looking for: tcp_v4_syn_recv_sock -> demangled: tcp_v4_syn_recv_sock -> shortName: tcp_v4_syn_recv_sock
+  - Found in CPG: tcp_v4_syn_recv_sock at net/ipv4/tcp_ipv4.c:1410
+  - Added entry: tcp_v4_syn_recv_sock
+  - Looking for: tcp_twsk_unique -> demangled: tcp_twsk_unique -> shortName: tcp_twsk_unique
+  - Found in CPG: tcp_twsk_unique at net/ipv4/tcp_ipv4.c:106
+  - Added entry: tcp_twsk_unique
+  - Looking for: tipc_sk_callback -> demangled: tipc_sk_callback -> shortName: tipc_sk_callback
+  - Found in CPG: tipc_sk_callback at net/tipc/socket.c:494
+  - Added entry: tipc_sk_callback
+  - Looking for: proto_seq_stop -> demangled: proto_seq_stop -> shortName: proto_seq_stop
+  - Not found in CPG: proto_seq_stop (tried: proto_seq_stop)
+  - Looking for: proto_exit_net -> demangled: proto_exit_net -> shortName: proto_exit_net
+  - Not found in CPG: proto_exit_net (tried: proto_exit_net)
+  - Looking for: tcp4_proc_init_net -> demangled: tcp4_proc_init_net -> shortName: tcp4_proc_init_net
+  - Not found in CPG: tcp4_proc_init_net (tried: tcp4_proc_init_net)
+  - Looking for: tcp_v4_send_check -> demangled: tcp_v4_send_check -> shortName: tcp_v4_send_check
+  - Found in CPG: tcp_v4_send_check at net/ipv4/tcp_ipv4.c:627
+  - Added entry: tcp_v4_send_check
+  - Looking for: tipc_connect -> demangled: tipc_connect -> shortName: tipc_connect
+  - Found in CPG: tipc_connect at net/tipc/socket.c:2376
+  - Added entry: tipc_connect
+  - Looking for: tcp_seq_stop -> demangled: tcp_seq_stop -> shortName: tcp_seq_stop
+  - Not found in CPG: tcp_seq_stop (tried: tcp_seq_stop)
+  - Looking for: tcp_v4_mtu_reduced -> demangled: tcp_v4_mtu_reduced -> shortName: tcp_v4_mtu_reduced
+  - Found in CPG: tcp_v4_mtu_reduced at net/ipv4/tcp_ipv4.c:335
+  - Added entry: tcp_v4_mtu_reduced
+  - Looking for: tcp_v4_conn_request -> demangled: tcp_v4_conn_request -> shortName: tcp_v4_conn_request
+  - Found in CPG: tcp_v4_conn_request at net/ipv4/tcp_ipv4.c:1390
+  - Added entry: tcp_v4_conn_request
+  - Looking for: tipc_release -> demangled: tipc_release -> shortName: tipc_release
+  - Found in CPG: tipc_release at net/tipc/socket.c:565
+  - Added entry: tipc_release
+  - Looking for: sock_rfree -> demangled: sock_rfree -> shortName: sock_rfree
+  - Found in CPG: sock_rfree at net/core/sock.c:2043
+  - Added entry: sock_rfree
+  - Looking for: sock_no_accept -> demangled: sock_no_accept -> shortName: sock_no_accept
+  - Found in CPG: sock_no_accept at net/core/sock.c:2658
+  - Added entry: sock_no_accept
+  - Looking for: tcp4_proc_exit_net -> demangled: tcp4_proc_exit_net -> shortName: tcp4_proc_exit_net
+  - Not found in CPG: tcp4_proc_exit_net (tried: tcp4_proc_exit_net)
+  - Looking for: tcp_v4_init_sock -> demangled: tcp_v4_init_sock -> shortName: tcp_v4_init_sock
+  - Found in CPG: tcp_v4_init_sock at net/ipv4/tcp_ipv4.c:2075
+  - Added entry: tcp_v4_init_sock
+  - Looking for: tipc_recvmsg -> demangled: tipc_recvmsg -> shortName: tipc_recvmsg
+  - Found in CPG: tipc_recvmsg at net/tipc/socket.c:1732
+  - Added entry: tipc_recvmsg
+  - Looking for: tipc_bind -> demangled: tipc_bind -> shortName: tipc_bind
+  - Found in CPG: tipc_bind at net/tipc/socket.c:615
+  - Added entry: tipc_bind
+  - Looking for: proto_seq_start -> demangled: proto_seq_start -> shortName: proto_seq_start
+  - Not found in CPG: proto_seq_start (tried: proto_seq_start)
+  - Looking for: tcp_v4_destroy_sock -> demangled: tcp_v4_destroy_sock -> shortName: tcp_v4_destroy_sock
+  - Found in CPG: tcp_v4_destroy_sock at net/ipv4/tcp_ipv4.c:2090
+  - Added entry: tcp_v4_destroy_sock
+  - Looking for: sock_efree -> demangled: sock_efree -> shortName: sock_efree
+  - Found in CPG: sock_efree at net/core/sock.c:2057
+  - Added entry: sock_efree
+  - Looking for: tcp_v4_do_rcv -> demangled: tcp_v4_do_rcv -> shortName: tcp_v4_do_rcv
+  - Found in CPG: tcp_v4_do_rcv at net/ipv4/tcp_ipv4.c:1545
+  - Added entry: tcp_v4_do_rcv
+  - Looking for: tcp_sk_init -> demangled: tcp_sk_init -> shortName: tcp_sk_init
+  - Found in CPG: tcp_sk_init at net/ipv4/tcp_ipv4.c:2627
+  - Added entry: tcp_sk_init
+  - Looking for: sctp_diag_dump -> demangled: sctp_diag_dump -> shortName: sctp_diag_dump
+  - Found in CPG: sctp_diag_dump at net/sctp/diag.c:472
+  - Added entry: sctp_diag_dump
+  - Looking for: tcp4_seq_show -> demangled: tcp4_seq_show -> shortName: tcp4_seq_show
+  - Not found in CPG: tcp4_seq_show (tried: tcp4_seq_show)
+  - Looking for: tcp_v4_parse_md5_keys -> demangled: tcp_v4_parse_md5_keys -> shortName: tcp_v4_parse_md5_keys
+  - Not found in CPG: tcp_v4_parse_md5_keys (tried: tcp_v4_parse_md5_keys)
+  - Looking for: sctp_diag_dump_one -> demangled: sctp_diag_dump_one -> shortName: sctp_diag_dump_one
+  - Found in CPG: sctp_diag_dump_one at net/sctp/diag.c:435
+  - Added entry: sctp_diag_dump_one
+  - Looking for: sctp_diag_get_info -> demangled: sctp_diag_get_info -> shortName: sctp_diag_get_info
+  - Found in CPG: sctp_diag_get_info at net/sctp/diag.c:419
+  - Added entry: sctp_diag_get_info
+  - Looking for: tcp_v4_route_req -> demangled: tcp_v4_route_req -> shortName: tcp_v4_route_req
+  - Found in CPG: tcp_v4_route_req at net/ipv4/tcp_ipv4.c:1357
+  - Added entry: tcp_v4_route_req
+  - Looking for: tipc_sk_create -> demangled: tipc_sk_create -> shortName: tipc_sk_create
+  - Found in CPG: tipc_sk_create at net/tipc/socket.c:415
+  - Added entry: tipc_sk_create
+  - Looking for: tipc_sendstream -> demangled: tipc_sendstream -> shortName: tipc_sendstream
+  - Found in CPG: tipc_sendstream at net/tipc/socket.c:1423
+  - Added entry: tipc_sendstream
+  - Looking for: tcp_v4_send_synack -> demangled: tcp_v4_send_synack -> shortName: tcp_v4_send_synack
+  - Found in CPG: tcp_v4_send_synack at net/ipv4/tcp_ipv4.c:935
+  - Added entry: tcp_v4_send_synack
+  - Looking for: tipc_socketpair -> demangled: tipc_socketpair -> shortName: tipc_socketpair
+  - Found in CPG: tipc_socketpair at net/tipc/socket.c:3131
+  - Added entry: tipc_socketpair
+  - Looking for: sctp_diag_exit -> demangled: sctp_diag_exit -> shortName: sctp_diag_exit
+  - Found in CPG: sctp_diag_exit at net/sctp/diag.c:535
+  - Added entry: sctp_diag_exit
+  - Looking for: tipc_accept -> demangled: tipc_accept -> shortName: tipc_accept
+  - Found in CPG: tipc_accept at net/tipc/socket.c:2522
+  - Added entry: tipc_accept
+  - Looking for: tipc_getname -> demangled: tipc_getname -> shortName: tipc_getname
+  - Found in CPG: tipc_getname at net/tipc/socket.c:676
+  - Added entry: tipc_getname
+  - Looking for: sctp_sock_filter -> demangled: sctp_sock_filter -> shortName: sctp_sock_filter
+  - Found in CPG: sctp_sock_filter at net/sctp/diag.c:353
+  - Added entry: sctp_sock_filter
+  - Looking for: tcp_v4_md5_hash_skb -> demangled: tcp_v4_md5_hash_skb -> shortName: tcp_v4_md5_hash_skb
+  - Not found in CPG: tcp_v4_md5_hash_skb (tried: tcp_v4_md5_hash_skb)
+  - Looking for: tipc_poll -> demangled: tipc_poll -> shortName: tipc_poll
+  - Found in CPG: tipc_poll at net/tipc/socket.c:721
+  - Added entry: tipc_poll
+  - Looking for: tcp_v4_pre_connect -> demangled: tcp_v4_pre_connect -> shortName: tcp_v4_pre_connect
+  - Found in CPG: tcp_v4_pre_connect at net/ipv4/tcp_ipv4.c:181
+  - Added entry: tcp_v4_pre_connect
+  - Looking for: tipc_ioctl -> demangled: tipc_ioctl -> shortName: tipc_ioctl
+  - Found in CPG: tipc_ioctl at net/tipc/socket.c:3099
+  - Added entry: tipc_ioctl
+[Kernel Module Mode] Total entry functions: 70
+Warning: Could not map CPG function 'ELINKCONG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_dest_push' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_xmit' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_distr_xmit' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_SKB_CB' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_ACK_RATE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_self' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_connect' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_set_state' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_defer_connect' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_ctx_destroy' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_sync_mss' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_ca_openreq_child' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_done' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_dest_list_purge' to an llvm::Function.
+[Thread Entry] call_rcu uses arg2 -> tipc_sk_callback
+Warning: Could not map CPG function 'tcp_init_sock' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_update_rcv_win' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_cleanup_congestion_control' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_write_queue_purge' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_active_disable_ofo_check' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_free_fastopen_req' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_cleanup_ulp' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_destroy_cipher' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_child_process' to an llvm::Function.
+Warning: Could not map CPG function 'RCVBUF_MIN' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_msg_init' to an llvm::Function.
+Warning: Could not map CPG function 'NAMED_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'MAX_PKT_DEFAULT' to an llvm::Function.
+Warning: Could not map CPG function 'CONN_TIMEOUT_DEFAULT' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_NAMED_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_get_id' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_get_linkname' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_msg_skb_clone' to an llvm::Function.
+[Thread Entry] mod_timer - direct arg lookup failed, trying LLM...
+Warning: Could not map CPG function 'CONN_MANAGER' to an llvm::Function.
+Warning: Could not map CPG function 'CONN_PROBE' to an llvm::Function.
+Warning: Could not map CPG function 'INT_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'CONN_PROBING_INTV' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_remove_conn' to an llvm::Function.
+Warning: Could not map CPG function 'BASIC_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_get_mtu' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_msg_build' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_DIRECT_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_wait_for_cond' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nametbl_translate' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_msg_reverse' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_SKB_CB' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_filter_msg' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_MCAST_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_mcast_filter_msg' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_xmit_skb' to an llvm::Function.
+Warning: Could not map CPG function 'CONN_ACK' to an llvm::Function.
+Warning: Could not map CPG function 'FLOWCTL_BLK_SZ' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_CONN_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'SHORT_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_delete' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_join' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nametbl_build_group' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_SKB_CB' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_TS_HZ' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_xmit_retransmit_queue' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_current_mss' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_peer_is_proven' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_openreq_init_rwin' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nametbl_withdraw' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_GRP_UCAST_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_GRP_MEMBER_EVT' to an llvm::Function.
+Warning: Could not map CPG function 'MSG_FRAGMENTER' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_time_wait' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_update_metrics' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_NO_CHALLENGE_ACK' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_mstamp_refresh' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_active_disable' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_UPDATE_TS_RECENT' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_SLOWPATH' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_HP_BITS' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_DATA' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_MIN_PORT' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_MAX_PORT' to an llvm::Function.
+Warning: Could not map CPG function 'MIN_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_get_capabilities' to an llvm::Function.
+Warning: Could not map CPG function 'FLOWCTL_MSG_WIN' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_node_add_conn' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_SYSTEM_IMPORTANCE' to an llvm::Function.
+Warning: Could not map CPG function 'MSG_BUNDLER' to an llvm::Function.
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+Warning: Could not map CPG function 'tipc_dest_pop' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nametbl_lookup' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_exclude' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nlist_purge' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nametbl_lookup_dst_nodes' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_nlist_init' to an llvm::Function.
+Warning: Could not map CPG function 'MCAST_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_bcast_get_mtu' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_mcast_xmit' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_cong' to an llvm::Function.
+Warning: Could not map CPG function 'GROUP_H_SIZE' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_update_bc_members' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_GRP_MCAST_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_bc_cong' to an llvm::Function.
+Warning: Could not map CPG function 'TIPC_GRP_BCAST_MSG' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_bc_snd_nxt' to an llvm::Function.
+Warning: Could not map CPG function 'FLOWCTL_MSG_LIM' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_dest_del' to an llvm::Function.
+Warning: Could not map CPG function 'TOP_SRV' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_member_evt' to an llvm::Function.
+Warning: Could not map CPG function 'SOCK_WAKEUP' to an llvm::Function.
+Warning: Could not map CPG function 'GROUP_PROTOCOL' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_proto_rcv' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_SKB_CB' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_TIMEOUT_INIT' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_send_ack' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_send_synack' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_mtup_init' to an llvm::Function.
+Warning: Could not map CPG function 'sk_forced_mem_schedule' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_SYN_ACKED' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_rate_gen' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_ACK_MAYBE_DELAYED' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_NOT_DUP' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_ECE' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_FORWARD_PROGRESS' to an llvm::Function.
+Warning: Could not map CPG function 'REXMIT_NONE' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_SND_UNA_ADVANCED' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_SET_XMIT_TIMER' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_WIN_UPDATE' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_rack_update_reo_wnd' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_DSACKING_ACK' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_init_congestion_control' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_init_metrics' to an llvm::Function.
+Warning: Could not map CPG function '__tcp_select_window' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_send_delayed_ack' to an llvm::Function.
+Warning: Could not map CPG function 'tipc_group_update_member' to an llvm::Function.
+Warning: Could not map CPG function 'CONN_PROBE_REPLY' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_CONG_NEEDS_ECN' to an llvm::Function.
+Warning: Could not map CPG function '__tcp_retransmit_skb' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_cache_set' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fastopen_add_skb' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_PAWS_MSL' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_chrono_stop' to an llvm::Function.
+Warning: Could not map CPG function '__tcp_push_pending_frames' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_ACKED' to an llvm::Function.
+Warning: Could not map CPG function 'REXMIT_LOST' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_DATA_SACKED' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_LOST_RETRANS' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_schedule_loss_probe' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_CA_ALERT' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_ORIG_SACK_ACKED' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_RETRANS_DATA_ACKED' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_SACK_RENEGING' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_rack_advance' to an llvm::Function.
+Warning: Could not map CPG function 'FLAG_DATA_ACKED' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_rate_skb_delivered' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_REMNANT' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_PAWS_24DAYS' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_newreno_mark_lost' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_rack_mark_lost' to an llvm::Function.
+Warning: Could not map CPG function 'REXMIT_NEW' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_cwnd_restart' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_jiffies32' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_mss_to_mtu' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_trim_head' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_RTO_MAX' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_fragment' to an llvm::Function.
+Warning: Could not map CPG function 'TCP_RTO_MIN' to an llvm::Function.
+Warning: Could not map CPG function 'tcp_skb_collapse_tstamp' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 70 entry points as parallel threads
+[Thread Entry] mod_timer - direct arg lookup failed, trying LLM...
+[Thread Entry] call_rcu uses arg2 -> tipc_sk_callback
+[Thread Entry] call_rcu uses arg2 -> __sk_destruct
+[Kernel Module Mode] Keeping all 73 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 605MB, Avail: 361666MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 605MB, Avail: 361666MB)
+[DEBUG PRINT] Phase 1: Found 1090 global variables as candidate shared objects.
+[DEBUG PRINT] Phase 1: Analyzing thread arguments...
+  -> Found thread arg in function 'tipc_sk_callback' as a candidate.
+  -> Found thread arg in function 'tipc_sk_timeout' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump_one' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump_one' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump_one' as a candidate.
+  -> Found thread arg in function 'sock_efree' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tcp_v4_syn_recv_sock' as a candidate.
+  -> Found thread arg in function 'tipc_accept' as a candidate.
+  -> Found thread arg in function 'tipc_accept' as a candidate.
+  -> Found thread arg in function 'tipc_accept' as a candidate.
+  -> Found thread arg in function 'tipc_accept' as a candidate.
+  -> Found thread arg in function 'sock_no_accept' as a candidate.
+  -> Found thread arg in function 'sock_no_accept' as a candidate.
+  -> Found thread arg in function 'sock_no_accept' as a candidate.
+  -> Found thread arg in function 'sock_no_accept' as a candidate.
+  -> Found thread arg in function 'tcp_v4_do_rcv' as a candidate.
+  -> Found thread arg in function 'tcp_v4_do_rcv' as a candidate.
+  -> Found thread arg in function 'tipc_getsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_getsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_getsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_getsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_getsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_write_space' as a candidate.
+  -> Found thread arg in function 'sock_def_wakeup' as a candidate.
+  -> Found thread arg in function 'tipc_release' as a candidate.
+  -> Found thread arg in function '__tipc_nl_add_sk' as a candidate.
+  -> Found thread arg in function '__tipc_nl_add_sk' as a candidate.
+  -> Found thread arg in function '__tipc_nl_add_sk' as a candidate.
+  -> Found thread arg in function 'tcp_sk_exit' as a candidate.
+  -> Found thread arg in function 'tipc_ioctl' as a candidate.
+  -> Found thread arg in function 'tipc_ioctl' as a candidate.
+  -> Found thread arg in function 'tipc_ioctl' as a candidate.
+  -> Found thread arg in function 'inet_sk_rx_dst_set' as a candidate.
+  -> Found thread arg in function 'inet_sk_rx_dst_set' as a candidate.
+  -> Found thread arg in function 'tcp_v4_connect' as a candidate.
+  -> Found thread arg in function 'tcp_v4_connect' as a candidate.
+  -> Found thread arg in function 'tcp_v4_connect' as a candidate.
+  -> Found thread arg in function 'tcp_twsk_unique' as a candidate.
+  -> Found thread arg in function 'tcp_twsk_unique' as a candidate.
+  -> Found thread arg in function 'tcp_twsk_unique' as a candidate.
+  -> Found thread arg in function 'tipc_sendmsg' as a candidate.
+  -> Found thread arg in function 'tipc_sendmsg' as a candidate.
+  -> Found thread arg in function 'tipc_sendmsg' as a candidate.
+  -> Found thread arg in function 'tipc_recvstream' as a candidate.
+  -> Found thread arg in function 'tipc_recvstream' as a candidate.
+  -> Found thread arg in function 'tipc_recvstream' as a candidate.
+  -> Found thread arg in function 'tipc_recvstream' as a candidate.
+  -> Found thread arg in function '__sk_destruct' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_req' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_req' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_req' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_synack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_mtu_reduced' as a candidate.
+  -> Found thread arg in function 'tipc_poll' as a candidate.
+  -> Found thread arg in function 'tipc_poll' as a candidate.
+  -> Found thread arg in function 'tipc_poll' as a candidate.
+  -> Found thread arg in function 'tipc_socketpair' as a candidate.
+  -> Found thread arg in function 'tipc_socketpair' as a candidate.
+  -> Found thread arg in function 'tipc_listen' as a candidate.
+  -> Found thread arg in function 'tipc_listen' as a candidate.
+  -> Found thread arg in function '__sk_destruct' as a candidate.
+  -> Found thread arg in function 'sock_rfree' as a candidate.
+  -> Found thread arg in function 'sctp_tsp_dump_one' as a candidate.
+  -> Found thread arg in function 'sctp_tsp_dump_one' as a candidate.
+  -> Found thread arg in function 'tipc_setsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_setsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_setsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_setsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_setsockopt' as a candidate.
+  -> Found thread arg in function 'tipc_recvmsg' as a candidate.
+  -> Found thread arg in function 'tipc_recvmsg' as a candidate.
+  -> Found thread arg in function 'tipc_recvmsg' as a candidate.
+  -> Found thread arg in function 'tipc_recvmsg' as a candidate.
+  -> Found thread arg in function 'tipc_connect' as a candidate.
+  -> Found thread arg in function 'tipc_connect' as a candidate.
+  -> Found thread arg in function 'tipc_connect' as a candidate.
+  -> Found thread arg in function 'tipc_connect' as a candidate.
+  -> Found thread arg in function 'tcp_v4_conn_request' as a candidate.
+  -> Found thread arg in function 'tcp_v4_conn_request' as a candidate.
+  -> Found thread arg in function 'tipc_sk_backlog_rcv' as a candidate.
+  -> Found thread arg in function 'tipc_sk_backlog_rcv' as a candidate.
+  -> Found thread arg in function 'tipc_sk_create' as a candidate.
+  -> Found thread arg in function 'tipc_sk_create' as a candidate.
+  -> Found thread arg in function 'tipc_sk_create' as a candidate.
+  -> Found thread arg in function 'tipc_sk_create' as a candidate.
+  -> Found thread arg in function 'tcp_v4_pre_connect' as a candidate.
+  -> Found thread arg in function 'tcp_v4_pre_connect' as a candidate.
+  -> Found thread arg in function 'tcp_v4_pre_connect' as a candidate.
+  -> Found thread arg in function 'sock_def_error_report' as a candidate.
+  -> Found thread arg in function 'sctp_sock_dump' as a candidate.
+  -> Found thread arg in function 'sctp_sock_dump' as a candidate.
+  -> Found thread arg in function 'sock_ofree' as a candidate.
+  -> Found thread arg in function 'sock_no_mmap' as a candidate.
+  -> Found thread arg in function 'sock_no_mmap' as a candidate.
+  -> Found thread arg in function 'sock_no_mmap' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump' as a candidate.
+  -> Found thread arg in function 'sctp_diag_dump' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_seq' as a candidate.
+  -> Found thread arg in function 'tipc_sk_callback' as a candidate.
+  -> Found thread arg in function 'sctp_ep_dump' as a candidate.
+  -> Found thread arg in function 'sctp_ep_dump' as a candidate.
+  -> Found thread arg in function 'tipc_shutdown' as a candidate.
+  -> Found thread arg in function 'tipc_shutdown' as a candidate.
+  -> Found thread arg in function 'sock_wfree' as a candidate.
+  -> Found thread arg in function 'tcp_v4_route_req' as a candidate.
+  -> Found thread arg in function 'tcp_v4_route_req' as a candidate.
+  -> Found thread arg in function 'tcp_v4_route_req' as a candidate.
+  -> Found thread arg in function 'tipc_data_ready' as a candidate.
+  -> Found thread arg in function 'sock_def_readable' as a candidate.
+  -> Found thread arg in function 'tipc_send_packet' as a candidate.
+  -> Found thread arg in function 'tipc_send_packet' as a candidate.
+  -> Found thread arg in function 'tipc_send_packet' as a candidate.
+  -> Found thread arg in function 'sock_no_listen' as a candidate.
+  -> Found thread arg in function 'sock_no_listen' as a candidate.
+  -> Found thread arg in function 'sctp_sock_filter' as a candidate.
+  -> Found thread arg in function 'sctp_sock_filter' as a candidate.
+  -> Found thread arg in function 'tcp_v4_reqsk_destructor' as a candidate.
+  -> Found thread arg in function 'tipc_bind' as a candidate.
+  -> Found thread arg in function 'tipc_bind' as a candidate.
+  -> Found thread arg in function 'tipc_bind' as a candidate.
+  -> Found thread arg in function 'tcp_v4_reqsk_send_ack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_reqsk_send_ack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_reqsk_send_ack' as a candidate.
+  -> Found thread arg in function 'tcp_v4_destroy_sock' as a candidate.
+  -> Found thread arg in function 'sock_no_sendpage' as a candidate.
+  -> Found thread arg in function 'sock_no_sendpage' as a candidate.
+  -> Found thread arg in function 'sock_no_sendpage' as a candidate.
+  -> Found thread arg in function 'sock_no_sendpage' as a candidate.
+  -> Found thread arg in function 'sock_no_sendpage' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_ts_off' as a candidate.
+  -> Found thread arg in function 'tcp_v4_init_ts_off' as a candidate.
+  -> Found thread arg in function 'tipc_sendstream' as a candidate.
+  -> Found thread arg in function 'tipc_sendstream' as a candidate.
+  -> Found thread arg in function 'tipc_sendstream' as a candidate.
+  -> Found thread arg in function 'tcp_sk_exit_batch' as a candidate.
+  -> Found thread arg in function 'tipc_getname' as a candidate.
+  -> Found thread arg in function 'tipc_getname' as a candidate.
+  -> Found thread arg in function 'tipc_getname' as a candidate.
+  -> Found thread arg in function 'tipc_sock_destruct' as a candidate.
+  -> Found thread arg in function 'sock_def_write_space' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_check' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_check' as a candidate.
+  -> Found thread arg in function 'tcp_sk_init' as a candidate.
+  -> Found thread arg in function 'sctp_diag_get_info' as a candidate.
+  -> Found thread arg in function 'sctp_diag_get_info' as a candidate.
+  -> Found thread arg in function 'sctp_diag_get_info' as a candidate.
+  -> Found thread arg in function 'tipc_sk_timeout' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_reset' as a candidate.
+  -> Found thread arg in function 'tcp_v4_send_reset' as a candidate.
+[DEBUG PRINT] Phase 1: Total candidate shared objects found: 486
+
+[Analysis Mode] Agent (hypothesis-driven)
+
+--- Starting Agent-Mode Concurrency Analysis (Open Hypothesis) ---
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 73 threads...
+[VulnerabilitySurface] Collected 12577 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 1674 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 339 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 23543 plain Load/Store accesses across 9 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 3 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 1 list-helper accesses (cluster-A fix)
+[VulnerabilitySurface] Linked 78 parent-Free accesses into field-level groups (cross-thread UAF aggregation)
+[VulnerabilitySurface] Found 470 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 470 shared objects (310 high risk, 5 medium risk)
+Vulnerability surface saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-123b88b9ddea8e98_2026-05-14_21-57-22/vulnerability_surface.json"
+
+  Threads: 73, Conflicting pairs: 458, Shared objects: 470, High-risk objects: 315
+
+[Phase 2: DetectorAgent (open hypothesis, single LLM session)]
+
+[Phase 2 Complete] 7 hypotheses confirmed by constraint verification.
+Hypotheses logged to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-123b88b9ddea8e98_2026-05-14_21-57-22/confirmed_hypotheses.log"
+
+--- Agent-Mode Analysis Finished ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 605MB, Avail: 361546MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 605MB, Avail: 361546MB)
+
+[Phase 4: Detecting Violations (Open Hypothesis)]
+    [!!!] POTENTIAL data_race VIOLATION FOUND: tipc_group_release_null_races_send_group_read
+    [VerificationAgent] Verifying hypothesis 'tipc_group_release_null_races_send_group_read' ...
+    [VerificationAgent] 'tipc_group_release_null_races_send_group_read' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: tipc_group_setsockopt_update_races_recvmsg_read
+    [VerificationAgent] Verifying hypothesis 'tipc_group_setsockopt_update_races_recvmsg_read' ...
+    [VerificationAgent] 'tipc_group_setsockopt_update_races_recvmsg_read' -> KEEP (true positive)
+    [!!!] POTENTIAL data_race VIOLATION FOUND: sk_max_pacing_rate_plain_store_races_tcp_read
+    [VerificationAgent] Verifying hypothesis 'sk_max_pacing_rate_plain_store_races_tcp_read' ...
+
+[SIGNAL] Received signal 15 during phase: Bug_Detection
+[Checkpoint] Bug_Detection - INTERRUPTED_BY_SIGNAL_15 (Mem: 605MB, Avail: 361567MB)

@@ -1,0 +1,21 @@
+{
+  "bug_id": "SYZBOT-371a9ea56d82de71",
+  "tier": "A",
+  "title": "KCSAN: data-race in tcp_poll / tcp_recvmsg (2)",
+  "mainline_sha": "7db48e983930285b765743ebd665aecf9850582b",
+  "all_shas_seen": [
+    "371a9ea56d82de713b84d961c424b455addf3a90",
+    "7db48e983930285b765743ebd665aecf9850582b"
+  ],
+  "c_paths": [
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_diag.c",
+    "net/ipv4/tcp_input.c",
+    "net/ipv4/tcp_ipv4.c",
+    "net/ipv4/tcp_minisocks.c",
+    "net/ipv4/tcp_output.c",
+    "net/ipv6/tcp_ipv6.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 11
+}

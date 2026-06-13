@@ -1,0 +1,90 @@
+{
+  "bug_id": "SYZBOT-3cc3a12efa69aa6f",
+  "status": "complete",
+  "summary": "Network-device registration updates dev->reg_state while a sysfs show callback reads it through dev_isalive without dev_base_lock coverage.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "netdevice registration",
+      "entry": {"function": "register_netdevice", "file": "net/core/dev.c", "kind": "exported_api"},
+      "call_chain": [
+        {"function": "register_netdevice", "file": "net/core/dev.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN write stack reports register_netdevice and merged.ll defines it."}
+      ],
+      "bug_site": {"function": "register_netdevice", "file": "net/core/dev.c", "line": 10050, "code": "dev->reg_state = NETREG_REGISTERED;"}
+    },
+    "thread_b": {
+      "role": "netdevice sysfs attribute read",
+      "entry": {"function": "type_show", "file": "net/core/net-sysfs.c", "kind": "sysfs_show"},
+      "call_chain": [
+        {"function": "type_show", "file": "net/core/net-sysfs.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "DEVICE_ATTR_RO(type) dispatches to type_show."},
+        {"function": "netdev_show", "file": "net/core/net-sysfs.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "type_show is generated through the netdev_show helper path."},
+        {"function": "dev_isalive", "file": "net/core/net-sysfs.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Inline helper reads dev->reg_state for sysfs visibility."}
+      ],
+      "bug_site": {"function": "dev_isalive", "file": "net/core/net-sysfs.c", "line": 38, "code": "return dev->reg_state <= NETREG_REGISTERED;"}
+    },
+    "interleaving": [
+      "register_netdevice publishes a net_device and writes dev->reg_state.",
+      "A sysfs read of the type attribute concurrently calls type_show and dev_isalive on the same net_device.",
+      "The fix moves reg_state transitions under dev_base_lock so the sysfs-side alive check has matching protection."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct net_device::reg_state",
+    "access_a": {"function": "register_netdevice", "file": "net/core/dev.c", "line": 10050, "kind": "write", "code": "dev->reg_state = NETREG_REGISTERED;"},
+    "access_b": {"function": "dev_isalive", "file": "net/core/net-sysfs.c", "line": 38, "kind": "read", "code": "return dev->reg_state <= NETREG_REGISTERED;"},
+    "required_ordering": "reg_state transitions and dev_isalive readers must be synchronized by RTNL or dev_base_lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct net_device::reg_state",
+    "object_kind": "state_flag",
+    "confidence": "high",
+    "why_relevant": "reg_state is the shared device lifecycle state that sysfs uses to decide whether an attribute can be reported while registration changes the state.",
+    "aliases": [
+      {"name": "dev->reg_state", "function": "register_netdevice", "file": "net/core/dev.c", "evidence": "register_netdevice writes the lifecycle state after netdev_register_kobject()."},
+      {"name": "ndev->reg_state", "function": "netdev_show", "file": "net/core/net-sysfs.c", "evidence": "netdev_show converts the device object to struct net_device and calls dev_isalive."},
+      {"name": "dev->reg_state", "function": "dev_isalive", "file": "net/core/net-sysfs.c", "evidence": "dev_isalive reads the state flag directly."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "register_netdevice(struct net_device *dev)", "to": "dev->reg_state", "evidence": "The registration entry receives the net_device pointer and writes its state."}],
+      "thread_b": [{"from": "sysfs device attribute callback", "to": "to_net_dev(dev)->reg_state", "evidence": "type_show/netdev_show derive the net_device from the sysfs device before dev_isalive."}]
+    },
+    "access_sites": [
+      {"function": "register_netdevice", "file": "net/core/dev.c", "line": 10050, "kind": "write", "code": "dev->reg_state = NETREG_REGISTERED;"},
+      {"function": "netdev_run_todo", "file": "net/core/dev.c", "line": 10332, "kind": "write", "code": "dev->reg_state = NETREG_UNREGISTERED;"},
+      {"function": "unregister_netdevice_many", "file": "net/core/dev.c", "line": 10815, "kind": "write", "code": "dev->reg_state = NETREG_UNREGISTERING;"},
+      {"function": "dev_isalive", "file": "net/core/net-sysfs.c", "line": 38, "kind": "read", "code": "return dev->reg_state <= NETREG_REGISTERED;"}
+    ],
+    "lifetime": {
+      "allocated_by": ["network driver allocates struct net_device before registration"],
+      "published_by": ["register_netdevice and netdev_register_kobject publish the device and sysfs attributes"],
+      "invalidated_by": ["unregister_netdevice_many and netdev_run_todo transition reg_state during teardown"],
+      "freed_by": ["netdev release path after NETREG_RELEASED"]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["net/core/dev.c", "net/core/net-sysfs.c"],
+    "candidate_files": ["drivers/net/wan/lapbether.c", "net/core/rtnetlink.c", "drivers/base/core.c", "fs/sysfs/file.c"],
+    "analysis_conclusion": "The required files define the writer, the sysfs show callback, and the reg_state reader; external stack frames establish one observed caller but are not part of the patched access pair.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 2,
+    "src_file_count_after": 2,
+    "compiled_files": ["net/core/dev.c", "net/core/net-sysfs.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": ["dev.ll", "net-sysfs.ll"],
+    "bitcode_linked_file_count": 2,
+    "selected_bitcode_defined_function_count": 981
+  },
+  "evidence": {
+    "patch_hunks": ["cc26c2661fef moves reg_state updates under dev_base_lock and documents dev_isalive caller locking."],
+    "indirect_edges": ["type_show is a netdevice sysfs show callback reached through device attribute dispatch.", "KCSAN write stack shows register_netdevice reached through a notifier-driven lapbeth path."],
+    "entry_discovery_log": ["merged.ll defines register_netdevice, type_show, and dev_isalive."],
+    "repair_commands": [],
+    "notes": ["No repair was required."]
+  }
+}

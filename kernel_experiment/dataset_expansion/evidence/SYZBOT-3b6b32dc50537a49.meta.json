@@ -1,0 +1,17 @@
+{
+  "bug_id": "SYZBOT-3b6b32dc50537a49",
+  "tier": "A",
+  "title": "KCSAN: data-race in __ep_remove / __fput (5)",
+  "mainline_sha": "6474353a5e3d0b2cf610153cea0c61f576a36d0a",
+  "all_shas_seen": [
+    "3b6b32dc50537a49bb4a",
+    "6474353a5e3d0b2cf610153cea0c61f576a36d0a",
+    "baeb9a7d8b60b021d907127509c44507539c15e5"
+  ],
+  "c_paths": [
+    "fs/eventpoll.c",
+    "include/linux/eventpoll.h"
+  ],
+  "n_files_shown": 2,
+  "n_functions_shown": 3
+}

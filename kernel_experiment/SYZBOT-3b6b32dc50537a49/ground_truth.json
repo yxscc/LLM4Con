@@ -1,0 +1,25 @@
+{
+  "cve_id": "SYZBOT-3b6b32dc50537a49",
+  "fix_commit": "6474353a5e3d0b2cf610153cea0c61f576a36d0a",
+  "files": [
+    "fs/eventpoll.c"
+  ],
+  "description": "KCSAN: data-race in __ep_remove / __fput (5)",
+  "cwes": [],
+  "title": "KCSAN: data-race in __ep_remove / __fput (5)",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__ep_remove",
+    "fn_b": "__fput"
+  },
+  "two_threads_summary": "KCSAN-reported two-context race. KCSAN: data-race in __ep_remove / __fput (5)",
+  "audit_notes": "Subject: 'epoll: annotate racy check'. Pre-classifier PROBABLY_GOOD (real synchronization primitives on + lines).",
+  "fix_commit_message": "6474353a5e3d0b2cf610153cea0c61f576a36d0a\nepoll: annotate racy check\n\nEpoll relies on a racy fastpath check during __fput() in\neventpoll_release() to avoid the hit of pointlessly acquiring a\nsemaphore. Annotate that race by using WRITE_ONCE() and READ_ONCE().\n\nLink: https://lore.kernel.org/r/66edfb3c.050a0220.3195df.001a.GAE@google.com\nLink: https://lore.kernel.org/r/20240925-fungieren-anbauen-79b334b00542@brauner\nReviewed-by: Jan Kara <jack@suse.cz>\nReported-by: syzbot+3b6b32dc50537a49bb4a@syzkaller.appspotmail.com\nSigned-off-by: Christian Brauner <brauner@kernel.org>",
+  "patch": "commit 6474353a5e3d0b2cf610153cea0c61f576a36d0a\nAuthor: Christian Brauner <brauner@kernel.org>\nDate:   Wed Sep 25 11:05:16 2024 +0200\n\n    epoll: annotate racy check\n    \n    Epoll relies on a racy fastpath check during __fput() in\n    eventpoll_release() to avoid the hit of pointlessly acquiring a\n    semaphore. Annotate that race by using WRITE_ONCE() and READ_ONCE().\n    \n    Link: https://lore.kernel.org/r/66edfb3c.050a0220.3195df.001a.GAE@google.com\n    Link: https://lore.kernel.org/r/20240925-fungieren-anbauen-79b334b00542@brauner\n    Reviewed-by: Jan Kara <jack@suse.cz>\n    Reported-by: syzbot+3b6b32dc50537a49bb4a@syzkaller.appspotmail.com\n    Signed-off-by: Christian Brauner <brauner@kernel.org>\n\ndiff --git a/fs/eventpoll.c b/fs/eventpoll.c\nindex 1ae4542f0bd8..90fbab6b6f03 100644\n--- a/fs/eventpoll.c\n+++ b/fs/eventpoll.c\n@@ -823,7 +823,8 @@ static bool __ep_remove(struct eventpoll *ep, struct epitem *epi, bool force)\n \tto_free = NULL;\n \thead = file->f_ep;\n \tif (head->first == &epi->fllink && !epi->fllink.next) {\n-\t\tfile->f_ep = NULL;\n+\t\t/* See eventpoll_release() for details. */\n+\t\tWRITE_ONCE(file->f_ep, NULL);\n \t\tif (!is_file_epoll(file)) {\n \t\t\tstruct epitems_head *v;\n \t\t\tv = container_of(head, struct epitems_head, epitems);\n@@ -1603,7 +1604,8 @@ static int attach_epitem(struct file *file, struct epitem *epi)\n \t\t\tspin_unlock(&file->f_lock);\n \t\t\tgoto allocate;\n \t\t}\n-\t\tfile->f_ep = head;\n+\t\t/* See eventpoll_release() for details. */\n+\t\tWRITE_ONCE(file->f_ep, head);\n \t\tto_free = NULL;\n \t}\n \thlist_add_head_rcu(&epi->fllink, file->f_ep);\ndiff --git a/include/linux/eventpoll.h b/include/linux/eventpoll.h\nindex 3337745d81bd..0c0d00fcd131 100644\n--- a/include/linux/eventpoll.h\n+++ b/include/linux/eventpoll.h\n@@ -42,7 +42,7 @@ static inline void eventpoll_release(struct file *file)\n \t * because the file in on the way to be removed and nobody ( but\n \t * eventpoll ) has still a reference to this file.\n \t */\n-\tif (likely(!file->f_ep))\n+\tif (likely(!READ_ONCE(file->f_ep)))\n \t\treturn;\n \n \t/*\n",
+  "affected_files_from_patch": [
+    "fs/eventpoll.c",
+    "include/linux/eventpoll.h"
+  ]
+}

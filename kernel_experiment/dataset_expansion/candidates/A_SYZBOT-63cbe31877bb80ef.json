@@ -1,0 +1,42 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-63cbe31877bb80ef",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+  "description": "KCSAN: data-race in snd_seq_check_queue / snd_seq_control_queue (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "snd_seq_check_queue",
+    "fn_b": "snd_seq_control_queue"
+  },
+  "fix_commit": "4ebd47037027c4beae99680bff3b20fdee5d7c1e",
+  "affected_files": [
+    "sound/core/seq/seq_queue.h"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "sound/core/seq/seq_queue.h",
+      "changed_lines": [
+        "-\tunsigned int\tlocked:1,\t/* timer is only accesibble by owner if set */",
+        "-\t\tklocked:1,\t/* kernel lock (after START) */\t",
+        "-\t\tcheck_again:1,",
+        "-\t\tcheck_blocked:1;",
+        "+\tbool\tlocked;\t\t/* timer is only accesibble by owner if set */",
+        "+\tbool\tklocked;\t/* kernel lock (after START) */",
+        "+\tbool\tcheck_again;\t/* concurrent access happened during check */",
+        "+\tbool\tcheck_blocked;\t/* queue being checked */"
+      ],
+      "hunks": [
+        {
+          "old_start": 26,
+          "new_start": 26
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-63cbe31877bb80ef/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-63cbe31877bb80ef/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-63cbe31877bb80ef"
+}

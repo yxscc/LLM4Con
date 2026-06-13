@@ -1,0 +1,21 @@
+{
+  "bug_id": "SYZBOT-630679ddf6c0deba",
+  "tier": "A",
+  "title": "KCSAN: data-race in tcp_add_backlog / tcp_try_rmem_schedule",
+  "mainline_sha": "ebb3b78db7bf842270a46fd4fe7cc45c78fa5ed6",
+  "all_shas_seen": [
+    "630679ddf6c0debaa18d11dabc952f61efa00e3b",
+    "ebb3b78db7bf842270a46fd4fe7cc45c78fa5ed6"
+  ],
+  "c_paths": [
+    "include/net/tcp.h",
+    "include/trace/events/sock.h",
+    "net/core/filter.c",
+    "net/core/skbuff.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/ipv4/tcp_input.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 8
+}

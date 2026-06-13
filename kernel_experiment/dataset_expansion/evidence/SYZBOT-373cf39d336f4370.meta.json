@@ -1,0 +1,23 @@
+{
+  "bug_id": "SYZBOT-373cf39d336f4370",
+  "tier": "A",
+  "title": "KCSAN: data-race in sk_stream_wait_connect / tcp_disconnect (2)",
+  "mainline_sha": "d0ac89f6f9879fae316c155de77b5173b3e2c9c9",
+  "all_shas_seen": [
+    "373cf39d336f4370440ef27ff9e67ba9b45ea280",
+    "d0ac89f6f9879fae316c155de77b5173b3e2c9c9",
+    "aa318c48808c0aa73216bd94c54c4553d3663add"
+  ],
+  "c_paths": [
+    "net/core/stream.c",
+    "net/ipv4/tcp_bpf.c",
+    "net/llc/af_llc.c",
+    "net/smc/smc_close.c",
+    "net/smc/smc_rx.c",
+    "net/smc/smc_tx.c",
+    "net/tipc/socket.c",
+    "net/tls/tls_main.c"
+  ],
+  "n_files_shown": 6,
+  "n_functions_shown": 10
+}

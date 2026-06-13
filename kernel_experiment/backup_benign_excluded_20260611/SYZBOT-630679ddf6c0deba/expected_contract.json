@@ -1,0 +1,50 @@
+{
+  "bug_id": "SYZBOT-630679ddf6c0deba",
+  "shared_object": "struct sock::sk_rcvbuf",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "TCP backlog/receive path reads receive-buffer limit locklessly",
+    "entry": "tcp_add_backlog",
+    "clause": {
+      "resource": "sk->sk_rcvbuf",
+      "sites": [
+        {"function": "tcp_try_rmem_schedule", "file": "net/ipv4/tcp_input.c", "line": 4524, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(sk_rcvbuf)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "setsockopt/autotune updates receive-buffer limit",
+    "entry": "sock_setsockopt",
+    "clause": {
+      "resource": "sk->sk_rcvbuf",
+      "sites": [
+        {"function": "tcp_set_rcvlowat", "file": "net/ipv4/tcp.c", "line": 1714, "op_kind": "WRITE"},
+        {"function": "sock_setsockopt", "file": "net/core/sock.c", "line": 834, "op_kind": "WRITE"},
+        {"function": "tcp_rcv_space_adjust", "file": "net/ipv4/tcp_input.c", "line": 651, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(socket lock, write(sk_rcvbuf))"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(sk_rcvbuf)]) from thread_a (the lockless receive/backlog limit check must not be torn by a concurrent write)",
+    "violating_event": "e@tcp_set_rcvlowat:1714 = write(sk->sk_rcvbuf = val)",
+    "missing_guarantee": "the setsockopt/autotune writers update sk_rcvbuf under the socket lock, but the backlog/rmem-schedule reader runs from softirq/IRQ and reads sk_rcvbuf without that lock; the two accesses share no lock, so no serialize(g) establishes the single-access atomicity the reader assumes",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write to the limit field -> data race (store-tearing / torn read)"
+  },
+
+  "fix_maps_to": "patch wraps the sk_rcvbuf writers in WRITE_ONCE and the lockless readers in READ_ONCE -> makes the conflicting single access atomic; a tearing annotation, not a serialize/order/counts guarantee",
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Object and sites are in the static surface and the category maps to atomic(single access)=data_race, but the read is a best-effort receive-memory admission threshold that tolerates a stale value. The read carries no order intent beyond no-tearing and there is no semantic guard, so the LLM is likely to adjudicate it benign and reject (precision pressure); only a pure-syntactic-race detector would fire. The fix is annotation-only and does not map onto serialize/order/counts.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

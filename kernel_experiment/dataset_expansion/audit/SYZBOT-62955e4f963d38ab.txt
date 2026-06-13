@@ -1,0 +1,95 @@
+======================================================================
+# Evidence: SYZBOT-62955e4f963d38ab  (tier A, score 200)
+- source archive: **syzbot**
+- title: KCSAN: data-race in tcp_event_new_data_sent / tcp_stream_memory_free
+- mainline fix commit: `e0d694d638dba768b47be31c22e1a9b4f862f561`
+- candidate JSON: `A_SYZBOT-62955e4f963d38ab.json`
+- thread_hint: `{"kind": "kcsan", "fn_a": "tcp_event_new_data_sent", "fn_b": "tcp_stream_memory_free"}`
+
+## Commit subject
+  tcp: annotate tp->snd_nxt lockless reads
+
+## Patch (truncated)
+```diff
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 8e7c3f6801a9..e1d08f69fd39 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1917,7 +1917,8 @@ static inline u32 tcp_notsent_lowat(const struct tcp_sock *tp)
+ static inline bool tcp_stream_memory_free(const struct sock *sk, int wake)
+ {
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+-	u32 notsent_bytes = READ_ONCE(tp->write_seq) - tp->snd_nxt;
++	u32 notsent_bytes = READ_ONCE(tp->write_seq) -
++			    READ_ONCE(tp->snd_nxt);
+ 
+ 	return (notsent_bytes << wake) < tcp_notsent_lowat(tp);
+ }
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 96dd65cbeb85..652568750cb1 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -625,7 +625,8 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
+ 			answ = 0;
+ 		else
+-			answ = READ_ONCE(tp->write_seq) - tp->snd_nxt;
++			answ = READ_ONCE(tp->write_seq) -
++			       READ_ONCE(tp->snd_nxt);
+ 		break;
+ 	default:
+ 		return -ENOIOCTLCMD;
+diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
+index 339944690329..c802bc80c400 100644
+--- a/net/ipv4/tcp_minisocks.c
++++ b/net/ipv4/tcp_minisocks.c
+@@ -482,8 +482,10 @@ struct sock *tcp_create_openreq_child(const struct sock *sk,
+ 	WRITE_ONCE(newtp->rcv_nxt, seq);
+ 	newtp->segs_in = 1;
+ 
+-	newtp->snd_sml = newtp->snd_una =
+-	newtp->snd_nxt = newtp->snd_up = treq->snt_isn + 1;
++	seq = treq->snt_isn + 1;
++	newtp->snd_sml = newtp->snd_una = seq;
++	WRITE_ONCE(newtp->snd_nxt, seq);
++	newtp->snd_up = seq;
+ 
+ 	INIT_LIST_HEAD(&newtp->tsq_node);
+ 	INIT_LIST_HEAD(&newtp->tsorted_sent_queue);
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index c17c2a78809d..a115a991dfb5 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -67,7 +67,7 @@ static void tcp_event_new_data_sent(struct sock *sk, struct sk_buff *skb)
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	unsigned int prior_packets = tp->packets_out;
+ 
+-	tp->snd_nxt = TCP_SKB_CB(skb)->end_seq;
++	WRITE_ONCE(tp->snd_nxt, TCP_SKB_CB(skb)->end_seq);
+ 
+ 	__skb_unlink(skb, &sk->sk_write_queue);
+ 	tcp_rbtree_insert(&sk->tcp_rtx_queue, skb);
+@@ -3142,7 +3142,7 @@ void tcp_send_fin(struct sock *sk)
+ 			 * if FIN had been sent. This is because retransmit path
+ 			 * does not change tp->snd_nxt.
+ 			 */
+-			tp->snd_nxt++;
++			WRITE_ONCE(tp->snd_nxt, tp->snd_nxt + 1);
+ 			return;
+ 		}
+ 	} else {
+@@ -3426,7 +3426,7 @@ static void tcp_connect_init(struct sock *sk)
+ 	tp->snd_una = tp->write_seq;
+ 	tp->snd_sml = tp->write_seq;
+ 	tp->snd_up = tp->write_seq;
+-	tp->snd_nxt = tp->write_seq;
++	WRITE_ONCE(tp->snd_nxt, tp->write_seq);
+ 
+ 	if (likely(!tp->repair))
+ 		tp->rcv_nxt = 0;
+@@ -3586,11 +3586,11 @@ int tcp_connect(struct sock *sk)
+ 	/* We change tp->snd_nxt after the tcp_transmit_skb() call
+ 	 * in order to make this packet get counted in tcpOutSegs.
+ 	 */
+... (diff truncated) ...
+```

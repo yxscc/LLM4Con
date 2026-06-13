@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-3b6b32dc50537a49",
+  "shared_object": "struct file::f_ep",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "epoll item removal (writer)",
+    "entry": "do_epoll_ctl",
+    "clause": {
+      "resource": "struct file::f_ep",
+      "sites": [
+        {"function": "__ep_remove", "file": "fs/eventpoll.c", "line": 826, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(epoll lock (epmutex / file->f_lock), [f_ep clear])"]
+    }
+  },
+  "thread_b": {
+    "role": "file final put cleanup (lockless fast-path reader)",
+    "entry": "__fput",
+    "clause": {
+      "resource": "struct file::f_ep",
+      "sites": [
+        {"function": "eventpoll_release", "file": "include/linux/eventpoll.h", "line": 45, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(file->f_ep)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(file->f_ep)]) from thread_b (the lockless __fput fast-path read of the pointer must not interleave with a conflicting write)",
+    "violating_event": "e@__ep_remove:826 = mutate(file->f_ep = NULL) from thread_a",
+    "missing_guarantee": "thread_a clears f_ep while holding the epoll lock, but eventpoll_release()'s fast-path check reads f_ep deliberately OUTSIDE the epoll semaphore (to avoid acquiring it); a one-sided lock does not serialize the lockless read → no g establishes atomic(read)",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic over a single pointer read; an unmarked lockless load concurrent with a conflicting store → data race"
+  },
+
+  "fix_maps_to": "WRITE_ONCE() on the f_ep stores in __ep_remove/attach_epitem and READ_ONCE() on the eventpoll_release fast-path read → marks the accesses as single-copy-atomic (establishes atomic(read/write) at the C-memory-model level); the intentional racy fast path is preserved, only annotated",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Clean one-sided-lock pointer race; unprotected reader yields atomic(read) directly. Risks: (1) the race is EXPLICITLY intentional/benign by design (commit: 'annotate racy check'; eventpoll_release re-validates under the semaphore on the slow path and the file has no other referrers), so an LLM may judge the fast-path read a sufficient/benign guard and reject the report — exactly the §4.6.9 guard-sufficiency judgment that can cut either way. (2) Object identity: thread_b reaches file->f_ep via __fput -> eventpoll_release(file) while thread_a reaches it via epi->ffd.file; static aliasing must prove these are the same struct file to ground same_location.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

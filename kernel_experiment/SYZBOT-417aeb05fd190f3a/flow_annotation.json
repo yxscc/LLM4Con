@@ -1,0 +1,85 @@
+{
+  "bug_id": "SYZBOT-417aeb05fd190f3a",
+  "status": "complete",
+  "summary": "Hugepage unmap reads h->surplus_huge_pages without hugetlb_lock while surplus allocation updates the same hstate counter.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "hugetlb unmap reservation restore",
+      "entry": {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "kind": "mm_unmap"},
+      "call_chain": [
+        {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN read side and patch hunk are in this function."}
+      ],
+      "bug_site": {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "line": 5954, "code": "if (!h->surplus_huge_pages && __vma_private_lock(vma) &&"}
+    },
+    "thread_b": {
+      "role": "surplus hugepage allocation",
+      "entry": {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "kind": "mm_allocator"},
+      "call_chain": [
+        {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN write side names alloc_surplus_hugetlb_folio and hugetlb.ll defines it."}
+      ],
+      "bug_site": {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "line": 2272, "code": "h->surplus_huge_pages++;"}
+    },
+    "interleaving": [
+      "The unmap path drops a huge PTE and decides whether to restore a reservation based on h->surplus_huge_pages.",
+      "A concurrent surplus allocation updates the hstate surplus counter under hugetlb_lock.",
+      "The fix takes hugetlb_lock around the unmap-side check and reinitializes adjust_reservation per loop iteration."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct hstate::surplus_huge_pages",
+    "access_a": {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "line": 5954, "kind": "read", "code": "if (!h->surplus_huge_pages && __vma_private_lock(vma) &&"},
+    "access_b": {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "line": 2272, "kind": "write", "code": "h->surplus_huge_pages++;"},
+    "required_ordering": "All accesses to the hstate surplus counter that influence reservation restore decisions must be under hugetlb_lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct hstate::surplus_huge_pages",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The counter determines whether a hugetlb reservation should be restored during unmap and is also maintained by the surplus allocator.",
+    "aliases": [
+      {"name": "h->surplus_huge_pages", "function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "evidence": "h is obtained from hstate_vma(vma)."},
+      {"name": "h->surplus_huge_pages", "function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "evidence": "The allocator receives the hstate pointer and increments the counter."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "vma", "to": "hstate_vma(vma)->surplus_huge_pages", "evidence": "__unmap_hugepage_range derives h from the VMA before the check."}],
+      "thread_b": [{"from": "alloc_surplus_hugetlb_folio(struct hstate *h)", "to": "h->surplus_huge_pages", "evidence": "The allocator directly mutates the supplied hstate."}]
+    },
+    "access_sites": [
+      {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "line": 5954, "kind": "read", "code": "if (!h->surplus_huge_pages && __vma_private_lock(vma) &&"},
+      {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "line": 2272, "kind": "write", "code": "h->surplus_huge_pages++;"}
+    ],
+    "lifetime": {
+      "allocated_by": ["global hstate initialization"],
+      "published_by": ["hugetlb subsystem hstate tables"],
+      "invalidated_by": [],
+      "freed_by": []
+    },
+    "notes": ["The same patch also fixes adjust_reservation initialization, but the concurrency surface is h->surplus_huge_pages."]
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["mm/hugetlb.c"],
+    "candidate_files": [],
+    "analysis_conclusion": "Both real contexts and the shared counter access are in mm/hugetlb.c.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 1,
+    "src_file_count_after": 1,
+    "compiled_files": ["mm/hugetlb.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "hugetlb.ll",
+    "bitcode_input_files": ["hugetlb.ll"],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 629
+  },
+  "evidence": {
+    "patch_hunks": ["21cc2b5c5062 adds hugetlb_lock around the h->surplus_huge_pages check in __unmap_hugepage_range."],
+    "indirect_edges": ["hstate_vma(vma) maps the unmap VMA to the shared hstate object."],
+    "entry_discovery_log": ["hugetlb.ll defines __unmap_hugepage_range and alloc_surplus_hugetlb_folio."],
+    "repair_commands": [],
+    "notes": ["No repair was required."]
+  }
+}

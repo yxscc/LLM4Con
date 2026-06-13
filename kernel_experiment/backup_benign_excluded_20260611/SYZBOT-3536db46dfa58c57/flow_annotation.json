@@ -1,0 +1,215 @@
+{
+  "bug_id": "SYZBOT-3536db46dfa58c57",
+  "status": "complete",
+  "summary": "BPF LRU free/pending transitions write node->type while push_free reads it outside the protecting local-list lock.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "LRU pop/move writer",
+      "entry": {
+        "function": "bpf_lru_pop_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "kind": "exported_api"
+      },
+      "call_chain": [
+        {
+          "function": "bpf_lru_pop_free",
+          "file": "kernel/bpf/bpf_lru_list.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "map allocation path obtains an LRU node"
+        },
+        {
+          "function": "__local_list_flush",
+          "file": "kernel/bpf/bpf_lru_list.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "flushes local pending nodes"
+        },
+        {
+          "function": "__bpf_lru_node_move_in",
+          "file": "kernel/bpf/bpf_lru_list.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "moves node into global LRU list and updates type"
+        }
+      ],
+      "bug_site": {
+        "function": "__bpf_lru_node_move_in",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "line": 91,
+        "code": "node->type = tgt_type;"
+      }
+    },
+    "thread_b": {
+      "role": "LRU push/free reader",
+      "entry": {
+        "function": "bpf_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "kind": "exported_api"
+      },
+      "call_chain": [
+        {
+          "function": "bpf_lru_push_free",
+          "file": "kernel/bpf/bpf_lru_list.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "map free path returns a node"
+        },
+        {
+          "function": "bpf_common_lru_push_free",
+          "file": "kernel/bpf/bpf_lru_list.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "double-checks node type before taking lock"
+        }
+      ],
+      "bug_site": {
+        "function": "bpf_common_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "line": 507,
+        "code": "if (WARN_ON_ONCE(node->type == BPF_LRU_LIST_T_FREE) ||"
+      }
+    },
+    "interleaving": [
+      "One BPF map operation pops/flushes an LRU node and updates node->type under the relevant list lock.",
+      "Another operation pushes the same node free and reads node->type before taking that lock as a double-check.",
+      "The fix snapshots node->type with READ_ONCE before lock-dependent checks."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct bpf_lru_node::type",
+    "access_a": {
+      "function": "__bpf_lru_node_move_in",
+      "file": "kernel/bpf/bpf_lru_list.c",
+      "line": 91,
+      "kind": "write",
+      "code": "node->type = tgt_type;"
+    },
+    "access_b": {
+      "function": "bpf_common_lru_push_free",
+      "file": "kernel/bpf/bpf_lru_list.c",
+      "line": 507,
+      "kind": "read",
+      "code": "node->type == BPF_LRU_LIST_T_FREE"
+    },
+    "required_ordering": "Lockless double-check reads of node->type must be READ_ONCE and revalidated under the lock."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct bpf_lru_node::type",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The node type byte controls which LRU/local list owns a node and is both the KCSAN-reported byte and the patched READ_ONCE target.",
+    "aliases": [
+      {
+        "name": "node",
+        "function": "bpf_lru_pop_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "evidence": "node returned from local/global LRU lists"
+      },
+      {
+        "name": "node",
+        "function": "bpf_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "evidence": "caller returns the same node to a free list"
+      },
+      {
+        "name": "node_type",
+        "function": "bpf_common_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "evidence": "patched local READ_ONCE(node->type) snapshot"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "bpf_lru_pop_free(lru, hash)",
+          "to": "node -> __local_list_flush/__bpf_lru_node_move_in -> node->type",
+          "evidence": "pop/move path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "bpf_lru_push_free(lru, node)",
+          "to": "node -> bpf_common_lru_push_free -> node->type",
+          "evidence": "push/free path"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "__bpf_lru_node_move_in",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "line": 91,
+        "kind": "write",
+        "code": "node->type = tgt_type;"
+      },
+      {
+        "function": "bpf_common_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "line": 507,
+        "kind": "read",
+        "code": "node->type"
+      },
+      {
+        "function": "bpf_common_lru_push_free",
+        "file": "kernel/bpf/bpf_lru_list.c",
+        "line": 523,
+        "kind": "write",
+        "code": "node->type = BPF_LRU_LOCAL_LIST_T_FREE;"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "bpf_lru_init/common/percpu init lays out nodes in backing element memory"
+      ],
+      "published_by": [
+        "nodes are linked on LRU/local lists using node->list and node->type"
+      ],
+      "invalidated_by": [
+        "push_free/move_to_free changes node type and list ownership"
+      ],
+      "freed_by": [
+        "BPF map teardown frees backing storage"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "kernel/bpf/bpf_lru_list.c"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "bpf_lru_list.c defines both exported LRU APIs, internal move/flush helpers, and all node->type accesses.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 6,
+    "src_file_count_after": 6,
+    "compiled_files": [
+      "kernel/bpf/bpf_lru_list.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "bpf_lru_list.ll",
+    "bitcode_input_files": [
+      "bpf_lru_list.ll"
+    ],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 44
+  },
+  "evidence": {
+    "patch_hunks": [
+      "bpf_common_lru_push_free() now reads node_type = READ_ONCE(node->type) before double-checked tests."
+    ],
+    "indirect_edges": [
+      "BPF map implementations call bpf_lru_pop_free()/bpf_lru_push_free() as exported LRU helpers."
+    ],
+    "entry_discovery_log": [
+      "bpf_lru_list.ll contains bpf_lru_pop_free, bpf_lru_push_free, bpf_common_lru_push_free, __local_list_flush, and __bpf_lru_node_move_in."
+    ],
+    "repair_commands": [],
+    "notes": []
+  }
+}

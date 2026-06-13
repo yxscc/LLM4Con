@@ -1,0 +1,21 @@
+{
+  "commit": "4ebd47037027c4beae99680bff3b20fdee5d7c1e",
+  "user_seeds": [
+    "sound/core/seq/seq_queue.h"
+  ],
+  "patch_files": [
+    "sound/core/seq/seq_queue.h"
+  ],
+  "changed_symbols_sample": [
+    "START",
+    "check_again",
+    "check_blocked"
+  ],
+  "expanded": [
+    "sound/core/seq/seq_queue.c",
+    "sound/core/seq/seq_queue.h"
+  ],
+  "added_by_expander": {
+    "sound/core/seq/seq_queue.c": "includes seq_queue.h; references 2 changed symbols: check_again, check_blocked"
+  }
+}

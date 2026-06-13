@@ -1,0 +1,1151 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-127fd7828d6eeb61",
+  "source": "syzbot",
+  "title": "possible deadlock in __fs_reclaim_acquire",
+  "description": "possible deadlock in __fs_reclaim_acquire",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in __fs_reclaim_acquire"
+  },
+  "fix_commit": "77d34a4683b053108ecd466cc7c4193b45805528",
+  "affected_files": [
+    "arch/arm/include/asm/pgtable.h",
+    "arch/arm/mm/mmu.c",
+    "arch/arm/Kconfig.debug",
+    "arch/arm/boot/compressed/Makefile",
+    "arch/arm/include/asm/module.h",
+    "arch/arm/kernel/module-plts.c",
+    "arch/arm/include/asm/insn.h",
+    "arch/arm/kernel/ftrace.c",
+    "arch/arm/kernel/insn.c",
+    "arch/arm/include/asm/ftrace.h",
+    "arch/arm/boot/compressed/atags_to_fdt.c",
+    "arch/arm/tools/Makefile",
+    "arch/arm/tools/syscallnr.sh",
+    "arch/arm/probes/kprobes/test-thumb.c",
+    "arch/arm/include/asm/memory.h",
+    "arch/arm/kernel/head.S",
+    "arch/arm/kernel/vmlinux.lds.S",
+    "arch/arm/mm/Kconfig",
+    "arch/arm/mm/abort-ev7.S",
+    "arch/arm/xen/enlighten.c",
+    "drivers/firmware/psci/psci.c",
+    "arch/arm/kernel/setup.c",
+    "arch/arm64/include/asm/system_misc.h",
+    "arch/arm64/kernel/process.c",
+    "arch/arm/include/asm/system_misc.h",
+    "arch/arm/kernel/reboot.c",
+    "mm/page_alloc.c",
+    "MAINTAINERS"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "arch/arm/include/asm/pgtable.h",
+      "changed_lines": [
+        "-#define __swp_entry_to_pte(swp)\t((pte_t) { (swp).val })",
+        "+#define __swp_entry_to_pte(swp)\t__pte((swp).val | PTE_TYPE_FAULT)"
+      ],
+      "hunks": [
+        {
+          "old_start": 306,
+          "new_start": 306
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-static void * __initdata vmalloc_min =",
+        "-\t(void *)(VMALLOC_END - (240 << 20) - VMALLOC_OFFSET);",
+        "+static unsigned long __initdata vmalloc_min =",
+        "+\tVMALLOC_END - (240 << 20) - VMALLOC_OFFSET;",
+        "-\tvmalloc_min = (void *)(VMALLOC_END - vmalloc_reserve);",
+        "+\tvmalloc_min = VMALLOC_END - vmalloc_reserve;",
+        "-\tvmalloc_limit = (u64)(uintptr_t)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;",
+        "+\tvmalloc_limit = (u64)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1121,
+          "new_start": 1121
+        },
+        {
+          "old_start": 1145,
+          "new_start": 1145
+        },
+        {
+          "old_start": 1165,
+          "new_start": 1165
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "+\tunsigned long vmalloc_max;",
+        "-\tif (vmalloc_reserve > VMALLOC_END - (PAGE_OFFSET + SZ_32M)) {",
+        "-\t\tvmalloc_reserve = VMALLOC_END - (PAGE_OFFSET + SZ_32M);",
+        "+\tvmalloc_max = VMALLOC_END - (PAGE_OFFSET + SZ_32M);",
+        "+\tif (vmalloc_reserve > vmalloc_max) {",
+        "+\t\tvmalloc_reserve = vmalloc_max;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1132,
+          "new_start": 1132
+        },
+        {
+          "old_start": 1139,
+          "new_start": 1140
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-static unsigned long __initdata vmalloc_min =",
+        "-\tVMALLOC_END - (240 << 20) - VMALLOC_OFFSET;",
+        "+static unsigned long __initdata vmalloc_start = VMALLOC_END - (240 << 20);",
+        "-\tvmalloc_max = VMALLOC_END - (PAGE_OFFSET + SZ_32M);",
+        "+\tvmalloc_max = VMALLOC_END - (PAGE_OFFSET + SZ_32M + VMALLOC_OFFSET);",
+        "-\tvmalloc_min = VMALLOC_END - vmalloc_reserve;",
+        "+\tvmalloc_start = VMALLOC_END - vmalloc_reserve;",
+        "-\tvmalloc_limit = (u64)vmalloc_min - PAGE_OFFSET + PHYS_OFFSET;",
+        "+\tvmalloc_limit = (u64)vmalloc_start - VMALLOC_OFFSET -",
+        "+\t\t\tPAGE_OFFSET + PHYS_OFFSET;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1121,
+          "new_start": 1121
+        },
+        {
+          "old_start": 1140,
+          "new_start": 1139
+        },
+        {
+          "old_start": 1167,
+          "new_start": 1166
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-static unsigned long __initdata vmalloc_start = VMALLOC_END - (240 << 20);",
+        "+static unsigned long __initdata vmalloc_size = 240 << 20;",
+        "-\tvmalloc_start = VMALLOC_END - vmalloc_reserve;",
+        "+\tvmalloc_size = vmalloc_reserve;",
+        "-\tvmalloc_limit = (u64)vmalloc_start - VMALLOC_OFFSET -",
+        "+\tvmalloc_limit = (u64)VMALLOC_END - vmalloc_size - VMALLOC_OFFSET -"
+      ],
+      "hunks": [
+        {
+          "old_start": 1121,
+          "new_start": 1121
+        },
+        {
+          "old_start": 1146,
+          "new_start": 1146
+        },
+        {
+          "old_start": 1166,
+          "new_start": 1166
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-static unsigned long __initdata vmalloc_size = 240 << 20;",
+        "+static unsigned long __initdata vmalloc_size = 240 * SZ_1M;"
+      ],
+      "hunks": [
+        {
+          "old_start": 1121,
+          "new_start": 1121
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "- * area - the default is 240m.",
+        "+ * area - the default is 240MiB.",
+        "-\t\tpr_warn(\"vmalloc area too small, limiting to %luMB\\n\",",
+        "+\t\tpr_warn(\"vmalloc area is too small, limiting to %luMiB\\n\",",
+        "-\t\tpr_warn(\"vmalloc area is too big, limiting to %luMB\\n\",",
+        "+\t\tpr_warn(\"vmalloc area is too big, limiting to %luMiB\\n\","
+      ],
+      "hunks": [
+        {
+          "old_start": 1126,
+          "new_start": 1126
+        },
+        {
+          "old_start": 1135,
+          "new_start": 1135
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/Kconfig.debug",
+      "changed_lines": [
+        "+\t# https://github.com/ClangBuiltLinux/linux/issues/732",
+        "+\tdepends on !LD_IS_LLD || LLD_VERSION >= 110000"
+      ],
+      "hunks": [
+        {
+          "old_start": 66,
+          "new_start": 66
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/boot/compressed/Makefile",
+      "changed_lines": [
+        "-clean-files += piggy_data lib1funcs.S ashldi3.S bswapsdi2.S hyp-stub.S",
+        "+clean-files += lib1funcs.S ashldi3.S bswapsdi2.S hyp-stub.S"
+      ],
+      "hunks": [
+        {
+          "old_start": 100,
+          "new_start": 100
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/module.h",
+      "changed_lines": [
+        "+#define PLT_ENT_STRIDE\t\tL1_CACHE_BYTES",
+        "+#define PLT_ENT_COUNT\t\t(PLT_ENT_STRIDE / sizeof(u32))",
+        "+#define PLT_ENT_SIZE\t\t(sizeof(struct plt_entries) / PLT_ENT_COUNT)",
+        "+",
+        "+struct plt_entries {",
+        "+\tu32\tldr[PLT_ENT_COUNT];",
+        "+\tu32\tlit[PLT_ENT_COUNT];",
+        "+};",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 19,
+          "new_start": 19
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/module-plts.c",
+      "changed_lines": [
+        "-#define PLT_ENT_STRIDE\t\tL1_CACHE_BYTES",
+        "-#define PLT_ENT_COUNT\t\t(PLT_ENT_STRIDE / sizeof(u32))",
+        "-#define PLT_ENT_SIZE\t\t(sizeof(struct plt_entries) / PLT_ENT_COUNT)",
+        "-",
+        "-struct plt_entries {",
+        "-\tu32\tldr[PLT_ENT_COUNT];",
+        "-\tu32\tlit[PLT_ENT_COUNT];",
+        "-};",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 12,
+          "new_start": 12
+        },
+        {
+          "old_start": 24,
+          "new_start": 20
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/insn.h",
+      "changed_lines": [
+        "-__arm_gen_branch(unsigned long pc, unsigned long addr, bool link);",
+        "+__arm_gen_branch(unsigned long pc, unsigned long addr, bool link, bool warn);",
+        "-\treturn __arm_gen_branch(pc, addr, false);",
+        "+\treturn __arm_gen_branch(pc, addr, false, true);",
+        "-arm_gen_branch_link(unsigned long pc, unsigned long addr)",
+        "+arm_gen_branch_link(unsigned long pc, unsigned long addr, bool warn)",
+        "-\treturn __arm_gen_branch(pc, addr, true);",
+        "+\treturn __arm_gen_branch(pc, addr, true, warn);"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/ftrace.c",
+      "changed_lines": [
+        "-\treturn arm_gen_branch_link(pc, addr);",
+        "+\treturn arm_gen_branch_link(pc, addr, true);"
+      ],
+      "hunks": [
+        {
+          "old_start": 70,
+          "new_start": 70
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/insn.c",
+      "changed_lines": [
+        "-static unsigned long",
+        "-__arm_gen_branch_thumb2(unsigned long pc, unsigned long addr, bool link)",
+        "+static unsigned long __arm_gen_branch_thumb2(unsigned long pc,",
+        "+\t\t\t\t\t     unsigned long addr, bool link,",
+        "+\t\t\t\t\t     bool warn)",
+        "-\t\tWARN_ON_ONCE(1);",
+        "+\t\tWARN_ON_ONCE(warn);",
+        "-static unsigned long",
+        "-__arm_gen_branch_arm(unsigned long pc, unsigned long addr, bool link)",
+        "+static unsigned long __arm_gen_branch_arm(unsigned long pc, unsigned long addr,",
+        "+\t\t\t\t\t  bool link, bool warn)",
+        "-\t\tWARN_ON_ONCE(1);",
+        "+\t\tWARN_ON_ONCE(warn);",
+        "-__arm_gen_branch(unsigned long pc, unsigned long addr, bool link)",
+        "+__arm_gen_branch(unsigned long pc, unsigned long addr, bool link, bool warn)",
+        "-\t\treturn __arm_gen_branch_thumb2(pc, addr, link);",
+        "+\t\treturn __arm_gen_branch_thumb2(pc, addr, link, warn);",
+        "-\t\treturn __arm_gen_branch_arm(pc, addr, link);",
+        "+\t\treturn __arm_gen_branch_arm(pc, addr, link, warn);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        },
+        {
+          "old_start": 12,
+          "new_start": 13
+        },
+        {
+          "old_start": 33,
+          "new_start": 34
+        },
+        {
+          "old_start": 44,
+          "new_start": 45
+        },
+        {
+          "old_start": 54,
+          "new_start": 55
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/ftrace.h",
+      "changed_lines": [
+        "+#ifdef CONFIG_ARM_MODULE_PLTS",
+        "+\tstruct module *mod;",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 15,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/module.h",
+      "changed_lines": [
+        "+\tstruct plt_entries\t*plt_ent;"
+      ],
+      "hunks": [
+        {
+          "old_start": 30,
+          "new_start": 30
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/ftrace.c",
+      "changed_lines": [
+        "-static unsigned long ftrace_call_replace(unsigned long pc, unsigned long addr)",
+        "+static unsigned long ftrace_call_replace(unsigned long pc, unsigned long addr,",
+        "+\t\t\t\t\t bool warn)",
+        "-\treturn arm_gen_branch_link(pc, addr, true);",
+        "+\treturn arm_gen_branch_link(pc, addr, warn);",
+        "-\tnew = ftrace_call_replace(pc, (unsigned long)func);",
+        "+\tnew = ftrace_call_replace(pc, (unsigned long)func, true);",
+        "-\t\tnew = ftrace_call_replace(pc, (unsigned long)func);",
+        "+\t\tnew = ftrace_call_replace(pc, (unsigned long)func, true);",
+        "+\tunsigned long aaddr = adjust_address(rec, addr);",
+        "+\tstruct module *mod = NULL;",
+        "+",
+        "+#ifdef CONFIG_ARM_MODULE_PLTS",
+        "+\tmod = rec->arch.mod;",
+        "+#endif",
+        "-\tnew = ftrace_call_replace(ip, adjust_address(rec, addr));",
+        "+\tnew = ftrace_call_replace(ip, aaddr, !mod);",
+        "+#ifdef CONFIG_ARM_MODULE_PLTS",
+        "+\tif (!new && mod) {",
+        "+\t\taaddr = get_module_plt(mod, ip, aaddr);",
+        "+\t\tnew = ftrace_call_replace(ip, aaddr, true);",
+        "+\t}",
+        "+#endif",
+        "-\told = ftrace_call_replace(ip, adjust_address(rec, old_addr));",
+        "+\told = ftrace_call_replace(ip, adjust_address(rec, old_addr), true);",
+        "-\tnew = ftrace_call_replace(ip, adjust_address(rec, addr));",
+        "+\tnew = ftrace_call_replace(ip, adjust_address(rec, addr), true);",
+        "+\tunsigned long aaddr = adjust_address(rec, addr);",
+        "-\told = ftrace_call_replace(ip, adjust_address(rec, addr));",
+        "+#ifdef CONFIG_ARM_MODULE_PLTS",
+        "+\t/* mod is only supplied during module loading */",
+        "+\tif (!mod)",
+        "+\t\tmod = rec->arch.mod;",
+        "+\telse",
+        "+\t\trec->arch.mod = mod;",
+        "+#endif",
+        "+",
+        "+\told = ftrace_call_replace(ip, aaddr,",
+        "+\t\t\t\t  !IS_ENABLED(CONFIG_ARM_MODULE_PLTS) || !mod);",
+        "+#ifdef CONFIG_ARM_MODULE_PLTS",
+        "+\tif (!old && mod) {",
+        "+\t\taaddr = get_module_plt(mod, ip, aaddr);",
+        "+\t\told = ftrace_call_replace(ip, aaddr, true);",
+        "+\t}",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 68,
+          "new_start": 68
+        },
+        {
+          "old_start": 104,
+          "new_start": 105
+        },
+        {
+          "old_start": 124,
+          "new_start": 125
+        },
+        {
+          "old_start": 140,
+          "new_start": 153
+        },
+        {
+          "old_start": 152,
+          "new_start": 165
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/module-plts.c",
+      "changed_lines": [
+        "+#include <linux/ftrace.h>",
+        "+static const u32 fixed_plts[] = {",
+        "+#ifdef CONFIG_FUNCTION_TRACER",
+        "+\tFTRACE_ADDR,",
+        "+\tMCOUNT_ADDR,",
+        "+#endif",
+        "+};",
+        "+",
+        "+static void prealloc_fixed(struct mod_plt_sec *pltsec, struct plt_entries *plt)",
+        "+{",
+        "+\tint i;",
+        "+",
+        "+\tif (!ARRAY_SIZE(fixed_plts) || pltsec->plt_count)",
+        "+\t\treturn;",
+        "+\tpltsec->plt_count = ARRAY_SIZE(fixed_plts);",
+        "+",
+        "+\tfor (i = 0; i < ARRAY_SIZE(plt->ldr); ++i)",
+        "+\t\tplt->ldr[i] = PLT_ENT_LDR;",
+        "+",
+        "+\tBUILD_BUG_ON(sizeof(fixed_plts) > sizeof(plt->lit));",
+        "+\tmemcpy(plt->lit, fixed_plts, sizeof(fixed_plts));",
+        "+}",
+        "+",
+        "+\tstruct plt_entries *plt;",
+        "+\tint idx;",
+        "+",
+        "+\t/* cache the address, ELF header is available only during module load */",
+        "+\tif (!pltsec->plt_ent)",
+        "+\t\tpltsec->plt_ent = (struct plt_entries *)pltsec->plt->sh_addr;",
+        "+\tplt = pltsec->plt_ent;",
+        "-\tstruct plt_entries *plt = (struct plt_entries *)pltsec->plt->sh_addr;",
+        "-\tint idx = 0;",
+        "+\tprealloc_fixed(pltsec, plt);",
+        "+",
+        "+\tfor (idx = 0; idx < ARRAY_SIZE(fixed_plts); ++idx)",
+        "+\t\tif (plt->lit[idx] == val)",
+        "+\t\t\treturn (u32)&plt->ldr[idx];",
+        "+\tidx = 0;",
+        "-\tunsigned long core_plts = 0;",
+        "-\tunsigned long init_plts = 0;",
+        "+\tunsigned long core_plts = ARRAY_SIZE(fixed_plts);",
+        "+\tunsigned long init_plts = ARRAY_SIZE(fixed_plts);",
+        "+\tmod->arch.core.plt_ent = NULL;",
+        "+\tmod->arch.init.plt_ent = NULL;"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        },
+        {
+          "old_start": 20,
+          "new_start": 21
+        },
+        {
+          "old_start": 180,
+          "new_start": 214
+        },
+        {
+          "old_start": 236,
+          "new_start": 270
+        },
+        {
+          "old_start": 243,
+          "new_start": 278
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-static inline void prepare_page_table(void)",
+        "+static __init void prepare_page_table(void)"
+      ],
+      "hunks": [
+        {
+          "old_start": 1248,
+          "new_start": 1248
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/boot/compressed/atags_to_fdt.c",
+      "changed_lines": [
+        "- * REturn values:",
+        "+ * Return values:"
+      ],
+      "hunks": [
+        {
+          "old_start": 121,
+          "new_start": 121
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/tools/Makefile",
+      "changed_lines": [
+        "-      cmd_gen_mach = mkdir -p $(dir $@) && \\",
+        "-\t\t     $(AWK) -f $(filter-out $(PHONY),$^) > $@",
+        "+      cmd_gen_mach = $(AWK) -f $(real-prereqs) > $@"
+      ],
+      "hunks": [
+        {
+          "old_start": 33,
+          "new_start": 33
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/tools/Makefile",
+      "changed_lines": [
+        "-      cmd_sysnr  = $(CONFIG_SHELL) '$(sysnr)' '$<' '$@' \\",
+        "-\t\t   '$(syshdr_abi_$(basetarget))'",
+        "+      cmd_sysnr  = $(CONFIG_SHELL) $(sysnr) $< $@",
+        "-sysnr_abi_unistd-nr := common,oabi,eabi,compat"
+      ],
+      "hunks": [
+        {
+          "old_start": 46,
+          "new_start": 46
+        },
+        {
+          "old_start": 57,
+          "new_start": 56
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/tools/syscallnr.sh",
+      "changed_lines": [
+        "-my_abis=`echo \"($3)\" | tr ',' '|'`",
+        "-grep -E \"^[0-9A-Fa-fXx]+[[:space:]]+${my_abis}\" \"$in\" | sort -n | tail -n1 | (",
+        "+grep -E \"^[0-9A-Fa-fXx]+[[:space:]]+\" \"$in\" | sort -n | tail -n1 | ("
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/tools/Makefile",
+      "changed_lines": [
+        "-      cmd_syshdr = $(CONFIG_SHELL) $(syshdr) --abis $(abis) \\",
+        "+      cmd_syshdr = $(CONFIG_SHELL) $(syshdr) --abis common,$* \\",
+        "-      cmd_systbl = $(CONFIG_SHELL) $(systbl) --abis $(abis) $< $@",
+        "+      cmd_systbl = $(CONFIG_SHELL) $(systbl) --abis common,$* $< $@",
+        "-$(uapi)/unistd-oabi.h: abis := common,oabi",
+        "-$(uapi)/unistd-oabi.h: $(syscall) $(syshdr) FORCE",
+        "-\t$(call if_changed,syshdr)",
+        "-",
+        "-$(uapi)/unistd-eabi.h: abis := common,eabi",
+        "-$(uapi)/unistd-eabi.h: $(syscall) $(syshdr) FORCE",
+        "+$(uapi)/unistd-%.h: $(syscall) $(syshdr) FORCE",
+        "-$(gen)/calls-oabi.S: abis := common,oabi",
+        "-$(gen)/calls-oabi.S: $(syscall) $(systbl) FORCE",
+        "-\t$(call if_changed,systbl)",
+        "-",
+        "-$(gen)/calls-eabi.S: abis := common,eabi",
+        "-$(gen)/calls-eabi.S: $(syscall) $(systbl) FORCE",
+        "+$(gen)/calls-%.S: $(syscall) $(systbl) FORCE"
+      ],
+      "hunks": [
+        {
+          "old_start": 39,
+          "new_start": 39
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/probes/kprobes/test-thumb.c",
+      "changed_lines": [
+        "-\tTEST_RX(\"tbh\t[pc, r\",7, (9f-(1f+4))>>1,\"]\",",
+        "+\tTEST_RX(\"tbh\t[pc, r\",7, (9f-(1f+4))>>1,\", lsl #1]\",",
+        "-\tTEST_RX(\"tbh\t[pc, r\",12, ((9f-(1f+4))>>1)+1,\"]\",",
+        "+\tTEST_RX(\"tbh\t[pc, r\",12, ((9f-(1f+4))>>1)+1,\", lsl #1]\",",
+        "-\tTEST_RRX(\"tbh\t[r\",1,9f, \", r\",14,1,\"]\",",
+        "+\tTEST_RRX(\"tbh\t[r\",1,9f, \", r\",14,1,\", lsl #1]\",",
+        "-\tTEST_UNSUPPORTED(\"strexd\tr0, r1, [r2]\")",
+        "+\tTEST_UNSUPPORTED(\"strexd\tr0, r1, r2, [r2]\")",
+        "-\tTEST_UNSUPPORTED(\"ldrexd\tr0, [r1]\")",
+        "+\tTEST_UNSUPPORTED(\"ldrexd\tr0, r1, [r1]\")"
+      ],
+      "hunks": [
+        {
+          "old_start": 441,
+          "new_start": 441
+        },
+        {
+          "old_start": 468,
+          "new_start": 468
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/memory.h",
+      "changed_lines": [
+        "-/* PAGE_OFFSET - the virtual address of the start of the kernel image */",
+        "+/*",
+        "+ * PAGE_OFFSET: the virtual address of the start of lowmem, memory above",
+        "+ *   the virtual address range for userspace.",
+        "+ * KERNEL_OFFSET: the virtual address of the start of the kernel image.",
+        "+ *   we may further offset this with TEXT_OFFSET in practice.",
+        "+ */",
+        "+#define KERNEL_OFFSET\t\t(PAGE_OFFSET)"
+      ],
+      "hunks": [
+        {
+          "old_start": 20,
+          "new_start": 20
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/head.S",
+      "changed_lines": [
+        "-",
+        "-#define KERNEL_RAM_VADDR\t(PAGE_OFFSET + TEXT_OFFSET)",
+        "+#define KERNEL_RAM_VADDR\t(KERNEL_OFFSET + TEXT_OFFSET)"
+      ],
+      "hunks": [
+        {
+          "old_start": 23,
+          "new_start": 23
+        },
+        {
+          "old_start": 31,
+          "new_start": 30
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/vmlinux.lds.S",
+      "changed_lines": [
+        "-\t. = PAGE_OFFSET + TEXT_OFFSET;",
+        "+\t. = KERNEL_OFFSET + TEXT_OFFSET;"
+      ],
+      "hunks": [
+        {
+          "old_start": 47,
+          "new_start": 47
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/memory.h",
+      "changed_lines": [
+        "+/*",
+        "+ * Physical start and end address of the kernel sections. These addresses are",
+        "+ * 2MB-aligned to match the section mappings placed over the kernel.",
+        "+ */",
+        "+extern phys_addr_t kernel_sec_start;",
+        "+extern phys_addr_t kernel_sec_end;",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 158,
+          "new_start": 158
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/head.S",
+      "changed_lines": [
+        "+\t/*",
+        "+\t * This needs to be assigned at runtime when the linker symbols are",
+        "+\t * resolved.",
+        "+\t */",
+        "+\t.pushsection .data",
+        "+\t.align\t2",
+        "+\t.globl\tkernel_sec_start",
+        "+\t.globl\tkernel_sec_end",
+        "+kernel_sec_start:",
+        "+\t.long\t0",
+        "+kernel_sec_end:",
+        "+\t.long\t0",
+        "+\t.popsection",
+        "+",
+        "-\t * Map our RAM from the start to the end of the kernel .bss section.",
+        "+\t * The main matter: map in the kernel using section mappings, and",
+        "+\t * set two variables to indicate the physical start and end of the",
+        "+\t * kernel.",
+        "-\tadd\tr0, r4, #PAGE_OFFSET >> (SECTION_SHIFT - PMD_ORDER)",
+        "+\tadd\tr0, r4, #KERNEL_OFFSET >> (SECTION_SHIFT - PMD_ORDER)",
+        "-\torr\tr3, r8, r7",
+        "+\tadr_l\tr5, kernel_sec_start\t\t@ _pa(kernel_sec_start)",
+        "+\tstr\tr8, [r5]\t\t\t@ Save physical start of kernel",
+        "+\torr\tr3, r8, r7\t\t\t@ Add the MMU flags",
+        "+\teor\tr3, r3, r7\t\t\t@ Remove the MMU flags",
+        "+\tadr_l\tr5, kernel_sec_end\t\t@ _pa(kernel_sec_end)",
+        "+\tstr\tr3, [r5]\t\t\t@ Save physical end of kernel"
+      ],
+      "hunks": [
+        {
+          "old_start": 47,
+          "new_start": 47
+        },
+        {
+          "old_start": 229,
+          "new_start": 243
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/mmu.c",
+      "changed_lines": [
+        "-\tphys_addr_t kernel_x_start = round_down(__pa(KERNEL_START), SECTION_SIZE);",
+        "-\tphys_addr_t kernel_x_end = round_up(__pa(__init_end), SECTION_SIZE);",
+        "+\t\tpr_debug(\"map lowmem start: 0x%08llx, end: 0x%08llx\\n\",",
+        "+\t\t\t (long long)start, (long long)end);",
+        "-\t\tif (end < kernel_x_start) {",
+        "-\t\t\tmap.pfn = __phys_to_pfn(start);",
+        "-\t\t\tmap.virtual = __phys_to_virt(start);",
+        "-\t\t\tmap.length = end - start;",
+        "-\t\t\tmap.type = MT_MEMORY_RWX;",
+        "+\t\t/*",
+        "+\t\t * If our kernel image is in the VMALLOC area we need to remove",
+        "+\t\t * the kernel physical memory from lowmem since the kernel will",
+        "+\t\t * be mapped separately.",
+        "+\t\t *",
+        "+\t\t * The kernel will typically be at the very start of lowmem,",
+        "+\t\t * but any placement relative to memory ranges is possible.",
+        "+\t\t *",
+        "+\t\t * If the memblock contains the kernel, we have to chisel out",
+        "+\t\t * the kernel memory from it and map each part separately. We",
+        "+\t\t * get 6 different theoretical cases:",
+        "+\t\t *",
+        "+\t\t *                            +--------+ +--------+",
+        "+\t\t *  +-- start --+  +--------+ | Kernel | | Kernel |",
+        "+\t\t *  |           |  | Kernel | | case 2 | | case 5 |",
+        "+\t\t *  |           |  | case 1 | +--------+ |        | +--------+",
+        "+\t\t *  |  Memory   |  +--------+            |        | | Kernel |",
+        "+\t\t *  |  range    |  +--------+            |        | | case 6 |",
+        "+\t\t *  |           |  | Kernel | +--------+ |        | +--------+",
+        "+\t\t *  |           |  | case 3 | | Kernel | |        |",
+        "+\t\t *  +-- end ----+  +--------+ | case 4 | |        |",
+        "+\t\t *                            +--------+ +--------+",
+        "+\t\t */",
+        "-\t\t\tcreate_mapping(&map);",
+        "-\t\t} else if (start >= kernel_x_end) {",
+        "-\t\t\tmap.pfn = __phys_to_pfn(start);",
+        "-\t\t\tmap.virtual = __phys_to_virt(start);",
+        "-\t\t\tmap.length = end - start;",
+        "-\t\t\tmap.type = MT_MEMORY_RW;",
+        "+\t\t/* Case 5: kernel covers range, don't map anything, should be rare */",
+        "+\t\tif ((start > kernel_sec_start) && (end < kernel_sec_end))",
+        "+\t\t\tbreak;",
+        "-\t\t\tcreate_mapping(&map);",
+        "-\t\t} else {",
+        "-\t\t\t/* This better cover the entire kernel */",
+        "-\t\t\tif (start < kernel_x_start) {",
+        "+\t\t/* Cases where the kernel is starting inside the range */",
+        "+\t\tif ((kernel_sec_start >= start) && (kernel_sec_start <= end)) {",
+        "+\t\t\t/* Case 6: kernel is embedded in the range, we need two mappings */",
+        "+\t\t\tif ((start < kernel_sec_start) && (end > kernel_sec_end)) {",
+        "+\t\t\t\t/* Map memory below the kernel */",
+        "-\t\t\t\tmap.length = kernel_x_start - start;",
+        "+\t\t\t\tmap.length = kernel_sec_start - start;",
+        "-",
+        "-\t\t\t}",
+        "-",
+        "-\t\t\tmap.pfn = __phys_to_pfn(kernel_x_start);",
+        "-\t\t\tmap.virtual = __phys_to_virt(kernel_x_start);",
+        "-\t\t\tmap.length = kernel_x_end - kernel_x_start;",
+        "-\t\t\tmap.type = MT_MEMORY_RWX;",
+        "-",
+        "-\t\t\tcreate_mapping(&map);",
+        "-",
+        "-\t\t\tif (kernel_x_end < end) {",
+        "-\t\t\t\tmap.pfn = __phys_to_pfn(kernel_x_end);",
+        "-\t\t\t\tmap.virtual = __phys_to_virt(kernel_x_end);",
+        "-\t\t\t\tmap.length = end - kernel_x_end;",
+        "+\t\t\t\t/* Map memory above the kernel */",
+        "+\t\t\t\tmap.pfn = __phys_to_pfn(kernel_sec_end);",
+        "+\t\t\t\tmap.virtual = __phys_to_virt(kernel_sec_end);",
+        "+\t\t\t\tmap.length = end - kernel_sec_end;",
+        "-",
+        "+\t\t\t\tbreak;",
+        "+\t\t\t/* Case 1: kernel and range start at the same address, should be common */",
+        "+\t\t\tif (kernel_sec_start == start)",
+        "+\t\t\t\tstart = kernel_sec_end;",
+        "+\t\t\t/* Case 3: kernel and range end at the same address, should be rare */",
+        "+\t\t\tif (kernel_sec_end == end)",
+        "+\t\t\t\tend = kernel_sec_start;",
+        "+\t\t} else if ((kernel_sec_start < start) && (kernel_sec_end > start) && (kernel_sec_end < end)) {",
+        "+\t\t\t/* Case 2: kernel ends inside range, starts below it */",
+        "+\t\t\tstart = kernel_sec_end;",
+        "+\t\t} else if ((kernel_sec_start > start) && (kernel_sec_start < end) && (kernel_sec_end > end)) {",
+        "+\t\t\t/* Case 4: kernel starts inside range, ends above it */",
+        "+\t\t\tend = kernel_sec_start;",
+        "+\t\tmap.pfn = __phys_to_pfn(start);",
+        "+\t\tmap.virtual = __phys_to_virt(start);",
+        "+\t\tmap.length = end - start;",
+        "+\t\tmap.type = MT_MEMORY_RW;",
+        "+\t\tcreate_mapping(&map);",
+        "+static void __init map_kernel(void)",
+        "+{",
+        "+\t/*",
+        "+\t * We use the well known kernel section start and end and split the area in the",
+        "+\t * middle like this:",
+        "+\t *  .                .",
+        "+\t *  | RW memory      |",
+        "+\t *  +----------------+ kernel_x_start",
+        "+\t *  | Executable     |",
+        "+\t *  | kernel memory  |",
+        "+\t *  +----------------+ kernel_x_end / kernel_nx_start"
+      ],
+      "hunks": [
+        {
+          "old_start": 1459,
+          "new_start": 1459
+        },
+        {
+          "old_start": 1468,
+          "new_start": 1466
+        },
+        {
+          "old_start": 1647,
+          "new_start": 1716
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/Kconfig",
+      "changed_lines": [
+        "-config VERIFY_PERMISSION_FAULT",
+        "-\tbool"
+      ],
+      "hunks": [
+        {
+          "old_start": 601,
+          "new_start": 601
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/mm/abort-ev7.S",
+      "changed_lines": [
+        "-",
+        "-\t/*",
+        "-\t * V6 code adjusts the returned DFSR.",
+        "-\t * New designs should not need to patch up faults.",
+        "-\t */",
+        "-",
+        "-#if defined(CONFIG_VERIFY_PERMISSION_FAULT)",
+        "-\t/*",
+        "-\t * Detect erroneous permission failures and fix",
+        "-\t */",
+        "-\tldr\tr3, =0x40d\t\t\t@ On permission fault",
+        "-\tand\tr3, r1, r3",
+        "-\tcmp\tr3, #0x0d",
+        "-\tbne\tdo_DataAbort",
+        "-",
+        "-\tmcr\tp15, 0, r0, c7, c8, 0   \t@ Retranslate FAR",
+        "-\tisb",
+        "-\tmrc\tp15, 0, ip, c7, c4, 0   \t@ Read the PAR",
+        "-\tand\tr3, ip, #0x7b   \t\t@ On translation fault",
+        "-\tcmp\tr3, #0x0b",
+        "-\tbne\tdo_DataAbort",
+        "-\tbic\tr1, r1, #0xf\t\t\t@ Fix up FSR FS[5:0]",
+        "-\tand\tip, ip, #0x7e",
+        "-\torr\tr1, r1, ip, LSR #1",
+        "-#endif",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 17,
+          "new_start": 17
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/xen/enlighten.c",
+      "changed_lines": [
+        "+#include <linux/reboot.h>",
+        "-static void xen_restart(enum reboot_mode reboot_mode, const char *cmd)",
+        "+static int xen_restart(struct notifier_block *nb, unsigned long action,",
+        "+\t\t       void *data)",
+        "+",
+        "+\treturn NOTIFY_DONE;",
+        "+static struct notifier_block xen_restart_nb = {",
+        "+\t.notifier_call = xen_restart,",
+        "+\t.priority = 192,",
+        "+};",
+        "-\tarm_pm_restart = xen_restart;",
+        "+\tregister_restart_handler(&xen_restart_nb);"
+      ],
+      "hunks": [
+        {
+          "old_start": 29,
+          "new_start": 29
+        },
+        {
+          "old_start": 181,
+          "new_start": 182
+        },
+        {
+          "old_start": 404,
+          "new_start": 412
+        }
+      ]
+    },
+    {
+      "path": "drivers/firmware/psci/psci.c",
+      "changed_lines": [
+        "-static void psci_sys_reset(enum reboot_mode reboot_mode, const char *cmd)",
+        "+static int psci_sys_reset(struct notifier_block *nb, unsigned long action,",
+        "+\t\t\t  void *data)",
+        "+",
+        "+\treturn NOTIFY_DONE;",
+        "+static struct notifier_block psci_sys_reset_nb = {",
+        "+\t.notifier_call = psci_sys_reset,",
+        "+\t.priority = 129,",
+        "+};",
+        "+",
+        "-\tarm_pm_restart = psci_sys_reset;",
+        "+\tregister_restart_handler(&psci_sys_reset_nb);"
+      ],
+      "hunks": [
+        {
+          "old_start": 296,
+          "new_start": 296
+        },
+        {
+          "old_start": 309,
+          "new_start": 310
+        },
+        {
+          "old_start": 472,
+          "new_start": 480
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/setup.c",
+      "changed_lines": [
+        "+static void (*__arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);",
+        "+",
+        "+static int arm_restart(struct notifier_block *nb, unsigned long action,",
+        "+\t\t       void *data)",
+        "+{",
+        "+\t__arm_pm_restart(action, data);",
+        "+\treturn NOTIFY_DONE;",
+        "+}",
+        "+",
+        "+static struct notifier_block arm_restart_nb = {",
+        "+\t.notifier_call = arm_restart,",
+        "+\t.priority = 128,",
+        "+};",
+        "+",
+        "-\tif (mdesc->restart)",
+        "-\t\tarm_pm_restart = mdesc->restart;",
+        "+\tif (mdesc->restart) {",
+        "+\t\t__arm_pm_restart = mdesc->restart;",
+        "+\t\tregister_restart_handler(&arm_restart_nb);",
+        "+\t}"
+      ],
+      "hunks": [
+        {
+          "old_start": 1081,
+          "new_start": 1081
+        },
+        {
+          "old_start": 1149,
+          "new_start": 1163
+        }
+      ]
+    },
+    {
+      "path": "arch/arm64/include/asm/system_misc.h",
+      "changed_lines": [
+        "-extern void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 32,
+          "new_start": 32
+        }
+      ]
+    },
+    {
+      "path": "arch/arm64/kernel/process.c",
+      "changed_lines": [
+        "-void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);",
+        "-",
+        "-\tif (arm_pm_restart)",
+        "-\t\tarm_pm_restart(reboot_mode, cmd);",
+        "-\telse",
+        "-\t\tdo_kernel_restart(cmd);",
+        "+\tdo_kernel_restart(cmd);"
+      ],
+      "hunks": [
+        {
+          "old_start": 72,
+          "new_start": 72
+        },
+        {
+          "old_start": 201,
+          "new_start": 199
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/system_misc.h",
+      "changed_lines": [
+        "-extern void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/reboot.c",
+      "changed_lines": [
+        "-void (*arm_pm_restart)(enum reboot_mode reboot_mode, const char *cmd);",
+        "-\tif (arm_pm_restart)",
+        "-\t\tarm_pm_restart(reboot_mode, cmd);",
+        "-\telse",
+        "-\t\tdo_kernel_restart(cmd);",
+        "+\tdo_kernel_restart(cmd);"
+      ],
+      "hunks": [
+        {
+          "old_start": 18,
+          "new_start": 18
+        },
+        {
+          "old_start": 138,
+          "new_start": 137
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/include/asm/memory.h",
+      "changed_lines": [
+        "-extern phys_addr_t kernel_sec_start;",
+        "-extern phys_addr_t kernel_sec_end;",
+        "+extern u32 kernel_sec_start;",
+        "+extern u32 kernel_sec_end;"
+      ],
+      "hunks": [
+        {
+          "old_start": 162,
+          "new_start": 162
+        }
+      ]
+    },
+    {
+      "path": "arch/arm/kernel/module-plts.c",
+      "changed_lines": [
+        "-#ifdef CONFIG_FUNCTION_TRACER",
+        "+#ifdef CONFIG_DYNAMIC_FTRACE"
+      ],
+      "hunks": [
+        {
+          "old_start": 22,
+          "new_start": 22
+        }
+      ]
+    },
+    {
+      "path": "mm/page_alloc.c",
+      "changed_lines": [
+        "+#ifdef CONFIG_PAGE_OWNER",
+        "+\t/*",
+        "+\t * PAGE_OWNER may recurse into the allocator to allocate space to",
+        "+\t * save the stack with pagesets.lock held. Releasing/reacquiring",
+        "+\t * removes much of the performance benefit of bulk allocation so",
+        "+\t * force the caller to allocate one page at a time as it'll have",
+        "+\t * similar performance to added complexity to the bulk allocator.",
+        "+\t */",
+        "+\tif (static_branch_unlikely(&page_owner_inited))",
+        "+\t\tgoto failed;",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 5239,
+          "new_start": 5239
+        }
+      ]
+    },
+    {
+      "path": "MAINTAINERS",
+      "changed_lines": [
+        "-M:\tChao Yu <yuchao0@huawei.com>",
+        "+M:\tChao Yu <chao@kernel.org>"
+      ],
+      "hunks": [
+        {
+          "old_start": 6771,
+          "new_start": 6771
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-127fd7828d6eeb61/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-127fd7828d6eeb61/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-127fd7828d6eeb61"
+}

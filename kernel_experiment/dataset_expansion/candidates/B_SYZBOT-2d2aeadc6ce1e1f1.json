@@ -1,0 +1,71 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-2d2aeadc6ce1e1f1",
+  "source": "syzbot",
+  "title": "possible deadlock in start_this_handle (3)",
+  "description": "possible deadlock in start_this_handle (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in start_this_handle (3)"
+  },
+  "fix_commit": "68aaee147e597b495622b7c9038e5922c7c61f57",
+  "affected_files": [
+    "mm/memcontrol.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "mm/memcontrol.c",
+      "changed_lines": [
+        "-static char *memory_stat_format(struct mem_cgroup *memcg)",
+        "+static void memory_stat_format(struct mem_cgroup *memcg, char *buf, int bufsize)",
+        "-\tseq_buf_init(&s, kmalloc(PAGE_SIZE, GFP_KERNEL), PAGE_SIZE);",
+        "-\tif (!s.buffer)",
+        "-\t\treturn NULL;",
+        "+\tseq_buf_init(&s, buf, bufsize);",
+        "-",
+        "-\treturn s.buffer;",
+        "-\tchar *buf;",
+        "+\t/* Use static buffer, for the caller is holding oom_lock. */",
+        "+\tstatic char buf[PAGE_SIZE];",
+        "+",
+        "+\tlockdep_assert_held(&oom_lock);",
+        "-\tbuf = memory_stat_format(memcg);",
+        "-\tif (!buf)",
+        "-\t\treturn;",
+        "+\tmemory_stat_format(memcg, buf, sizeof(buf));",
+        "-\tkfree(buf);",
+        "-\tchar *buf;",
+        "+\tchar *buf = kmalloc(PAGE_SIZE, GFP_KERNEL);",
+        "-\tbuf = memory_stat_format(memcg);",
+        "+\tmemory_stat_format(memcg, buf, PAGE_SIZE);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1490,
+          "new_start": 1490
+        },
+        {
+          "old_start": 1539,
+          "new_start": 1537
+        },
+        {
+          "old_start": 1576,
+          "new_start": 1572
+        },
+        {
+          "old_start": 1597,
+          "new_start": 1596
+        },
+        {
+          "old_start": 6405,
+          "new_start": 6401
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2d2aeadc6ce1e1f1/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2d2aeadc6ce1e1f1/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2d2aeadc6ce1e1f1"
+}

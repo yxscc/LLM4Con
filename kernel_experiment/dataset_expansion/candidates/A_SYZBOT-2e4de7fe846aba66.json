@@ -1,0 +1,38 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-2e4de7fe846aba66",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in gro_normal_list.part.0 / napi_busy_loop",
+  "description": "KCSAN: data-race in gro_normal_list.part.0 / napi_busy_loop",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "gro_normal_list.part.0",
+    "fn_b": "napi_busy_loop"
+  },
+  "fix_commit": "c39e342a050a4425348e6fe7f75827c0a1a7ebc5",
+  "affected_files": [
+    "drivers/net/tun.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "drivers/net/tun.c",
+      "changed_lines": [
+        "-\t\tnetif_napi_add(tun->dev, &tfile->napi, tun_napi_poll,",
+        "-\t\t\t       NAPI_POLL_WEIGHT);",
+        "+\t\tnetif_tx_napi_add(tun->dev, &tfile->napi, tun_napi_poll,",
+        "+\t\t\t\t  NAPI_POLL_WEIGHT);"
+      ],
+      "hunks": [
+        {
+          "old_start": 313,
+          "new_start": 313
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2e4de7fe846aba66/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2e4de7fe846aba66/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2e4de7fe846aba66"
+}

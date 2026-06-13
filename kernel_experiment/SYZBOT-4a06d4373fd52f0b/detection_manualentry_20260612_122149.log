@@ -1,0 +1,152 @@
+[manual-entry] case=SYZBOT-4a06d4373fd52f0b roots=['inotify_handle_inode_event', '__x64_sys_inotify_rm_watch'] bc=merged.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 304692MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 304692MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 56MB, Avail: 304654MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 56MB, Avail: 304654MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 2 init/exit section, 1 EXPORT_SYMBOL, 0 syscall wrapper, 9 ops-table member, 2 indirect-fork sink, 0 public-wrapper alias, 4 cross-TU public (17 unique function(s))
+[Auto-Entry Cross-TU] +4 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry Name-Heuristic] +9 entry point(s) on top of structural signals.
+[Auto-Entry] Total: 26 kernel entry point(s):
+  - __ia32_sys_inotify_init1
+  - inotify_read
+  - __x64_sys_inotify_init1
+  - inotify_ioctl
+  - inotify_release
+  - inotify_user_setup
+  - inotify_sysctls_init
+  - inotify_handle_inode_event
+  - inotify_poll
+  - inotify_freeing_mark
+  - inotify_merge
+  - inotify_free_group_priv
+  - inotify_free_event
+  - __ia32_sys_inotify_add_watch
+  - inotify_free_mark
+  - idr_callback
+  - __x64_sys_inotify_add_watch
+  - __se_sys_inotify_init1
+  - __do_sys_inotify_init1
+  - __se_sys_inotify_add_watch
+  ... and 6 more
+[Auto-Entry Diag] strong+reachable=8 (ops/init-only prunable=2)
+[Auto-Entry Tiering] thread roots: 26/26 (strong=22, weak_kept=4, broad_mode=off, broad_added=0, weak_pruned_reachable=0, weak_pruned_no_strong_conflict=0, weak_pruned_total=0)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 95/95 functions...
+[Phasar] Location maps built. Total functions: 95
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 59MB, Avail: 304659MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 59MB, Avail: 304659MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 59MB, Avail: 304659MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 59MB, Avail: 304659MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "__ia32_sys_inotify_init1", fileName: "LLM4Con/kernel_experiment/SYZBOT-4a06d4373fd52f0b/src/fs/notify/inotify/inotify_user.c", lineNumber: 720, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=__ia32_sys_inotify_init1, fileName=LLM4Con/kernel_experiment/SYZBOT-4a06d4373fd52f0b/src/fs/notify/inotify/inotify_user.c, fileName_last=inotify_user.c, lineNumber=720
+[DEBUG getMain] methods from full path: 32
+[DEBUG getMain] Iterating 32 methods
+[DEBUG getMain] Checking method: name=INOTIFY_MARK_FLAGS, line=118
+[DEBUG getMain] Checking method: name=inotify_sysctls_init, line=97
+[DEBUG getMain] Checking method: name=inotify_find_inode, line=373
+[DEBUG getMain] Checking method: name=inotify_add_to_idr, line=395
+[DEBUG getMain] Checking method: name=INOTIFY_WATCH_COST, line=46
+[DEBUG getMain] Checking method: name=inotify_read, line=250
+[DEBUG getMain] Checking method: name=inotify_poll, line=140
+[DEBUG getMain] Checking method: name=copy_event_to_user, line=200
+[DEBUG getMain] Checking method: name=inotify_arg_to_flags, line=121
+[DEBUG getMain] Checking method: name=sys_inotify_init, line=725
+[DEBUG getMain] Checking method: name=get_one_event, line=171
+[DEBUG getMain] Checking method: name=inotify_new_watch, line=591
+[DEBUG getMain] Checking method: name=inotify_mask_to_arg, line=133
+[DEBUG getMain] Checking method: name=round_event_name_len, line=154
+[DEBUG getMain] Checking method: name=inotify_ioctl, line=314
+[DEBUG getMain] Checking method: name=inotify_update_existing_watch, line=537
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=fs_initcall, line=875
+[DEBUG getMain] Checking method: name=inotify_show_fdinfo, line=23
+[DEBUG getMain] Checking method: name=inotify_arg_to_mask, line=100
+[DEBUG getMain] Checking method: name=sys_inotify_add_watch, line=730
+[DEBUG getMain] Checking method: name=inotify_idr_find_locked, line=415
+[DEBUG getMain] Checking method: name=inotify_idr_find, line=436
+[DEBUG getMain] Checking method: name=inotify_release, line=302
+[DEBUG getMain] Checking method: name=inotify_remove_from_idr, line=453
+[DEBUG getMain] Checking method: name=inotify_ignored_and_remove_idr, line=521
+[DEBUG getMain] Checking method: name=inotify_update_watch, line=639
+[DEBUG getMain] Checking method: name=inotify_new_group, line=654
+[DEBUG getMain] Checking method: name=do_inotify_init, line=695
+[DEBUG getMain] Checking method: name=sys_inotify_init1, line=720
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 2 configured thread root(s): inotify_handle_inode_event __x64_sys_inotify_rm_watch
+[Kernel Module Mode] Adding 2 thread-root entry points as parallel entries
+  - Looking for: inotify_handle_inode_event -> demangled: inotify_handle_inode_event -> shortName: inotify_handle_inode_event [signals=manual]
+  - Found in CPG: inotify_handle_inode_event at fs/notify/inotify/inotify_fsnotify.c:59
+  - Added entry: inotify_handle_inode_event
+  - Looking for: __x64_sys_inotify_rm_watch -> demangled: __x64_sys_inotify_rm_watch -> shortName: __x64_sys_inotify_rm_watch [signals=manual]
+  - Found in CPG: sys_inotify_rm_watch at fs/notify/inotify/inotify_user.c:794
+Warning: Could not map CPG function 'sys_inotify_rm_watch' to an llvm::Function.
+  - Added entry: __x64_sys_inotify_rm_watch
+[Kernel Module Mode] Total entry functions: 2
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 2 entry points as parallel threads
+[Kernel Module Mode] Keeping all 2 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 59MB, Avail: 304667MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 59MB, Avail: 304667MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 2 threads...
+[VulnerabilitySurface] Collected 24 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 8 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 0 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 92 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Found 0 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 0 shared objects (0 high risk, 0 medium risk)
+
+  Threads: 2, Conflicting pairs: 31, Shared objects: 0
+No shared objects found. Skipping LLM analysis.
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 59MB, Avail: 304667MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 59MB, Avail: 304667MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+No bugs detected.
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 59MB, Avail: 304667MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 0 seconds
+LLM API Requests: 0
+Total Prompt Tokens: 0
+Total Completion Tokens: 0
+Total Tokens: 0
+==========================================

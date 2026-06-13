@@ -1,0 +1,90 @@
+{
+  "bug_id": "SYZBOT-4a03518df1e31b53",
+  "status": "complete",
+  "summary": "Ext4 extent-status lookups race on the cached extent pointer tree->cache_es while readers hold only i_es_lock for read.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "cached extent lookup",
+      "entry": {"function": "ext4_es_find_extent_range", "file": "fs/ext4/extents_status.c", "kind": "filesystem_internal_api"},
+      "call_chain": [
+        {"function": "ext4_es_find_extent_range", "file": "fs/ext4/extents_status.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Wrapper takes i_es_lock for read and calls __es_find_extent_range."},
+        {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "KCSAN reports this function on both sides."}
+      ],
+      "bug_site": {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 270, "code": "if (tree->cache_es) {"}
+    },
+    "thread_b": {
+      "role": "concurrent extent cache update",
+      "entry": {"function": "ext4_es_find_extent_range", "file": "fs/ext4/extents_status.c", "kind": "filesystem_internal_api"},
+      "call_chain": [
+        {"function": "ext4_es_find_extent_range", "file": "fs/ext4/extents_status.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "Another reader-side lookup can call the same helper while holding only the read lock."},
+        {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "present_in_src": true, "present_in_bitcode": true, "evidence": "The helper writes tree->cache_es after finding a matching extent."}
+      ],
+      "bug_site": {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 296, "code": "tree->cache_es = es1;"}
+    },
+    "interleaving": [
+      "Lookup A reads tree->cache_es and then dereferences the cached extent.",
+      "Lookup B, also under a read lock, finds a different matching extent and stores it in tree->cache_es.",
+      "The fix uses READ_ONCE/WRITE_ONCE so the cached pointer is sampled once and updates are explicit."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct ext4_es_tree::cache_es",
+    "access_a": {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 270, "kind": "read", "code": "if (tree->cache_es)"},
+    "access_b": {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 296, "kind": "write", "code": "tree->cache_es = es1;"},
+    "required_ordering": "The cached extent pointer can be read while only a read lock is held, so readers must use a single READ_ONCE sample paired with WRITE_ONCE updates."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct ext4_es_tree::cache_es",
+    "object_kind": "pointer",
+    "confidence": "high",
+    "why_relevant": "cache_es is a shared pointer cache in the inode extent-status tree and can be replaced while another lookup is using it under a read lock.",
+    "aliases": [
+      {"name": "tree->cache_es", "function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "evidence": "tree is &EXT4_I(inode)->i_es_tree."},
+      {"name": "EXT4_I(inode)->i_es_tree.cache_es", "function": "ext4_es_lookup_extent", "file": "fs/ext4/extents_status.c", "evidence": "The public lookup path uses the same cache field."},
+      {"name": "es1", "function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "evidence": "es1 is assigned from tree->cache_es before in_range checks."}
+    ],
+    "access_paths": {
+      "thread_a": [{"from": "inode", "to": "EXT4_I(inode)->i_es_tree.cache_es", "evidence": "__es_find_extent_range derives tree from the inode."}],
+      "thread_b": [{"from": "inode", "to": "EXT4_I(inode)->i_es_tree.cache_es", "evidence": "The same helper writes the cache after rb-tree search."}]
+    },
+    "access_sites": [
+      {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 270, "kind": "read", "code": "if (tree->cache_es)"},
+      {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 271, "kind": "read", "code": "es1 = tree->cache_es;"},
+      {"function": "__es_find_extent_range", "file": "fs/ext4/extents_status.c", "line": 296, "kind": "write", "code": "tree->cache_es = es1;"},
+      {"function": "ext4_es_lookup_extent", "file": "fs/ext4/extents_status.c", "line": 934, "kind": "read", "code": "if (tree->cache_es)"}
+    ],
+    "lifetime": {
+      "allocated_by": ["extent status nodes are allocated by ext4 extent-status insertion paths"],
+      "published_by": ["__es_find_extent_range and insertion paths assign tree->cache_es"],
+      "invalidated_by": ["extent status invalidation clears tree->cache_es"],
+      "freed_by": ["extent status tree node removal/shrinker paths"]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": ["fs/ext4/extents_status.c"],
+    "candidate_files": [],
+    "analysis_conclusion": "Both cache read/write contexts and their wrappers are in extents_status.c.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 1,
+    "src_file_count_after": 1,
+    "compiled_files": ["fs/ext4/extents_status.c"],
+    "compile_failed_files": [],
+    "selected_bitcode": "extents_status.ll",
+    "bitcode_input_files": ["extents_status.ll"],
+    "bitcode_linked_file_count": 1,
+    "selected_bitcode_defined_function_count": 100
+  },
+  "evidence": {
+    "patch_hunks": ["492888df0c7b changes tree->cache_es reads to one READ_ONCE sample and writes to WRITE_ONCE in __es_find_extent_range and ext4_es_lookup_extent."],
+    "indirect_edges": ["ext4_es_find_extent_range wraps __es_find_extent_range under read_lock(&EXT4_I(inode)->i_es_lock)."],
+    "entry_discovery_log": ["extents_status.ll defines ext4_es_find_extent_range, __es_find_extent_range, and ext4_es_lookup_extent."],
+    "repair_commands": [],
+    "notes": ["No repair was required."]
+  }
+}

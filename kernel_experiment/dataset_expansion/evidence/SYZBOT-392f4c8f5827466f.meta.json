@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-392f4c8f5827466f",
+  "tier": "A",
+  "title": "KCSAN: data-race in icmp_global_allow / icmp_global_allow",
+  "mainline_sha": "bbab7ef235031f6733b5429ae7877bfa22339712",
+  "all_shas_seen": [
+    "392f4c8f5827466f42a9a096239d6ade9b9d1814",
+    "bbab7ef235031f6733b5429ae7877bfa22339712"
+  ],
+  "c_paths": [
+    "net/ipv4/icmp.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

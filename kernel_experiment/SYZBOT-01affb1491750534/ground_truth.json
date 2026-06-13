@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-01affb1491750534",
+  "fix_commit": "70e1683ca3a6474360af1d3a020a9a98c8492cc0",
+  "files": [
+    "kernel/workqueue.c"
+  ],
+  "description": "KCSAN: data-race in process_one_work / process_one_work",
+  "cwes": [],
+  "title": "KCSAN: data-race in process_one_work / process_one_work",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "process_one_work",
+    "fn_b": "process_one_work"
+  },
+  "two_threads_summary": "Two workers concurrently in process_one_work() racing on pwq->stats[PWQ_STAT_COMPLETED]. Fix moves the increment inside the existing pool->lock critical section.",
+  "audit_notes": "Race within already-locked region; reorganization fix; KCSAN stack trace explicit.",
+  "fix_commit_message": "70e1683ca3a6474360af1d3a020a9a98c8492cc0\nworkqueue: Fix race condition in wq->stats incrementation\n\nFixed a race condition in incrementing wq->stats[PWQ_STAT_COMPLETED] by\nmoving the operation under pool->lock.\n\nReported-by: syzbot+01affb1491750534256d@syzkaller.appspotmail.com\nSigned-off-by: Jiayuan Chen <jiayuan.chen@linux.dev>\nSigned-off-by: Tejun Heo <tj@kernel.org>",
+  "patch": "commit 70e1683ca3a6474360af1d3a020a9a98c8492cc0\nAuthor: Jiayuan Chen <jiayuan.chen@linux.dev>\nDate:   Thu Apr 24 00:17:42 2025 +0800\n\n    workqueue: Fix race condition in wq->stats incrementation\n    \n    Fixed a race condition in incrementing wq->stats[PWQ_STAT_COMPLETED] by\n    moving the operation under pool->lock.\n    \n    Reported-by: syzbot+01affb1491750534256d@syzkaller.appspotmail.com\n    Signed-off-by: Jiayuan Chen <jiayuan.chen@linux.dev>\n    Signed-off-by: Tejun Heo <tj@kernel.org>\n\ndiff --git a/kernel/workqueue.c b/kernel/workqueue.c\nindex 2cb8276a27a9..f9ef467020cf 100644\n--- a/kernel/workqueue.c\n+++ b/kernel/workqueue.c\n@@ -3241,7 +3241,7 @@ __acquires(&pool->lock)\n \t * point will only record its address.\n \t */\n \ttrace_workqueue_execute_end(work, worker->current_func);\n-\tpwq->stats[PWQ_STAT_COMPLETED]++;\n+\n \tlock_map_release(&lockdep_map);\n \tif (!bh_draining)\n \t\tlock_map_release(pwq->wq->lockdep_map);\n@@ -3272,6 +3272,8 @@ __acquires(&pool->lock)\n \n \traw_spin_lock_irq(&pool->lock);\n \n+\tpwq->stats[PWQ_STAT_COMPLETED]++;\n+\n \t/*\n \t * In addition to %WQ_CPU_INTENSIVE, @worker may also have been marked\n \t * CPU intensive by wq_worker_tick() if @work hogged CPU longer than\n",
+  "affected_files_from_patch": [
+    "kernel/workqueue.c"
+  ]
+}

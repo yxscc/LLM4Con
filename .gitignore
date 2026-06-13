@@ -62,13 +62,20 @@ monitor_and_kill.sh
 LinConVul/**/uafx_*.log
 LinConVul/**/uafx_*.md
 LinConVul/**/*.bc
-# Kernel experiment large files
-kernel_experiment/**/*.ll
+# Kernel experiment — track dataset + final run artifacts in repo
 kernel_experiment/**/*_compile.log
 kernel_experiment/batch_*.log
+kernel_experiment/cve_survey.csv
+kernel_experiment/dataset_expansion/evidence/*.error
+kernel_experiment/baseline/B4_codex_skill/codex_home/
+kernel_experiment/**/__pycache__/
+# Exceptions to global *.log ignore above (cpg.bin stays excluded via global rule)
+!kernel_experiment/**/*.ll
+!kernel_experiment/**/detection_manualentry_*.log
+!kernel_experiment/runs/**
+
 LinConVul/**/*.ll
 LinConVul_facts.tar.gz
 
 # Plan/scratch files
 *.plan.md
-kernel_experiment/cve_survey.csv

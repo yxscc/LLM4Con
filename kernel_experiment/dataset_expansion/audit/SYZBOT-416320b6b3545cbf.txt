@@ -1,0 +1,143 @@
+======================================================================
+# Evidence: SYZBOT-416320b6b3545cbf  (tier A, score 200)
+- source archive: **syzbot**
+- title: KCSAN: data-race in __dev_queue_xmit / __dev_queue_xmit (5)
+- mainline fix commit: `7a10d8c810cfad3e79372d7d1c77899d86cd6662`
+- candidate JSON: `A_SYZBOT-416320b6b3545cbf.json`
+- thread_hint: `{"kind": "kcsan", "fn_a": "__dev_queue_xmit", "fn_b": "__dev_queue_xmit"}`
+
+## Commit subject
+  net: annotate data-races on txq->xmit_lock_owner
+
+## Reporter stack trace (excerpt)
+  BUG: KCSAN: data-race in __dev_queue_xmit / __dev_queue_xmit
+  
+  write to 0xffff888139d09484 of 4 bytes by interrupt on cpu 0:
+   __netif_tx_unlock include/linux/netdevice.h:4437 [inline]
+   __dev_queue_xmit+0x948/0xf70 net/core/dev.c:4229
+   dev_queue_xmit_accel+0x19/0x20 net/core/dev.c:4265
+   macvlan_queue_xmit drivers/net/macvlan.c:543 [inline]
+   macvlan_start_xmit+0x2b3/0x3d0 drivers/net/macvlan.c:567
+   __netdev_start_xmit include/linux/netdevice.h:4987 [inline]
+   netdev_start_xmit include/linux/netdevice.h:5001 [inline]
+   xmit_one+0x105/0x2f0 net/core/dev.c:3590
+   dev_hard_start_xmit+0x72/0x120 net/core/dev.c:3606
+   sch_direct_xmit+0x1b2/0x7c0 net/sched/sch_generic.c:342
+   __dev_xmit_skb+0x83d/0x1370 net/core/dev.c:3817
+   __dev_queue_xmit+0x590/0xf70 net/core/dev.c:4194
+   dev_queue_xmit+0x13/0x20 net/core/dev.c:4259
+   neigh_hh_output include/net/neighbour.h:511 [inline]
+   neigh_output include/net/neighbour.h:525 [inline]
+   ip6_finish_output2+0x995/0xbb0 net/ipv6/ip6_output.c:126
+   __ip6_finish_output net/ipv6/ip6_output.c:191 [inline]
+   ip6_finish_output+0x444/0x4c0 net/ipv6/ip6_output.c:201
+   NF_HOOK_COND include/linux/netfilter.h:296 [inline]
+   ip6_output+0x10e/0x210 net/ipv6/ip6_output.c:224
+   dst_output include/net/dst.h:450 [inline]
+   NF_HOOK include/linux/netfilter.h:307 [inline]
+   ndisc_send_skb+0x486/0x610 net/ipv6/ndisc.c:508
+   ndisc_send_rs+0x3b0/0x3e0 net/ipv6/ndisc.c:702
+   addrconf_rs_timer+0x370/0x540 net/ipv6/addrconf.c:3898
+   call_timer_fn+0x2e/0x240 kernel/time/timer.c:1421
+   expire_timers+0x116/0x240 kernel/time/timer.c:1466
+   __run_timers+0x368/0x410 kernel/time/timer.c:1734
+   run_timer_softirq+0x2e/0x60 kernel/time/timer.c:1747
+   __do_softirq+0x158/0x2de kernel/softirq.c:558
+   __irq_exit_rcu kernel/softirq.c:636 [inline]
+   irq_exit_rcu+0x37/0x70 kernel/softirq.c:648
+   sysvec_apic_timer_interrupt+0x3e/0xb0 arch/x86/kernel/apic/apic.c:1097
+   asm_sysvec_apic_timer_interrupt+0x12/0x20
+  
+  read to 0xffff888139d09484 of 4 bytes by interrupt on cpu 1:
+   __dev_queue_xmit+0x5e3/0xf70 net/core/dev.c:4213
+   dev_queue_xmit_accel+0x19/0x20 net/core/dev.c:4265
+   macvlan_queue_xmit drivers/net/macvlan.c:543 [inline]
+   macvlan_start_xmit+0x2b3/0x3d0 drivers/net/macvlan.c:567
+   __netdev_start_xmit include/linux/netdevice.h:4987 [inline]
+   netdev_start_xmit include/linux/netdevice.h:5001 [inline]
+   xmit_one+0x105/0x2f0 net/core/dev.c:3590
+   dev_hard_start_xmit+0x72/0x120 net/core/dev.c:3606
+   sch_direct_xmit+0x1b2/0x7c0 net/sched/sch_generic.c:342
+   __dev_xmit_skb+0x83d/0x1370 net/core/dev.c:3817
+   __dev_queue_xmit+0x590/0xf70 net/core/dev.c:4194
+   dev_queue_xmit+0x13/0x20 net/core/dev.c:4259
+   neigh_resolve_output+0x3db/0x410 net/core/neighbour.c:1523
+   neigh_output include/net/neighbour.h:527 [inline]
+   ip6_finish_output2+0x9be/0xbb0 net/ipv6/ip6_output.c:126
+   __ip6_finish_output net/ipv6/ip6_output.c:191 [inline]
+   ip6_finish_output+0x444/0x4c0 net/ipv6/ip6_output.c:201
+   NF_HOOK_COND include/linux/netfilter.h:296 [inline]
+   ip6_output+0x10e/0x210 net/ipv6/ip6_output.c:224
+   dst_output include/net/dst.h:450 [inline]
+   NF_HOOK include/linux/netfilter.h:307 [inline]
+
+## Patch (truncated)
+```diff
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3ec42495a43a..be5cb3360b94 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -4404,7 +4404,8 @@ static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
+ static inline void __netif_tx_lock(struct netdev_queue *txq, int cpu)
+ {
+ 	spin_lock(&txq->_xmit_lock);
+-	txq->xmit_lock_owner = cpu;
++	/* Pairs with READ_ONCE() in __dev_queue_xmit() */
++	WRITE_ONCE(txq->xmit_lock_owner, cpu);
+ }
+ 
+ static inline bool __netif_tx_acquire(struct netdev_queue *txq)
+@@ -4421,26 +4422,32 @@ static inline void __netif_tx_release(struct netdev_queue *txq)
+ static inline void __netif_tx_lock_bh(struct netdev_queue *txq)
+ {
+ 	spin_lock_bh(&txq->_xmit_lock);
+-	txq->xmit_lock_owner = smp_processor_id();
++	/* Pairs with READ_ONCE() in __dev_queue_xmit() */
++	WRITE_ONCE(txq->xmit_lock_owner, smp_processor_id());
+ }
+ 
+ static inline bool __netif_tx_trylock(struct netdev_queue *txq)
+ {
+ 	bool ok = spin_trylock(&txq->_xmit_lock);
+-	if (likely(ok))
+-		txq->xmit_lock_owner = smp_processor_id();
++
++	if (likely(ok)) {
++		/* Pairs with READ_ONCE() in __dev_queue_xmit() */
++		WRITE_ONCE(txq->xmit_lock_owner, smp_processor_id());
++	}
+ 	return ok;
+ }
+ 
+ static inline void __netif_tx_unlock(struct netdev_queue *txq)
+ {
+-	txq->xmit_lock_owner = -1;
++	/* Pairs with READ_ONCE() in __dev_queue_xmit() */
++	WRITE_ONCE(txq->xmit_lock_owner, -1);
+ 	spin_unlock(&txq->_xmit_lock);
+ }
+ 
+ static inline void __netif_tx_unlock_bh(struct netdev_queue *txq)
+ {
+-	txq->xmit_lock_owner = -1;
++	/* Pairs with READ_ONCE() in __dev_queue_xmit() */
++	WRITE_ONCE(txq->xmit_lock_owner, -1);
+ 	spin_unlock_bh(&txq->_xmit_lock);
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 15ac064b5562..2a352e668d10 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4210,7 +4210,10 @@ static int __dev_queue_xmit(struct sk_buff *skb, struct net_device *sb_dev)
+ 	if (dev->flags & IFF_UP) {
+ 		int cpu = smp_processor_id(); /* ok because BHs are off */
+ 
+-		if (txq->xmit_lock_owner != cpu) {
++		/* Other cpus might concurrently change txq->xmit_lock_owner
++		 * to -1 or to their cpu id, but not to our id.
++		 */
++		if (READ_ONCE(txq->xmit_lock_owner) != cpu) {
+ 			if (dev_xmit_recursion())
+ 				goto recursion_alert;
+```

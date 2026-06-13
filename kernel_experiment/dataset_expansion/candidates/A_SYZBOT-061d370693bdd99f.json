@@ -1,0 +1,56 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-061d370693bdd99f",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in __mod_timer / kvfree_call_rcu",
+  "description": "KCSAN: data-race in __mod_timer / kvfree_call_rcu",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__mod_timer",
+    "fn_b": "kvfree_call_rcu"
+  },
+  "fix_commit": "a23da88c6c80e41e0503e0b481a22c9eea63f263",
+  "affected_files": [
+    "kernel/rcu/tree.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "kernel/rcu/tree.c",
+      "changed_lines": [
+        "-schedule_delayed_monitor_work(struct kfree_rcu_cpu *krcp)",
+        "+__schedule_delayed_monitor_work(struct kfree_rcu_cpu *krcp)",
+        "+static void",
+        "+schedule_delayed_monitor_work(struct kfree_rcu_cpu *krcp)",
+        "+{",
+        "+\tunsigned long flags;",
+        "+",
+        "+\traw_spin_lock_irqsave(&krcp->lock, flags);",
+        "+\t__schedule_delayed_monitor_work(krcp);",
+        "+\traw_spin_unlock_irqrestore(&krcp->lock, flags);",
+        "+}",
+        "+",
+        "-\t\tschedule_delayed_monitor_work(krcp);",
+        "+\t\t__schedule_delayed_monitor_work(krcp);"
+      ],
+      "hunks": [
+        {
+          "old_start": 3511,
+          "new_start": 3511
+        },
+        {
+          "old_start": 3525,
+          "new_start": 3525
+        },
+        {
+          "old_start": 3836,
+          "new_start": 3846
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-061d370693bdd99f/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-061d370693bdd99f/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-061d370693bdd99f"
+}

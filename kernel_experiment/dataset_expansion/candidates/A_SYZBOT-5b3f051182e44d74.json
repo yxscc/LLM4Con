@@ -1,0 +1,90 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-5b3f051182e44d74",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in ip_finish_output2 / ip_finish_output2",
+  "description": "KCSAN: data-race in ip_finish_output2 / ip_finish_output2",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "ip_finish_output2",
+    "fn_b": "ip_finish_output2"
+  },
+  "fix_commit": "25c7a6d1f90e208ec27ca854b1381ed39842ec57",
+  "affected_files": [
+    "include/net/arp.h",
+    "include/net/ndisc.h",
+    "include/net/sock.h"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/arp.h",
+      "changed_lines": [
+        "-\t\tif (n->confirmed != now)",
+        "-\t\t\tn->confirmed = now;",
+        "+\t\tif (READ_ONCE(n->confirmed) != now)",
+        "+\t\t\tWRITE_ONCE(n->confirmed, now);"
+      ],
+      "hunks": [
+        {
+          "old_start": 57,
+          "new_start": 57
+        }
+      ]
+    },
+    {
+      "path": "include/net/ndisc.h",
+      "changed_lines": [
+        "-\t\tif (n->confirmed != now)",
+        "-\t\t\tn->confirmed = now;",
+        "+\t\tif (READ_ONCE(n->confirmed) != now)",
+        "+\t\t\tWRITE_ONCE(n->confirmed, now);",
+        "-\t\tif (n->confirmed != now)",
+        "-\t\t\tn->confirmed = now;",
+        "+\t\tif (READ_ONCE(n->confirmed) != now)",
+        "+\t\t\tWRITE_ONCE(n->confirmed, now);"
+      ],
+      "hunks": [
+        {
+          "old_start": 414,
+          "new_start": 414
+        },
+        {
+          "old_start": 431,
+          "new_start": 431
+        }
+      ]
+    },
+    {
+      "path": "include/net/sock.h",
+      "changed_lines": [
+        "-\tif (!sk->sk_dst_pending_confirm)",
+        "-\t\tsk->sk_dst_pending_confirm = 1;",
+        "+\tif (!READ_ONCE(sk->sk_dst_pending_confirm))",
+        "+\t\tWRITE_ONCE(sk->sk_dst_pending_confirm, 1);",
+        "-\t\tif (n->confirmed != now)",
+        "-\t\t\tn->confirmed = now;",
+        "-\t\tif (sk && sk->sk_dst_pending_confirm)",
+        "-\t\t\tsk->sk_dst_pending_confirm = 0;",
+        "+\t\tif (READ_ONCE(n->confirmed) != now)",
+        "+\t\t\tWRITE_ONCE(n->confirmed, now);",
+        "+\t\tif (sk && READ_ONCE(sk->sk_dst_pending_confirm))",
+        "+\t\t\tWRITE_ONCE(sk->sk_dst_pending_confirm, 0);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1939,
+          "new_start": 1939
+        },
+        {
+          "old_start": 1950,
+          "new_start": 1950
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-5b3f051182e44d74/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-5b3f051182e44d74/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-5b3f051182e44d74"
+}

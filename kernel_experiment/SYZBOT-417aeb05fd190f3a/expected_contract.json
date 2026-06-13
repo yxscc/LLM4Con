@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-417aeb05fd190f3a",
+  "shared_object": "struct hstate::surplus_huge_pages (h->surplus_huge_pages)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "hugetlb unmap reservation-restore check (reader)",
+    "entry": "__unmap_hugepage_range",
+    "clause": {
+      "resource": "h->surplus_huge_pages",
+      "sites": [
+        {"function": "__unmap_hugepage_range", "file": "mm/hugetlb.c", "line": 5954, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(h->surplus_huge_pages)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "surplus hugepage allocation (counter writer)",
+    "entry": "alloc_surplus_hugetlb_folio",
+    "clause": {
+      "resource": "h->surplus_huge_pages",
+      "sites": [
+        {"function": "alloc_surplus_hugetlb_folio", "file": "mm/hugetlb.c", "line": 2272, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(hugetlb_lock, write(h->surplus_huge_pages++))"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(h->surplus_huge_pages)]) from thread_a (the counter read driving the reservation-restore decision must not race a concurrent update)",
+    "violating_event": "e@alloc_surplus_hugetlb_folio:2272 = WRITE(h->surplus_huge_pages++) by thread_b under hugetlb_lock",
+    "missing_guarantee": "thread_a reads the counter while holding only the page-table lock (ptl), NOT hugetlb_lock; thread_b updates it under hugetlb_lock -> the two accesses share no common lock (ptl does not protect this hstate counter) -> no serialize establishes ρ",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "ρ is atomic(single access) broken by a concurrent write held under a different lock -> data race; the racy value influences a reservation-restore decision"
+  },
+
+  "fix_maps_to": "patch takes spin_lock_irq(&hugetlb_lock) around the surplus_huge_pages read in __unmap_hugepage_range (dropping ptl first) -> adds serialize(hugetlb_lock, [read]) on the reader side -> reader and writer now share the same lock -> establishes ρ. (The same patch also re-inits adjust_reservation per loop iteration, a single-thread logic fix, not the race.)",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Reader is NOT lock-free -- it holds ptl, the WRONG lock. Recall depends on (a) keeping candidate lock hugetlb_lock for the writer and (b) the LLM REJECTING ptl as protecting this field (ptl guards PTEs, not the hstate counter) -- the 'reject candidate lock' decision is the weakest link (WF3). If static/LLM treat 'reader holds a lock' as protected, the race is suppressed (FN). Object identity (h = hstate_vma(vma)) is clean.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

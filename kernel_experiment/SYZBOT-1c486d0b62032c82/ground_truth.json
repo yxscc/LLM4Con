@@ -1,0 +1,24 @@
+{
+  "cve_id": "SYZBOT-1c486d0b62032c82",
+  "fix_commit": "af7bb0d2ca459f15cb5ca604dab5d9af103643f0",
+  "files": [
+    "fs/exec.c"
+  ],
+  "description": "KCSAN: data-race in bprm_execve / copy_fs (4)",
+  "cwes": [],
+  "title": "KCSAN: data-race in bprm_execve / copy_fs (4)",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "bprm_execve",
+    "fn_b": "copy_fs"
+  },
+  "two_threads_summary": "execve thread A in bprm_execve writes fs->in_exec=0; clone(CLONE_FS) thread B in copy_fs reads in_exec under fs->lock. Race when in_exec is reset too late.",
+  "audit_notes": "Fix reorders the assignment so it always happens within cred_guard_mutex's protection, before sibling threads can observe the half-finished state.",
+  "fix_commit_message": "af7bb0d2ca459f15cb5ca604dab5d9af103643f0\nexec: fix the racy usage of fs_struct->in_exec\n\ncheck_unsafe_exec() sets fs->in_exec under cred_guard_mutex, then execve()\npaths clear fs->in_exec lockless. This is fine if exec succeeds, but if it\nfails we have the following race:\n\n\tT1 sets fs->in_exec = 1, fails, drops cred_guard_mutex\n\n\tT2 sets fs->in_exec = 1\n\n\tT1 clears fs->in_exec\n\n\tT2 continues with fs->in_exec == 0\n\nChange fs/exec.c to clear fs->in_exec with cred_guard_mutex held.\n\nReported-by: syzbot+1c486d0b62032c82a968@syzkaller.appspotmail.com\nCloses: https://lore.kernel.org/all/67dc67f0.050a0220.25ae54.001f.GAE@google.com/\nCc: stable@vger.kernel.org\nSigned-off-by: Oleg Nesterov <oleg@redhat.com>\nLink: https://lore.kernel.org/r/20250324160003.GA8878@redhat.com\nSigned-off-by: Christian Brauner <brauner@kernel.org>",
+  "patch": "commit af7bb0d2ca459f15cb5ca604dab5d9af103643f0\nAuthor: Oleg Nesterov <oleg@redhat.com>\nDate:   Mon Mar 24 17:00:03 2025 +0100\n\n    exec: fix the racy usage of fs_struct->in_exec\n    \n    check_unsafe_exec() sets fs->in_exec under cred_guard_mutex, then execve()\n    paths clear fs->in_exec lockless. This is fine if exec succeeds, but if it\n    fails we have the following race:\n    \n            T1 sets fs->in_exec = 1, fails, drops cred_guard_mutex\n    \n            T2 sets fs->in_exec = 1\n    \n            T1 clears fs->in_exec\n    \n            T2 continues with fs->in_exec == 0\n    \n    Change fs/exec.c to clear fs->in_exec with cred_guard_mutex held.\n    \n    Reported-by: syzbot+1c486d0b62032c82a968@syzkaller.appspotmail.com\n    Closes: https://lore.kernel.org/all/67dc67f0.050a0220.25ae54.001f.GAE@google.com/\n    Cc: stable@vger.kernel.org\n    Signed-off-by: Oleg Nesterov <oleg@redhat.com>\n    Link: https://lore.kernel.org/r/20250324160003.GA8878@redhat.com\n    Signed-off-by: Christian Brauner <brauner@kernel.org>\n\ndiff --git a/fs/exec.c b/fs/exec.c\nindex f45859ad13ac..5d1c0d2dc403 100644\n--- a/fs/exec.c\n+++ b/fs/exec.c\n@@ -1227,13 +1227,12 @@ int begin_new_exec(struct linux_binprm * bprm)\n \t */\n \tbprm->point_of_no_return = true;\n \n-\t/*\n-\t * Make this the only thread in the thread group.\n-\t */\n+\t/* Make this the only thread in the thread group */\n \tretval = de_thread(me);\n \tif (retval)\n \t\tgoto out;\n-\n+\t/* see the comment in check_unsafe_exec() */\n+\tcurrent->fs->in_exec = 0;\n \t/*\n \t * Cancel any io_uring activity across execve\n \t */\n@@ -1495,6 +1494,8 @@ static void free_bprm(struct linux_binprm *bprm)\n \t}\n \tfree_arg_pages(bprm);\n \tif (bprm->cred) {\n+\t\t/* in case exec fails before de_thread() succeeds */\n+\t\tcurrent->fs->in_exec = 0;\n \t\tmutex_unlock(&current->signal->cred_guard_mutex);\n \t\tabort_creds(bprm->cred);\n \t}\n@@ -1616,6 +1617,10 @@ static void check_unsafe_exec(struct linux_binprm *bprm)\n \t * suid exec because the differently privileged task\n \t * will be able to manipulate the current directory, etc.\n \t * It would be nice to force an unshare instead...\n+\t *\n+\t * Otherwise we set fs->in_exec = 1 to deny clone(CLONE_FS)\n+\t * from another sub-thread until de_thread() succeeds, this\n+\t * state is protected by cred_guard_mutex we hold.\n \t */\n \tn_fs = 1;\n \tspin_lock(&p->fs->lock);\n@@ -1860,7 +1865,6 @@ static int bprm_execve(struct linux_binprm *bprm)\n \n \tsched_mm_cid_after_execve(current);\n \t/* execve succeeded */\n-\tcurrent->fs->in_exec = 0;\n \tcurrent->in_execve = 0;\n \trseq_execve(current);\n \tuser_events_execve(current);\n@@ -1879,7 +1883,6 @@ static int bprm_execve(struct linux_binprm *bprm)\n \t\tforce_fatal_sig(SIGSEGV);\n \n \tsched_mm_cid_after_execve(current);\n-\tcurrent->fs->in_exec = 0;\n \tcurrent->in_execve = 0;\n \n \treturn retval;\n",
+  "affected_files_from_patch": [
+    "fs/exec.c"
+  ]
+}

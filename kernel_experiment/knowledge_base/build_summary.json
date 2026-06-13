@@ -1,0 +1,23 @@
+{
+  "case_count": 102,
+  "dataset_sources": [
+    {
+      "label": "syzbot",
+      "provided": false
+    },
+    {
+      "label": "linux_kernel",
+      "provided": false
+    }
+  ],
+  "mechanism_counts": {
+    "bitfield_flags_multi_lock": 1,
+    "guarded_work_data_read": 1,
+    "lifetime_or_refcount": 14,
+    "list_rcu_registry": 8,
+    "missing_or_inconsistent_lock": 8,
+    "scalar_once_annotation": 47,
+    "stats_counter_rmw": 7,
+    "unknown": 16
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "commit": "d0ac89f6f9879fae316c155de77b5173b3e2c9c9",
+  "user_seeds": [
+    "net/core/stream.c",
+    "net/ipv4/tcp_bpf.c",
+    "net/llc/af_llc.c",
+    "net/smc/smc_close.c",
+    "net/smc/smc_rx.c",
+    "net/smc/smc_tx.c",
+    "net/tipc/socket.c",
+    "net/tls/tls_main.c"
+  ],
+  "patch_files": [
+    "net/core/stream.c",
+    "net/ipv4/tcp_bpf.c",
+    "net/llc/af_llc.c",
+    "net/smc/smc_close.c",
+    "net/smc/smc_rx.c",
+    "net/smc/smc_tx.c",
+    "net/tipc/socket.c",
+    "net/tls/tls_main.c"
+  ],
+  "changed_symbols_sample": [
+    "ECONNABORTED",
+    "ECONNRESET",
+    "RCV_SHUTDOWN",
+    "SEND_SHUTDOWN",
+    "TCP_CLOSE",
+    "TCP_SYN_SENT",
+    "TIPC_ESTABLISHED",
+    "current_timeo",
+    "sk_err",
+    "sk_receive_queue",
+    "sk_shutdown",
+    "sk_state",
+    "sk_stream_closing",
+    "sk_wait_event",
+    "sk_write_pending",
+    "skb_queue_empty",
+    "skb_queue_empty_lockless",
+    "tipc_sk_connected"
+  ],
+  "expanded": [
+    "net/core/stream.c",
+    "net/ipv4/tcp_bpf.c",
+    "net/llc/af_llc.c",
+    "net/smc/smc_close.c",
+    "net/smc/smc_rx.c",
+    "net/smc/smc_tx.c",
+    "net/tipc/socket.c",
+    "net/tls/tls_main.c"
+  ],
+  "added_by_expander": {}
+}

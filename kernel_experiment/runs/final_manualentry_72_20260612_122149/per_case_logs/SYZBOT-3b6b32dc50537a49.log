@@ -1,0 +1,186 @@
+[manual-entry] case=SYZBOT-3b6b32dc50537a49 roots=['do_epoll_ctl', '__fput'] bc=merged.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 295481MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 295481MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 121MB, Avail: 295385MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 121MB, Avail: 295385MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 5 init/exit section, 8 EXPORT_SYMBOL, 28 syscall wrapper, 6 ops-table member, 4 indirect-fork sink, 0 public-wrapper alias, 4 cross-TU public (54 unique function(s))
+[Auto-Entry Cross-TU] +4 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 54 kernel entry point(s):
+  - alloc_file_clone
+  - alloc_empty_file
+  - ____fput
+  - proc_nr_files
+  - __do_sys_epoll_create
+  - flush_delayed_fput
+  - alloc_file_pseudo_noaccount
+  - alloc_file_pseudo
+  - __do_sys_epoll_pwait2
+  - get_max_files
+  - __se_sys_epoll_create1
+  - ep_ptable_queue_proc
+  - __x64_compat_sys_epoll_pwait2
+  - backing_file_user_path
+  - __ia32_compat_sys_epoll_pwait
+  - __se_sys_epoll_create
+  - __do_sys_epoll_pwait
+  - __fput_sync
+  - __x64_sys_epoll_pwait
+  - ep_show_fdinfo
+  ... and 34 more
+[Auto-Entry Diag] strong+reachable=14 (ops/init-only prunable=2)
+[Auto-Entry Tiering] thread roots: 51/54 (strong=43, weak_kept=8, broad_mode=off, broad_added=0, weak_pruned_reachable=3, weak_pruned_no_strong_conflict=0, weak_pruned_total=3)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 253/253 functions...
+[Phasar] Location maps built. Total functions: 253
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 124MB, Avail: 295385MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 124MB, Avail: 295385MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] Collected 13533 bytes of relevant code.
+[Thread API Discovery] Discovered 0 wrapper function(s).
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 126MB, Avail: 295383MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 126MB, Avail: 295383MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "alloc_file_clone", fileName: "LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/file_table.c", lineNumber: 390, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=alloc_file_clone, fileName=LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/file_table.c, fileName_last=file_table.c, lineNumber=390
+[DEBUG getMain] methods from full path: 31
+[DEBUG getMain] Iterating 31 methods
+[DEBUG getMain] Checking method: name=EXPORT_SYMBOL, line=364
+[DEBUG getMain] Checking method: name=alloc_empty_backing_file, line=265
+[DEBUG getMain] Checking method: name=alloc_empty_file, line=191
+[DEBUG getMain] Checking method: name=alloc_path_pseudo, line=332
+[DEBUG getMain] Checking method: name=init_fs_stat_sysctls, line=134
+[DEBUG getMain] Checking method: name=alloc_empty_file_noaccount, line=238
+[DEBUG getMain] Checking method: name=files_maxfiles_init, line=539
+[DEBUG getMain] Checking method: name=flush_delayed_fput, line=472
+[DEBUG getMain] Checking method: name=LLIST_HEAD, line=447
+[DEBUG getMain] Checking method: name=proc_nr_files, line=99
+[DEBUG getMain] Checking method: name=file_free, line=63
+[DEBUG getMain] Checking method: name=init_file, line=148
+[DEBUG getMain] Checking method: name=get_max_files, line=88
+[DEBUG getMain] Checking method: name=backing_file, line=52
+[DEBUG getMain] Checking method: name=files_init, line=522
+[DEBUG getMain] Checking method: name=file_init_path, line=291
+[DEBUG getMain] Checking method: name=__fput_sync, line=513
+[DEBUG getMain] Checking method: name=alloc_file, line=321
+[DEBUG getMain] Checking method: name=alloc_file_pseudo, line=345
+[DEBUG getMain] Checking method: name=alloc_file_pseudo_noaccount, line=366
+[DEBUG getMain] Checking method: name=alloc_file_clone, line=390
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 2 configured thread root(s): do_epoll_ctl __fput
+[Kernel Module Mode] Adding 2 thread-root entry points as parallel entries
+  - Looking for: do_epoll_ctl -> demangled: do_epoll_ctl -> shortName: do_epoll_ctl [signals=manual]
+  - Found in CPG: do_epoll_ctl at fs/eventpoll.c:2252
+  - Added entry: do_epoll_ctl
+  - Looking for: __fput -> demangled: __fput -> shortName: __fput [signals=manual]
+  - Found in CPG: __fput at fs/file_table.c:405
+  - Added entry: __fput
+[Kernel Module Mode] Total entry functions: 2
+Warning: Could not map CPG function 'EPOLLEXCLUSIVE_OK_BITS' to an llvm::Function.
+Warning: Could not map CPG function 'dissolve_on_fput' to an llvm::Function.
+Warning: Could not map CPG function 'file_f_owner_release' to an llvm::Function.
+Warning: Could not map CPG function 'locks_remove_file' to an llvm::Function.
+Warning: Could not map CPG function 'EP_UNACTIVE_PTR' to an llvm::Function.
+Warning: Could not map CPG function 'EP_MAX_NESTS' to an llvm::Function.
+[Thread Entry] schedule_delayed_work - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+Warning: Could not map CPG function 'PATH_ARR_SIZE' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 2 entry points as parallel threads
+[Thread Entry] schedule_delayed_work - direct arg lookup failed; LLM fallback skipped (disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable).
+[Kernel Module Mode] Keeping all 2 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 126MB, Avail: 295385MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 126MB, Avail: 295385MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 2 threads...
+[VulnerabilitySurface] Collected 383 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 93 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 3 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 878 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 5 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Synthesized 28 list-helper accesses (cluster-A fix; +3 bridged head-side deletes)
+[VulnerabilitySurface] Linked 7 parent-Free accesses into field-level groups (cross-thread UAF aggregation)
+[VulnerabilitySurface] Modeled 12 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 65 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 65 shared objects (49 high risk, 3 medium risk)
+
+  Threads: 2, Conflicting pairs: 115, Shared objects: 65
+
+[Phase 2.5: Object Triage] candidates=65
+  -> keeping 58/65 objects for interleaving
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=58, mhp_pairs=58, conflict_pairs=46, self_race_threads=0, candidate_threads=4
+
+[Phase A: Per-Thread Contracts] threads=4
+  [contract-parallel] workers=4
+  [contract 1/4 w0] thread 0 objects=20
+  [contract 2/4 w1] thread 1 objects=20
+  [contract-parallel] generated 2/4 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=8
+  [session 1/8] candidates hi=4 med=6 low=0 (discharged=0) -> calibrate
+  [session 2/8] candidates hi=2 med=1 low=0 (discharged=0) -> calibrate
+  [session 3/8] candidates hi=7 med=0 low=0 (discharged=0) -> calibrate
+  [session 4/8] candidates hi=4 med=0 low=0 (discharged=1) -> calibrate
+  [session 5/8] no surviving candidate (discharged=1) -- skip
+  [session 6/8] candidates hi=1 med=0 low=0 (discharged=0) -> calibrate
+  [session 7/8] no surviving candidate (discharged=0) -- skip
+  [session 8/8] no surviving candidate (discharged=0) -- skip
+  [dedup] 4 -> 4 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 4 hypotheses (calibrated 5 sessions over 8 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 128MB, Avail: 305677MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 128MB, Avail: 305677MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+    [!!!] POTENTIAL C3: use_after_free via write to eventpoll::napi_id during ep_free VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL atomicity/data_race (C5: tfile_check_list global list head update vs traversal) VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL atomicity/data_race (C7: path_count concurrent non-atomic increments) VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL atomicity/data_race (C6: inserting_into loop-check target global) VIOLATION FOUND: interleave_3
+Bug detection complete. 4 potential bug(s) found.
+  - Mechanism-Rule Violations: 4
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-3b6b32dc50537a49_2026-06-12_14-34-09/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 128MB, Avail: 305677MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 1677 seconds
+LLM API Requests: 62
+Total Prompt Tokens: 1033847
+Total Completion Tokens: 50090
+Total Tokens: 1083937
+==========================================

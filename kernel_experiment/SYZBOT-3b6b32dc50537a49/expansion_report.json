@@ -1,0 +1,18 @@
+{
+  "commit": "6474353a5e3d0b2cf610153cea0c61f576a36d0a",
+  "user_seeds": [
+    "fs/eventpoll.c"
+  ],
+  "patch_files": [
+    "fs/eventpoll.c",
+    "include/linux/eventpoll.h"
+  ],
+  "changed_symbols_sample": [
+    "f_ep"
+  ],
+  "expanded": [
+    "fs/eventpoll.c",
+    "include/linux/eventpoll.h"
+  ],
+  "added_by_expander": {}
+}

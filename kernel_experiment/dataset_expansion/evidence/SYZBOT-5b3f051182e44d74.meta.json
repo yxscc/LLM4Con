@@ -1,0 +1,17 @@
+{
+  "bug_id": "SYZBOT-5b3f051182e44d74",
+  "tier": "A",
+  "title": "KCSAN: data-race in ip_finish_output2 / ip_finish_output2",
+  "mainline_sha": "25c7a6d1f90e208ec27ca854b1381ed39842ec57",
+  "all_shas_seen": [
+    "5b3f051182e44d743084d1d23300f6e6bd60bb44",
+    "25c7a6d1f90e208ec27ca854b1381ed39842ec57"
+  ],
+  "c_paths": [
+    "include/net/arp.h",
+    "include/net/ndisc.h",
+    "include/net/sock.h"
+  ],
+  "n_files_shown": 3,
+  "n_functions_shown": 5
+}

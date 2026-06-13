@@ -1,0 +1,71 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-483d6c9b9231ea7e",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+  "description": "KCSAN: data-race in p9_conn_cancel / p9_poll_workfn (9)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "p9_conn_cancel",
+    "fn_b": "p9_poll_workfn"
+  },
+  "fix_commit": "fbc0283fbeae27b88448c90305e738991457fee2",
+  "affected_files": [
+    "net/9p/trans_fd.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/9p/trans_fd.c",
+      "changed_lines": [
+        "-\tif (m->err) {",
+        "+\tif (READ_ONCE(m->err)) {",
+        "-\tm->err = err;",
+        "+\tWRITE_ONCE(m->err, err);",
+        "+\tASSERT_EXCLUSIVE_WRITER(m->err);",
+        "-\tif (m->err < 0)",
+        "+\tif (READ_ONCE(m->err) < 0)",
+        "-\tif (m->err < 0) {",
+        "+\tif (READ_ONCE(m->err) < 0) {",
+        "-\tif (m->err < 0)",
+        "+\tif (READ_ONCE(m->err) < 0)",
+        "+\tint err;",
+        "-\tif (m->err < 0) {",
+        "+\terr = READ_ONCE(m->err);",
+        "+\tif (err < 0) {",
+        "-\t\treturn m->err;",
+        "+\t\treturn err;"
+      ],
+      "hunks": [
+        {
+          "old_start": 192,
+          "new_start": 192
+        },
+        {
+          "old_start": 284,
+          "new_start": 285
+        },
+        {
+          "old_start": 451,
+          "new_start": 452
+        },
+        {
+          "old_start": 623,
+          "new_start": 624
+        },
+        {
+          "old_start": 666,
+          "new_start": 667
+        },
+        {
+          "old_start": 674,
+          "new_start": 676
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-483d6c9b9231ea7e/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-483d6c9b9231ea7e/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-483d6c9b9231ea7e"
+}

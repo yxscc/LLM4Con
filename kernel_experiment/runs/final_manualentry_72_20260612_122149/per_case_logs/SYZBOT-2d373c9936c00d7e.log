@@ -1,0 +1,161 @@
+[manual-entry] case=SYZBOT-2d373c9936c00d7e roots=['snd_seq_poll', 'snd_seq_ioctl'] bc=merged.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 295493MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 295493MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 140MB, Avail: 295369MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 140MB, Avail: 295369MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 2 init/exit section, 14 EXPORT_SYMBOL, 0 syscall wrapper, 7 ops-table member, 0 indirect-fork sink, 0 public-wrapper alias, 3 cross-TU public (26 unique function(s))
+[Auto-Entry Cross-TU] +3 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 26 kernel entry point(s):
+  - snd_seq_info_pool
+  - snd_seq_kernel_client_dispatch
+  - snd_seq_client_ioctl_unlock
+  - snd_seq_kernel_client_write_poll
+  - snd_seq_kernel_client_ctl
+  - client_init_data
+  - snd_seq_dump_var_event
+  - snd_seq_kernel_client_enqueue
+  - snd_seq_delete_kernel_client
+  - snd_seq_kernel_client_put
+  - snd_seq_client_ioctl_lock
+  - snd_seq_open
+  - snd_seq_info_clients_read
+  - snd_seq_set_queue_tempo
+  - snd_seq_expand_var_event_at
+  - snd_seq_write
+  - snd_seq_ioctl_compat
+  - snd_seq_expand_var_event
+  - snd_seq_poll
+  - snd_seq_create_kernel_client
+  ... and 6 more
+[Auto-Entry Diag] strong+reachable=1 (ops/init-only prunable=1)
+[Auto-Entry Tiering] thread roots: 22/26 (strong=9, weak_kept=13, broad_mode=off, broad_added=0, weak_pruned_reachable=2, weak_pruned_no_strong_conflict=2, weak_pruned_total=4)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 164/164 functions...
+[Phasar] Location maps built. Total functions: 164
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 143MB, Avail: 295372MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 143MB, Avail: 295372MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] Collected 5318 bytes of relevant code.
+[Thread API Discovery] Discovered 0 wrapper function(s).
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 145MB, Avail: 295417MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 145MB, Avail: 295417MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "snd_seq_info_pool", fileName: "sound/core/seq/seq_memory.c", lineNumber: 553, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=snd_seq_info_pool, fileName=sound/core/seq/seq_memory.c, fileName_last=seq_memory.c, lineNumber=553
+[DEBUG getMain] methods from full path: 22
+[DEBUG getMain] Iterating 22 methods
+[DEBUG getMain] Checking method: name=snd_seq_pool_new, line=515
+[DEBUG getMain] Checking method: name=snd_seq_pool_mark_closing, line=474
+[DEBUG getMain] Checking method: name=snd_seq_pool_init, line=435
+[DEBUG getMain] Checking method: name=snd_seq_pool_poll_wait, line=426
+[DEBUG getMain] Checking method: name=snd_seq_event_dup, line=339
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=snd_seq_output_ok, line=27
+[DEBUG getMain] Checking method: name=get_var_len, line=58
+[DEBUG getMain] Checking method: name=snd_seq_cell_alloc, line=267
+[DEBUG getMain] Checking method: name=free_cell, line=225
+[DEBUG getMain] Checking method: name=snd_seq_pool_delete, line=539
+[DEBUG getMain] Checking method: name=snd_seq_pool_done, line=483
+[DEBUG getMain] Checking method: name=snd_seq_pool_available, line=22
+[DEBUG getMain] Checking method: name=snd_seq_dump_var_event, line=125
+[DEBUG getMain] Checking method: name=snd_seq_info_pool, line=553
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 2 configured thread root(s): snd_seq_poll snd_seq_ioctl
+[Kernel Module Mode] Adding 2 thread-root entry points as parallel entries
+  - Looking for: snd_seq_poll -> demangled: snd_seq_poll -> shortName: snd_seq_poll [signals=manual]
+  - Found in CPG: snd_seq_poll at sound/core/seq/seq_clientmgr.c:1113
+  - Added entry: snd_seq_poll
+  - Looking for: snd_seq_ioctl -> demangled: snd_seq_ioctl -> shortName: snd_seq_ioctl [signals=manual]
+  - Found in CPG: snd_seq_ioctl at sound/core/seq/seq_clientmgr.c:2294
+  - Added entry: snd_seq_ioctl
+[Kernel Module Mode] Total entry functions: 2
+Warning: Could not map CPG function 'SNDRV_SEQ_LFLG_OUTPUT' to an llvm::Function.
+Warning: Could not map CPG function 'snd_seq_fifo_poll_wait' to an llvm::Function.
+Warning: Could not map CPG function 'SNDRV_SEQ_LFLG_INPUT' to an llvm::Function.
+Warning: Could not map CPG function 'SNDRV_SEQ_LFLG_OPEN' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 2 entry points as parallel threads
+[Kernel Module Mode] Keeping all 2 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 145MB, Avail: 295417MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 145MB, Avail: 295417MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 2 threads...
+[VulnerabilitySurface] Collected 27 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 74 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 20 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 2420 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Modeled 14 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 20 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 20 shared objects (16 high risk, 0 medium risk)
+
+  Threads: 2, Conflicting pairs: 77, Shared objects: 20
+
+[Phase 2.5: Object Triage] candidates=20
+  -> keeping 20/20 objects for interleaving
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=20, mhp_pairs=20, conflict_pairs=16, self_race_threads=0, candidate_threads=3
+
+[Phase A: Per-Thread Contracts] threads=3
+  [contract-parallel] workers=3
+  [contract 1/3 w0] thread 0 objects=20
+  [contract 2/3 w1] thread 1 objects=6
+  [contract-parallel] generated 2/3 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=3
+  [session 1/3] candidates hi=10 med=0 low=0 (discharged=0) -> calibrate
+  [session 2/3] candidates hi=3 med=0 low=0 (discharged=0) -> calibrate
+  [session 3/3] candidates hi=2 med=0 low=0 (discharged=0) -> calibrate
+  [dedup] 0 -> 0 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 0 hypotheses (calibrated 3 sessions over 3 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 146MB, Avail: 294842MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 146MB, Avail: 294841MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+No bugs detected.
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 146MB, Avail: 294842MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 685 seconds
+LLM API Requests: 39
+Total Prompt Tokens: 362304
+Total Completion Tokens: 23611
+Total Tokens: 385915
+==========================================

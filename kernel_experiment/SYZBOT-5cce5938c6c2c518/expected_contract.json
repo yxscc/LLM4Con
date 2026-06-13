@@ -1,0 +1,50 @@
+{
+  "bug_id": "SYZBOT-5cce5938c6c2c518",
+  "shared_object": "struct inet_sock::inet_id (per-socket IPv4 ID counter)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "UDP sendmsg increments per-socket IP ID",
+    "entry": "__x64_sys_sendmmsg",
+    "clause": {
+      "resource": "inet_sk(sk)->inet_id",
+      "sites": [
+        {"function": "ip_select_ident_segs", "file": "include/net/ip.h", "line": 541, "op_kind": "READ"},
+        {"function": "ip_select_ident_segs", "file": "include/net/ip.h", "line": 542, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([read(inet_id), write(inet_id += segs)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "concurrent UDP sendmsg increments same IP ID",
+    "entry": "__x64_sys_sendmmsg",
+    "clause": {
+      "resource": "inet_sk(sk)->inet_id",
+      "sites": [
+        {"function": "ip_select_ident_segs", "file": "include/net/ip.h", "line": 541, "op_kind": "READ"},
+        {"function": "ip_select_ident_segs", "file": "include/net/ip.h", "line": 542, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([read(inet_id), write(inet_id += segs)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(inet_id), write(inet_id += segs)]) from thread_a (the per-socket IP-ID increment must be an atomic read-modify-write)",
+    "violating_event": "e@ip_select_ident_segs:542 (thread_b) = mutate(inet_id += segs) concurrent increment that interleaves thread_a's RMW region",
+    "missing_guarantee": "UDP sendmsg is lockless (no socket lock on the datagram send path), and inet_id is a plain u16 incremented with a non-atomic +=; neither sender holds a shared lock and the RMW is not an atomic primitive, so nothing serializes the two RMW regions",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "atomicity_violation",
+    "category_rationale": "rho is atomic(region [read,write]) of a counter RMW broken by a concurrent interleaving increment -> lost-update atomicity violation (KCSAN labels it data-race generically, but rho's shape is an RMW region)"
+  },
+
+  "fix_maps_to": "patch converts inet_id to atomic_t and uses atomic_add_return(segs, &inet_id) for non-TCP (lockless) senders -> makes the [read,write] region a single exclusive atomic RMW, establishing atomic(region); TCP keeps the increment under the already-held socket lock = serialize(sk socket lock)",
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Clean atomicity violation: object is in the static surface, the fix is an explicit atomicity primitive (atomic_add_return), and rho's RMW shape is inferable for a shared counter. Risks: (1) self-race / same-entry MHP - both contexts are concurrent sendmmsg invocations on the same socket, so the design must admit a same-entry concurrent pair; (2) guarantee adjudication - both sides are lockless but the LLM may wrongly assume the socket lock protects the datagram send path and falsely reject; (3) the access is inlined from a static-inline header helper (ip_select_ident_segs), so site grounding must resolve into __ip_make_skb.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

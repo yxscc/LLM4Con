@@ -1,0 +1,37 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-1ac5b398842451b7",
+  "source": "syzbot",
+  "title": "possible deadlock in xfs_can_free_eofblocks",
+  "description": "possible deadlock in xfs_can_free_eofblocks",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in xfs_can_free_eofblocks"
+  },
+  "fix_commit": "6fe60465e1d53ea321ee909be26d97529e8f746c",
+  "affected_files": [
+    "lib/stackdepot.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "lib/stackdepot.c",
+      "changed_lines": [
+        "-\t\t * contexts and I/O.",
+        "+\t\t * contexts, I/O, nolockdep.",
+        "-\t\talloc_flags &= (GFP_ATOMIC | GFP_KERNEL);",
+        "+\t\talloc_flags &= (GFP_ATOMIC | GFP_KERNEL | __GFP_NOLOCKDEP);"
+      ],
+      "hunks": [
+        {
+          "old_start": 627,
+          "new_start": 627
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-1ac5b398842451b7/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-1ac5b398842451b7/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-1ac5b398842451b7"
+}

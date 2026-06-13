@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-6a2a295ae3340e8e",
+  "shared_object": "struct tcp_sock::write_seq",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "TCP sendmsg advances write_seq (under socket lock)",
+    "entry": "__x64_sys_sendmsg",
+    "clause": {
+      "resource": "tp->write_seq",
+      "sites": [
+        {"function": "tcp_sendmsg_locked", "file": "net/ipv4/tcp.c", "line": 1365, "op_kind": "WRITE"},
+        {"function": "do_tcp_sendpages", "file": "net/ipv4/tcp.c", "line": 1038, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(socket lock, write(write_seq))"]
+    }
+  },
+  "thread_b": {
+    "role": "poll/readiness path reads write_seq locklessly",
+    "entry": "tcp_poll",
+    "clause": {
+      "resource": "tp->write_seq",
+      "sites": [
+        {"function": "tcp_stream_memory_free", "file": "include/net/tcp.h", "line": 1919, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(write_seq)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(write_seq)]) from thread_b (the lockless readiness read must not be torn by a concurrent send-side write)",
+    "violating_event": "e@tcp_sendmsg_locked:1365 = write(tp->write_seq += copy)",
+    "missing_guarantee": "the send-side write holds the socket lock, but tcp_stream_memory_free runs from the poll/readiness path (and IRQ/other CPUs) without the socket lock; the two accesses share no lock, so no serialize(g) establishes the single-access atomicity the reader assumes",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write to the sequence field -> data race (store-tearing / torn read)"
+  },
+
+  "fix_maps_to": "patch wraps the write_seq writes in WRITE_ONCE and the lockless reads in READ_ONCE -> makes the conflicting single access atomic; a tearing annotation, not a serialize/order/counts guarantee",
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Same shape as the snd_nxt case: object and sites are in the static surface and the category maps to atomic(single access)=data_race, but tcp_stream_memory_free is a best-effort readiness check (notsent_bytes = write_seq - snd_nxt) that tolerates a stale snapshot. The read carries no order intent beyond no-tearing and there is no semantic guard, so the LLM is likely to adjudicate it benign and reject (precision pressure); only a pure-syntactic-race detector would fire. The fix is annotation-only and does not map onto serialize/order/counts.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

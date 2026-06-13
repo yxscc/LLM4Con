@@ -1,0 +1,19 @@
+{
+  "bug_id": "SYZBOT-3c750be01dab672c",
+  "tier": "A",
+  "title": "KCSAN: data-race in io_sq_thread / io_uring_try_cancel_requests (12)",
+  "mainline_sha": "a13030fd194c88961be4679f87a1380f1bda0ebe",
+  "all_shas_seen": [
+    "3c750be01dab672c513d",
+    "a13030fd194c88961be4679f87a1380f1bda0ebe",
+    "eea6e4b4dfb8859446177c32961c96726d0117be",
+    "9b2ffa6148b1e4468d08f7e0e7e371c43cac9ffe",
+    "fac04efc5c793dccbd07e2d59af9f90b7fc0dca4",
+    "62b5a46999c74497fe10eabd7d19701c505b23e3"
+  ],
+  "c_paths": [
+    "io_uring/io_uring.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 3
+}

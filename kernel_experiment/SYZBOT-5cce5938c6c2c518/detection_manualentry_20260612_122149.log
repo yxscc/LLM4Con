@@ -1,0 +1,274 @@
+[manual-entry] case=SYZBOT-5cce5938c6c2c518 roots=['__x64_sys_sendmmsg'] bc=merged.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 303806MB)
+InputSrcDir: src
+InputBCFileName: merged.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 303806MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 864MB, Avail: 302855MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 864MB, Avail: 302852MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 17 init/exit section, 154 EXPORT_SYMBOL, 0 syscall wrapper, 129 ops-table member, 40 indirect-fork sink, 1 public-wrapper alias, 92 cross-TU public (365 unique function(s))
+[Auto-Entry Cross-TU] +92 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry Name-Heuristic] +50 entry point(s) on top of structural signals.
+[Auto-Entry] Total: 415 kernel entry point(s):
+  - __ia32_sys_recvmsg
+  - __sys_recvmsg
+  - __ia32_sys_sendmmsg
+  - __x64_sys_sendmsg
+  - __sys_sendmsg
+  - __sys_sendmsg_sock
+  - sendmsg_copy_msghdr
+  - __ia32_sys_shutdown
+  - __sys_shutdown
+  - __sys_shutdown_sock
+  - __ia32_sys_getsockopt
+  - __sys_getsockopt
+  - __ia32_sys_setsockopt
+  - __x64_sys_setsockopt
+  - __sys_setsockopt
+  - __x64_sys_recv
+  - __ia32_sys_recvfrom
+  - __x64_sys_send
+  - __ia32_sys_sendto
+  - __ia32_sys_getsockname
+  ... and 395 more
+[Auto-Entry Diag] strong+reachable=75 (ops/init-only prunable=23)
+[Auto-Entry Tiering] thread roots: 354/415 (strong=236, weak_kept=118, broad_mode=off, broad_added=0, weak_pruned_reachable=55, weak_pruned_no_strong_conflict=6, weak_pruned_total=61)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 1000/2170 functions...
+[Phasar] Processed 2000/2170 functions...
+[Phasar] Processed 2170/2170 functions...
+[Phasar] Location maps built. Total functions: 2170
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 867MB, Avail: 302771MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 867MB, Avail: 302771MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 867MB, Avail: 302770MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 867MB, Avail: 302770MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "__ia32_sys_recvmsg", fileName: "/tmp/syzbot_repair_ir_1283433/f866fbc842de/net/socket.c", lineNumber: 2792, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=__ia32_sys_recvmsg, fileName=/tmp/syzbot_repair_ir_1283433/f866fbc842de/net/socket.c, fileName_last=socket.c, lineNumber=2792
+[DEBUG getMain] methods from full path: 140
+[DEBUG getMain] Iterating 140 methods
+[DEBUG getMain] Checking method: name=core_initcall, line=3221
+[DEBUG getMain] Checking method: name=CONFIG_64BIT, line=-1
+[DEBUG getMain] Checking method: name=DEFINE_MUTEX, line=1139
+[DEBUG getMain] Checking method: name=COMPAT_FLAGS, line=2363
+[DEBUG getMain] Checking method: name=memcpy, line=1
+[DEBUG getMain] Checking method: name=kernel_sock_shutdown, line=3564
+[DEBUG getMain] Checking method: name=kernel_getpeername, line=3550
+[DEBUG getMain] Checking method: name=kernel_getsockname, line=3535
+[DEBUG getMain] Checking method: name=kernel_connect, line=3519
+[DEBUG getMain] Checking method: name=kernel_accept, line=3481
+[DEBUG getMain] Checking method: name=kernel_listen, line=3464
+[DEBUG getMain] Checking method: name=__sock_create, line=1465
+[DEBUG getMain] Checking method: name=sock_close, line=1384
+[DEBUG getMain] Checking method: name=sock_alloc, line=626
+[DEBUG getMain] Checking method: name=sock_create_kern, line=1603
+[DEBUG getMain] Checking method: name=__sys_connect_file, line=1975
+[DEBUG getMain] Checking method: name=sys_recvfrom, line=2200
+[DEBUG getMain] Checking method: name=COMPAT_NAMELEN, line=2362
+[DEBUG getMain] Checking method: name=sock_mmap, line=1377
+[DEBUG getMain] Checking method: name=sockfs_xattr_get, line=367
+[DEBUG getMain] Checking method: name=__sys_sendto, line=2101
+[DEBUG getMain] Checking method: name=do_recvmmsg, line=2802
+[DEBUG getMain] Checking method: name=br_ioctl_call, line=1154
+[DEBUG getMain] Checking method: name=brioctl_set, line=1144
+[DEBUG getMain] Checking method: name=sock_write_iter, line=1112
+[DEBUG getMain] Checking method: name=sock_create_lite, line=1326
+[DEBUG getMain] Checking method: name=kernel_recvmsg, line=1061
+[DEBUG getMain] Checking method: name=sock_splice_eof, line=1082
+[DEBUG getMain] Checking method: name=sockfd_lookup, line=530
+[DEBUG getMain] Checking method: name=sock_sendmsg_nosec, line=723
+[DEBUG getMain] Checking method: name=put_user_ifreq, line=3265
+[DEBUG getMain] Checking method: name=sock_create, line=1585
+[DEBUG getMain] Checking method: name=sock_init, line=3172
+[DEBUG getMain] Checking method: name=skb_is_swtx_tstamp, line=817
+[DEBUG getMain] Checking method: name=__sys_getpeername, line=2065
+[DEBUG getMain] Checking method: name=sockfs_setattr, line=596
+[DEBUG getMain] Checking method: name=sock_recvmsg_nosec, line=1017
+[DEBUG getMain] Checking method: name=sockfs_security_xattr_set, line=388
+[DEBUG getMain] Checking method: name=sock_from_file, line=508
+[DEBUG getMain] Checking method: name=sock_read_iter, line=1090
+[DEBUG getMain] Checking method: name=sock_recvmsg, line=1037
+[DEBUG getMain] Checking method: name=init_inodecache, line=336
+[DEBUG getMain] Checking method: name=do_accept, line=1838
+[DEBUG getMain] Checking method: name=skb_is_err_queue, line=799
+[DEBUG getMain] Checking method: name=sock_free_inode, line=321
+[DEBUG getMain] Checking method: name=__sock_tx_timestamp, line=686
+[DEBUG getMain] Checking method: name=sys_sendto, line=2142
+[DEBUG getMain] Checking method: name=sock_ioctl, line=1217
+[DEBUG getMain] Checking method: name=vlan_ioctl_set, line=1173
+[DEBUG getMain] Checking method: name=sock_alloc_file, line=459
+[DEBUG getMain] Checking method: name=kernel_sendmsg, line=764
+[DEBUG getMain] Checking method: name=sock_wake_async, line=1424
+[DEBUG getMain] Checking method: name=sock_show_fdinfo, line=136
+[DEBUG getMain] Checking method: name=__sock_release, line=647
+[DEBUG getMain] Checking method: name=sockfs_listxattr, line=568
+[DEBUG getMain] Checking method: name=sockfs_dname, line=357
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=sock_release, line=680
+[DEBUG getMain] Checking method: name=compat_sock_ioctl_trans, line=3321
+[DEBUG getMain] Checking method: name=call_trace_sock_send_length, line=717
+[DEBUG getMain] Checking method: name=move_addr_to_kernel, line=244
+[DEBUG getMain] Checking method: name=sock_recv_mark, line=987
+[DEBUG getMain] Checking method: name=move_addr_to_user, line=272
+[DEBUG getMain] Checking method: name=sock_recv_drops, line=979
+[DEBUG getMain] Checking method: name=sockfd_lookup_light, line=550
+[DEBUG getMain] Checking method: name=__sys_shutdown_sock, line=2329
+[DEBUG getMain] Checking method: name=sock_sendmsg, line=743
+[DEBUG getMain] Checking method: name=__sock_recv_cmsgs, line=998
+[DEBUG getMain] Checking method: name=sys_accept4, line=1951
+[DEBUG getMain] Checking method: name=call_trace_sock_recv_length, line=1012
+[DEBUG getMain] Checking method: name=__sys_recvmsg_sock, line=2764
+[DEBUG getMain] Checking method: name=kernel_sendmsg_locked, line=785
+[DEBUG getMain] Checking method: name=__sys_socket_create, line=1609
+[DEBUG getMain] Checking method: name=kernel_sock_ip_overhead, line=3580
+[DEBUG getMain] Checking method: name=__sys_socket_file, line=1631
+[DEBUG getMain] Checking method: name=____sys_sendmsg, line=2437
+[DEBUG getMain] Checking method: name=__sys_socket, line=1647
+[DEBUG getMain] Checking method: name=sys_getsockname, line=2054
+[DEBUG getMain] Checking method: name=sys_socket, line=1663
+[DEBUG getMain] Checking method: name=sys_sendmsg, line=2584
+[DEBUG getMain] Checking method: name=sock_alloc_inode, line=301
+[DEBUG getMain] Checking method: name=__sys_socketpair, line=1672
+[DEBUG getMain] Checking method: name=__sys_sendmmsg, line=2593
+[DEBUG getMain] Checking method: name=___sys_recvmsg, line=2743
+[DEBUG getMain] Checking method: name=sock_poll, line=1357
+[DEBUG getMain] Checking method: name=sock_fasync, line=1401
+[DEBUG getMain] Checking method: name=sock_is_registered, line=3167
+[DEBUG getMain] Checking method: name=sys_socketpair, line=1764
+[DEBUG getMain] Checking method: name=sys_bind, line=1801
+[DEBUG getMain] Checking method: name=sys_listen, line=1833
+[DEBUG getMain] Checking method: name=__copy_msghdr, line=2370
+[DEBUG getMain] Checking method: name=__sys_accept4_file, line=1897
+[DEBUG getMain] Checking method: name=__sys_accept4, line=1935
+[DEBUG getMain] Checking method: name=__sys_recvmsg, line=2771
+[DEBUG getMain] Checking method: name=__sys_connect, line=1998
+[DEBUG getMain] Checking method: name=sock_map_fd, line=482
+[DEBUG getMain] Checking method: name=__sys_listen, line=1812
+[DEBUG getMain] Checking method: name=compat_sock_ioctl, line=3416
+[DEBUG getMain] Checking method: name=sys_connect, line=2016
+[DEBUG getMain] Checking method: name=__sys_getsockname, line=2027
+[DEBUG getMain] Checking method: name=sys_recvmmsg_time32, line=2955
+[DEBUG getMain] Checking method: name=sys_send, line=2153
+[DEBUG getMain] Checking method: name=__sock_recv_timestamp, line=870
+[DEBUG getMain] Checking method: name=__sys_recvfrom, line=2164
+[DEBUG getMain] Checking method: name=sys_accept, line=1957
+[DEBUG getMain] Checking method: name=sys_recv, line=2211
+[DEBUG getMain] Checking method: name=sockfs_init_fs_context, line=409
+[DEBUG getMain] Checking method: name=sock_use_custom_sol_socket, line=2217
+[DEBUG getMain] Checking method: name=__sys_setsockopt, line=2226
+[DEBUG getMain] Checking method: name=sys_setsockopt, line=2271
+[DEBUG getMain] Checking method: name=sock_do_ioctl, line=1181
+[DEBUG getMain] Checking method: name=sys_getsockopt, line=2319
+[DEBUG getMain] Checking method: name=__sys_shutdown, line=2340
+[DEBUG getMain] Checking method: name=__sys_bind, line=1778
+[DEBUG getMain] Checking method: name=copy_msghdr_from_user, line=2416
+[DEBUG getMain] Checking method: name=kernel_bind, line=3450
+[DEBUG getMain] Checking method: name=sendmsg_copy_msghdr, line=2513
+[DEBUG getMain] Checking method: name=__sys_sendmsg_sock, line=2557
+[DEBUG getMain] Checking method: name=__sys_sendmsg, line=2563
+[DEBUG getMain] Checking method: name=get_timestamp, line=822
+[DEBUG getMain] Checking method: name=socket_seq_show, line=3224
+[DEBUG getMain] Checking method: name=sys_sendmmsg, line=2660
+[DEBUG getMain] Checking method: name=init_once, line=329
+[DEBUG getMain] Checking method: name=recvmsg_copy_msghdr, line=2666
+[DEBUG getMain] Checking method: name=___sys_sendmsg, line=2533
+[DEBUG getMain] Checking method: name=____sys_recvmsg, line=2687
+[DEBUG getMain] Checking method: name=sys_getpeername, line=2090
+[DEBUG getMain] Checking method: name=sys_recvmsg, line=2792
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 1 configured thread root(s): __x64_sys_sendmmsg
+[Kernel Module Mode] Adding 1 thread-root entry points as parallel entries
+  - Looking for: __x64_sys_sendmmsg -> demangled: __x64_sys_sendmmsg -> shortName: __x64_sys_sendmmsg [signals=manual]
+  - Found in CPG: sys_sendmmsg at net/socket.c:2660
+Warning: Could not map CPG function 'sys_sendmmsg' to an llvm::Function.
+  - Added entry: __x64_sys_sendmmsg
+[Kernel Module Mode] Total entry functions: 1
+Warning: Could not map CPG function 'memcpy' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 1 entry points as parallel threads
+[Kernel Module Mode] Keeping all 1 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 867MB, Avail: 302777MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 867MB, Avail: 302777MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 1 threads...
+[VulnerabilitySurface] Collected 88 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 118 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 11 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 3546 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 10 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Modeled 7 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 7 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 7 shared objects (7 high risk, 0 medium risk)
+
+  Threads: 1, Conflicting pairs: 4035, Shared objects: 7
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=7, mhp_pairs=7, conflict_pairs=7, self_race_threads=0, candidate_threads=2
+
+[Phase A: Per-Thread Contracts] threads=2
+  [contract-parallel] workers=2
+  [contract 1/2 w0] thread 0 objects=7
+  [contract-parallel] generated 1/2 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=1
+  [session 1/1] candidates hi=6 med=0 low=0 (discharged=0) -> calibrate
+  [dedup] 6 -> 6 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 6 hypotheses (calibrated 1 sessions over 1 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 870MB, Avail: 303514MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 870MB, Avail: 303514MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+    [!!!] POTENTIAL C1: atomicity/data_race on msghdr.msg_namelen VIOLATION FOUND: interleave_1
+    [!!!] POTENTIAL C2: atomicity/data_race on msghdr.msg_flags VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL C4: atomicity/data_race on msghdr.msg_control/msg_control_user VIOLATION FOUND: interleave_3
+    [!!!] POTENTIAL C5: atomicity/data_race on msghdr.msg_controllen VIOLATION FOUND: interleave_4
+    [!!!] POTENTIAL C6: atomicity/data_race on msghdr.msg_name VIOLATION FOUND: interleave_5
+    [!!!] POTENTIAL C3: atomicity/data_race on msghdr.msg_ubuf VIOLATION FOUND: interleave_6
+Bug detection complete. 6 potential bug(s) found.
+  - Mechanism-Rule Violations: 6
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-5cce5938c6c2c518_2026-06-12_15-09-53/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 870MB, Avail: 303514MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 305 seconds
+LLM API Requests: 15
+Total Prompt Tokens: 304067
+Total Completion Tokens: 9421
+Total Tokens: 313488
+==========================================

@@ -1,0 +1,20 @@
+{
+  "commit": "6df8fb83301d68ea0a0c0e1cbcc790fcc333ed12",
+  "user_seeds": [
+    "kernel/bpf/bpf_lru_list.c"
+  ],
+  "patch_files": [
+    "kernel/bpf/bpf_lru_list.c"
+  ],
+  "changed_symbols_sample": [
+    "BPF_LRU_LIST_T_FREE",
+    "BPF_LRU_LOCAL_LIST_T_FREE",
+    "BPF_LRU_LOCAL_LIST_T_PENDING",
+    "WARN_ON_ONCE",
+    "node_type"
+  ],
+  "expanded": [
+    "kernel/bpf/bpf_lru_list.c"
+  ],
+  "added_by_expander": {}
+}

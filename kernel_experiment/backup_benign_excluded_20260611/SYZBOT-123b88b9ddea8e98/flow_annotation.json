@@ -1,0 +1,248 @@
+{
+  "bug_id": "SYZBOT-123b88b9ddea8e98",
+  "status": "complete",
+  "summary": "TCP RX backlog writes sk_backlog.len while the receive path reads it through tcp_space() during window growth.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "softirq TCP receive backlog writer",
+      "entry": {
+        "function": "tcp_v4_rcv",
+        "file": "net/ipv4/tcp_ipv4.c",
+        "kind": "softirq_protocol_handler"
+      },
+      "call_chain": [
+        {
+          "function": "tcp_v4_rcv",
+          "file": "net/ipv4/tcp_ipv4.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "IPv4 TCP protocol receive handler"
+        },
+        {
+          "function": "tcp_add_backlog",
+          "file": "net/ipv4/tcp_ipv4.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "called when the socket is owned by user context"
+        }
+      ],
+      "bug_site": {
+        "function": "tcp_add_backlog",
+        "file": "net/ipv4/tcp_ipv4.c",
+        "line": 1741,
+        "code": "sk->sk_backlog.len += delta;"
+      }
+    },
+    "thread_b": {
+      "role": "task receive backlog consumer",
+      "entry": {
+        "function": "release_sock",
+        "file": "net/core/sock.c",
+        "kind": "socket_lock_release_path"
+      },
+      "call_chain": [
+        {
+          "function": "release_sock",
+          "file": "net/core/sock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "task releases the socket lock after recvmsg"
+        },
+        {
+          "function": "__release_sock",
+          "file": "net/core/sock.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "drains backlog through sk_backlog_rcv"
+        },
+        {
+          "function": "tcp_v4_do_rcv",
+          "file": "net/ipv4/tcp_ipv4.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "TCP backlog receive callback"
+        },
+        {
+          "function": "tcp_rcv_established",
+          "file": "net/ipv4/tcp_input.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "established receive path"
+        },
+        {
+          "function": "tcp_event_data_recv",
+          "file": "net/ipv4/tcp_input.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "receive event processing"
+        },
+        {
+          "function": "tcp_grow_window",
+          "file": "net/ipv4/tcp_input.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "computes room via tcp_space"
+        }
+      ],
+      "bug_site": {
+        "function": "tcp_space",
+        "file": "include/net/tcp.h",
+        "line": 1383,
+        "code": "sk->sk_rcvbuf - sk->sk_backlog.len - atomic_read(&sk->sk_rmem_alloc)"
+      }
+    },
+    "interleaving": [
+      "Softirq RX finds a user-owned TCP socket and appends/coalesces skb data into sk_backlog.len.",
+      "The task receive path later releases the socket and processes backlog, calling tcp_grow_window().",
+      "tcp_space() reads sk_backlog.len locklessly; the fix annotates reads with READ_ONCE."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct sock::sk_backlog.len",
+    "access_a": {
+      "function": "tcp_add_backlog",
+      "file": "net/ipv4/tcp_ipv4.c",
+      "line": 1741,
+      "kind": "write",
+      "code": "sk->sk_backlog.len += delta;"
+    },
+    "access_b": {
+      "function": "tcp_space",
+      "file": "include/net/tcp.h",
+      "line": 1383,
+      "kind": "read",
+      "code": "sk->sk_rcvbuf - sk->sk_backlog.len - atomic_read(&sk->sk_rmem_alloc)"
+    },
+    "required_ordering": "Lockless process-context reads must use READ_ONCE because backlog length can be written by BH receive handlers."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct sock::sk_backlog.len",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "The backlog byte count is the exact field reported by KCSAN and annotated by the fix.",
+    "aliases": [
+      {
+        "name": "sk",
+        "function": "tcp_v4_rcv",
+        "file": "net/ipv4/tcp_ipv4.c",
+        "evidence": "TCP lookup returns the socket passed into tcp_add_backlog"
+      },
+      {
+        "name": "sk",
+        "function": "tcp_grow_window",
+        "file": "net/ipv4/tcp_input.c",
+        "evidence": "receive path carries the same struct sock through tcp_rcv_established to tcp_space"
+      },
+      {
+        "name": "sk->sk_backlog.len",
+        "function": "tcp_space",
+        "file": "include/net/tcp.h",
+        "evidence": "inline expression reads the backlog length"
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "tcp_v4_rcv skb lookup",
+          "to": "sk -> tcp_add_backlog(sk, skb) -> sk->sk_backlog.len",
+          "evidence": "softirq receive path"
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "release_sock task path",
+          "to": "sk -> __release_sock -> tcp_v4_do_rcv -> tcp_grow_window -> tcp_space(sk)",
+          "evidence": "backlog drain path uses the same socket"
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "tcp_add_backlog",
+        "file": "net/ipv4/tcp_ipv4.c",
+        "line": 1741,
+        "kind": "write",
+        "code": "sk->sk_backlog.len += delta;"
+      },
+      {
+        "function": "tcp_space",
+        "file": "include/net/tcp.h",
+        "line": 1383,
+        "kind": "read",
+        "code": "sk->sk_backlog.len"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "sock initialization sets sk_backlog fields in sk_clone_lock/sk_init_common paths"
+      ],
+      "published_by": [
+        "TCP socket lookup and socket operations share struct sock across softirq and task context"
+      ],
+      "invalidated_by": [
+        "__release_sock resets sk->sk_backlog.len after draining"
+      ],
+      "freed_by": [
+        "socket teardown after references drain"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "include/net/tcp.h",
+      "net/ipv4/tcp_ipv4.c",
+      "net/ipv4/tcp_input.c",
+      "net/core/sock.c",
+      "net/sctp/diag.c",
+      "net/tipc/socket.c"
+    ],
+    "candidate_files": [
+      "net/core/dev.c",
+      "drivers/net/virtio_net.c",
+      "net/ipv4/ip_input.c"
+    ],
+    "analysis_conclusion": "The confirmed racing write is in tcp_ipv4.c and the read is the tcp_space inline used by tcp_input.c; sock.c provides the task backlog drain edge, while the other patched diagnostics files document sibling lockless reads of the same field.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [],
+    "src_file_count_before": 31,
+    "src_file_count_after": 31,
+    "compiled_files": [
+      "net/tipc/socket.c",
+      "net/sctp/diag.c",
+      "net/ipv4/tcp_ipv4.c",
+      "net/ipv4/tcp_input.c",
+      "net/core/sock.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "socket.ll",
+      "diag.ll",
+      "tcp_ipv4.ll",
+      "tcp_input.ll",
+      "sock.ll"
+    ],
+    "bitcode_linked_file_count": 5,
+    "selected_bitcode_defined_function_count": 1434
+  },
+  "evidence": {
+    "patch_hunks": [
+      "READ_ONCE added to tcp_space() and other sk_backlog.len diagnostic readers."
+    ],
+    "indirect_edges": [
+      "tcp_prot.backlog_rcv = tcp_v4_do_rcv links __release_sock() backlog draining to TCP input."
+    ],
+    "entry_discovery_log": [
+      "merged.ll contains tcp_v4_rcv, tcp_add_backlog, release_sock, __release_sock, tcp_v4_do_rcv, tcp_rcv_established, tcp_event_data_recv, and tcp_grow_window."
+    ],
+    "repair_commands": [],
+    "notes": [
+      "Ground truth stack includes lower network receive functions, but the required contract starts at the TCP protocol handler and socket release callback present in the case."
+    ]
+  }
+}

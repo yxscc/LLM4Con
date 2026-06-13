@@ -1,0 +1,1078 @@
+{
+  "pass": [
+    "CVE-2022-48830",
+    "CVE-2022-48931",
+    "CVE-2022-49215",
+    "CVE-2022-49589",
+    "CVE-2022-49607",
+    "CVE-2022-49634",
+    "CVE-2022-49641",
+    "CVE-2023-53046",
+    "CVE-2024-26861",
+    "CVE-2024-26862",
+    "CVE-2024-26984",
+    "CVE-2024-53160",
+    "CVE-2024-53186",
+    "CVE-2025-21732",
+    "CVE-2025-38104",
+    "SYZBOT-01affb1491750534",
+    "SYZBOT-08f3e9d26e5541e1",
+    "SYZBOT-0b272670f47bbf00",
+    "SYZBOT-0c155cd16222a6b8",
+    "SYZBOT-10a1def5445d4902",
+    "SYZBOT-123b88b9ddea8e98",
+    "SYZBOT-1651b5234028c294",
+    "SYZBOT-16bae128392924ec",
+    "SYZBOT-1c486d0b62032c82",
+    "SYZBOT-1f27d25f8a179480",
+    "SYZBOT-250e1a870af0ced3",
+    "SYZBOT-25ceba325246fa6c",
+    "SYZBOT-2737094b72705e0f",
+    "SYZBOT-282e13b9bc8ac284",
+    "SYZBOT-2be2f8da254ea650",
+    "SYZBOT-2d373c9936c00d7e",
+    "SYZBOT-2e4de7fe846aba66",
+    "SYZBOT-30564052abaa0857",
+    "SYZBOT-30c996283da1e6ce",
+    "SYZBOT-31ef9215c568bf85",
+    "SYZBOT-35301db28c64310d",
+    "SYZBOT-3536db46dfa58c57",
+    "SYZBOT-371a9ea56d82de71",
+    "SYZBOT-373cf39d336f4370",
+    "SYZBOT-37918fd039da476c",
+    "SYZBOT-3872b8b1d5ece2a8",
+    "SYZBOT-392f4c8f5827466f",
+    "SYZBOT-3b6b32dc50537a49",
+    "SYZBOT-3cc3a12efa69aa6f",
+    "SYZBOT-3d367d1df1d2b67f",
+    "SYZBOT-416320b6b3545cbf",
+    "SYZBOT-417aeb05fd190f3a",
+    "SYZBOT-44cf88a58d91b12b",
+    "SYZBOT-453b4249be2d6230",
+    "SYZBOT-479918f96105d14c",
+    "SYZBOT-483d6c9b9231ea7e",
+    "SYZBOT-4a03518df1e31b53",
+    "SYZBOT-4a06d4373fd52f0b",
+    "SYZBOT-4b16e156132582a9",
+    "SYZBOT-4dfb96a94317a78f",
+    "SYZBOT-52cb782c704e243e",
+    "SYZBOT-52e3dbded1f71729",
+    "SYZBOT-5366159cc4c1d817",
+    "SYZBOT-565f500a8d3fb9b7",
+    "SYZBOT-5676077ba016d741",
+    "SYZBOT-5a486fef3de40e0d",
+    "SYZBOT-5b22981f6d3c7be1",
+    "SYZBOT-5cce5938c6c2c518",
+    "SYZBOT-62955e4f963d38ab",
+    "SYZBOT-630679ddf6c0deba",
+    "SYZBOT-63cbe31877bb80ef",
+    "SYZBOT-65c6c92d04304d0a",
+    "SYZBOT-6a2a295ae3340e8e"
+  ],
+  "partial": [
+    "SYZBOT-1b830cb1f67689d4"
+  ],
+  "fail": [
+    "CVE-2022-49443",
+    "CVE-2022-49578",
+    "SYZBOT-134336b86f728d6e",
+    "SYZBOT-241a778c1f735006",
+    "SYZBOT-3c750be01dab672c",
+    "SYZBOT-548e316cdc0424e0",
+    "SYZBOT-576cc007eb9f2c96",
+    "SYZBOT-5b3f051182e44d74",
+    "SYZBOT-5c54bd3eb218bb59",
+    "SYZBOT-6182afad5045e670"
+  ],
+  "details": {
+    "CVE-2022-48830": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/can/isotp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-48931": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/configfs/dir.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49215": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/xdp/xsk.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49443": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "include/linux/list.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49578": {
+      "status": "FAIL",
+      "reasons": [
+        "no non-trivial .ll (>10KB excluding merged)",
+        "1/1 GT .c files have no .ll (['sysctl_net_ipv4'])"
+      ],
+      "n_ll": 0,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/sysctl_net_ipv4.c"
+      ],
+      "missing_ll_basenames": [
+        "sysctl_net_ipv4"
+      ]
+    },
+    "CVE-2022-49589": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/net/amt.c",
+        "net/ipv4/igmp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49607": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/events/core.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49634": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/sysctl.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2022-49641": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/sysctl.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2023-53046": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/bluetooth/hci_sync.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2024-26861": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/net/wireguard/receive.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2024-26862": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/dev.c",
+        "net/packet/af_packet.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2024-26984": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/gpu/drm/nouveau/nvkm/subdev/instmem/nv50.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2024-53160": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/rcu/tree.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2024-53186": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/smb/server/server.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2025-21732": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/infiniband/hw/mlx5/mr.c",
+        "drivers/infiniband/hw/mlx5/odp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "CVE-2025-38104": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/gpu/drm/amd/amdgpu/amdgpu_device.c",
+        "drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-01affb1491750534": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/workqueue.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-08f3e9d26e5541e1": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/rcu/srcutree.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-0b272670f47bbf00": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 3,
+      "n_src_c": 3,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/fib_semantics.c",
+        "net/ipv4/fib_trie.c",
+        "net/ipv4/route.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-0c155cd16222a6b8": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/dev.c",
+        "net/sched/sch_generic.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-10a1def5445d4902": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/datagram.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-123b88b9ddea8e98": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 3,
+      "n_src_c": 3,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/sock.c",
+        "net/sctp/diag.c",
+        "net/tipc/socket.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-134336b86f728d6e": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/rcu/tree_exp.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-1651b5234028c294": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 4,
+      "n_src_c": 4,
+      "n_gt_keys": 14,
+      "files": [
+        "net/netfilter/ipvs/ip_vs_conn.c",
+        "net/netfilter/ipvs/ip_vs_core.c",
+        "net/netfilter/ipvs/ip_vs_ctl.c",
+        "net/netfilter/ipvs/ip_vs_est.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-16bae128392924ec": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/netlink/af_netlink.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-1b830cb1f67689d4": {
+      "status": "PARTIAL",
+      "reasons": [
+        "merged.ll missing (GT lists 6 .c files) \u2014 Lace must consume individual .ll's"
+      ],
+      "n_ll": 5,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/crypto/chelsio/chtls/chtls_io.c",
+        "drivers/nvme/host/tcp.c",
+        "net/core/datagram.c",
+        "net/core/sock.c",
+        "net/ipv4/tcp.c",
+        "net/sctp/socket.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-1c486d0b62032c82": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/exec.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-1f27d25f8a179480": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 6,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_diag.c",
+        "net/ipv4/tcp_input.c",
+        "net/ipv4/tcp_ipv4.c",
+        "net/ipv4/tcp_minisocks.c",
+        "net/ipv6/tcp_ipv6.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-241a778c1f735006": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "include/net/busy_poll.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-250e1a870af0ced3": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/netlink/af_netlink.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-25ceba325246fa6c": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv6/af_inet6.c",
+        "net/ipv6/ipv6_sockglue.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-2737094b72705e0f": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/af_inet.c",
+        "net/ipv6/af_inet6.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-282e13b9bc8ac284": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 6,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/datagram.c",
+        "net/core/sock.c",
+        "net/ipv4/inet_diag.c",
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_output.c",
+        "net/sched/em_meta.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-2be2f8da254ea650": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/packet/af_packet.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-2d373c9936c00d7e": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "sound/core/seq/seq_clientmgr.c",
+        "sound/core/seq/seq_memory.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-2e4de7fe846aba66": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/net/tun.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-30564052abaa0857": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/sock.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-30c996283da1e6ce": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/tcp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-31ef9215c568bf85": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv6/sit.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-35301db28c64310d": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/net/macsec.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-3536db46dfa58c57": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/bpf/bpf_lru_list.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-371a9ea56d82de71": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 7,
+      "n_src_c": 7,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_diag.c",
+        "net/ipv4/tcp_input.c",
+        "net/ipv4/tcp_ipv4.c",
+        "net/ipv4/tcp_minisocks.c",
+        "net/ipv4/tcp_output.c",
+        "net/ipv6/tcp_ipv6.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-373cf39d336f4370": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 8,
+      "n_src_c": 8,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/stream.c",
+        "net/ipv4/tcp_bpf.c",
+        "net/llc/af_llc.c",
+        "net/smc/smc_close.c",
+        "net/smc/smc_rx.c",
+        "net/smc/smc_tx.c",
+        "net/tipc/socket.c",
+        "net/tls/tls_main.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-37918fd039da476c": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/netfilter/ipvs/ip_vs_ctl.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-3872b8b1d5ece2a8": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/rcu/tree_exp.h",
+        "kernel/rcu/tree_plugin.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-392f4c8f5827466f": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/icmp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-3b6b32dc50537a49": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/eventpoll.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-3c750be01dab672c": {
+      "status": "FAIL",
+      "reasons": [
+        "no non-trivial .ll (>10KB excluding merged)",
+        "1/1 GT .c files have no .ll (['io_uring'])"
+      ],
+      "n_ll": 0,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "io_uring/io_uring.c"
+      ],
+      "missing_ll_basenames": [
+        "io_uring"
+      ]
+    },
+    "SYZBOT-3cc3a12efa69aa6f": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/dev.c",
+        "net/core/net-sysfs.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-3d367d1df1d2b67f": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "sound/core/rawmidi.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-416320b6b3545cbf": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/dev.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-417aeb05fd190f3a": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "mm/hugetlb.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-44cf88a58d91b12b": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/raw.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-453b4249be2d6230": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/xfrm/xfrm_policy.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-479918f96105d14c": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/udp.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-483d6c9b9231ea7e": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/9p/trans_fd.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-4a03518df1e31b53": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/ext4/extents_status.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-4a06d4373fd52f0b": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "fs/notify/inotify/inotify_fsnotify.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-4b16e156132582a9": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 6,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/sock.c",
+        "net/ipv4/tcp_ipv4.c",
+        "net/llc/llc_conn.c",
+        "net/sctp/input.c",
+        "net/tipc/socket.c",
+        "net/x25/x25_dev.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-4dfb96a94317a78f": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/rcu/tree.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-52cb782c704e243e": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv6/route.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-52e3dbded1f71729": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/kcm/kcmsock.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5366159cc4c1d817": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/time/hrtimer.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-548e316cdc0424e0": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "include/net/sock.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-565f500a8d3fb9b7": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/fib_semantics.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5676077ba016d741": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/ip_tunnel.c",
+        "net/ipv6/ip6_tunnel.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-576cc007eb9f2c96": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "include/sound/rawmidi.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5a486fef3de40e0d": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "io_uring/register.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5b22981f6d3c7be1": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 2,
+      "n_src_c": 2,
+      "n_gt_keys": 14,
+      "files": [
+        "net/bridge/br_forward.c",
+        "net/bridge/br_input.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5b3f051182e44d74": {
+      "status": "FAIL",
+      "reasons": [
+        "no .c under src/",
+        "no non-trivial .ll (>10KB excluding merged)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 0,
+      "n_gt_keys": 14,
+      "files": [
+        "include/net/arp.h",
+        "include/net/ndisc.h",
+        "include/net/sock.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-5c54bd3eb218bb59": {
+      "status": "FAIL",
+      "reasons": [
+        "no non-trivial .ll (>10KB excluding merged)",
+        "1/1 GT .c files have no .ll (['posix-timers'])"
+      ],
+      "n_ll": 0,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "kernel/time/posix-timers.c"
+      ],
+      "missing_ll_basenames": [
+        "posix-timers"
+      ]
+    },
+    "SYZBOT-5cce5938c6c2c518": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 6,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+        "net/dccp/ipv4.c",
+        "net/ipv4/af_inet.c",
+        "net/ipv4/datagram.c",
+        "net/ipv4/tcp_ipv4.c",
+        "net/sctp/socket.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-6182afad5045e670": {
+      "status": "FAIL",
+      "reasons": [
+        "no non-trivial .ll (>10KB excluding merged)",
+        "6/6 GT .c files have no .ll (['conn_event', 'output', 'peer_event']...)"
+      ],
+      "n_ll": 0,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "net/rxrpc/conn_event.c",
+        "net/rxrpc/output.c",
+        "net/rxrpc/peer_event.c",
+        "net/rxrpc/proc.c",
+        "net/rxrpc/rxgk.c",
+        "net/rxrpc/rxkad.c"
+      ],
+      "missing_ll_basenames": [
+        "conn_event",
+        "output",
+        "peer_event",
+        "proc",
+        "rxgk",
+        "rxkad"
+      ]
+    },
+    "SYZBOT-62955e4f963d38ab": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 3,
+      "n_src_c": 3,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_minisocks.c",
+        "net/ipv4/tcp_output.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-630679ddf6c0deba": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 5,
+      "n_src_c": 5,
+      "n_gt_keys": 14,
+      "files": [
+        "net/core/filter.c",
+        "net/core/skbuff.c",
+        "net/core/sock.c",
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_input.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-63cbe31877bb80ef": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "sound/core/seq/seq_queue.h"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-65c6c92d04304d0a": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 1,
+      "n_src_c": 1,
+      "n_gt_keys": 14,
+      "files": [
+        "sound/core/seq/seq_queue.c"
+      ],
+      "missing_ll_basenames": []
+    },
+    "SYZBOT-6a2a295ae3340e8e": {
+      "status": "PASS",
+      "reasons": [],
+      "n_ll": 6,
+      "n_src_c": 6,
+      "n_gt_keys": 14,
+      "files": [
+        "net/ipv4/tcp.c",
+        "net/ipv4/tcp_diag.c",
+        "net/ipv4/tcp_ipv4.c",
+        "net/ipv4/tcp_minisocks.c",
+        "net/ipv4/tcp_output.c",
+        "net/ipv6/tcp_ipv6.c"
+      ],
+      "missing_ll_basenames": []
+    }
+  }
+}

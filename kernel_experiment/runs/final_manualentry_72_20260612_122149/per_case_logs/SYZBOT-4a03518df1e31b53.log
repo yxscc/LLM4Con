@@ -1,0 +1,187 @@
+[manual-entry] case=SYZBOT-4a03518df1e31b53 roots=['ext4_es_find_extent_range'] bc=extents_status.ll stamp=20260612_122149
+[Checkpoint] initialization - STARTED (Mem: 25MB, Avail: 305774MB)
+InputSrcDir: src
+InputBCFileName: extents_status.ll
+Generating CPG for project directory: src
+[Checkpoint] CPG_generation - IN_PROGRESS (Mem: 25MB, Avail: 305774MB)
+[START] Graphviz parse dot ...
+Graphviz parse dot succeed! 
+[START] CPG building ...
+CPG building succeed! 
+[Checkpoint] CPG_generation - COMPLETED (Mem: 147MB, Avail: 305816MB)
+[Checkpoint] Phasar_analysis - IN_PROGRESS (Mem: 147MB, Avail: 305816MB)
+[START] Running whole-program pointer analysis with Phasar ...
+No 'main' function found. Auto-discovering kernel entry points...
+[Auto-Entry Structural] 2 init/exit section, 0 EXPORT_SYMBOL, 0 syscall wrapper, 0 ops-table member, 3 indirect-fork sink, 0 public-wrapper alias, 15 cross-TU public (20 unique function(s))
+[Auto-Entry Cross-TU] +15 external function(s) promoted by strong-entry field conflict.
+[Auto-Entry] Total: 20 kernel entry point(s):
+  - ext4_es_cache_extent
+  - ext4_es_scan_clu
+  - ext4_init_pending
+  - ext4_init_es
+  - ext4_es_find_extent_range
+  - ext4_es_insert_extent
+  - ext4_es_count
+  - ext4_exit_es
+  - ext4_es_scan
+  - ext4_es_is_delonly
+  - ext4_es_scan_range
+  - ext4_es_remove_extent
+  - ext4_seq_es_shrinker_info_show
+  - ext4_es_delayed_clu
+  - ext4_es_lookup_extent
+  - ext4_es_register_shrinker
+  - ext4_clear_inode_es
+  - ext4_exit_pending
+  - ext4_es_insert_delayed_block
+  - ext4_remove_pending
+[Auto-Entry Diag] strong+reachable=1 (ops/init-only prunable=0)
+[Auto-Entry Tiering] thread roots: 20/20 (strong=5, weak_kept=15, broad_mode=off, broad_added=0, weak_pruned_reachable=0, weak_pruned_no_strong_conflict=0, weak_pruned_total=0)
+[Phasar] Building DIBasedTypeHierarchy...
+[Phasar] DIBasedTypeHierarchy done.
+[Phasar] Building LLVMBasedICFG (CHA)...
+[Phasar] LLVMBasedICFG done.
+[Phasar] Building LLVMAliasSet...
+[Phasar] LLVMAliasSet done.
+[Phasar] Building location maps for all functions...
+[Phasar] Processed 102/102 functions...
+[Phasar] Location maps built. Total functions: 102
+Running whole-program pointer analysis with Phasar succeed! 
+[Checkpoint] Phasar_analysis - COMPLETED (Mem: 150MB, Avail: 305823MB)
+
+[Phase 0: Discovering Thread/Lock API Wrappers]
+[Checkpoint] Phase0_ThreadAPIDiscovery - IN_PROGRESS (Mem: 150MB, Avail: 305823MB)
+[START] Thread API Discovery ...
+
+[Thread API Discovery] Scanning source code for wrapper functions...
+[Thread API Discovery] No relevant source files found.
+[Thread API Discovery] No wrapper functions discovered.
+Thread API Discovery succeed! 
+[Phase 0] Discovered and registered 0 custom API wrapper(s).
+
+[Checkpoint] Phase0_ThreadAPIDiscovery - COMPLETED (Mem: 150MB, Avail: 305823MB)
+[Checkpoint] CCPG_Analysis - IN_PROGRESS (Mem: 150MB, Avail: 305823MB)
+[START] CCPG Analysis ...
+DEBUG: Using kernel entry point -> EntryPointInfo { functionName: "ext4_es_cache_extent", fileName: "fs/ext4/extents_status.c", lineNumber: 877, signals: "", threadRoot: true }
+[DEBUG getMain] Looking for: funcName=ext4_es_cache_extent, fileName=fs/ext4/extents_status.c, fileName_last=extents_status.c, lineNumber=877
+[DEBUG getMain] methods from full path: 58
+[DEBUG getMain] Iterating 58 methods
+[DEBUG getMain] Checking method: name=EXT4_LBLK_CFILL, line=327
+[DEBUG getMain] Checking method: name=es_debug, line=21
+[DEBUG getMain] Checking method: name=EXT4_LBLK_CMASK, line=324
+[DEBUG getMain] Checking method: name=EXT4_FC_REPLAY, line=1104
+[DEBUG getMain] Checking method: name=EXT4_B2C, line=315
+[DEBUG getMain] Checking method: name=__revise_pending, line=2129
+[DEBUG getMain] Checking method: name=ext4_es_delayed_clu, line=2092
+[DEBUG getMain] Checking method: name=ext4_es_insert_delayed_block, line=1982
+[DEBUG getMain] Checking method: name=__remove_pending, line=1915
+[DEBUG getMain] Checking method: name=EXT4_LBLK_COFF, line=332
+[DEBUG getMain] Checking method: name=__get_pending, line=1834
+[DEBUG getMain] Checking method: name=ext4_init_pending_tree, line=1820
+[DEBUG getMain] Checking method: name=ext4_init_pending, line=1807
+[DEBUG getMain] Checking method: name=ext4_clear_inode_es, line=1763
+[DEBUG getMain] Checking method: name=ext4_es_unregister_shrinker, line=1672
+[DEBUG getMain] Checking method: name=ext4_seq_es_shrinker_info_show, line=1582
+[DEBUG getMain] Checking method: name=__es_shrink, line=1464
+[DEBUG getMain] Checking method: name=__es_scan_range, line=339
+[DEBUG getMain] Checking method: name=__es_scan_clu, line=389
+[DEBUG getMain] Checking method: name=__es_delayed_clu, line=2039
+[DEBUG getMain] Checking method: name=ext4_es_find_extent_range, line=307
+[DEBUG getMain] Checking method: name=DEFINE_RATELIMIT_STATE, line=1740
+[DEBUG getMain] Checking method: name=ext4_es_scan_clu, line=405
+[DEBUG getMain] Checking method: name=ext4_es_scan_range, line=359
+[DEBUG getMain] Checking method: name=ext4_es_list_add, line=421
+[DEBUG getMain] Checking method: name=count_rsvd, line=1049
+[DEBUG getMain] Checking method: name=__es_tree_search, line=208
+[DEBUG getMain] Checking method: name=ext4_remove_pending, line=1938
+[DEBUG getMain] Checking method: name=ext4_es_remove_extent, line=1431
+[DEBUG getMain] Checking method: name=<global>, line=1
+[DEBUG getMain] Checking method: name=__pr_tree_search, line=1131
+[DEBUG getMain] Checking method: name=ext4_exit_es, line=164
+[DEBUG getMain] Checking method: name=ext4_es_init_tree, line=169
+[DEBUG getMain] Checking method: name=get_rsvd, line=1172
+[DEBUG getMain] Checking method: name=ext4_exit_pending, line=1815
+[DEBUG getMain] Checking method: name=ext4_init_es, line=156
+[DEBUG getMain] Checking method: name=es_reclaim_extents, line=1735
+[DEBUG getMain] Checking method: name=ext4_es_count, line=1552
+[DEBUG getMain] Checking method: name=ext4_es_insert_extent_check, line=748
+[DEBUG getMain] Checking method: name=ext4_es_list_del, line=437
+[DEBUG getMain] Checking method: name=ext4_es_insert_extent, line=812
+[DEBUG getMain] Checking method: name=ext4_es_can_be_merged, line=503
+[DEBUG getMain] Checking method: name=ext4_is_pending, line=1957
+[DEBUG getMain] Checking method: name=ext4_es_alloc_extent, line=451
+[DEBUG getMain] Checking method: name=ext4_es_end, line=198
+[DEBUG getMain] Checking method: name=ext4_es_cache_extent, line=877
+[DEBUG getMain] Found main! Creating CCPGNode
+[Manual Entry Mode] automatic entry-point discovery DISABLED; using 1 configured thread root(s): ext4_es_find_extent_range
+[Kernel Module Mode] Adding 1 thread-root entry points as parallel entries
+  - Looking for: ext4_es_find_extent_range -> demangled: ext4_es_find_extent_range -> shortName: ext4_es_find_extent_range [signals=manual]
+  - Found in CPG: ext4_es_find_extent_range at fs/ext4/extents_status.c:307
+  - Added entry: ext4_es_find_extent_range
+[Kernel Module Mode] Total entry functions: 1
+Warning: Could not map CPG function 'EXT4_FC_REPLAY' to an llvm::Function.
+Warning: Could not map CPG function 'es_debug' to an llvm::Function.
+Warning: Could not map CPG function 'ES_MASK' to an llvm::Function.
+Warning: Could not map CPG function 'ES_SHIFT' to an llvm::Function.
+[START] Building thread creation tree ...
+[Kernel Module Mode] Treating 1 entry points as parallel threads
+[Kernel Module Mode] Keeping all 1 threads for parallel analysis
+Building thread creation tree succeed! 
+[START] LockSet Analysis ...
+LockSet Analysis succeed! 
+[START] HBGraph ...
+HBGraph succeed! 
+CCPG Analysis succeed! 
+[Checkpoint] CCPG_Analysis - COMPLETED (Mem: 150MB, Avail: 305823MB)
+[Checkpoint] LLM_Analysis - IN_PROGRESS (Mem: 150MB, Avail: 305823MB)
+
+[Analysis Mode] Thread-contract (per-object interleaving)
+
+--- Starting Thread-Contract Concurrency Analysis (interleaving) --- contracts=on
+
+[Phase 1: Generating Vulnerability Surface (static)]
+[VulnerabilitySurface] Generating variable-centric vulnerability surface for 1 threads...
+[VulnerabilitySurface] Collected 43 raw memory accesses across all threads (field-level)
+[VulnerabilitySurface] IR call-graph extension reached 5 extra llvm::Function(s) across threads (P4 v19)
+[VulnerabilitySurface] IR-walk fallback added 0 intrinsic-side accesses (memcpy/memset/atomicrmw/cmpxchg) and 213 plain Load/Store accesses across 0 empty thread(s) (P1+P2 v19)
+[VulnerabilitySurface] Discovered 3 element->head linkage(s) from list_add* sites
+[VulnerabilitySurface] Modeled 4 self-race object(s) (reentrant entry vs. itself)
+[VulnerabilitySurface] Found 4 shared objects accessed by 2+ threads
+[VulnerabilitySurface] Complete: 4 shared objects (4 high risk, 0 medium risk)
+
+  Threads: 1, Conflicting pairs: 72, Shared objects: 4
+
+[Phase 2: Contracts folded into per-cluster sessions (scoped assume/guarantee derived inline; source reused across sessions)]
+  [phaseA-b0] surface_pairs=4, mhp_pairs=4, conflict_pairs=4, self_race_threads=0, candidate_threads=2
+
+[Phase A: Per-Thread Contracts] threads=2
+  [contract-parallel] workers=2
+  [contract 1/2 w0] thread 0 objects=4
+  [contract-parallel] generated 1/2 contracts
+
+[Phase B/C: Static Composition + Calibration] sessions=1
+  [session 1/1] candidates hi=4 med=0 low=0 (discharged=0) -> calibrate
+  [dedup] 4 -> 3 hypotheses (merged near-duplicate root causes)
+
+--- Static-Composition Analysis Finished: 3 hypotheses (calibrated 1 sessions over 1 sessions) ---
+
+[Checkpoint] LLM_Analysis - COMPLETED (Mem: 152MB, Avail: 303145MB)
+[Checkpoint] Bug_Detection - IN_PROGRESS (Mem: 152MB, Avail: 303145MB)
+
+[Phase 4: Detecting Violations (Mechanism Rules)]
+    [!!!] POTENTIAL C2 atomicity/data_race on extent_status.es_len VIOLATION FOUND: interleave_3
+    [!!!] POTENTIAL C1 atomicity/data_race on extent_status.es_lblk VIOLATION FOUND: interleave_2
+    [!!!] POTENTIAL C4 atomicity/data_race on extent-status cache pointer VIOLATION FOUND: interleave_1
+Bug detection complete. 3 potential bug(s) found.
+  - Mechanism-Rule Violations: 3
+Results saved to: "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/LLM_dump/SYZBOT-4a03518df1e31b53_2026-06-12_15-02-06/stateful_bugs/bugs.txt"
+[Checkpoint] Bug_Detection - COMPLETED (Mem: 152MB, Avail: 303145MB)
+LLM-guided analysis complete. Results are in the output directory.
+
+========== Analysis Statistics ==========
+Total Time: 522 seconds
+LLM API Requests: 18
+Total Prompt Tokens: 244023
+Total Completion Tokens: 13381
+Total Tokens: 257404
+==========================================

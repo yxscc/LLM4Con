@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-30c996283da1e6ce",
+  "tier": "A",
+  "title": "KCSAN: data-race in tcp_chrono_stop / tcp_recvmsg",
+  "mainline_sha": "a5a7daa52edb5197a3b696afee13ef174dc2e993",
+  "all_shas_seen": [
+    "30c996283da1e6cea5e9106d2f522b12831cf64c",
+    "a5a7daa52edb5197a3b696afee13ef174dc2e993"
+  ],
+  "c_paths": [
+    "net/ipv4/tcp.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

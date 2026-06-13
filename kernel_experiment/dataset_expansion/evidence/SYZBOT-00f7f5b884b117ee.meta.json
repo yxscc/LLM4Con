@@ -1,0 +1,30 @@
+{
+  "bug_id": "SYZBOT-00f7f5b884b117ee",
+  "tier": "B",
+  "title": "possible deadlock in __nilfs_error (3)",
+  "mainline_sha": "fb881cd7604536b17a1927fb0533f9a6982ffcc5",
+  "all_shas_seen": [
+    "00f7f5b884b117ee6773",
+    "fb881cd7604536b17a1927fb0533f9a6982ffcc5",
+    "7a13c14ee59d4f6c5f4277a86516cbc73a1383a8",
+    "0d8d44db295ccad20052d6301ef49ff01fb8ae2d",
+    "e8ab83e34bdc458b5cd77f201e4ed04807978fb1",
+    "ca91b9500108d4cf083a635c2e11c884d5dd20ea",
+    "f15d97df5afae16f40ecef942031235d1c6ba14f",
+    "b4432656b36e5cc1d50a1f2dc15357543add530e",
+    "f1a3944c860b0615d0513110d8cf62bb94adbb41",
+    "c3137514f1f13532bec4083832e7b95b90b73abc",
+    "bec6f00f120ea68ba584def5b7416287e7dd29a7",
+    "0e1329d4045ca3606f9c06a8c47f62e758a09105",
+    "9c69f88849045499e8ad114e5e13dbb3c85f4443",
+    "2c89c1b655c0b06823f4ee8b055140d8628fc4da",
+    "d76bb1ebb5587f66b0f8b8099bfbb44722bc08b3",
+    "2bfcee565c3a36f2781152a767d34c9dc5432f95",
+    "c32f8dc5aaf9f61b36dc3fa90e94e0d860cdf16a"
+  ],
+  "c_paths": [
+    "fs/nilfs2/the_nilfs.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 1
+}

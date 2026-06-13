@@ -1,0 +1,70 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-0333a6f4b88bcd68",
+  "source": "syzbot",
+  "title": "possible deadlock in udf_setsize",
+  "description": "possible deadlock in udf_setsize",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in udf_setsize"
+  },
+  "fix_commit": "8832fc1e502687869606bb0a7b79848ed3bf036f",
+  "affected_files": [
+    "fs/udf/file.c",
+    "fs/udf/inode.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/udf/file.c",
+      "changed_lines": [
+        "+\t\tfilemap_invalidate_lock(inode->i_mapping);",
+        "+\t\tfilemap_invalidate_unlock(inode->i_mapping);"
+      ],
+      "hunks": [
+        {
+          "old_start": 232,
+          "new_start": 232
+        }
+      ]
+    },
+    {
+      "path": "fs/udf/inode.c",
+      "changed_lines": [
+        "-\tfilemap_invalidate_lock(inode->i_mapping);",
+        "-\t\t\t\tgoto out_unlock;",
+        "+\t\t\t\treturn err;",
+        "-\t\t\tgoto out_unlock;",
+        "+\t\t\treturn err;",
+        "-\t\t\tgoto out_unlock;",
+        "+\t\t\treturn err;",
+        "-\t\t\tgoto out_unlock;",
+        "+\t\t\treturn err;",
+        "-out_unlock:",
+        "-\tfilemap_invalidate_unlock(inode->i_mapping);"
+      ],
+      "hunks": [
+        {
+          "old_start": 1248,
+          "new_start": 1248
+        },
+        {
+          "old_start": 1261,
+          "new_start": 1260
+        },
+        {
+          "old_start": 1283,
+          "new_start": 1282
+        },
+        {
+          "old_start": 1298,
+          "new_start": 1297
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-0333a6f4b88bcd68/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-0333a6f4b88bcd68/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-0333a6f4b88bcd68"
+}

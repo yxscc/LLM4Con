@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-5366159cc4c1d817",
+  "shared_object": "struct hrtimer::state",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "hrtimer softirq timer-state writer",
+    "entry": "hrtimer_run_softirq",
+    "clause": {
+      "resource": "timer->state",
+      "sites": [
+        {"function": "__remove_hrtimer", "file": "kernel/time/hrtimer.c", "line": 991, "op_kind": "WRITE"},
+        {"function": "enqueue_hrtimer", "file": "kernel/time/hrtimer.c", "line": 969, "op_kind": "WRITE"}
+      ],
+      "assume": [],
+      "guarantee_protection": ["serialize(timer base cpu_base->lock, write(timer->state))"]
+    }
+  },
+  "thread_b": {
+    "role": "TCP path lockless queued-state reader",
+    "entry": "tcp_sendmsg",
+    "clause": {
+      "resource": "timer->state",
+      "sites": [
+        {"function": "hrtimer_is_queued", "file": "include/linux/hrtimer.h", "line": 456, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(timer->state)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(timer->state)]) from thread_b (the lockless hrtimer_is_queued read must not race a concurrent state write)",
+    "violating_event": "e@__remove_hrtimer:991 = write(timer->state = newstate)",
+    "missing_guarantee": "the writer holds the per-CPU timer base lock, but hrtimer_is_queued reads timer->state intentionally lockless from softirq/IRQ vs task context; the two accesses share no lock, so no serialize(g) establishes the single-access atomicity the reader assumes",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write to the one-byte state field -> data race (KCSAN reported)"
+  },
+
+  "fix_maps_to": "patch wraps the writes (enqueue_hrtimer/__remove_hrtimer) in WRITE_ONCE and the read (hrtimer_is_queued) in READ_ONCE -> makes the conflicting single access atomic; this is a tearing annotation, not a serialize/order/counts synchronization guarantee",
+  "recall_plausibility": "low",
+  "recall_risk_notes": "Object and sites are in the static surface, so the pair is findable, and the category maps to atomic(single access)=data_race. But hrtimer_is_queued is explicitly documented as a lockless snapshot that tolerates staleness, so the reader carries no semantic order intent beyond no-tearing. Our design wants an order/atomicity intent; here the LLM is likely to adjudicate the read as a benign best-effort snapshot and reject it (precision pressure), or only a pure-syntactic-race detector would flag it. The added READ_ONCE/WRITE_ONCE does not map onto serialize/order/counts.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

@@ -1,0 +1,50 @@
+{
+  "bug_id": "SYZBOT-1c486d0b62032c82",
+  "shared_object": "struct fs_struct::in_exec (CLONE_FS gating state flag, shared via CLONE_FS)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "execve state writer (sets in_exec under mutex, clears it lockless)",
+    "entry": "bprm_execve",
+    "clause": {
+      "resource": "fs->in_exec",
+      "sites": [
+        {"function": "check_unsafe_exec", "file": "fs/exec.c", "line": 1633, "op_kind": "WRITE"},
+        {"function": "bprm_execve", "file": "fs/exec.c", "line": 1863, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([set in_exec=1 @check_unsafe_exec:1633, clear in_exec=0 @bprm_execve:1863])"],
+      "guarantee_protection": ["serialize(cred_guard_mutex + p->fs->lock, [set in_exec=1 @check_unsafe_exec:1633])"]
+    }
+  },
+  "thread_b": {
+    "role": "CLONE_FS observer (peer thread sharing the same fs_struct)",
+    "entry": "copy_fs",
+    "clause": {
+      "resource": "fs->in_exec",
+      "sites": [
+        {"function": "copy_fs", "file": "kernel/fork.c", "line": 0, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([in_exec stays set throughout one exec's cred_guard_mutex window])"],
+      "guarantee_protection": ["serialize(fs->lock, [read in_exec @copy_fs])"]
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([set in_exec=1 ... clear in_exec=0]) -- the flag's set->clear lifecycle must be a single region serialized by cred_guard_mutex so a peer exec/clone cannot observe a prematurely cleared flag",
+    "violating_event": "e@bprm_execve:1863 = current->fs->in_exec = 0 executed LOCKLESS (after a failed exec has already dropped cred_guard_mutex); per the commit: T1 set=1, fails, drops mutex; T2 set=1; T1 clears -> T2 proceeds with in_exec==0",
+    "missing_guarantee": "the clear at :1863 is outside cred_guard_mutex (and outside fs->lock), so cred_guard_mutex does NOT serialize the set..clear region across peer exec/clone threads; the set is protected but the clear escapes the critical section, so nothing establishes the atomic region",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "atomicity_violation",
+    "category_rationale": "rho = atomic(region) over the flag's set->clear lifecycle, broken by a peer thread's clear escaping the cred_guard_mutex window (lost-update / premature-clear). KCSAN/GT surfaced it as 'data_race' (lockless clear vs fs->lock read), but the real shape and fix (mutex serialization) make it an atomicity violation, not a benign torn read."
+  },
+
+  "fix_maps_to": "patch removes the two lockless clears in bprm_execve() and instead clears current->fs->in_exec=0 in begin_new_exec() (after de_thread, mutex still held) and in free_bprm() (before mutex_unlock) -> serialize(cred_guard_mutex, [set..clear region]) -> establishes the atomic region. This is a REAL synchronization fix (unlike the *_ONCE-only KCSAN cases).",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "(1) The GT-designated reader copy_fs lives in kernel/fork.c which is NOT in the focused src/bitcode (present_in_src=false), so the static layer may not find that second context; recall partly rests on detecting the writer-vs-writer self-race within fs/exec.c (T1 clear vs T2's check_unsafe_exec set), which IS present. (2) The assume is an atomic REGION whose set (check_unsafe_exec) and clear (bprm_execve/begin_new_exec/free_bprm) live in different functions, joined only by cred_guard_mutex being held across the whole exec; the LLM must track the mutex's hold span across the call chain and recognize the failure-path clear escapes it -- a subtle region-boundary inference. (3) in_exec is a semantic state-guard flag (the 4.6.9 motivating shape) that static is blind to, so the assume genuinely depends on LLM intent reasoning. Higher value if recovered, but several places to slip.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

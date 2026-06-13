@@ -1,0 +1,27 @@
+{
+  "commit": "4b397c06cb987935b1b097336532aa6b4210e091",
+  "user_seeds": [
+    "net/ipv4/ip_output.c",
+    "net/ipv4/ip_tunnel.c",
+    "net/ipv6/ip6_tunnel.c"
+  ],
+  "patch_files": [
+    "include/linux/netdevice.h",
+    "net/ipv4/ip_tunnel.c",
+    "net/ipv6/ip6_tunnel.c"
+  ],
+  "changed_symbols_sample": [
+    "HH_DATA_MOD",
+    "hard_header_len",
+    "max_headroom",
+    "needed_headroom",
+    "skb_cow_head"
+  ],
+  "expanded": [
+    "include/linux/netdevice.h",
+    "net/ipv4/ip_output.c",
+    "net/ipv4/ip_tunnel.c",
+    "net/ipv6/ip6_tunnel.c"
+  ],
+  "added_by_expander": {}
+}

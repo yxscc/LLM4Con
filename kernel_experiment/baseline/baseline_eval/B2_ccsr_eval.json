@@ -1,0 +1,1593 @@
+{
+  "timestamp": "2026-05-18T13:11:29",
+  "model": "gpt-5.5-2026-04-24",
+  "total_cves": 100,
+  "cves_with_detection": 100,
+  "recall_hits": 44,
+  "recall_misses": 56,
+  "judge_errors": 0,
+  "recall_overall": 44.0,
+  "recall_among_with_output": 44.0,
+  "per_bug": {
+    "total": 47,
+    "tp_match": 47,
+    "tp_related": 0,
+    "fp": 0,
+    "fp_rate": 0.0,
+    "precision_strict": 100.0,
+    "precision_lenient": 100.0
+  },
+  "llm_error_rate": 0.0,
+  "details": [
+    {
+      "cve_id": "CVE-2013-1792",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2013-1792_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the install_user_keyrings race on user uid/session keyrings fixed by the patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2015-7550",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2015-7550_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the keyctl_read_key/keyctl_revoke semaphore race fixed by validating under key->sem.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2016-7911",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2016-7911_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report describes the CVE race in get_task_ioprio on p->io_context, fixed by adding task_lock/task_unlock in block/ioprio.c.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same function and shared object as CVE: unlocked p->io_context access in get_task_ioprio racing with exit_io_context causing UAF."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2016-9806",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2016-9806_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the netlink_dump cleanup race on cb->module/cb->skb in af_netlink.c around line 2138, matching the patched CVE double-free/UAF.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared state cb->module/cb->skb in netlink_dump, same race/double-free pattern, and overlaps patched cleanup lines in af_netlink.c."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2017-15265",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2017-15265_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the ALSA sequencer port create/delete race on snd_seq_client_port with missing use_lock ref and overlaps patched snd_seq_create_port/snd_seq_ioctl_create_port.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: race/UAF on newly created ALSA sequencer port lacking use_lock protection, overlapping seq_ports.c:151 and seq_clientmgr.c create-port fix."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2017-6346",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2017-6346_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the CVE race in af_packet fanout_add over po->rollover, concurrent PACKET_FANOUT setsockopt, erroneous free on error path, and overlaps patched lines/functions.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: unsynchronized fanout_add PACKET_FANOUT race on po->rollover with UAF via freeing installed rollover; overlaps patched af_packet.c sites."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2022-48830",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-48830_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports for the isotp_rcv() receive-side race on so->rx state fixed by rx_lock.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2022-48931",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-48931_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the configfs register/unregister subsystem list race fixed by adding configfs_subsystem_mutex.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2022-49215",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-49215_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report describes the AF_XDP xsk teardown race involving xsk_unbind_dev vs xsk_sendmsg/recvmsg/poll and xs state/dev access, overlapping patched xsk.c functions.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: unsynchronized AF_XDP socket teardown with data-plane sendmsg/recvmsg/poll using xs state/dev after unbind; overlaps patched xsk_sendmsg path."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2022-49589",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-49589_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the sysctl_igmp_qrv data-race fixed by adding READ_ONCE() in igmp/amt readers.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2022-49607",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-49607_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the perf_event_set_output()/perf_mmap_close() race on perf ring_buffer event_list/mmap_count.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2022-49634",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-49634_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the data race on sysctl-backed u8 data in proc_dou8vec_minmax and the missing READ_ONCE/WRITE_ONCE at the patched kernel/sysctl.c site.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared object (*table->data u8 sysctl value), same data-race pattern, and overlaps patched proc_dou8vec_minmax READ_ONCE/WRITE_ONCE accesses."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2022-49641",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2022-49641_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the exact proc_douintvec sysctl unsigned int data race fixed by adding READ_ONCE/WRITE_ONCE in kernel/sysctl.c.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: same sysctl shared value *valp, same proc_douintvec conversion code, same data race/load-store tearing fixed by READ_ONCE/WRITE_ONCE."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2023-53046",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2023-53046_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the hci_cmd_sync_clear race on hdev->cmd_sync_work_list fixed by adding cmd_sync_work_lock, causing UAF with hci_cmd_sync_work/queue.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared list and lock, same hci_cmd_sync_clear cleanup/free race with hci_cmd_sync_work/queue, overlapping patched function."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-26861",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-26861_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the WireGuard receiving_counter.counter data race in receive.c.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-26862",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-26862_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the ignore_outgoing data race between packet_setsockopt and dev_queue_xmit_nit/packet_getsockopt.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-26974",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-26974_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the reset_data UAF between adf_dev_aer_schedule_reset timeout/free and adf_device_reset_worker access/free, matching the patched QAT AER recovery race.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same reset_data UAF in adf_aer.c with overlapping scheduler/worker paths and the exact timeout ownership fix using completion_done()."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-26984",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-26984_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the nouveau instmem ptr/refcount memory-ordering race fixed by barriers in nv50_instobj_acquire.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-27019",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-27019_2026-05-11_15-44-40",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the nf_tables_objects list race between __nft_obj_type_get()/nft_obj_type_get() and nft_unregister_obj(), matching the patched RCU traversal/locking.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared nf_tables_objects list, same race with nft_unregister_obj(), and overlaps patched __nft_obj_type_get()/nft_obj_type_get() RCU fix."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-27030",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-27030_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same PF/VF mailbox IRQ shared-handler race in rvu.c, including rvu_mbox_intr_handler and rvu_register_interrupts separation fixed by the patch.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: shared PF/VF AF mailbox interrupt handler race causing concurrent processing/corruption; cites rvu.c:2528 and correct fix separation."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-27404",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-27404_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the same MPTCP subflow->remote_id data race and cites the patched read/write sites in pm_netlink.c and subflow.c.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared field subflow->remote_id, same data-race pattern, and overlaps all key patched functions/lines using READ_ONCE/WRITE_ONCE."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-35898",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-35898_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the unprotected nf_tables_flowtables iteration in __nft_flowtable_type_get()/nft_flowtable_type_get racing nft_unregister_flowtable_type(), matching the CVE fix.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared list nf_tables_flowtables, same functions and race/UAF pattern fixed by adding RCU iteration and rcu_read_lock()."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-35977",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-35977_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the cros_ec_uart_probe ordering race involving opening serdev before setting client ops.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-35986",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-35986_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the cached tusb->charger power_supply reference UAF in tusb1210_get_online after charger unregister, matching the patched code.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same stale cached struct power_supply * tusb->charger UAF, overlapping tusb1210_get_online and matching upstream fix pattern."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-35999",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-35999_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies cifs_pick_channel reading ses->chans[index].server after releasing ses->chan_lock, exactly matching the CVE patch site and missing-lock issue.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared state ses->chans/index, same missing chan_lock in cifs_pick_channel, and overlaps patched transport.c lines."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-36938",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-36938_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the skmsg/sk_psock callback_lock NULL pointer data race fixed by the CVE patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-38596",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-38596_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so it did not identify the sk->sk_shutdown data race between unix_release_sock and unix_stream_sendmsg.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-39503",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-39503_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 2,
+      "n_reports_judged": 2,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Reports identify the ipset list:set GC/namespace-destroy race and missing RCU protection in patched functions ip_set_destroy/_destroy_all_sets and list_set_utest/list traversal.",
+      "matched_bug_indices": [
+        1,
+        2
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: ip_set_core destroy ordering, cancel_gc/rcu_barrier/free sequencing, and namespace teardown race causing UAF."
+        },
+        {
+          "idx": 2,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE patch part: list:set map->members traversal in ip_set_list_set.c lacked RCU locking/RCU list iteration, risking UAF."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-39508",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-39508_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies data races on io_worker::flags in io_uring/io-wq.c with overlapping patched functions using non-atomic flag accesses.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared object worker->flags, same data-race pattern, and overlaps patched io-wq flag access sites such as __io_worker_busy/running/sleeping."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-40953",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-40953_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the data race on kvm->last_boosted_vcpu in kvm_vcpu_on_spin(), with the same READ_ONCE/WRITE_ONCE fix sites and OOB vCPU index consequence.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared field last_boosted_vcpu, same function kvm_vcpu_on_spin(), same read/write race fixed by READ_ONCE/WRITE_ONCE."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-41005",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-41005_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the netpoll_owner_active race on napi->poll_owner fixed by READ_ONCE in net/core/netpoll.c.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-41081",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-41081_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the missing BH exclusion in ila_output around dst_cache_get/set_ip6 on ilwt->dst_cache, matching the CVE fix site and race mechanism.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same ilwt->dst_cache race in ila_output due to dst_cache helpers called without local_bh_disable; overlaps patched lines."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-42234",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-42234_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same deferred split vs folio migration race on large folios, involving mem_cgroup_migrate() and folio_migrate_mapping() at the patched sites.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: large folio deferred split queue removal races with migration; cites patched memcontrol.c and migrate.c locations and same freeze/removal fix."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-43830",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-43830_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same LED trigger sysfs teardown race/UAF fixed by moving device_remove_groups() before deactivate() in led_trigger_set().",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: trigger sysfs attributes remain registered while deactivate() frees trigger_data, enabling concurrent sysfs UAF in led_trigger_set()."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-43891",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-43891_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same trace_event_file/format-file UAF due to missing EVENT_FILE_FL_FREED validation and cites patched trace_events paths.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: format/event file metadata UAF from event_file_data without EVENT_FILE_FL_FREED check; overlaps patched functions/lines."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-45000",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-45000_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the fscache_cookie n_accesses race fixed in fscache_cookie_state_machine.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-46704",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-46704_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the __flush_work work->data spurious KCSAN race fixed by testing from_cancel before reading data.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-47715",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-47715_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the mt76_wcid_cleanup invalid dev->phys[wcid->phy_idx] dereference fixed by mt76_dev_phy().",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-50082",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-50082_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the rq_qos_wait/rq_qos_wake_function race on stack waitqueue data and overlaps the patched list_del_init site in blk-rq-qos.c.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: use-after-return race on stack waitqueue/rq_qos_wait_data in rq_qos_wake_function at patched list_del_init site."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-53124",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-53124_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the sk->sk_forward_alloc race in tcp_v6_do_rcv/dccp_v6_do_rcv fixed by the patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-53136",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-53136_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the shmem_getattr inode lock/unlock change for CVE-2024-53136.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-53160",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-53160_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the same krcp->monitor_work.timer.expires data race in schedule_delayed_monitor_work/kvfree_call_rcu versus queue_delayed_work/__mod_timer fixed by the patch.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared timer field, same RCU kvfree delayed-work race, and overlaps patched tree.c schedule_delayed_monitor_work/kvfree_call_rcu code."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-53186",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-53186_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the ksmbd_conn UAF between handle_ksmbd_work r_count decrement/wakeup and conn free, overlapping patched server.c code.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same ksmbd_conn lifetime race: worker decrements r_count then accesses r_count_q after possible free; overlaps handle_ksmbd_work patch."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-56555",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-56555_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the exact binder_add_freeze_work race with binder_deferred_release moving proc->nodes to binder_dead_nodes, fixed by proc->is_dead check.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: same proc->nodes/binder_dead_nodes union race, binder_add_freeze_work vs binder_deferred_release, and missing proc->is_dead check at patch site."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-56788",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-56788_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the oa_tc6 tx_skb_lock race between waiting_tx_skb and ongoing_tx_skb fixed in oa_tc6_prepare_spi_tx_buf_for_tx_skbs/start_xmit.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-58072",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2024-58072_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the stale rtl_global_var.glb_priv_list rtl_priv entry added in _rtl_pci_find_adapter and not removed on failed probe, matching the patched CVE UAF.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same global rtl_priv list UAF, same add site in pci.c and failed-probe stale entry root cause as CVE patch."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-21732",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-21732_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the ODP MR revoke/invalidate race fixed by locking umem_mutex and clearing umem_odp->private.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-22050",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-22050_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none could match the usbnet rx_submit/usbnet_going_away race causing rx_complete NPE.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-23142",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-23142_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 3,
+      "n_reports_judged": 3,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Reports describe the SCTP sendmsg race where transport can be removed/freed while sctp_wait_for_sndbuf drops the socket lock, matching patched transport ref/dead checks.",
+      "matched_bug_indices": [
+        1,
+        2,
+        3
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Directly matches CVE: sctp_sendmsg_to_asoc/sctp_wait_for_sndbuf fail to hold/check selected transport during socket lock release, causing UAF."
+        },
+        {
+          "idx": 2,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE state fix: missing sctp_transport dead bit prevents send path from detecting transport removal after wait, leading to stale transport use."
+        },
+        {
+          "idx": 3,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE free-side fix: transport teardown must mark dead so concurrent sendmsg wait/resume path can avoid using freed transport."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-23151",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-23151_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report describes the race between mhi_unprepare_from_transfer() teardown and mhi_queue_buf()/mhi_gen_tre() using deinitialized channel rings, matching the patched mhi_gen_tre() state check.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared mhi_chan state/rings, same unprepare vs queue_buf race, and overlaps patched mhi_gen_tre() code."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-37772",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-37772_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the rdma_cm_id net_work reinitialization race in cma_netevent_callback/__rdma_create_id.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-37854",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-37854_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same KFD cleanup vs GPU reset/user queue UAF race and cites kfd_process_wq_release at the patch insertion site.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same vulnerability: KFD frees BO/system memory while GPU queues may still run during mode1 reset; overlaps patched kfd_process_wq_release wait."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-37882",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-37882_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the exact xHCI isochronous underrun/overrun event race fixed in handle_tx_event via ring_xrun_event guards preventing premature TD/URB completion.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared xHCI endpoint/ring TD state, same xrun event handling in xhci-ring.c:handle_tx_event, and same premature completion/UAF race fixed by the patch."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-37920",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-37920_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the AF_XDP generic RX shared UMEM race fixed by moving rx_lock from xdp_sock to xsk_buff_pool in xsk_generic_rcv.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared xsk_buff_pool/FILL queue race in xsk_generic_rcv using per-socket xs->rx_lock instead of shared pool rx_lock."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-38037",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38037_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the vxlan FDB used/updated data races fixed with READ_ONCE/WRITE_ONCE.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38048",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38048_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the virtio_ring event_triggered data-race fix in virtqueue_enable_cb_delayed.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38078",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38078_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the same OSS PCM runtime->dma_area race/UAF at snd_pcm_oss_change_params_locked():1079 fixed by moving silence fill under PCM buffer access lock.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Matches CVE: unsynchronized snd_pcm_format_set_silence on runtime->dma_area in pcm_oss.c, requiring locked helper in pcm_native.c."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-38104",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38104_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the rlcg_reg_lock mutex-in-invalid-context issue in amdgpu_virt_rlcg_reg_rw fixed by conversion to spinlock.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38165",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38165_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the skmsg sockmap skb_get/skb_linearize shared-skb issue fixed in sk_psock_skb_ingress* paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38217",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38217_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the fts_read fan_source TOCTOU fixed by the patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38242",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38242_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the userfaultfd_move swap-cache TOCTOU in mm/userfaultfd.c/move_swap_pte fixed by validating folio swapcache/entry and rechecking swap_map under PTL.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same swap-cache/userfaultfd_move race at move_swap_pte; stale/missing folio after lockless lookup matches patched validation and retry logic."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-38250",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38250_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 describes the hci_dev_reset vs hci_unregister_dev lifetime race fixed by SRCU, including vhci_release/vhci_flush UAF and overlapping hci_core.c fix sites.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same hci_dev/VHCI private data UAF race, same reset/unregister functions, and directly matches SRCU synchronization patch sites."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-38337",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38337_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the jbd2_journal_dirty_metadata race on jh->b_modified / handle transaction null deref fixed by the patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2025-38383",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38383_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies shared m->private NUMA counters in show_numa_info/vmalloc_info_show racing across concurrent /proc/vmallocinfo readers, matching the CVE fix.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared counters from m->private, same data-race pattern, and overlaps patched show_numa_info/vmalloc_info_show/proc init logic."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2025-38429",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/CVE-2025-38429_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 matches the CVE: premature rd_offset/rp update in mhi_ep_ring_add_element before write_sync exposes incomplete MHI ring elements.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same MHI EP ring ordering bug in mhi_ep_ring_add_element: read pointer published before write_sync of element, matching patched code."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-01affb1491750534",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-01affb1491750534_2026-05-14_17-03-28",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the process_one_work data race on pwq->stats[PWQ_STAT_COMPLETED].",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-08f3e9d26e5541e1",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-08f3e9d26e5541e1_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the data race on srcu_last_gp_end between srcu_gp_end/process_srcu and srcu_might_be_idle/synchronize_srcu.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-123b88b9ddea8e98",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-123b88b9ddea8e98_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the sk->sk_backlog.len data race fixed with READ_ONCE in tcp/sock/sctp/tipc paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-1b830cb1f67689d4",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-1b830cb1f67689d4_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the sk_receive_queue lockless access/data race fixed in datagram receive/poll paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-1c486d0b62032c82",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-1c486d0b62032c82_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the same fs_struct->in_exec race in exec, including the removed clear at fs/exec.c:1865 and the cred_guard_mutex locking discipline fixed by the patch.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared field fs_struct->in_exec, same data race/root cause, and cites patched bprm_execve line 1865 plus intended protected clearing."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-2d373c9936c00d7e",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-2d373c9936c00d7e_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the snd_seq_poll/snd_seq_pool_init race fixed by locking snd_seq_pool_poll_wait and removing unlocked allocation checks.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-2e4de7fe846aba66",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-2e4de7fe846aba66_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report describes the TUN NAPI initialization bug fixed by switching netif_napi_add to netif_tx_napi_add, preventing napi_busy_loop from racing with GRO state.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same TUN napi_struct/busy-poll data race on GRO normal list state, with overlapping fix site at drivers/net/tun.c:316."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-35301db28c64310d",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-35301db28c64310d_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the macsec netdev stats data-race fixed by DEV_STATS_INC/atomic reads.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-3536db46dfa58c57",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-3536db46dfa58c57_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the same data race on BPF LRU node->type in bpf_lru_list.c around the patched line, requiring READ_ONCE snapshot semantics.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared object node->type, same BPF LRU free path, same READ_ONCE data-race pattern, and overlaps patched line 506."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-371a9ea56d82de71",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-371a9ea56d82de71_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the tcp_sock.copied_seq data race fixed with READ_ONCE/WRITE_ONCE in tcp_poll/tcp_recvmsg and related sites.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-373cf39d336f4370",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-373cf39d336f4370_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so it did not identify the sk_stream_wait_connect/tcp_disconnect data race on sock state/error/shutdown fields fixed by READ_ONCE changes.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-3872b8b1d5ece2a8",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-3872b8b1d5ece2a8_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the rcu_node exp_tasks data race fixed by READ_ONCE/WRITE_ONCE/data_race annotations.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-392f4c8f5827466f",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-392f4c8f5827466f_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports; none matched the icmp_global.credit/stamp data race in icmp_global_allow fixed with READ_ONCE/WRITE_ONCE.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-3b6b32dc50537a49",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-3b6b32dc50537a49_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the eventpoll file->f_ep data race fixed by READ_ONCE/WRITE_ONCE in __ep_remove, attach_epitem, and eventpoll_release.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-3cc3a12efa69aa6f",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-3cc3a12efa69aa6f_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the register_netdevice/type_show dev->reg_state/dev_base_lock data race fixed by the patch.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-416320b6b3545cbf",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-416320b6b3545cbf_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the xmit_lock_owner data race fixed with READ_ONCE/WRITE_ONCE in __dev_queue_xmit/netdev queue helpers.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-417aeb05fd190f3a",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-417aeb05fd190f3a_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the HugeTLB reservation accounting race in __unmap_hugepage_range at the patched area, involving h->surplus_huge_pages and adjust_reservation.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same CVE: race/stale state in __unmap_hugepage_range around h->surplus_huge_pages and per-iteration adjust_reservation, matching patched lines."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-44cf88a58d91b12b",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-44cf88a58d91b12b_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No reports were produced, so none matched the raw_bind/__ip4_datagram_connect socket locking data race fixed by adding lock_sock/release_sock.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-453b4249be2d6230",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-453b4249be2d6230_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the xfrm_lookup_with_ifid data race on pols[i]->curlft.use_time fixed with WRITE_ONCE.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-483d6c9b9231ea7e",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-483d6c9b9231ea7e_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the p9_conn_cancel/p9_poll_workfn data race on m->err.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-4a03518df1e31b53",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-4a03518df1e31b53_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the same ext4 extent status cache data race on tree->cache_es, overlapping __es_find_extent_range/ext4_es_lookup_extent and the READ_ONCE/WRITE_ONCE fix.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared object tree->cache_es, same data-race pattern, and overlaps patched ext4 extents_status fast path at line 270."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-4a06d4373fd52f0b",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-4a06d4373fd52f0b_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 identifies the same i_mark->wd race in inotify_handle_inode_event leading to events with invalid wd, overlapping the patched assignment/READ_ONCE validation site.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared field i_mark->wd, same race during mark teardown, and overlaps patched inotify_handle_inode_event line assigning event->wd."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-4b16e156132582a9",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-4b16e156132582a9_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the sk_rcvbuf/sk_sndbuf READ_ONCE data race fixed in backlog/receive paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-4dfb96a94317a78f",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-4dfb96a94317a78f_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the rcu_state.n_force_qs data race fixed in call_rcu/rcu_gp_fqs_loop paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-52cb782c704e243e",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-52cb782c704e243e_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the fib6_nh->last_probe race fixed in rt6_probe/fib6_nh_init.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-52e3dbded1f71729",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-52e3dbded1f71729_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the kcm_rfree/unreserve_rx_kcm data race on kcm->rx_psock.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-5366159cc4c1d817",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-5366159cc4c1d817_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so it did not identify the hrtimer timer->state lockless read/write data race fixed with READ_ONCE/WRITE_ONCE.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-565f500a8d3fb9b7",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-565f500a8d3fb9b7_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the fib_info_cnt data race between fib_create_info and fib_release_info/free_fib_info.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-5676077ba016d741",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-5676077ba016d741_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the CVE data race in ip_finish_output2 / ip_tunnel_xmit.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-5a486fef3de40e0d",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-5a486fef3de40e0d_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the io_uring_register/io_sqe_files_register concurrency issue fixed around ctx->uring_lock.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-5cce5938c6c2c518",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-5cce5938c6c2c518_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no reports, so none matched the inet_sk(sk)->inet_id data race fixed by converting inet_id to atomic operations.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-62955e4f963d38ab",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-62955e4f963d38ab_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "No bug reports were produced, so none matched the tcp snd_nxt data race fixed by READ_ONCE/WRITE_ONCE in tcp_event_new_data_sent/tcp_stream_memory_free paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-630679ddf6c0deba",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-630679ddf6c0deba_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so it did not identify the sk_rcvbuf data race fixed with READ_ONCE/WRITE_ONCE in TCP/socket paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "SYZBOT-63cbe31877bb80ef",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-63cbe31877bb80ef_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report identifies the same snd_seq_queue bitfield flags changed by the patch and the same data-race/lost-update root cause from concurrent access to shared bitfield storage.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same snd_seq_queue flags locked/klocked/check_again/check_blocked, same bitfield data-race root cause, and overlaps patched seq_queue.h lines."
+        }
+      ]
+    },
+    {
+      "cve_id": "SYZBOT-6a2a295ae3340e8e",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B2_ccsr/SYZBOT-6a2a295ae3340e8e_2026-05-14_17-05-56",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the tcp_sock.write_seq data race fixed with READ_ONCE/WRITE_ONCE in TCP send/read paths.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    }
+  ]
+}

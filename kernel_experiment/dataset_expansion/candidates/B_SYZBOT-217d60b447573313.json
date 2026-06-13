@@ -1,0 +1,4312 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-217d60b447573313",
+  "source": "syzbot",
+  "title": "possible deadlock in pipe_lock (3)",
+  "description": "possible deadlock in pipe_lock (3)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in pipe_lock (3)"
+  },
+  "fix_commit": "c162610c7db2e9611a7b3ec806f9c97fcfec0b0b",
+  "affected_files": [
+    "include/net/netfilter/nf_conntrack_synproxy.h",
+    "net/ipv4/netfilter/ipt_SYNPROXY.c",
+    "net/ipv6/netfilter/ip6t_SYNPROXY.c",
+    "net/netfilter/nf_synproxy_core.c",
+    "net/netfilter/nft_synproxy.c",
+    "net/netfilter/nf_conntrack_standalone.c",
+    "net/netfilter/ipvs/ip_vs_ctl.c",
+    "net/netfilter/ipset/ip_set_hash_gen.h",
+    "net/netfilter/ipset/ip_set_list_set.c",
+    "net/netfilter/ipvs/ip_vs_core.c",
+    "net/netfilter/ipvs/ip_vs_mh.c",
+    "net/netfilter/ipvs/ip_vs_proto_tcp.c",
+    "net/netfilter/nf_conntrack_ftp.c",
+    "net/netfilter/nf_conntrack_proto_tcp.c",
+    "net/netfilter/nfnetlink_log.c",
+    "net/netfilter/nfnetlink_queue.c",
+    "net/netfilter/xt_IDLETIMER.c",
+    "net/netfilter/nft_bitwise.c",
+    "include/net/netfilter/nf_tables_offload.h",
+    "net/netfilter/nft_immediate.c",
+    "include/linux/netfilter/ipset/ip_set.h",
+    "include/linux/netfilter/ipset/ip_set_comment.h",
+    "include/linux/netfilter/ipset/ip_set_counter.h",
+    "include/linux/netfilter/ipset/ip_set_skbinfo.h",
+    "include/linux/netfilter/ipset/ip_set_timeout.h",
+    "net/netfilter/xt_set.c",
+    "include/linux/netfilter/ipset/ip_set_getport.h",
+    "include/linux/netfilter/nf_conntrack_amanda.h",
+    "include/linux/netfilter/nf_conntrack_ftp.h",
+    "include/linux/netfilter/nf_conntrack_h323.h",
+    "include/linux/netfilter/nf_conntrack_h323_asn1.h",
+    "include/linux/netfilter/nf_conntrack_irc.h",
+    "include/linux/netfilter/nf_conntrack_pptp.h",
+    "include/linux/netfilter/nf_conntrack_sip.h",
+    "include/linux/netfilter/nf_conntrack_snmp.h",
+    "include/linux/netfilter/nf_conntrack_tftp.h",
+    "include/net/netfilter/br_netfilter.h",
+    "include/net/netfilter/ipv4/nf_dup_ipv4.h",
+    "include/net/netfilter/ipv6/nf_defrag_ipv6.h",
+    "include/net/netfilter/ipv6/nf_dup_ipv6.h",
+    "include/net/netfilter/nf_conntrack_bridge.h",
+    "include/net/netfilter/nf_conntrack_count.h",
+    "include/net/netfilter/nf_dup_netdev.h",
+    "include/net/netfilter/nf_flow_table.h",
+    "include/net/netfilter/nf_nat_helper.h",
+    "include/net/netfilter/nf_nat_redirect.h",
+    "include/net/netfilter/nf_queue.h",
+    "include/net/netfilter/nf_reject.h",
+    "include/net/netfilter/nf_tables_ipv6.h",
+    "include/net/netfilter/nft_fib.h",
+    "include/net/netfilter/nft_meta.h",
+    "include/net/netfilter/nft_reject.h",
+    "include/uapi/linux/netfilter/xt_policy.h",
+    "include/net/netfilter/nf_tables.h",
+    "include/net/netfilter/nf_conntrack.h",
+    "include/net/netfilter/nf_conntrack_acct.h",
+    "include/net/netfilter/nf_conntrack_l4proto.h",
+    "include/net/netfilter/nf_conntrack_timestamp.h",
+    "include/linux/netfilter/x_tables.h",
+    "include/linux/netfilter_arp/arp_tables.h",
+    "include/linux/netfilter_bridge/ebtables.h",
+    "include/linux/netfilter_ipv4/ip_tables.h",
+    "include/linux/netfilter_ipv6/ip6_tables.h",
+    "include/net/netfilter/nf_conntrack_core.h",
+    "include/net/netfilter/nf_conntrack_tuple.h",
+    "include/net/netfilter/nf_nat.h",
+    "include/net/netfilter/nf_synproxy.h",
+    "include/linux/netfilter/nf_conntrack_dccp.h",
+    "include/linux/netfilter/nf_conntrack_proto_gre.h",
+    "include/linux/netfilter/nf_conntrack_sane.h",
+    "include/Kbuild",
+    "net/netfilter/nft_set_bitmap.c",
+    "net/netfilter/nft_set_hash.c",
+    "net/netfilter/nft_set_rbtree.c",
+    "net/netfilter/nf_nat_proto.c",
+    "net/netfilter/nf_conntrack_labels.c",
+    "Makefile",
+    "fs/overlayfs/file.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "include/net/netfilter/nf_conntrack_synproxy.h",
+      "changed_lines": [
+        "-\tu16\t\t\t\tmss;",
+        "+\tu16\t\t\t\tmss_option;"
+      ],
+      "hunks": [
+        {
+          "old_start": 67,
+          "new_start": 67
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/netfilter/ipt_SYNPROXY.c",
+      "changed_lines": [
+        "-\t\topts.mss_encode = opts.mss;",
+        "-\t\topts.mss = info->mss;",
+        "+\t\topts.mss_encode = opts.mss_option;",
+        "+\t\topts.mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 36,
+          "new_start": 36
+        }
+      ]
+    },
+    {
+      "path": "net/ipv6/netfilter/ip6t_SYNPROXY.c",
+      "changed_lines": [
+        "-\t\topts.mss_encode = opts.mss;",
+        "-\t\topts.mss = info->mss;",
+        "+\t\topts.mss_encode = opts.mss_option;",
+        "+\t\topts.mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 36,
+          "new_start": 36
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_synproxy_core.c",
+      "changed_lines": [
+        "-\t\t\t\t\topts->mss = get_unaligned_be16(ptr);",
+        "+\t\t\t\t\topts->mss_option = get_unaligned_be16(ptr);",
+        "-\t\t\t       opts->mss);",
+        "+\t\t\t       opts->mss_option);",
+        "-\topts->mss = mss;",
+        "+\topts->mss_option = mss;",
+        "-\topts->mss = mss;",
+        "+\topts->mss_option = mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 56,
+          "new_start": 56
+        },
+        {
+          "old_start": 115,
+          "new_start": 115
+        },
+        {
+          "old_start": 642,
+          "new_start": 642
+        },
+        {
+          "old_start": 1060,
+          "new_start": 1060
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_synproxy.c",
+      "changed_lines": [
+        "-\topts->mss_encode = opts->mss;",
+        "-\topts->mss = info->mss;",
+        "+\topts->mss_encode = opts->mss_option;",
+        "+\topts->mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 31,
+          "new_start": 31
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_standalone.c",
+      "changed_lines": [
+        "-static int zero;",
+        "-static int one = 1;",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,"
+      ],
+      "hunks": [
+        {
+          "old_start": 511,
+          "new_start": 511
+        },
+        {
+          "old_start": 629,
+          "new_start": 627
+        },
+        {
+          "old_start": 654,
+          "new_start": 652
+        },
+        {
+          "old_start": 663,
+          "new_start": 661
+        },
+        {
+          "old_start": 673,
+          "new_start": 671
+        },
+        {
+          "old_start": 684,
+          "new_start": 682
+        },
+        {
+          "old_start": 759,
+          "new_start": 757
+        },
+        {
+          "old_start": 904,
+          "new_start": 902
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_ctl.c",
+      "changed_lines": [
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = sizeof(int),",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "+",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "-\t\tif ((*valp < 0) || (*valp > 3)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "-\t\t\t*valp = val;",
+        "+\t\tif (val < 0 || val > 3) {",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\t\t*valp = val;",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = table->maxlen,",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "-\t/* backup the value first */",
+        "-",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "-\tif (write && (valp[0] < 0 || valp[1] < 0 ||",
+        "-\t    (valp[0] >= valp[1] && valp[1]))) {",
+        "-\t\t/* Restore the correct value */",
+        "-\t\tmemcpy(valp, val, sizeof(val));",
+        "-\t}",
+        "-\treturn rc;",
+        "-}",
+        "-",
+        "-static int",
+        "-proc_do_sync_mode(struct ctl_table *table, int write,",
+        "-\t\t     void __user *buffer, size_t *lenp, loff_t *ppos)",
+        "-{",
+        "-\tint *valp = table->data;",
+        "-\tint val = *valp;",
+        "-\tint rc;",
+        "-",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "-\tif (write && (*valp != val)) {",
+        "-\t\tif ((*valp < 0) || (*valp > 1)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "-\t\t\t*valp = val;",
+        "-\t\t}",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "+\tif (write) {",
+        "+\t\tif (val[0] < 0 || val[1] < 0 ||",
+        "+\t\t    (val[0] >= val[1] && val[1]))",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\telse",
+        "+\t\t\tmemcpy(valp, val, sizeof(val));",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = sizeof(int),",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "+",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "-\t\tif (*valp < 1 || !is_power_of_2(*valp)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "+\t\tif (val < 1 || !is_power_of_2(val))",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\telse",
+        "-\t\t}",
+        "-\t\t.proc_handler\t= proc_do_sync_mode,",
+        "+\t\t.proc_handler\t= proc_dointvec_minmax,",
+        "+\t\t.extra1\t\t= SYSCTL_ZERO,",
+        "+\t\t.extra2\t\t= SYSCTL_ONE,"
+      ],
+      "hunks": [
+        {
+          "old_start": 1737,
+          "new_start": 1737
+        },
+        {
+          "old_start": 1756,
+          "new_start": 1762
+        },
+        {
+          "old_start": 1795,
+          "new_start": 1788
+        },
+        {
+          "old_start": 1860,
+          "new_start": 1859
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_hash_gen.h",
+      "changed_lines": [
+        "-\t\tn =  rcu_dereference_bh(hbucket(t, key));",
+        "+\t\tn = rcu_dereference_bh(hbucket(t, key));"
+      ],
+      "hunks": [
+        {
+          "old_start": 953,
+          "new_start": 953
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_list_set.c",
+      "changed_lines": [
+        "-\t\tn =  NULL;",
+        "+\t\tn = NULL;"
+      ],
+      "hunks": [
+        {
+          "old_start": 288,
+          "new_start": 288
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_core.c",
+      "changed_lines": [
+        "-\t\tunion nf_inet_addr daddr =  { .all = { 0, 0, 0, 0 } };",
+        "+\t\tunion nf_inet_addr daddr = { .all = { 0, 0, 0, 0 } };"
+      ],
+      "hunks": [
+        {
+          "old_start": 617,
+          "new_start": 617
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_mh.c",
+      "changed_lines": [
+        "-\ttable =  kcalloc(BITS_TO_LONGS(IP_VS_MH_TAB_SIZE),",
+        "-\t\t\t sizeof(unsigned long), GFP_KERNEL);",
+        "+\ttable = kcalloc(BITS_TO_LONGS(IP_VS_MH_TAB_SIZE),",
+        "+\t\t\tsizeof(unsigned long), GFP_KERNEL);"
+      ],
+      "hunks": [
+        {
+          "old_start": 174,
+          "new_start": 174
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_proto_tcp.c",
+      "changed_lines": [
+        "-\tpd->tcp_state_table =  tcp_states;",
+        "+\tpd->tcp_state_table = tcp_states;"
+      ],
+      "hunks": [
+        {
+          "old_start": 710,
+          "new_start": 710
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_ftp.c",
+      "changed_lines": [
+        "-\tcmd->u3.ip =  htonl((array[0] << 24) | (array[1] << 16) |",
+        "+\tcmd->u3.ip = htonl((array[0] << 24) | (array[1] << 16) |"
+      ],
+      "hunks": [
+        {
+          "old_start": 162,
+          "new_start": 162
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_proto_tcp.c",
+      "changed_lines": [
+        "-\t[CTA_PROTOINFO_TCP_FLAGS_REPLY]\t    = { .len =  sizeof(struct nf_ct_tcp_flags) },",
+        "+\t[CTA_PROTOINFO_TCP_FLAGS_REPLY]\t    = { .len = sizeof(struct nf_ct_tcp_flags) },"
+      ],
+      "hunks": [
+        {
+          "old_start": 1227,
+          "new_start": 1227
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nfnetlink_log.c",
+      "changed_lines": [
+        "-\tsize =    nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "+\tsize = nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "-\t\tsize +=   nla_total_size(skb->dev->hard_header_len)",
+        "+\t\tsize += nla_total_size(skb->dev->hard_header_len)"
+      ],
+      "hunks": [
+        {
+          "old_start": 651,
+          "new_start": 651
+        },
+        {
+          "old_start": 668,
+          "new_start": 668
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nfnetlink_queue.c",
+      "changed_lines": [
+        "-\tsize =    nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "+\tsize = nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "-\t\tsize +=  (nla_total_size(sizeof(u_int32_t))\t/* uid */",
+        "+\t\tsize += (nla_total_size(sizeof(u_int32_t))\t/* uid */"
+      ],
+      "hunks": [
+        {
+          "old_start": 394,
+          "new_start": 394
+        },
+        {
+          "old_start": 453,
+          "new_start": 453
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/xt_IDLETIMER.c",
+      "changed_lines": [
+        "-\terr =  xt_register_target(&idletimer_tg);",
+        "+\terr = xt_register_target(&idletimer_tg);"
+      ],
+      "hunks": [
+        {
+          "old_start": 283,
+          "new_start": 283
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_bitwise.c",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables_offload.h>",
+        "+static struct nft_data zero;",
+        "+",
+        "+static int nft_bitwise_offload(struct nft_offload_ctx *ctx,",
+        "+                               struct nft_flow_rule *flow,",
+        "+                               const struct nft_expr *expr)",
+        "+{",
+        "+\tconst struct nft_bitwise *priv = nft_expr_priv(expr);",
+        "+",
+        "+\tif (memcmp(&priv->xor, &zero, sizeof(priv->xor) ||",
+        "+\t    priv->sreg != priv->dreg))",
+        "+\t\treturn -EOPNOTSUPP;",
+        "+",
+        "+\tmemcpy(&ctx->regs[priv->dreg].mask, &priv->mask, sizeof(priv->mask));",
+        "+",
+        "+\treturn 0;",
+        "+}",
+        "+",
+        "+\t.offload\t= nft_bitwise_offload,"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        },
+        {
+          "old_start": 126,
+          "new_start": 127
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables_offload.h",
+      "changed_lines": [
+        "+\tstruct nft_data data;"
+      ],
+      "hunks": [
+        {
+          "old_start": 9,
+          "new_start": 9
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_immediate.c",
+      "changed_lines": [
+        "-static int nft_immediate_offload(struct nft_offload_ctx *ctx,",
+        "-\t\t\t\t struct nft_flow_rule *flow,",
+        "-\t\t\t\t const struct nft_expr *expr)",
+        "+static int nft_immediate_offload_verdict(struct nft_offload_ctx *ctx,",
+        "+\t\t\t\t\t struct nft_flow_rule *flow,",
+        "+\t\t\t\t\t const struct nft_immediate_expr *priv)",
+        "-\tconst struct nft_immediate_expr *priv = nft_expr_priv(expr);",
+        "-\tif (priv->dreg != NFT_REG_VERDICT)",
+        "-\t\treturn -EOPNOTSUPP;",
+        "-",
+        "+static int nft_immediate_offload(struct nft_offload_ctx *ctx,",
+        "+\t\t\t\t struct nft_flow_rule *flow,",
+        "+\t\t\t\t const struct nft_expr *expr)",
+        "+{",
+        "+\tconst struct nft_immediate_expr *priv = nft_expr_priv(expr);",
+        "+",
+        "+\tif (priv->dreg == NFT_REG_VERDICT)",
+        "+\t\treturn nft_immediate_offload_verdict(ctx, flow, priv);",
+        "+",
+        "+\tmemcpy(&ctx->regs[priv->dreg].data, &priv->data, sizeof(priv->data));",
+        "+",
+        "+\treturn 0;",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 125,
+          "new_start": 125
+        },
+        {
+          "old_start": 153,
+          "new_start": 149
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set.h",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>",
+        "-#include <linux/netfilter/ipset/ip_set_comment.h>",
+        "-#include <linux/netfilter/ipset/ip_set_counter.h>",
+        "-#include <linux/netfilter/ipset/ip_set_skbinfo.h>",
+        "+/* How often should the gc be run by default */",
+        "+#define IPSET_GC_TIME\t\t\t(3 * 60)",
+        "+",
+        "+/* Timeout period depending on the timeout value of the given set */",
+        "+#define IPSET_GC_PERIOD(timeout) \\",
+        "+\t((timeout/3) ? min_t(u32, (timeout)/3, IPSET_GC_TIME) : 1)",
+        "+",
+        "+/* Entry is set with no timeout value */",
+        "+#define IPSET_ELEM_PERMANENT\t0",
+        "+",
+        "+/* Set is defined with timeout support: timeout value may be 0 */",
+        "+#define IPSET_NO_TIMEOUT\tUINT_MAX",
+        "+",
+        "+/* Max timeout value, see msecs_to_jiffies() in jiffies.h */",
+        "+#define IPSET_MAX_TIMEOUT\t(UINT_MAX >> 1)/MSEC_PER_SEC",
+        "+",
+        "+#define ip_set_adt_opt_timeout(opt, set)\t\\",
+        "+((opt)->ext.timeout != IPSET_NO_TIMEOUT ? (opt)->ext.timeout : (set)->timeout)",
+        "+",
+        "+static inline unsigned int",
+        "+ip_set_timeout_uget(struct nlattr *tb)",
+        "+{",
+        "+\tunsigned int timeout = ip_set_get_h32(tb);",
+        "+",
+        "+\t/* Normalize to fit into jiffies */",
+        "+\tif (timeout > IPSET_MAX_TIMEOUT)",
+        "+\t\ttimeout = IPSET_MAX_TIMEOUT;",
+        "+",
+        "+\treturn timeout;",
+        "+}",
+        "+",
+        "+static inline bool",
+        "+ip_set_timeout_expired(const unsigned long *t)",
+        "+{",
+        "+\treturn *t != IPSET_ELEM_PERMANENT && time_is_before_jiffies(*t);",
+        "+}",
+        "+",
+        "+static inline void",
+        "+ip_set_timeout_set(unsigned long *timeout, u32 value)",
+        "+{",
+        "+\tunsigned long t;",
+        "+",
+        "+\tif (!value) {",
+        "+\t\t*timeout = IPSET_ELEM_PERMANENT;",
+        "+\t\treturn;",
+        "+\t}",
+        "+",
+        "+\tt = msecs_to_jiffies(value * MSEC_PER_SEC) + jiffies;",
+        "+\tif (t == IPSET_ELEM_PERMANENT)",
+        "+\t\t/* Bingo! :-) */",
+        "+\t\tt--;",
+        "+\t*timeout = t;",
+        "+}",
+        "+",
+        "+static inline u32",
+        "+ip_set_timeout_get(const unsigned long *timeout)",
+        "+{",
+        "+\tu32 t;",
+        "+",
+        "+\tif (*timeout == IPSET_ELEM_PERMANENT)",
+        "+\t\treturn 0;",
+        "+",
+        "+\tt = jiffies_to_msecs(*timeout - jiffies)/MSEC_PER_SEC;",
+        "+\t/* Zero value in userspace means no timeout */",
+        "+\treturn t == 0 ? 1 : t;",
+        "+}",
+        "+",
+        "+static inline char*",
+        "+ip_set_comment_uget(struct nlattr *tb)",
+        "+{",
+        "+\treturn nla_data(tb);",
+        "+}",
+        "+",
+        "+/* Called from uadd only, protected by the set spinlock.",
+        "+ * The kadt functions don't use the comment extensions in any way.",
+        "+ */",
+        "+static inline void",
+        "+ip_set_init_comment(struct ip_set *set, struct ip_set_comment *comment,",
+        "+\t\t    const struct ip_set_ext *ext)",
+        "+{",
+        "+\tstruct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);",
+        "+\tsize_t len = ext->comment ? strlen(ext->comment) : 0;",
+        "+",
+        "+\tif (unlikely(c)) {",
+        "+\t\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "+\t\tkfree_rcu(c, rcu);",
+        "+\t\trcu_assign_pointer(comment->c, NULL);",
+        "+\t}",
+        "+\tif (!len)",
+        "+\t\treturn;",
+        "+\tif (unlikely(len > IPSET_MAX_COMMENT_SIZE))",
+        "+\t\tlen = IPSET_MAX_COMMENT_SIZE;",
+        "+\tc = kmalloc(sizeof(*c) + len + 1, GFP_ATOMIC);",
+        "+\tif (unlikely(!c))",
+        "+\t\treturn;",
+        "+\tstrlcpy(c->str, ext->comment, len + 1);"
+      ],
+      "hunks": [
+        {
+          "old_start": 452,
+          "new_start": 452
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_comment.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_COMMENT_H",
+        "-#define _IP_SET_COMMENT_H",
+        "-",
+        "-/* Copyright (C) 2013 Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>",
+        "- */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline char*",
+        "-ip_set_comment_uget(struct nlattr *tb)",
+        "-{",
+        "-\treturn nla_data(tb);",
+        "-}",
+        "-",
+        "-/* Called from uadd only, protected by the set spinlock.",
+        "- * The kadt functions don't use the comment extensions in any way.",
+        "- */",
+        "-static inline void",
+        "-ip_set_init_comment(struct ip_set *set, struct ip_set_comment *comment,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);",
+        "-\tsize_t len = ext->comment ? strlen(ext->comment) : 0;",
+        "-",
+        "-\tif (unlikely(c)) {",
+        "-\t\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "-\t\tkfree_rcu(c, rcu);",
+        "-\t\trcu_assign_pointer(comment->c, NULL);",
+        "-\t}",
+        "-\tif (!len)",
+        "-\t\treturn;",
+        "-\tif (unlikely(len > IPSET_MAX_COMMENT_SIZE))",
+        "-\t\tlen = IPSET_MAX_COMMENT_SIZE;",
+        "-\tc = kmalloc(sizeof(*c) + len + 1, GFP_ATOMIC);",
+        "-\tif (unlikely(!c))",
+        "-\t\treturn;",
+        "-\tstrlcpy(c->str, ext->comment, len + 1);",
+        "-\tset->ext_size += sizeof(*c) + strlen(c->str) + 1;",
+        "-\trcu_assign_pointer(comment->c, c);",
+        "-}",
+        "-",
+        "-/* Used only when dumping a set, protected by rcu_read_lock() */",
+        "-static inline int",
+        "-ip_set_put_comment(struct sk_buff *skb, const struct ip_set_comment *comment)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c = rcu_dereference(comment->c);",
+        "-",
+        "-\tif (!c)",
+        "-\t\treturn 0;",
+        "-\treturn nla_put_string(skb, IPSET_ATTR_COMMENT, c->str);",
+        "-}",
+        "-",
+        "-/* Called from uadd/udel, flush or the garbage collectors protected",
+        "- * by the set spinlock.",
+        "- * Called when the set is destroyed and when there can't be any user",
+        "- * of the set data anymore.",
+        "- */",
+        "-static inline void",
+        "-ip_set_comment_free(struct ip_set *set, struct ip_set_comment *comment)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c;",
+        "-",
+        "-\tc = rcu_dereference_protected(comment->c, 1);",
+        "-\tif (unlikely(!c))",
+        "-\t\treturn;",
+        "-\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "-\tkfree_rcu(c, rcu);",
+        "-\trcu_assign_pointer(comment->c, NULL);",
+        "-}",
+        "-",
+        "-#endif",
+        "-#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_counter.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_COUNTER_H",
+        "-#define _IP_SET_COUNTER_H",
+        "-",
+        "-/* Copyright (C) 2015 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline void",
+        "-ip_set_add_bytes(u64 bytes, struct ip_set_counter *counter)",
+        "-{",
+        "-\tatomic64_add((long long)bytes, &(counter)->bytes);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_add_packets(u64 packets, struct ip_set_counter *counter)",
+        "-{",
+        "-\tatomic64_add((long long)packets, &(counter)->packets);",
+        "-}",
+        "-",
+        "-static inline u64",
+        "-ip_set_get_bytes(const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn (u64)atomic64_read(&(counter)->bytes);",
+        "-}",
+        "-",
+        "-static inline u64",
+        "-ip_set_get_packets(const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn (u64)atomic64_read(&(counter)->packets);",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_match_counter(u64 counter, u64 match, u8 op)",
+        "-{",
+        "-\tswitch (op) {",
+        "-\tcase IPSET_COUNTER_NONE:",
+        "-\t\treturn true;",
+        "-\tcase IPSET_COUNTER_EQ:",
+        "-\t\treturn counter == match;",
+        "-\tcase IPSET_COUNTER_NE:",
+        "-\t\treturn counter != match;",
+        "-\tcase IPSET_COUNTER_LT:",
+        "-\t\treturn counter < match;",
+        "-\tcase IPSET_COUNTER_GT:",
+        "-\t\treturn counter > match;",
+        "-\t}",
+        "-\treturn false;",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_update_counter(struct ip_set_counter *counter,",
+        "-\t\t      const struct ip_set_ext *ext, u32 flags)",
+        "-{",
+        "-\tif (ext->packets != ULLONG_MAX &&",
+        "-\t    !(flags & IPSET_FLAG_SKIP_COUNTER_UPDATE)) {",
+        "-\t\tip_set_add_bytes(ext->bytes, counter);",
+        "-\t\tip_set_add_packets(ext->packets, counter);",
+        "-\t}",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_put_counter(struct sk_buff *skb, const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn nla_put_net64(skb, IPSET_ATTR_BYTES,",
+        "-\t\t\t     cpu_to_be64(ip_set_get_bytes(counter)),",
+        "-\t\t\t     IPSET_ATTR_PAD) ||",
+        "-\t       nla_put_net64(skb, IPSET_ATTR_PACKETS,",
+        "-\t\t\t     cpu_to_be64(ip_set_get_packets(counter)),",
+        "-\t\t\t     IPSET_ATTR_PAD);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_init_counter(struct ip_set_counter *counter,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\tif (ext->bytes != ULLONG_MAX)",
+        "-\t\tatomic64_set(&(counter)->bytes, (long long)(ext->bytes));",
+        "-\tif (ext->packets != ULLONG_MAX)",
+        "-\t\tatomic64_set(&(counter)->packets, (long long)(ext->packets));",
+        "-}",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-#endif /* _IP_SET_COUNTER_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_skbinfo.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_SKBINFO_H",
+        "-#define _IP_SET_SKBINFO_H",
+        "-",
+        "-/* Copyright (C) 2015 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline void",
+        "-ip_set_get_skbinfo(struct ip_set_skbinfo *skbinfo,",
+        "-\t\t   const struct ip_set_ext *ext,",
+        "-\t\t   struct ip_set_ext *mext, u32 flags)",
+        "-{",
+        "-\tmext->skbinfo = *skbinfo;",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_put_skbinfo(struct sk_buff *skb, const struct ip_set_skbinfo *skbinfo)",
+        "-{",
+        "-\t/* Send nonzero parameters only */",
+        "-\treturn ((skbinfo->skbmark || skbinfo->skbmarkmask) &&",
+        "-\t\tnla_put_net64(skb, IPSET_ATTR_SKBMARK,",
+        "-\t\t\t      cpu_to_be64((u64)skbinfo->skbmark << 32 |",
+        "-\t\t\t\t\t  skbinfo->skbmarkmask),",
+        "-\t\t\t      IPSET_ATTR_PAD)) ||",
+        "-\t       (skbinfo->skbprio &&",
+        "-\t\tnla_put_net32(skb, IPSET_ATTR_SKBPRIO,",
+        "-\t\t\t      cpu_to_be32(skbinfo->skbprio))) ||",
+        "-\t       (skbinfo->skbqueue &&",
+        "-\t\tnla_put_net16(skb, IPSET_ATTR_SKBQUEUE,",
+        "-\t\t\t      cpu_to_be16(skbinfo->skbqueue)));",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_init_skbinfo(struct ip_set_skbinfo *skbinfo,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\t*skbinfo = ext->skbinfo;",
+        "-}",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-#endif /* _IP_SET_SKBINFO_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_timeout.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_TIMEOUT_H",
+        "-#define _IP_SET_TIMEOUT_H",
+        "-",
+        "-/* Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-/* How often should the gc be run by default */",
+        "-#define IPSET_GC_TIME\t\t\t(3 * 60)",
+        "-",
+        "-/* Timeout period depending on the timeout value of the given set */",
+        "-#define IPSET_GC_PERIOD(timeout) \\",
+        "-\t((timeout/3) ? min_t(u32, (timeout)/3, IPSET_GC_TIME) : 1)",
+        "-",
+        "-/* Entry is set with no timeout value */",
+        "-#define IPSET_ELEM_PERMANENT\t0",
+        "-",
+        "-/* Set is defined with timeout support: timeout value may be 0 */",
+        "-#define IPSET_NO_TIMEOUT\tUINT_MAX",
+        "-",
+        "-/* Max timeout value, see msecs_to_jiffies() in jiffies.h */",
+        "-#define IPSET_MAX_TIMEOUT\t(UINT_MAX >> 1)/MSEC_PER_SEC",
+        "-",
+        "-#define ip_set_adt_opt_timeout(opt, set)\t\\",
+        "-((opt)->ext.timeout != IPSET_NO_TIMEOUT ? (opt)->ext.timeout : (set)->timeout)",
+        "-",
+        "-static inline unsigned int",
+        "-ip_set_timeout_uget(struct nlattr *tb)",
+        "-{",
+        "-\tunsigned int timeout = ip_set_get_h32(tb);",
+        "-",
+        "-\t/* Normalize to fit into jiffies */",
+        "-\tif (timeout > IPSET_MAX_TIMEOUT)",
+        "-\t\ttimeout = IPSET_MAX_TIMEOUT;",
+        "-",
+        "-\treturn timeout;",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_timeout_expired(const unsigned long *t)",
+        "-{",
+        "-\treturn *t != IPSET_ELEM_PERMANENT && time_is_before_jiffies(*t);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_timeout_set(unsigned long *timeout, u32 value)",
+        "-{",
+        "-\tunsigned long t;",
+        "-",
+        "-\tif (!value) {",
+        "-\t\t*timeout = IPSET_ELEM_PERMANENT;",
+        "-\t\treturn;",
+        "-\t}",
+        "-",
+        "-\tt = msecs_to_jiffies(value * MSEC_PER_SEC) + jiffies;",
+        "-\tif (t == IPSET_ELEM_PERMANENT)",
+        "-\t\t/* Bingo! :-) */",
+        "-\t\tt--;",
+        "-\t*timeout = t;",
+        "-}",
+        "-",
+        "-static inline u32",
+        "-ip_set_timeout_get(const unsigned long *timeout)",
+        "-{",
+        "-\tu32 t;",
+        "-",
+        "-\tif (*timeout == IPSET_ELEM_PERMANENT)",
+        "-\t\treturn 0;",
+        "-",
+        "-\tt = jiffies_to_msecs(*timeout - jiffies)/MSEC_PER_SEC;",
+        "-\t/* Zero value in userspace means no timeout */",
+        "-\treturn t == 0 ? 1 : t;",
+        "-}",
+        "-",
+        "-#endif\t/* __KERNEL__ */",
+        "-#endif /* _IP_SET_TIMEOUT_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_hash_gen.h",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>",
+        "+#include <linux/netfilter/ipset/ip_set.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 7,
+          "new_start": 7
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/xt_set.c",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 14,
+          "new_start": 14
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_getport.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_amanda.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_ftp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "-",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-struct nf_conntrack_expect;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 20,
+          "new_start": 24
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-struct nf_conn;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        },
+        {
+          "old_start": 28,
+          "new_start": 33
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323_asn1.h",
+      "changed_lines": [
+        "+",
+        "+#include <linux/types.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 37,
+          "new_start": 37
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_irc.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_pptp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-/* crap needed for nf_conntrack_compat.h */",
+        "-struct nf_conn;",
+        "-struct nf_conntrack_expect;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        },
+        {
+          "old_start": 297,
+          "new_start": 302
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sip.h",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_conntrack_expect.h>",
+        "-",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_snmp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_tftp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv4/nf_dup_ipv4.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv6/nf_defrag_ipv6.h",
+      "changed_lines": [
+        "-struct net;",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv6/nf_dup_ipv6.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_bridge.h",
+      "changed_lines": [
+        "+#include <linux/module.h>",
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/if_ether.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 1
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_count.h",
+      "changed_lines": [
+        "+#include <linux/spinlock.h>",
+        "+#include <net/netfilter/nf_conntrack_tuple.h>",
+        "+#include <net/netfilter/nf_conntrack_zones.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_dup_netdev.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_flow_table.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 6,
+          "new_start": 6
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat_helper.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "-",
+        "-struct sk_buff;",
+        "+#include <net/netfilter/nf_conntrack_expect.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat_redirect.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <uapi/linux/netfilter/nf_nat.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_queue.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 5,
+          "new_start": 5
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_reject.h",
+      "changed_lines": [
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables_ipv6.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_fib.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_meta.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_reject.h",
+      "changed_lines": [
+        "+#include <linux/types.h>",
+        "+#include <net/netlink.h>",
+        "+#include <net/netfilter/nf_tables.h>",
+        "+#include <uapi/linux/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/uapi/linux/netfilter/xt_policy.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 8,
+          "new_start": 8
+        },
+        {
+          "old_start": 38,
+          "new_start": 42
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_TABLES)",
+        "+",
+        "+#endif /* IS_ENABLED(CONFIG_NF_TABLES) */",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1207,
+          "new_start": 1207
+        },
+        {
+          "old_start": 1280,
+          "new_start": 1282
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+",
+        "+#endif",
+        "+",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 59,
+          "new_start": 59
+        },
+        {
+          "old_start": 68,
+          "new_start": 69
+        },
+        {
+          "old_start": 148,
+          "new_start": 150
+        },
+        {
+          "old_start": 167,
+          "new_start": 171
+        },
+        {
+          "old_start": 318,
+          "new_start": 324
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_acct.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn false;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif /* IS_ENABLED(CONFIG_NF_CONNTRACK) */",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 29,
+          "new_start": 29
+        },
+        {
+          "old_start": 41,
+          "new_start": 42
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_l4proto.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 176,
+          "new_start": 176
+        },
+        {
+          "old_start": 200,
+          "new_start": 201
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_timestamp.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn false;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 40,
+          "new_start": 40
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/x_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 35,
+          "new_start": 35
+        },
+        {
+          "old_start": 75,
+          "new_start": 78
+        },
+        {
+          "old_start": 446,
+          "new_start": 450
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_arp/arp_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 49,
+          "new_start": 49
+        },
+        {
+          "old_start": 57,
+          "new_start": 58
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_bridge/ebtables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 105,
+          "new_start": 105
+        },
+        {
+          "old_start": 114,
+          "new_start": 115
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_ipv4/ip_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 65,
+          "new_start": 67
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_ipv6/ip6_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 26,
+          "new_start": 26
+        },
+        {
+          "old_start": 34,
+          "new_start": 35
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 55,
+          "new_start": 55
+        },
+        {
+          "old_start": 73,
+          "new_start": 74
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_bridge.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 6,
+          "new_start": 6
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_core.h",
+      "changed_lines": [
+        "+",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 20,
+          "new_start": 20
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_l4proto.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 75,
+          "new_start": 75
+        },
+        {
+          "old_start": 131,
+          "new_start": 132
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_tuple.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 121,
+          "new_start": 121
+        },
+        {
+          "old_start": 183,
+          "new_start": 184
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_flow_table.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 17,
+          "new_start": 17
+        },
+        {
+          "old_start": 115,
+          "new_start": 117
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 69,
+          "new_start": 69
+        },
+        {
+          "old_start": 92,
+          "new_start": 94
+        },
+        {
+          "old_start": 104,
+          "new_start": 107
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_queue.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 15,
+          "new_start": 15
+        },
+        {
+          "old_start": 121,
+          "new_start": 123
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_synproxy.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 20,
+          "new_start": 20
+        },
+        {
+          "old_start": 35,
+          "new_start": 37
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 57,
+          "new_start": 58
+        },
+        {
+          "old_start": 927,
+          "new_start": 929
+        },
+        {
+          "old_start": 955,
+          "new_start": 959
+        },
+        {
+          "old_start": 1152,
+          "new_start": 1158
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_dccp.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 36,
+          "new_start": 35
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-",
+        "-#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 97,
+          "new_start": 95
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_irc.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 17,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_pptp.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 50,
+          "new_start": 50
+        },
+        {
+          "old_start": 324,
+          "new_start": 322
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_proto_gre.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 10,
+          "new_start": 10
+        },
+        {
+          "old_start": 32,
+          "new_start": 31
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sane.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        },
+        {
+          "old_start": 17,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sip.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 1
+        },
+        {
+          "old_start": 196,
+          "new_start": 195
+        }
+      ]
+    },
+    {
+      "path": "include/Kbuild",
+      "changed_lines": [
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_bitmap.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_comment.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_counter.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_getport.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_hash.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_list.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_skbinfo.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_timeout.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_amanda.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_ftp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_h323.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_h323_asn1.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_irc.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_pptp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_proto_gre.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_sip.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_snmp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_tftp.h",
+        "-header-test-\t\t\t+= linux/netfilter/x_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_arp/arp_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_bridge/ebtables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv4/ip4_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv4/ip_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv6/ip6_tables.h",
+        "-header-test-\t\t\t+= net/netfilter/br_netfilter.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv4/nf_dup_ipv4.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv6/nf_defrag_ipv6.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv6/nf_dup_ipv6.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_acct.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_bridge.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_core.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_count.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_ecache.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_expect.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_extend.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_helper.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_l4proto.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_labels.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_seqadj.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_synproxy.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_timeout.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_timestamp.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_tuple.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_dup_netdev.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_flow_table.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_helper.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_masquerade.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_redirect.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_queue.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_reject.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_synproxy.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_core.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_ipv4.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_tables_ipv6.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_offload.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_fib.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_meta.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_reject.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_bitmap.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_hash.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_list.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/nf_synproxy.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/xt_policy.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/xt_set.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_arp/arp_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_arp/arpt_mangle.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv4/ip_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv4/ipt_LOG.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv6/ip6_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv6/ip6t_LOG.h"
+      ],
+      "hunks": [
+        {
+          "old_start": 386,
+          "new_start": 386
+        },
+        {
+          "old_start": 874,
+          "new_start": 849
+        },
+        {
+          "old_start": 1140,
+          "new_start": 1078
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_bitmap.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 10,
+          "new_start": 10
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_hash.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 16,
+          "new_start": 16
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_rbtree.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_nat_proto.c",
+      "changed_lines": [
+        "-const struct nf_hook_ops nf_nat_ipv4_ops[] = {",
+        "+static const struct nf_hook_ops nf_nat_ipv4_ops[] = {",
+        "-const struct nf_hook_ops nf_nat_ipv6_ops[] = {",
+        "+static const struct nf_hook_ops nf_nat_ipv6_ops[] = {"
+      ],
+      "hunks": [
+        {
+          "old_start": 722,
+          "new_start": 722
+        },
+        {
+          "old_start": 961,
+          "new_start": 961
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_labels.c",
+      "changed_lines": [
+        "-static spinlock_t nf_connlabels_lock;",
+        "+static __read_mostly DEFINE_SPINLOCK(nf_connlabels_lock);",
+        "-\tspin_lock_init(&nf_connlabels_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 11,
+          "new_start": 11
+        },
+        {
+          "old_start": 89,
+          "new_start": 89
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set.h",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>",
+        "-#include <linux/netfilter/ipset/ip_set_comment.h>",
+        "-#include <linux/netfilter/ipset/ip_set_counter.h>",
+        "-#include <linux/netfilter/ipset/ip_set_skbinfo.h>",
+        "+/* How often should the gc be run by default */",
+        "+#define IPSET_GC_TIME\t\t\t(3 * 60)",
+        "+",
+        "+/* Timeout period depending on the timeout value of the given set */",
+        "+#define IPSET_GC_PERIOD(timeout) \\",
+        "+\t((timeout/3) ? min_t(u32, (timeout)/3, IPSET_GC_TIME) : 1)",
+        "+",
+        "+/* Entry is set with no timeout value */",
+        "+#define IPSET_ELEM_PERMANENT\t0",
+        "+",
+        "+/* Set is defined with timeout support: timeout value may be 0 */",
+        "+#define IPSET_NO_TIMEOUT\tUINT_MAX",
+        "+",
+        "+/* Max timeout value, see msecs_to_jiffies() in jiffies.h */",
+        "+#define IPSET_MAX_TIMEOUT\t(UINT_MAX >> 1)/MSEC_PER_SEC",
+        "+",
+        "+#define ip_set_adt_opt_timeout(opt, set)\t\\",
+        "+((opt)->ext.timeout != IPSET_NO_TIMEOUT ? (opt)->ext.timeout : (set)->timeout)",
+        "+",
+        "+static inline unsigned int",
+        "+ip_set_timeout_uget(struct nlattr *tb)",
+        "+{",
+        "+\tunsigned int timeout = ip_set_get_h32(tb);",
+        "+",
+        "+\t/* Normalize to fit into jiffies */",
+        "+\tif (timeout > IPSET_MAX_TIMEOUT)",
+        "+\t\ttimeout = IPSET_MAX_TIMEOUT;",
+        "+",
+        "+\treturn timeout;",
+        "+}",
+        "+",
+        "+static inline bool",
+        "+ip_set_timeout_expired(const unsigned long *t)",
+        "+{",
+        "+\treturn *t != IPSET_ELEM_PERMANENT && time_is_before_jiffies(*t);",
+        "+}",
+        "+",
+        "+static inline void",
+        "+ip_set_timeout_set(unsigned long *timeout, u32 value)",
+        "+{",
+        "+\tunsigned long t;",
+        "+",
+        "+\tif (!value) {",
+        "+\t\t*timeout = IPSET_ELEM_PERMANENT;",
+        "+\t\treturn;",
+        "+\t}",
+        "+",
+        "+\tt = msecs_to_jiffies(value * MSEC_PER_SEC) + jiffies;",
+        "+\tif (t == IPSET_ELEM_PERMANENT)",
+        "+\t\t/* Bingo! :-) */",
+        "+\t\tt--;",
+        "+\t*timeout = t;",
+        "+}",
+        "+",
+        "+static inline u32",
+        "+ip_set_timeout_get(const unsigned long *timeout)",
+        "+{",
+        "+\tu32 t;",
+        "+",
+        "+\tif (*timeout == IPSET_ELEM_PERMANENT)",
+        "+\t\treturn 0;",
+        "+",
+        "+\tt = jiffies_to_msecs(*timeout - jiffies)/MSEC_PER_SEC;",
+        "+\t/* Zero value in userspace means no timeout */",
+        "+\treturn t == 0 ? 1 : t;",
+        "+}",
+        "+",
+        "+static inline char*",
+        "+ip_set_comment_uget(struct nlattr *tb)",
+        "+{",
+        "+\treturn nla_data(tb);",
+        "+}",
+        "+",
+        "+/* Called from uadd only, protected by the set spinlock.",
+        "+ * The kadt functions don't use the comment extensions in any way.",
+        "+ */",
+        "+static inline void",
+        "+ip_set_init_comment(struct ip_set *set, struct ip_set_comment *comment,",
+        "+\t\t    const struct ip_set_ext *ext)",
+        "+{",
+        "+\tstruct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);",
+        "+\tsize_t len = ext->comment ? strlen(ext->comment) : 0;",
+        "+",
+        "+\tif (unlikely(c)) {",
+        "+\t\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "+\t\tkfree_rcu(c, rcu);",
+        "+\t\trcu_assign_pointer(comment->c, NULL);",
+        "+\t}",
+        "+\tif (!len)",
+        "+\t\treturn;",
+        "+\tif (unlikely(len > IPSET_MAX_COMMENT_SIZE))",
+        "+\t\tlen = IPSET_MAX_COMMENT_SIZE;",
+        "+\tc = kmalloc(sizeof(*c) + len + 1, GFP_ATOMIC);",
+        "+\tif (unlikely(!c))",
+        "+\t\treturn;",
+        "+\tstrlcpy(c->str, ext->comment, len + 1);"
+      ],
+      "hunks": [
+        {
+          "old_start": 452,
+          "new_start": 452
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_comment.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_COMMENT_H",
+        "-#define _IP_SET_COMMENT_H",
+        "-",
+        "-/* Copyright (C) 2013 Oliver Smith <oliver@8.c.9.b.0.7.4.0.1.0.0.2.ip6.arpa>",
+        "- */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline char*",
+        "-ip_set_comment_uget(struct nlattr *tb)",
+        "-{",
+        "-\treturn nla_data(tb);",
+        "-}",
+        "-",
+        "-/* Called from uadd only, protected by the set spinlock.",
+        "- * The kadt functions don't use the comment extensions in any way.",
+        "- */",
+        "-static inline void",
+        "-ip_set_init_comment(struct ip_set *set, struct ip_set_comment *comment,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c = rcu_dereference_protected(comment->c, 1);",
+        "-\tsize_t len = ext->comment ? strlen(ext->comment) : 0;",
+        "-",
+        "-\tif (unlikely(c)) {",
+        "-\t\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "-\t\tkfree_rcu(c, rcu);",
+        "-\t\trcu_assign_pointer(comment->c, NULL);",
+        "-\t}",
+        "-\tif (!len)",
+        "-\t\treturn;",
+        "-\tif (unlikely(len > IPSET_MAX_COMMENT_SIZE))",
+        "-\t\tlen = IPSET_MAX_COMMENT_SIZE;",
+        "-\tc = kmalloc(sizeof(*c) + len + 1, GFP_ATOMIC);",
+        "-\tif (unlikely(!c))",
+        "-\t\treturn;",
+        "-\tstrlcpy(c->str, ext->comment, len + 1);",
+        "-\tset->ext_size += sizeof(*c) + strlen(c->str) + 1;",
+        "-\trcu_assign_pointer(comment->c, c);",
+        "-}",
+        "-",
+        "-/* Used only when dumping a set, protected by rcu_read_lock() */",
+        "-static inline int",
+        "-ip_set_put_comment(struct sk_buff *skb, const struct ip_set_comment *comment)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c = rcu_dereference(comment->c);",
+        "-",
+        "-\tif (!c)",
+        "-\t\treturn 0;",
+        "-\treturn nla_put_string(skb, IPSET_ATTR_COMMENT, c->str);",
+        "-}",
+        "-",
+        "-/* Called from uadd/udel, flush or the garbage collectors protected",
+        "- * by the set spinlock.",
+        "- * Called when the set is destroyed and when there can't be any user",
+        "- * of the set data anymore.",
+        "- */",
+        "-static inline void",
+        "-ip_set_comment_free(struct ip_set *set, struct ip_set_comment *comment)",
+        "-{",
+        "-\tstruct ip_set_comment_rcu *c;",
+        "-",
+        "-\tc = rcu_dereference_protected(comment->c, 1);",
+        "-\tif (unlikely(!c))",
+        "-\t\treturn;",
+        "-\tset->ext_size -= sizeof(*c) + strlen(c->str) + 1;",
+        "-\tkfree_rcu(c, rcu);",
+        "-\trcu_assign_pointer(comment->c, NULL);",
+        "-}",
+        "-",
+        "-#endif",
+        "-#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_counter.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_COUNTER_H",
+        "-#define _IP_SET_COUNTER_H",
+        "-",
+        "-/* Copyright (C) 2015 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline void",
+        "-ip_set_add_bytes(u64 bytes, struct ip_set_counter *counter)",
+        "-{",
+        "-\tatomic64_add((long long)bytes, &(counter)->bytes);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_add_packets(u64 packets, struct ip_set_counter *counter)",
+        "-{",
+        "-\tatomic64_add((long long)packets, &(counter)->packets);",
+        "-}",
+        "-",
+        "-static inline u64",
+        "-ip_set_get_bytes(const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn (u64)atomic64_read(&(counter)->bytes);",
+        "-}",
+        "-",
+        "-static inline u64",
+        "-ip_set_get_packets(const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn (u64)atomic64_read(&(counter)->packets);",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_match_counter(u64 counter, u64 match, u8 op)",
+        "-{",
+        "-\tswitch (op) {",
+        "-\tcase IPSET_COUNTER_NONE:",
+        "-\t\treturn true;",
+        "-\tcase IPSET_COUNTER_EQ:",
+        "-\t\treturn counter == match;",
+        "-\tcase IPSET_COUNTER_NE:",
+        "-\t\treturn counter != match;",
+        "-\tcase IPSET_COUNTER_LT:",
+        "-\t\treturn counter < match;",
+        "-\tcase IPSET_COUNTER_GT:",
+        "-\t\treturn counter > match;",
+        "-\t}",
+        "-\treturn false;",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_update_counter(struct ip_set_counter *counter,",
+        "-\t\t      const struct ip_set_ext *ext, u32 flags)",
+        "-{",
+        "-\tif (ext->packets != ULLONG_MAX &&",
+        "-\t    !(flags & IPSET_FLAG_SKIP_COUNTER_UPDATE)) {",
+        "-\t\tip_set_add_bytes(ext->bytes, counter);",
+        "-\t\tip_set_add_packets(ext->packets, counter);",
+        "-\t}",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_put_counter(struct sk_buff *skb, const struct ip_set_counter *counter)",
+        "-{",
+        "-\treturn nla_put_net64(skb, IPSET_ATTR_BYTES,",
+        "-\t\t\t     cpu_to_be64(ip_set_get_bytes(counter)),",
+        "-\t\t\t     IPSET_ATTR_PAD) ||",
+        "-\t       nla_put_net64(skb, IPSET_ATTR_PACKETS,",
+        "-\t\t\t     cpu_to_be64(ip_set_get_packets(counter)),",
+        "-\t\t\t     IPSET_ATTR_PAD);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_init_counter(struct ip_set_counter *counter,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\tif (ext->bytes != ULLONG_MAX)",
+        "-\t\tatomic64_set(&(counter)->bytes, (long long)(ext->bytes));",
+        "-\tif (ext->packets != ULLONG_MAX)",
+        "-\t\tatomic64_set(&(counter)->packets, (long long)(ext->packets));",
+        "-}",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-#endif /* _IP_SET_COUNTER_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_skbinfo.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_SKBINFO_H",
+        "-#define _IP_SET_SKBINFO_H",
+        "-",
+        "-/* Copyright (C) 2015 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-static inline void",
+        "-ip_set_get_skbinfo(struct ip_set_skbinfo *skbinfo,",
+        "-\t\t   const struct ip_set_ext *ext,",
+        "-\t\t   struct ip_set_ext *mext, u32 flags)",
+        "-{",
+        "-\tmext->skbinfo = *skbinfo;",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_put_skbinfo(struct sk_buff *skb, const struct ip_set_skbinfo *skbinfo)",
+        "-{",
+        "-\t/* Send nonzero parameters only */",
+        "-\treturn ((skbinfo->skbmark || skbinfo->skbmarkmask) &&",
+        "-\t\tnla_put_net64(skb, IPSET_ATTR_SKBMARK,",
+        "-\t\t\t      cpu_to_be64((u64)skbinfo->skbmark << 32 |",
+        "-\t\t\t\t\t  skbinfo->skbmarkmask),",
+        "-\t\t\t      IPSET_ATTR_PAD)) ||",
+        "-\t       (skbinfo->skbprio &&",
+        "-\t\tnla_put_net32(skb, IPSET_ATTR_SKBPRIO,",
+        "-\t\t\t      cpu_to_be32(skbinfo->skbprio))) ||",
+        "-\t       (skbinfo->skbqueue &&",
+        "-\t\tnla_put_net16(skb, IPSET_ATTR_SKBQUEUE,",
+        "-\t\t\t      cpu_to_be16(skbinfo->skbqueue)));",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_init_skbinfo(struct ip_set_skbinfo *skbinfo,",
+        "-\t\t    const struct ip_set_ext *ext)",
+        "-{",
+        "-\t*skbinfo = ext->skbinfo;",
+        "-}",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-#endif /* _IP_SET_SKBINFO_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_timeout.h",
+      "changed_lines": [
+        "-/* SPDX-License-Identifier: GPL-2.0-only */",
+        "-#ifndef _IP_SET_TIMEOUT_H",
+        "-#define _IP_SET_TIMEOUT_H",
+        "-",
+        "-/* Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@netfilter.org> */",
+        "-",
+        "-#ifdef __KERNEL__",
+        "-",
+        "-/* How often should the gc be run by default */",
+        "-#define IPSET_GC_TIME\t\t\t(3 * 60)",
+        "-",
+        "-/* Timeout period depending on the timeout value of the given set */",
+        "-#define IPSET_GC_PERIOD(timeout) \\",
+        "-\t((timeout/3) ? min_t(u32, (timeout)/3, IPSET_GC_TIME) : 1)",
+        "-",
+        "-/* Entry is set with no timeout value */",
+        "-#define IPSET_ELEM_PERMANENT\t0",
+        "-",
+        "-/* Set is defined with timeout support: timeout value may be 0 */",
+        "-#define IPSET_NO_TIMEOUT\tUINT_MAX",
+        "-",
+        "-/* Max timeout value, see msecs_to_jiffies() in jiffies.h */",
+        "-#define IPSET_MAX_TIMEOUT\t(UINT_MAX >> 1)/MSEC_PER_SEC",
+        "-",
+        "-#define ip_set_adt_opt_timeout(opt, set)\t\\",
+        "-((opt)->ext.timeout != IPSET_NO_TIMEOUT ? (opt)->ext.timeout : (set)->timeout)",
+        "-",
+        "-static inline unsigned int",
+        "-ip_set_timeout_uget(struct nlattr *tb)",
+        "-{",
+        "-\tunsigned int timeout = ip_set_get_h32(tb);",
+        "-",
+        "-\t/* Normalize to fit into jiffies */",
+        "-\tif (timeout > IPSET_MAX_TIMEOUT)",
+        "-\t\ttimeout = IPSET_MAX_TIMEOUT;",
+        "-",
+        "-\treturn timeout;",
+        "-}",
+        "-",
+        "-static inline bool",
+        "-ip_set_timeout_expired(const unsigned long *t)",
+        "-{",
+        "-\treturn *t != IPSET_ELEM_PERMANENT && time_is_before_jiffies(*t);",
+        "-}",
+        "-",
+        "-static inline void",
+        "-ip_set_timeout_set(unsigned long *timeout, u32 value)",
+        "-{",
+        "-\tunsigned long t;",
+        "-",
+        "-\tif (!value) {",
+        "-\t\t*timeout = IPSET_ELEM_PERMANENT;",
+        "-\t\treturn;",
+        "-\t}",
+        "-",
+        "-\tt = msecs_to_jiffies(value * MSEC_PER_SEC) + jiffies;",
+        "-\tif (t == IPSET_ELEM_PERMANENT)",
+        "-\t\t/* Bingo! :-) */",
+        "-\t\tt--;",
+        "-\t*timeout = t;",
+        "-}",
+        "-",
+        "-static inline u32",
+        "-ip_set_timeout_get(const unsigned long *timeout)",
+        "-{",
+        "-\tu32 t;",
+        "-",
+        "-\tif (*timeout == IPSET_ELEM_PERMANENT)",
+        "-\t\treturn 0;",
+        "-",
+        "-\tt = jiffies_to_msecs(*timeout - jiffies)/MSEC_PER_SEC;",
+        "-\t/* Zero value in userspace means no timeout */",
+        "-\treturn t == 0 ? 1 : t;",
+        "-}",
+        "-",
+        "-#endif\t/* __KERNEL__ */",
+        "-#endif /* _IP_SET_TIMEOUT_H */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 0
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_hash_gen.h",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>",
+        "+#include <linux/netfilter/ipset/ip_set.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 7,
+          "new_start": 7
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/xt_set.c",
+      "changed_lines": [
+        "-#include <linux/netfilter/ipset/ip_set_timeout.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 14,
+          "new_start": 14
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/x_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 35,
+          "new_start": 35
+        },
+        {
+          "old_start": 75,
+          "new_start": 78
+        },
+        {
+          "old_start": 446,
+          "new_start": 450
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_arp/arp_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 49,
+          "new_start": 49
+        },
+        {
+          "old_start": 57,
+          "new_start": 58
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_bridge/ebtables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 105,
+          "new_start": 105
+        },
+        {
+          "old_start": 114,
+          "new_start": 115
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_ipv4/ip_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 65,
+          "new_start": 67
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter_ipv6/ip6_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 26,
+          "new_start": 26
+        },
+        {
+          "old_start": 34,
+          "new_start": 35
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 55,
+          "new_start": 55
+        },
+        {
+          "old_start": 73,
+          "new_start": 74
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_bridge.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 6,
+          "new_start": 6
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_core.h",
+      "changed_lines": [
+        "+",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 20,
+          "new_start": 20
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_l4proto.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 75,
+          "new_start": 75
+        },
+        {
+          "old_start": 131,
+          "new_start": 132
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_tuple.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 121,
+          "new_start": 121
+        },
+        {
+          "old_start": 183,
+          "new_start": 184
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_flow_table.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 17,
+          "new_start": 17
+        },
+        {
+          "old_start": 115,
+          "new_start": 117
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 69,
+          "new_start": 69
+        },
+        {
+          "old_start": 92,
+          "new_start": 94
+        },
+        {
+          "old_start": 104,
+          "new_start": 107
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_queue.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 15,
+          "new_start": 15
+        },
+        {
+          "old_start": 121,
+          "new_start": 123
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_synproxy.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 20,
+          "new_start": 20
+        },
+        {
+          "old_start": 35,
+          "new_start": 37
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NETFILTER)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 57,
+          "new_start": 58
+        },
+        {
+          "old_start": 927,
+          "new_start": 929
+        },
+        {
+          "old_start": 955,
+          "new_start": 959
+        },
+        {
+          "old_start": 1152,
+          "new_start": 1158
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_synproxy.h",
+      "changed_lines": [
+        "-\tu16\t\t\t\tmss;",
+        "+\tu16\t\t\t\tmss_option;"
+      ],
+      "hunks": [
+        {
+          "old_start": 67,
+          "new_start": 67
+        }
+      ]
+    },
+    {
+      "path": "net/ipv4/netfilter/ipt_SYNPROXY.c",
+      "changed_lines": [
+        "-\t\topts.mss_encode = opts.mss;",
+        "-\t\topts.mss = info->mss;",
+        "+\t\topts.mss_encode = opts.mss_option;",
+        "+\t\topts.mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 36,
+          "new_start": 36
+        }
+      ]
+    },
+    {
+      "path": "net/ipv6/netfilter/ip6t_SYNPROXY.c",
+      "changed_lines": [
+        "-\t\topts.mss_encode = opts.mss;",
+        "-\t\topts.mss = info->mss;",
+        "+\t\topts.mss_encode = opts.mss_option;",
+        "+\t\topts.mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 36,
+          "new_start": 36
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_synproxy_core.c",
+      "changed_lines": [
+        "-\t\t\t\t\topts->mss = get_unaligned_be16(ptr);",
+        "+\t\t\t\t\topts->mss_option = get_unaligned_be16(ptr);",
+        "-\t\t\t       opts->mss);",
+        "+\t\t\t       opts->mss_option);",
+        "-\topts->mss = mss;",
+        "+\topts->mss_option = mss;",
+        "-\topts->mss = mss;",
+        "+\topts->mss_option = mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 56,
+          "new_start": 56
+        },
+        {
+          "old_start": 115,
+          "new_start": 115
+        },
+        {
+          "old_start": 642,
+          "new_start": 642
+        },
+        {
+          "old_start": 1060,
+          "new_start": 1060
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_synproxy.c",
+      "changed_lines": [
+        "-\topts->mss_encode = opts->mss;",
+        "-\topts->mss = info->mss;",
+        "+\topts->mss_encode = opts->mss_option;",
+        "+\topts->mss_option = info->mss;"
+      ],
+      "hunks": [
+        {
+          "old_start": 31,
+          "new_start": 31
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_nat_proto.c",
+      "changed_lines": [
+        "-const struct nf_hook_ops nf_nat_ipv4_ops[] = {",
+        "+static const struct nf_hook_ops nf_nat_ipv4_ops[] = {",
+        "-const struct nf_hook_ops nf_nat_ipv6_ops[] = {",
+        "+static const struct nf_hook_ops nf_nat_ipv6_ops[] = {"
+      ],
+      "hunks": [
+        {
+          "old_start": 722,
+          "new_start": 722
+        },
+        {
+          "old_start": 961,
+          "new_start": 961
+        }
+      ]
+    },
+    {
+      "path": "include/Kbuild",
+      "changed_lines": [
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_bitmap.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_comment.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_counter.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_getport.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_hash.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_list.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_skbinfo.h",
+        "-header-test-\t\t\t+= linux/netfilter/ipset/ip_set_timeout.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_amanda.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_ftp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_h323.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_h323_asn1.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_irc.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_pptp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_proto_gre.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_sip.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_snmp.h",
+        "-header-test-\t\t\t+= linux/netfilter/nf_conntrack_tftp.h",
+        "-header-test-\t\t\t+= linux/netfilter/x_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_arp/arp_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_bridge/ebtables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv4/ip4_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv4/ip_tables.h",
+        "-header-test-\t\t\t+= linux/netfilter_ipv6/ip6_tables.h",
+        "-header-test-\t\t\t+= net/netfilter/br_netfilter.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv4/nf_dup_ipv4.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv6/nf_defrag_ipv6.h",
+        "-header-test-\t\t\t+= net/netfilter/ipv6/nf_dup_ipv6.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_acct.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_bridge.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_core.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_count.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_ecache.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_expect.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_extend.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_helper.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_l4proto.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_labels.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_seqadj.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_synproxy.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_timeout.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_timestamp.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_conntrack_tuple.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_dup_netdev.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_flow_table.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_helper.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_masquerade.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_nat_redirect.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_queue.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_reject.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_synproxy.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_core.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_ipv4.h",
+        "-header-test-\t\t\t+= net/netfilter/nf_tables_ipv6.h",
+        "-header-test-$(CONFIG_NF_TABLES)\t+= net/netfilter/nf_tables_offload.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_fib.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_meta.h",
+        "-header-test-\t\t\t+= net/netfilter/nft_reject.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_bitmap.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_hash.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/ipset/ip_set_list.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/nf_synproxy.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/xt_policy.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter/xt_set.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_arp/arp_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_arp/arpt_mangle.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv4/ip_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv4/ipt_LOG.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv6/ip6_tables.h",
+        "-header-test-\t\t\t+= uapi/linux/netfilter_ipv6/ip6t_LOG.h"
+      ],
+      "hunks": [
+        {
+          "old_start": 386,
+          "new_start": 386
+        },
+        {
+          "old_start": 874,
+          "new_start": 849
+        },
+        {
+          "old_start": 1140,
+          "new_start": 1078
+        }
+      ]
+    },
+    {
+      "path": "Makefile",
+      "changed_lines": [
+        "-EXTRAVERSION = -rc2",
+        "+EXTRAVERSION = -rc3"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_standalone.c",
+      "changed_lines": [
+        "-static int zero;",
+        "-static int one = 1;",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,",
+        "-\t\t.extra1 \t= &zero,",
+        "-\t\t.extra2 \t= &one,",
+        "+\t\t.extra1 \t= SYSCTL_ZERO,",
+        "+\t\t.extra2 \t= SYSCTL_ONE,"
+      ],
+      "hunks": [
+        {
+          "old_start": 511,
+          "new_start": 511
+        },
+        {
+          "old_start": 629,
+          "new_start": 627
+        },
+        {
+          "old_start": 654,
+          "new_start": 652
+        },
+        {
+          "old_start": 663,
+          "new_start": 661
+        },
+        {
+          "old_start": 673,
+          "new_start": 671
+        },
+        {
+          "old_start": 684,
+          "new_start": 682
+        },
+        {
+          "old_start": 759,
+          "new_start": 757
+        },
+        {
+          "old_start": 904,
+          "new_start": 902
+        }
+      ]
+    },
+    {
+      "path": "fs/overlayfs/file.c",
+      "changed_lines": [
+        "+#include <linux/splice.h>",
+        "+#include <linux/mm.h>",
+        "+#include <linux/fs.h>",
+        "+static ssize_t ovl_splice_read(struct file *in, loff_t *ppos,",
+        "+\t\t\t struct pipe_inode_info *pipe, size_t len,",
+        "+\t\t\t unsigned int flags)",
+        "+{",
+        "+\tssize_t ret;",
+        "+\tstruct fd real;",
+        "+\tconst struct cred *old_cred;",
+        "+",
+        "+\tret = ovl_real_fdget(in, &real);",
+        "+\tif (ret)",
+        "+\t\treturn ret;",
+        "+",
+        "+\told_cred = ovl_override_creds(file_inode(in)->i_sb);",
+        "+\tret = generic_file_splice_read(real.file, ppos, pipe, len, flags);",
+        "+\trevert_creds(old_cred);",
+        "+",
+        "+\tovl_file_accessed(in);",
+        "+\tfdput(real);",
+        "+\treturn ret;",
+        "+}",
+        "+",
+        "+static ssize_t",
+        "+ovl_splice_write(struct pipe_inode_info *pipe, struct file *out,",
+        "+\t\t\t  loff_t *ppos, size_t len, unsigned int flags)",
+        "+{",
+        "+\tstruct fd real;",
+        "+\tconst struct cred *old_cred;",
+        "+\tssize_t ret;",
+        "+",
+        "+\tret = ovl_real_fdget(out, &real);",
+        "+\tif (ret)",
+        "+\t\treturn ret;",
+        "+",
+        "+\told_cred = ovl_override_creds(file_inode(out)->i_sb);",
+        "+\tret = iter_file_splice_write(pipe, real.file, ppos, len, flags);",
+        "+\trevert_creds(old_cred);",
+        "+",
+        "+\tovl_file_accessed(out);",
+        "+\tfdput(real);",
+        "+\treturn ret;",
+        "+}",
+        "+",
+        "+\t.splice_read    = ovl_splice_read,",
+        "+\t.splice_write   = ovl_splice_write,"
+      ],
+      "hunks": [
+        {
+          "old_start": 9,
+          "new_start": 9
+        },
+        {
+          "old_start": 362,
+          "new_start": 365
+        },
+        {
+          "old_start": 718,
+          "new_start": 763
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_labels.c",
+      "changed_lines": [
+        "-static spinlock_t nf_connlabels_lock;",
+        "+static __read_mostly DEFINE_SPINLOCK(nf_connlabels_lock);",
+        "-\tspin_lock_init(&nf_connlabels_lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 11,
+          "new_start": 11
+        },
+        {
+          "old_start": 89,
+          "new_start": 89
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_hash_gen.h",
+      "changed_lines": [
+        "-\t\tn =  rcu_dereference_bh(hbucket(t, key));",
+        "+\t\tn = rcu_dereference_bh(hbucket(t, key));"
+      ],
+      "hunks": [
+        {
+          "old_start": 953,
+          "new_start": 953
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipset/ip_set_list_set.c",
+      "changed_lines": [
+        "-\t\tn =  NULL;",
+        "+\t\tn = NULL;"
+      ],
+      "hunks": [
+        {
+          "old_start": 288,
+          "new_start": 288
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_core.c",
+      "changed_lines": [
+        "-\t\tunion nf_inet_addr daddr =  { .all = { 0, 0, 0, 0 } };",
+        "+\t\tunion nf_inet_addr daddr = { .all = { 0, 0, 0, 0 } };"
+      ],
+      "hunks": [
+        {
+          "old_start": 617,
+          "new_start": 617
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_mh.c",
+      "changed_lines": [
+        "-\ttable =  kcalloc(BITS_TO_LONGS(IP_VS_MH_TAB_SIZE),",
+        "-\t\t\t sizeof(unsigned long), GFP_KERNEL);",
+        "+\ttable = kcalloc(BITS_TO_LONGS(IP_VS_MH_TAB_SIZE),",
+        "+\t\t\tsizeof(unsigned long), GFP_KERNEL);"
+      ],
+      "hunks": [
+        {
+          "old_start": 174,
+          "new_start": 174
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_proto_tcp.c",
+      "changed_lines": [
+        "-\tpd->tcp_state_table =  tcp_states;",
+        "+\tpd->tcp_state_table = tcp_states;"
+      ],
+      "hunks": [
+        {
+          "old_start": 710,
+          "new_start": 710
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_ftp.c",
+      "changed_lines": [
+        "-\tcmd->u3.ip =  htonl((array[0] << 24) | (array[1] << 16) |",
+        "+\tcmd->u3.ip = htonl((array[0] << 24) | (array[1] << 16) |"
+      ],
+      "hunks": [
+        {
+          "old_start": 162,
+          "new_start": 162
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nf_conntrack_proto_tcp.c",
+      "changed_lines": [
+        "-\t[CTA_PROTOINFO_TCP_FLAGS_REPLY]\t    = { .len =  sizeof(struct nf_ct_tcp_flags) },",
+        "+\t[CTA_PROTOINFO_TCP_FLAGS_REPLY]\t    = { .len = sizeof(struct nf_ct_tcp_flags) },"
+      ],
+      "hunks": [
+        {
+          "old_start": 1227,
+          "new_start": 1227
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nfnetlink_log.c",
+      "changed_lines": [
+        "-\tsize =    nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "+\tsize = nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "-\t\tsize +=   nla_total_size(skb->dev->hard_header_len)",
+        "+\t\tsize += nla_total_size(skb->dev->hard_header_len)"
+      ],
+      "hunks": [
+        {
+          "old_start": 651,
+          "new_start": 651
+        },
+        {
+          "old_start": 668,
+          "new_start": 668
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nfnetlink_queue.c",
+      "changed_lines": [
+        "-\tsize =    nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "+\tsize = nlmsg_total_size(sizeof(struct nfgenmsg))",
+        "-\t\tsize +=  (nla_total_size(sizeof(u_int32_t))\t/* uid */",
+        "+\t\tsize += (nla_total_size(sizeof(u_int32_t))\t/* uid */"
+      ],
+      "hunks": [
+        {
+          "old_start": 394,
+          "new_start": 394
+        },
+        {
+          "old_start": 453,
+          "new_start": 453
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/xt_IDLETIMER.c",
+      "changed_lines": [
+        "-\terr =  xt_register_target(&idletimer_tg);",
+        "+\terr = xt_register_target(&idletimer_tg);"
+      ],
+      "hunks": [
+        {
+          "old_start": 283,
+          "new_start": 283
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_bitwise.c",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables_offload.h>",
+        "+static struct nft_data zero;",
+        "+",
+        "+static int nft_bitwise_offload(struct nft_offload_ctx *ctx,",
+        "+                               struct nft_flow_rule *flow,",
+        "+                               const struct nft_expr *expr)",
+        "+{",
+        "+\tconst struct nft_bitwise *priv = nft_expr_priv(expr);",
+        "+",
+        "+\tif (memcmp(&priv->xor, &zero, sizeof(priv->xor) ||",
+        "+\t    priv->sreg != priv->dreg))",
+        "+\t\treturn -EOPNOTSUPP;",
+        "+",
+        "+\tmemcpy(&ctx->regs[priv->dreg].mask, &priv->mask, sizeof(priv->mask));",
+        "+",
+        "+\treturn 0;",
+        "+}",
+        "+",
+        "+\t.offload\t= nft_bitwise_offload,"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        },
+        {
+          "old_start": 126,
+          "new_start": 127
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/ipset/ip_set_getport.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_amanda.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_ftp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "-",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-struct nf_conntrack_expect;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 20,
+          "new_start": 24
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-struct nf_conn;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        },
+        {
+          "old_start": 28,
+          "new_start": 33
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323_asn1.h",
+      "changed_lines": [
+        "+",
+        "+#include <linux/types.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 37,
+          "new_start": 37
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_irc.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_pptp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+#include <uapi/linux/netfilter/nf_conntrack_tuple_common.h>",
+        "-/* crap needed for nf_conntrack_compat.h */",
+        "-struct nf_conn;",
+        "-struct nf_conntrack_expect;",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        },
+        {
+          "old_start": 297,
+          "new_start": 302
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sip.h",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_conntrack_expect.h>",
+        "-",
+        "+#include <linux/skbuff.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_snmp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_tftp.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+#include <net/netfilter/nf_conntrack_expect.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv4/nf_dup_ipv4.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv6/nf_defrag_ipv6.h",
+      "changed_lines": [
+        "-struct net;",
+        "+#include <linux/skbuff.h>",
+        "+#include <linux/types.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/ipv6/nf_dup_ipv6.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_bridge.h",
+      "changed_lines": [
+        "+#include <linux/module.h>",
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/if_ether.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 1
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_count.h",
+      "changed_lines": [
+        "+#include <linux/spinlock.h>",
+        "+#include <net/netfilter/nf_conntrack_tuple.h>",
+        "+#include <net/netfilter/nf_conntrack_zones.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_dup_netdev.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_flow_table.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 6,
+          "new_start": 6
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat_helper.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "-",
+        "-struct sk_buff;",
+        "+#include <net/netfilter/nf_conntrack_expect.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_nat_redirect.h",
+      "changed_lines": [
+        "+#include <linux/skbuff.h>",
+        "+#include <uapi/linux/netfilter/nf_nat.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_queue.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>",
+        "+#include <linux/skbuff.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 5,
+          "new_start": 5
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_reject.h",
+      "changed_lines": [
+        "+#include <linux/types.h>",
+        "+#include <uapi/linux/in.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables_ipv6.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 4,
+          "new_start": 4
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_fib.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_meta.h",
+      "changed_lines": [
+        "+#include <net/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nft_reject.h",
+      "changed_lines": [
+        "+#include <linux/types.h>",
+        "+#include <net/netlink.h>",
+        "+#include <net/netfilter/nf_tables.h>",
+        "+#include <uapi/linux/netfilter/nf_tables.h>",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/uapi/linux/netfilter/xt_policy.h",
+      "changed_lines": [
+        "+#include <linux/netfilter.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/br_netfilter.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 8,
+          "new_start": 8
+        },
+        {
+          "old_start": 38,
+          "new_start": 42
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+",
+        "+#endif",
+        "+",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+",
+        "+#endif",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 59,
+          "new_start": 59
+        },
+        {
+          "old_start": 68,
+          "new_start": 69
+        },
+        {
+          "old_start": 148,
+          "new_start": 150
+        },
+        {
+          "old_start": 167,
+          "new_start": 171
+        },
+        {
+          "old_start": 318,
+          "new_start": 324
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_acct.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn NULL;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn false;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif /* IS_ENABLED(CONFIG_NF_CONNTRACK) */",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 29,
+          "new_start": 29
+        },
+        {
+          "old_start": 41,
+          "new_start": 42
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_l4proto.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 176,
+          "new_start": 176
+        },
+        {
+          "old_start": 200,
+          "new_start": 201
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_conntrack_timestamp.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#else",
+        "+\treturn false;",
+        "+#endif",
+        "+#if IS_ENABLED(CONFIG_NF_CONNTRACK)",
+        "+#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 40,
+          "new_start": 40
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables.h",
+      "changed_lines": [
+        "+#if IS_ENABLED(CONFIG_NF_TABLES)",
+        "+",
+        "+#endif /* IS_ENABLED(CONFIG_NF_TABLES) */",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1207,
+          "new_start": 1207
+        },
+        {
+          "old_start": 1280,
+          "new_start": 1282
+        }
+      ]
+    },
+    {
+      "path": "include/net/netfilter/nf_tables_offload.h",
+      "changed_lines": [
+        "+\tstruct nft_data data;"
+      ],
+      "hunks": [
+        {
+          "old_start": 9,
+          "new_start": 9
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_immediate.c",
+      "changed_lines": [
+        "-static int nft_immediate_offload(struct nft_offload_ctx *ctx,",
+        "-\t\t\t\t struct nft_flow_rule *flow,",
+        "-\t\t\t\t const struct nft_expr *expr)",
+        "+static int nft_immediate_offload_verdict(struct nft_offload_ctx *ctx,",
+        "+\t\t\t\t\t struct nft_flow_rule *flow,",
+        "+\t\t\t\t\t const struct nft_immediate_expr *priv)",
+        "-\tconst struct nft_immediate_expr *priv = nft_expr_priv(expr);",
+        "-\tif (priv->dreg != NFT_REG_VERDICT)",
+        "-\t\treturn -EOPNOTSUPP;",
+        "-",
+        "+static int nft_immediate_offload(struct nft_offload_ctx *ctx,",
+        "+\t\t\t\t struct nft_flow_rule *flow,",
+        "+\t\t\t\t const struct nft_expr *expr)",
+        "+{",
+        "+\tconst struct nft_immediate_expr *priv = nft_expr_priv(expr);",
+        "+",
+        "+\tif (priv->dreg == NFT_REG_VERDICT)",
+        "+\t\treturn nft_immediate_offload_verdict(ctx, flow, priv);",
+        "+",
+        "+\tmemcpy(&ctx->regs[priv->dreg].data, &priv->data, sizeof(priv->data));",
+        "+",
+        "+\treturn 0;",
+        "+}",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 125,
+          "new_start": 125
+        },
+        {
+          "old_start": 153,
+          "new_start": 149
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_bitmap.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 10,
+          "new_start": 10
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_hash.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 16,
+          "new_start": 16
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/nft_set_rbtree.c",
+      "changed_lines": [
+        "-#include <net/netfilter/nf_tables.h>",
+        "+#include <net/netfilter/nf_tables_core.h>"
+      ],
+      "hunks": [
+        {
+          "old_start": 13,
+          "new_start": 13
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_dccp.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 25,
+          "new_start": 25
+        },
+        {
+          "old_start": 36,
+          "new_start": 35
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_h323.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-",
+        "-#endif"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 97,
+          "new_start": 95
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_irc.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 2,
+          "new_start": 2
+        },
+        {
+          "old_start": 17,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_pptp.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 50,
+          "new_start": 50
+        },
+        {
+          "old_start": 324,
+          "new_start": 322
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_proto_gre.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 10,
+          "new_start": 10
+        },
+        {
+          "old_start": 32,
+          "new_start": 31
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sane.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-",
+        "-#endif /* __KERNEL__ */",
+        "-"
+      ],
+      "hunks": [
+        {
+          "old_start": 3,
+          "new_start": 3
+        },
+        {
+          "old_start": 17,
+          "new_start": 15
+        }
+      ]
+    },
+    {
+      "path": "include/linux/netfilter/nf_conntrack_sip.h",
+      "changed_lines": [
+        "-#ifdef __KERNEL__",
+        "-#endif /* __KERNEL__ */"
+      ],
+      "hunks": [
+        {
+          "old_start": 1,
+          "new_start": 1
+        },
+        {
+          "old_start": 196,
+          "new_start": 195
+        }
+      ]
+    },
+    {
+      "path": "net/netfilter/ipvs/ip_vs_ctl.c",
+      "changed_lines": [
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = sizeof(int),",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "+",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "-\t\tif ((*valp < 0) || (*valp > 3)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "-\t\t\t*valp = val;",
+        "+\t\tif (val < 0 || val > 3) {",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\t\t*valp = val;",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = table->maxlen,",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "-\t/* backup the value first */",
+        "-",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "-\tif (write && (valp[0] < 0 || valp[1] < 0 ||",
+        "-\t    (valp[0] >= valp[1] && valp[1]))) {",
+        "-\t\t/* Restore the correct value */",
+        "-\t\tmemcpy(valp, val, sizeof(val));",
+        "-\t}",
+        "-\treturn rc;",
+        "-}",
+        "-",
+        "-static int",
+        "-proc_do_sync_mode(struct ctl_table *table, int write,",
+        "-\t\t     void __user *buffer, size_t *lenp, loff_t *ppos)",
+        "-{",
+        "-\tint *valp = table->data;",
+        "-\tint val = *valp;",
+        "-\tint rc;",
+        "-",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "-\tif (write && (*valp != val)) {",
+        "-\t\tif ((*valp < 0) || (*valp > 1)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "-\t\t\t*valp = val;",
+        "-\t\t}",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "+\tif (write) {",
+        "+\t\tif (val[0] < 0 || val[1] < 0 ||",
+        "+\t\t    (val[0] >= val[1] && val[1]))",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\telse",
+        "+\t\t\tmemcpy(valp, val, sizeof(val));",
+        "-\trc = proc_dointvec(table, write, buffer, lenp, ppos);",
+        "+\tstruct ctl_table tmp = {",
+        "+\t\t.data = &val,",
+        "+\t\t.maxlen = sizeof(int),",
+        "+\t\t.mode = table->mode,",
+        "+\t};",
+        "+",
+        "+\trc = proc_dointvec(&tmp, write, buffer, lenp, ppos);",
+        "-\t\tif (*valp < 1 || !is_power_of_2(*valp)) {",
+        "-\t\t\t/* Restore the correct value */",
+        "+\t\tif (val < 1 || !is_power_of_2(val))",
+        "+\t\t\trc = -EINVAL;",
+        "+\t\telse",
+        "-\t\t}",
+        "-\t\t.proc_handler\t= proc_do_sync_mode,",
+        "+\t\t.proc_handler\t= proc_dointvec_minmax,",
+        "+\t\t.extra1\t\t= SYSCTL_ZERO,",
+        "+\t\t.extra2\t\t= SYSCTL_ONE,"
+      ],
+      "hunks": [
+        {
+          "old_start": 1737,
+          "new_start": 1737
+        },
+        {
+          "old_start": 1756,
+          "new_start": 1762
+        },
+        {
+          "old_start": 1795,
+          "new_start": 1788
+        },
+        {
+          "old_start": 1860,
+          "new_start": 1859
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-217d60b447573313/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-217d60b447573313/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-217d60b447573313"
+}

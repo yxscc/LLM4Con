@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-5a486fef3de40e0d",
+  "shared_object": "struct io_ring_ctx::file_table.data.nr",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "io_uring file registration mutates table size (under lock)",
+    "entry": "__x64_sys_io_uring_register",
+    "clause": {
+      "resource": "ctx->file_table.data.nr",
+      "sites": [
+        {"function": "io_sqe_files_register", "file": "io_uring/rsrc.c", "line": 487, "op_kind": "READ"},
+        {"function": "io_sqe_files_register", "file": "io_uring/rsrc.c", "line": 541, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([rmw(ctx->file_table.data.nr)])"],
+      "guarantee_protection": ["serialize(ctx->uring_lock, registration write of nr)"]
+    }
+  },
+  "thread_b": {
+    "role": "concurrent io_uring_register trace read (after unlock)",
+    "entry": "__x64_sys_io_uring_register",
+    "clause": {
+      "resource": "ctx->file_table.data.nr",
+      "sites": [
+        {"function": "io_uring_register", "file": "io_uring/register.c", "line": 909, "op_kind": "READ"}
+      ],
+      "assume": ["atomic([read(ctx->file_table.data.nr)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([read(ctx->file_table.data.nr)]) from thread_b (the trace read must not race a concurrent registration write)",
+    "violating_event": "e@io_sqe_files_register:541 = write(ctx->file_table.data.nr) by a concurrent register syscall",
+    "missing_guarantee": "registration mutates nr while holding ctx->uring_lock, but in the vuln version the trace read at register.c:909 happens AFTER mutex_unlock(&ctx->uring_lock); the reader no longer holds the lock during the read, so no serialize(g) covers both sites and the atomicity the reader assumes is not established",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho is atomic(single access) broken by a concurrent conflicting write while the reader is outside the lock -> data race"
+  },
+
+  "fix_maps_to": "patch moves trace_io_uring_register to before mutex_unlock(&ctx->uring_lock) -> the read now executes under ctx->uring_lock, adding serialize(ctx->uring_lock, [read nr]) that shares the lock with the writer and establishes the atomic requirement",
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Concrete missing-lock case the design targets: object and both sites are in the static surface, the fix is a real lock-scope extension, and detecting it needs only intra-function lock-scope reasoning (the read at line 909 is after mutex_unlock, so get_lock_protection should report it unprotected). Risks: (1) self-race / same-entry MHP - both contexts are concurrent invocations of the same io_uring_register syscall, so the design must admit a same-entry concurrent thread pair; (2) the race is benign (trace-only, author 'we don't care much'), so the LLM may adjudicate the read as not carrying a real order intent and reject it.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}

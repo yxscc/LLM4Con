@@ -1,0 +1,51 @@
+{
+  "bug_id": "SYZBOT-52cb782c704e243e",
+  "shared_object": "struct fib6_nh::last_probe (fib6_nh->last_probe)",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "IPv6 route lookup probe rate-limit (reader+updater)",
+    "entry": "tcp_xmit_probe_skb",
+    "clause": {
+      "resource": "fib6_nh->last_probe",
+      "sites": [
+        {"function": "rt6_probe", "file": "net/ipv6/route.c", "line": 657, "op_kind": "READ"},
+        {"function": "rt6_probe", "file": "net/ipv6/route.c", "line": 663, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([read(last_probe), check(time_after), write(last_probe = jiffies)])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "concurrent IPv6 route lookup probe rate-limit (reader+updater)",
+    "entry": "tcp_xmit_probe_skb",
+    "clause": {
+      "resource": "fib6_nh->last_probe",
+      "sites": [
+        {"function": "rt6_probe", "file": "net/ipv6/route.c", "line": 657, "op_kind": "READ"},
+        {"function": "rt6_probe", "file": "net/ipv6/route.c", "line": 663, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([read(last_probe), check(time_after), write(last_probe = jiffies)])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "ρ = atomic([read(last_probe), time_after check, write(last_probe = jiffies)]) -- the rate-limit read-check-update must be one indivisible region so only one CPU wins per interval",
+    "violating_event": "e@rt6_probe:663 = WRITE(last_probe = jiffies) by the peer CPU interleaving INSIDE the other CPU's read-check-update region",
+    "missing_guarantee": "rt6_probe holds only rcu_read_lock_bh (does not serialize two CPUs on this nexthop) -> no serialize over the [read..write] region; both CPUs read the same stale last_probe, both pass time_after, both update and queue a deferred probe",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "atomicity_violation",
+    "category_rationale": "ρ is atomic(REGION = read -> check -> update), broken by an interleaving write inside the region -> atomicity violation (manifests as the KCSAN data race plus duplicate deferred rt6_probe works)"
+  },
+
+  "fix_maps_to": "patch samples last_probe = READ_ONCE(...) and replaces the conditional plain store with cmpxchg(&fib6_nh->last_probe, last_probe, jiffies) -> makes the read-check-update an atomic compare-and-swap so only one CPU commits -> establishes atomic(region). (Separately it also fixes the last_probe == 0 init, a 32-bit single-thread logic issue, not the race.)",
+
+  "recall_plausibility": "medium",
+  "recall_risk_notes": "Self-race: static must model the same rt6_probe on two CPUs against the same shared fib6_nh. Region-boundary inference is needed: the assume must span [read@657 .. write@663]; a single-point assume would degrade to a plain data_race (still a recall, but the cmpxchg fix confirms the region is the true ρ). The benign-ish outcome (duplicate probe work) is a mild dismissal risk. Object identity via find_match(nh) -> rt6_probe(fib6_nh) is clean.",
+
+  "confidence": "medium",
+  "needs_human_review": true
+}

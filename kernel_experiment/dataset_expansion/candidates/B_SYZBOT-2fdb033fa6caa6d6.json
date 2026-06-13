@@ -1,0 +1,158 @@
+{
+  "tier": "B",
+  "score": 100,
+  "bug_id": "SYZBOT-2fdb033fa6caa6d6",
+  "source": "syzbot",
+  "title": "possible deadlock in snd_hrtimer_callback",
+  "description": "possible deadlock in snd_hrtimer_callback",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "deadlock",
+    "raw_title": "possible deadlock in snd_hrtimer_callback"
+  },
+  "fix_commit": "f671a691e299f58835d4660d642582bf0e8f6fda",
+  "affected_files": [
+    "fs/fcntl.c",
+    "include/linux/lockdep.h",
+    "kernel/locking/lockdep.c",
+    "lib/locking-selftest.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "fs/fcntl.c",
+      "changed_lines": [
+        "-\tread_lock(&filp->f_owner.lock);",
+        "+",
+        "+\tread_lock_irq(&filp->f_owner.lock);",
+        "-\tread_unlock(&filp->f_owner.lock);",
+        "+\tread_unlock_irq(&filp->f_owner.lock);",
+        "-\tread_lock(&filp->f_owner.lock);",
+        "+\tread_lock_irq(&filp->f_owner.lock);",
+        "-\tread_unlock(&filp->f_owner.lock);",
+        "+\tread_unlock_irq(&filp->f_owner.lock);",
+        "-\tread_lock(&filp->f_owner.lock);",
+        "+\tread_lock_irq(&filp->f_owner.lock);",
+        "-\tread_unlock(&filp->f_owner.lock);",
+        "+\tread_unlock_irq(&filp->f_owner.lock);"
+      ],
+      "hunks": [
+        {
+          "old_start": 150,
+          "new_start": 150
+        },
+        {
+          "old_start": 158,
+          "new_start": 159
+        },
+        {
+          "old_start": 208,
+          "new_start": 209
+        },
+        {
+          "old_start": 231,
+          "new_start": 232
+        },
+        {
+          "old_start": 249,
+          "new_start": 250
+        }
+      ]
+    },
+    {
+      "path": "include/linux/lockdep.h",
+      "changed_lines": [
+        "+/* Variable used to make lockdep treat read_lock() as recursive in selftests */",
+        "+#ifdef CONFIG_DEBUG_LOCKING_API_SELFTESTS",
+        "+extern unsigned int force_read_lock_recursive;",
+        "+#else /* CONFIG_DEBUG_LOCKING_API_SELFTESTS */",
+        "+#define force_read_lock_recursive 0",
+        "+#endif /* CONFIG_DEBUG_LOCKING_API_SELFTESTS */",
+        "+",
+        "+#ifdef CONFIG_LOCKDEP",
+        "+extern bool read_lock_is_recursive(void);",
+        "+#else /* CONFIG_LOCKDEP */",
+        "+/* If !LOCKDEP, the value is meaningless */",
+        "+#define read_lock_is_recursive() 0",
+        "+#endif",
+        "+",
+        "-#define rwlock_acquire_read(l, s, t, i)\t\tlock_acquire_shared_recursive(l, s, t, NULL, i)",
+        "+#define rwlock_acquire_read(l, s, t, i)\t\t\t\t\t\\",
+        "+do {\t\t\t\t\t\t\t\t\t\\",
+        "+\tif (read_lock_is_recursive())\t\t\t\t\t\\",
+        "+\t\tlock_acquire_shared_recursive(l, s, t, NULL, i);\t\\",
+        "+\telse\t\t\t\t\t\t\t\t\\",
+        "+\t\tlock_acquire_shared(l, s, t, NULL, i);\t\t\t\\",
+        "+} while (0)",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 469,
+          "new_start": 469
+        },
+        {
+          "old_start": 490,
+          "new_start": 504
+        }
+      ]
+    },
+    {
+      "path": "kernel/locking/lockdep.c",
+      "changed_lines": [
+        "+/*",
+        "+ * read_lock() is recursive if:",
+        "+ * 1. We force lockdep think this way in selftests or",
+        "+ * 2. The implementation is not queued read/write lock or",
+        "+ * 3. The locker is at an in_interrupt() context.",
+        "+ */",
+        "+bool read_lock_is_recursive(void)",
+        "+{",
+        "+\treturn force_read_lock_recursive ||",
+        "+\t       !IS_ENABLED(CONFIG_QUEUED_RWLOCKS) ||",
+        "+\t       in_interrupt();",
+        "+}",
+        "+EXPORT_SYMBOL_GPL(read_lock_is_recursive);",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 4967,
+          "new_start": 4967
+        }
+      ]
+    },
+    {
+      "path": "lib/locking-selftest.c",
+      "changed_lines": [
+        "+unsigned int force_read_lock_recursive;",
+        "+\t/*",
+        "+\t * treats read_lock() as recursive read locks for testing purpose",
+        "+\t */",
+        "+\tforce_read_lock_recursive = 1;",
+        "+",
+        "+\tforce_read_lock_recursive = 0;",
+        "+\t/*",
+        "+\t * queued_read_lock() specific test cases can be put here",
+        "+\t */",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 28,
+          "new_start": 28
+        },
+        {
+          "old_start": 1978,
+          "new_start": 1979
+        },
+        {
+          "old_start": 2073,
+          "new_start": 2079
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2fdb033fa6caa6d6/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2fdb033fa6caa6d6/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2fdb033fa6caa6d6"
+}

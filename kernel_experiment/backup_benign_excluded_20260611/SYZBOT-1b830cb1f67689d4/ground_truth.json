@@ -1,0 +1,34 @@
+{
+  "cve_id": "SYZBOT-1b830cb1f67689d4",
+  "fix_commit": "3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4",
+  "files": [
+    "drivers/crypto/chelsio/chtls/chtls_io.c",
+    "drivers/nvme/host/tcp.c",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/sctp/socket.c"
+  ],
+  "description": "KCSAN: data-race in __skb_recv_udp / datagram_poll",
+  "cwes": [],
+  "title": "KCSAN: data-race in __skb_recv_udp / datagram_poll",
+  "tier": "A",
+  "source_archive": "syzbot",
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "__skb_recv_udp",
+    "fn_b": "datagram_poll"
+  },
+  "two_threads_summary": "Softirq __sock_queue_rcv_skb writes sk_receive_queue; task __skb_recv_udp / datagram_poll reads it. READ_ONCE fix.",
+  "audit_notes": "Similar to 10a1def5445d4902 family.",
+  "fix_commit_message": "3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4\nnet: use skb_queue_empty_lockless() in busy poll contexts\n\nBusy polling usually runs without locks.\nLet's use skb_queue_empty_lockless() instead of skb_queue_empty()\n\nAlso uses READ_ONCE() in __skb_try_recv_datagram() to address\na similar potential problem.\n\nSigned-off-by: Eric Dumazet <edumazet@google.com>\nSigned-off-by: David S. Miller <davem@davemloft.net>",
+  "patch": "commit 3f926af3f4d688e2e11e7f8ed04e277a14d4d4a4\nAuthor: Eric Dumazet <edumazet@google.com>\nDate:   Wed Oct 23 22:44:51 2019 -0700\n\n    net: use skb_queue_empty_lockless() in busy poll contexts\n    \n    Busy polling usually runs without locks.\n    Let's use skb_queue_empty_lockless() instead of skb_queue_empty()\n    \n    Also uses READ_ONCE() in __skb_try_recv_datagram() to address\n    a similar potential problem.\n    \n    Signed-off-by: Eric Dumazet <edumazet@google.com>\n    Signed-off-by: David S. Miller <davem@davemloft.net>\n\ndiff --git a/drivers/crypto/chelsio/chtls/chtls_io.c b/drivers/crypto/chelsio/chtls/chtls_io.c\nindex 0891ab829b1b..98bc5a4cd5e7 100644\n--- a/drivers/crypto/chelsio/chtls/chtls_io.c\n+++ b/drivers/crypto/chelsio/chtls/chtls_io.c\n@@ -1702,7 +1702,7 @@ int chtls_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,\n \t\treturn peekmsg(sk, msg, len, nonblock, flags);\n \n \tif (sk_can_busy_loop(sk) &&\n-\t    skb_queue_empty(&sk->sk_receive_queue) &&\n+\t    skb_queue_empty_lockless(&sk->sk_receive_queue) &&\n \t    sk->sk_state == TCP_ESTABLISHED)\n \t\tsk_busy_loop(sk, nonblock);\n \ndiff --git a/drivers/nvme/host/tcp.c b/drivers/nvme/host/tcp.c\nindex 770dbcbc999e..7544be84ab35 100644\n--- a/drivers/nvme/host/tcp.c\n+++ b/drivers/nvme/host/tcp.c\n@@ -2219,7 +2219,7 @@ static int nvme_tcp_poll(struct blk_mq_hw_ctx *hctx)\n \tstruct nvme_tcp_queue *queue = hctx->driver_data;\n \tstruct sock *sk = queue->sock->sk;\n \n-\tif (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue))\n+\tif (sk_can_busy_loop(sk) && skb_queue_empty_lockless(&sk->sk_receive_queue))\n \t\tsk_busy_loop(sk, true);\n \tnvme_tcp_try_recv(queue);\n \treturn queue->nr_cqe;\ndiff --git a/net/core/datagram.c b/net/core/datagram.c\nindex 5b685e110aff..03515e46a49a 100644\n--- a/net/core/datagram.c\n+++ b/net/core/datagram.c\n@@ -278,7 +278,7 @@ struct sk_buff *__skb_try_recv_datagram(struct sock *sk, unsigned int flags,\n \t\t\tbreak;\n \n \t\tsk_busy_loop(sk, flags & MSG_DONTWAIT);\n-\t} while (sk->sk_receive_queue.prev != *last);\n+\t} while (READ_ONCE(sk->sk_receive_queue.prev) != *last);\n \n \terror = -EAGAIN;\n \ndiff --git a/net/core/sock.c b/net/core/sock.c\nindex a515392ba84b..b8e758bcb6ad 100644\n--- a/net/core/sock.c\n+++ b/net/core/sock.c\n@@ -3600,7 +3600,7 @@ bool sk_busy_loop_end(void *p, unsigned long start_time)\n {\n \tstruct sock *sk = p;\n \n-\treturn !skb_queue_empty(&sk->sk_receive_queue) ||\n+\treturn !skb_queue_empty_lockless(&sk->sk_receive_queue) ||\n \t       sk_busy_loop_timeout(sk, start_time);\n }\n EXPORT_SYMBOL(sk_busy_loop_end);\ndiff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c\nindex ffef502f5292..d8876f0e9672 100644\n--- a/net/ipv4/tcp.c\n+++ b/net/ipv4/tcp.c\n@@ -1964,7 +1964,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int nonblock,\n \tif (unlikely(flags & MSG_ERRQUEUE))\n \t\treturn inet_recv_error(sk, msg, len, addr_len);\n \n-\tif (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&\n+\tif (sk_can_busy_loop(sk) && skb_queue_empty_lockless(&sk->sk_receive_queue) &&\n \t    (sk->sk_state == TCP_ESTABLISHED))\n \t\tsk_busy_loop(sk, nonblock);\n \ndiff --git a/net/sctp/socket.c b/net/sctp/socket.c\nindex cfb25391b8b0..ca81e06df165 100644\n--- a/net/sctp/socket.c\n+++ b/net/sctp/socket.c\n@@ -8871,7 +8871,7 @@ struct sk_buff *sctp_skb_recv_datagram(struct sock *sk, int flags,\n \t\tif (sk_can_busy_loop(sk)) {\n \t\t\tsk_busy_loop(sk, noblock);\n \n-\t\t\tif (!skb_queue_empty(&sk->sk_receive_queue))\n+\t\t\tif (!skb_queue_empty_lockless(&sk->sk_receive_queue))\n \t\t\t\tcontinue;\n \t\t}\n \n",
+  "affected_files_from_patch": [
+    "drivers/crypto/chelsio/chtls/chtls_io.c",
+    "drivers/nvme/host/tcp.c",
+    "net/core/datagram.c",
+    "net/core/sock.c",
+    "net/ipv4/tcp.c",
+    "net/sctp/socket.c"
+  ]
+}

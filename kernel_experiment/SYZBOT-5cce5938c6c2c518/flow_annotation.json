@@ -1,0 +1,288 @@
+{
+  "bug_id": "SYZBOT-5cce5938c6c2c518",
+  "status": "complete",
+  "summary": "Two lockless IPv4 UDP sendmsg paths race on inet->inet_id while selecting packet IDs.",
+  "true_interleaving": {
+    "thread_a": {
+      "role": "UDP sendmsg increments inet_id",
+      "entry": {
+        "function": "__x64_sys_sendmmsg",
+        "file": "net/socket.c",
+        "kind": "syscall"
+      },
+      "call_chain": [
+        {
+          "function": "__sys_sendmmsg",
+          "file": "net/socket.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "source repaired from KCSAN stack."
+        },
+        {
+          "function": "inet_sendmsg",
+          "file": "net/ipv4/af_inet.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines inet_sendmsg."
+        },
+        {
+          "function": "udp_sendmsg",
+          "file": "net/ipv4/udp.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "source repaired from KCSAN stack."
+        },
+        {
+          "function": "ip_make_skb",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines ip_make_skb."
+        },
+        {
+          "function": "__ip_make_skb",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines __ip_make_skb."
+        },
+        {
+          "function": "ip_select_ident_segs",
+          "file": "include/net/ip.h",
+          "present_in_src": true,
+          "present_in_bitcode": false,
+          "evidence": "Static inline header helper; access is inlined into __ip_make_skb, which is defined in merged.ll."
+        }
+      ],
+      "bug_site": {
+        "function": "ip_select_ident_segs",
+        "file": "include/net/ip.h",
+        "line": 542,
+        "kind": "write",
+        "code": "inet_sk(sk)->inet_id += segs;"
+      }
+    },
+    "thread_b": {
+      "role": "Concurrent UDP sendmsg reads inet_id",
+      "entry": {
+        "function": "__x64_sys_sendmmsg",
+        "file": "net/socket.c",
+        "kind": "syscall"
+      },
+      "call_chain": [
+        {
+          "function": "__sys_sendmmsg",
+          "file": "net/socket.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "same syscall family."
+        },
+        {
+          "function": "inet_sendmsg",
+          "file": "net/ipv4/af_inet.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines inet_sendmsg."
+        },
+        {
+          "function": "udp_sendmsg",
+          "file": "net/ipv4/udp.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "source repaired from KCSAN stack."
+        },
+        {
+          "function": "ip_make_skb",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines ip_make_skb."
+        },
+        {
+          "function": "__ip_make_skb",
+          "file": "net/ipv4/ip_output.c",
+          "present_in_src": true,
+          "present_in_bitcode": true,
+          "evidence": "merged.ll defines __ip_make_skb."
+        },
+        {
+          "function": "ip_select_ident_segs",
+          "file": "include/net/ip.h",
+          "present_in_src": true,
+          "present_in_bitcode": false,
+          "evidence": "Static inline header helper; access is inlined into __ip_make_skb, which is defined in merged.ll."
+        }
+      ],
+      "bug_site": {
+        "function": "ip_select_ident_segs",
+        "file": "include/net/ip.h",
+        "line": 541,
+        "kind": "read",
+        "code": "iph->id = htons(inet_sk(sk)->inet_id);"
+      }
+    },
+    "interleaving": [
+      "Two tasks use UDP sendmsg on the same connected inet socket.",
+      "Both reach __ip_make_skb and ip_select_ident_segs without the TCP socket lock discipline.",
+      "The fix converts inet_id to atomic_t and uses atomic_add_return for non-TCP sockets."
+    ]
+  },
+  "ground_truth_access": {
+    "type": "data_race",
+    "object": "struct inet_sock::inet_id",
+    "access_a": {
+      "function": "ip_select_ident_segs",
+      "file": "include/net/ip.h",
+      "line": 542,
+      "kind": "write",
+      "code": "inet_sk(sk)->inet_id += segs;"
+    },
+    "access_b": {
+      "function": "ip_select_ident_segs",
+      "file": "include/net/ip.h",
+      "line": 541,
+      "kind": "read",
+      "code": "iph->id = htons(inet_sk(sk)->inet_id);"
+    },
+    "required_ordering": "Non-TCP concurrent senders need atomic allocation of the per-socket IPv4 ID counter."
+  },
+  "vulnerability_surface": {
+    "primary_object": "struct inet_sock::inet_id",
+    "object_kind": "struct_field",
+    "confidence": "high",
+    "why_relevant": "This per-socket IPv4 ID counter is shared by lockless UDP sendmsg executions and was a plain u16 read-modify-write.",
+    "aliases": [
+      {
+        "name": "inet_sk(sk)->inet_id",
+        "function": "ip_select_ident_segs",
+        "file": "include/net/ip.h",
+        "evidence": "Inline read and increment."
+      },
+      {
+        "name": "inet->inet_id",
+        "function": "inet_create",
+        "file": "net/ipv4/af_inet.c",
+        "evidence": "Initializes the field for inet sockets."
+      }
+    ],
+    "access_paths": {
+      "thread_a": [
+        {
+          "from": "socket->sk",
+          "to": "inet_sk(sk)->inet_id",
+          "evidence": "inet_sendmsg dispatches to udp_sendmsg then ip_make_skb."
+        }
+      ],
+      "thread_b": [
+        {
+          "from": "same socket->sk",
+          "to": "inet_sk(sk)->inet_id",
+          "evidence": "same lockless UDP send path."
+        }
+      ]
+    },
+    "access_sites": [
+      {
+        "function": "ip_select_ident_segs",
+        "file": "include/net/ip.h",
+        "line": 541,
+        "kind": "read",
+        "code": "inet_sk(sk)->inet_id"
+      },
+      {
+        "function": "ip_select_ident_segs",
+        "file": "include/net/ip.h",
+        "line": 542,
+        "kind": "write",
+        "code": "inet_sk(sk)->inet_id += segs;"
+      },
+      {
+        "function": "inet_create",
+        "file": "net/ipv4/af_inet.c",
+        "line": 343,
+        "kind": "write",
+        "code": "inet->inet_id = 0;"
+      }
+    ],
+    "lifetime": {
+      "allocated_by": [
+        "inet_create allocates and initializes inet_sock"
+      ],
+      "published_by": [
+        "socket creation publishes sk through socket"
+      ],
+      "invalidated_by": [],
+      "freed_by": [
+        "socket close frees sock"
+      ]
+    },
+    "notes": []
+  },
+  "coverage": {
+    "src_complete": true,
+    "bitcode_complete": true,
+    "analysis_required_files": [
+      "net/socket.c",
+      "net/ipv4/af_inet.c",
+      "net/ipv4/udp.c",
+      "net/ipv4/ip_output.c",
+      "include/net/ip.h",
+      "include/net/inet_sock.h"
+    ],
+    "candidate_files": [],
+    "analysis_conclusion": "Merged bitcode has AF_INET and IP output layers but not the repaired syscall/UDP source files needed for the exact KCSAN entry stack.",
+    "missing_functions": [],
+    "missing_files": [],
+    "files_added": [
+      "net/socket.c",
+      "net/ipv4/udp.c"
+    ],
+    "src_file_count_before": 22,
+    "src_file_count_after": 24,
+    "compiled_files": [
+      "drivers/net/ethernet/chelsio/inline_crypto/chtls/chtls_cm.c",
+      "net/dccp/ipv4.c",
+      "net/ipv4/af_inet.c",
+      "net/ipv4/datagram.c",
+      "net/ipv4/ip_output.c",
+      "net/ipv4/tcp_ipv4.c",
+      "net/sctp/socket.c",
+      "net/ipv4/udp.c",
+      "net/socket.c"
+    ],
+    "compile_failed_files": [],
+    "selected_bitcode": "merged.ll",
+    "bitcode_input_files": [
+      "chtls_cm.ll",
+      "ipv4.ll",
+      "af_inet.ll",
+      "datagram.ll",
+      "ip_output.ll",
+      "tcp_ipv4.ll",
+      "socket.ll",
+      "udp.ll",
+      "net_socket.ll"
+    ],
+    "bitcode_linked_file_count": 9,
+    "selected_bitcode_defined_function_count": 2168
+  },
+  "evidence": {
+    "patch_hunks": [
+      "Patch changes inet_sock::inet_id from u16 to atomic_t and updates ip_select_ident_segs."
+    ],
+    "indirect_edges": [
+      "inet_stream/dgram ops use .sendmsg = inet_sendmsg; inet_sendmsg indirect-calls udp_sendmsg."
+    ],
+    "entry_discovery_log": [
+      "Direct define verification in merged.ll passed for modeled non-inline entries and access callers."
+    ],
+    "repair_commands": [
+      "git show f866fbc842de5976e41ba874b76ce31710b634b5^:<path> for net/socket.c and net/ipv4/udp.c.",
+      "Prepared temporary git worktrees at each fix_commit^; compiled missing required C files with clang-15 -S -emit-llvm using kernel include/generated headers and linked merged.ll with external llvm-link."
+    ],
+    "notes": [
+      "merged.ll contains inet_sendmsg, ip_make_skb, and __ip_make_skb; udp_sendmsg is missing from selected bitcode.",
+      "ip_select_ident_segs is a static inline helper in include/net/ip.h; no standalone IR define is expected, and the read/write is inlined into __ip_make_skb, which is defined in merged.ll."
+    ]
+  }
+}

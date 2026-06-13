@@ -1,0 +1,15 @@
+{
+  "bug_id": "SYZBOT-08f3e9d26e5541e1",
+  "tier": "A",
+  "title": "KCSAN: data-race in process_srcu / synchronize_srcu",
+  "mainline_sha": "844a378de3372c923909681706d62336d702531e",
+  "all_shas_seen": [
+    "08f3e9d26e5541e1ecf2",
+    "844a378de3372c923909681706d62336d702531e"
+  ],
+  "c_paths": [
+    "kernel/rcu/srcutree.c"
+  ],
+  "n_files_shown": 1,
+  "n_functions_shown": 2
+}

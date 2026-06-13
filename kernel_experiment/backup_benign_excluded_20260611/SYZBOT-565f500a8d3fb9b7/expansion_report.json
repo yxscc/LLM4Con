@@ -1,0 +1,17 @@
+{
+  "commit": "0a6e6b3c7db6c34e3d149f09cd714972f8753e3f",
+  "user_seeds": [
+    "net/ipv4/fib_semantics.c"
+  ],
+  "patch_files": [
+    "net/ipv4/fib_semantics.c"
+  ],
+  "changed_symbols_sample": [
+    "fib_info_cnt",
+    "fib_info_hash_size"
+  ],
+  "expanded": [
+    "net/ipv4/fib_semantics.c"
+  ],
+  "added_by_expander": {}
+}

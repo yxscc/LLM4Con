@@ -1,0 +1,17 @@
+{
+  "commit": "de5724ca38fd5e442bae9c1fab31942b6544012d",
+  "user_seeds": [
+    "net/xfrm/xfrm_policy.c"
+  ],
+  "patch_files": [
+    "net/xfrm/xfrm_policy.c"
+  ],
+  "changed_symbols_sample": [
+    "ktime_get_real_seconds",
+    "use_time"
+  ],
+  "expanded": [
+    "net/xfrm/xfrm_policy.c"
+  ],
+  "added_by_expander": {}
+}

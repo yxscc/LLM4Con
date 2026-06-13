@@ -1,0 +1,46 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-2be2f8da254ea650",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in fanout_demux_rollover / fanout_demux_rollover",
+  "description": "KCSAN: data-race in fanout_demux_rollover / fanout_demux_rollover",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "fanout_demux_rollover",
+    "fn_b": "fanout_demux_rollover"
+  },
+  "fix_commit": "b756ad928d98e5ef0b74af7546a6a31a8dadde00",
+  "affected_files": [
+    "net/packet/af_packet.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/packet/af_packet.c",
+      "changed_lines": [
+        "-\tu32 rxhash;",
+        "+\tu32 *history = po->rollover->history;",
+        "+\tu32 victim, rxhash;",
+        "-\t\tif (po->rollover->history[i] == rxhash)",
+        "+\t\tif (READ_ONCE(history[i]) == rxhash)",
+        "-\tpo->rollover->history[prandom_u32() % ROLLOVER_HLEN] = rxhash;",
+        "+\tvictim = prandom_u32() % ROLLOVER_HLEN;",
+        "+",
+        "+\t/* Avoid dirtying the cache line if possible */",
+        "+\tif (READ_ONCE(history[victim]) != rxhash)",
+        "+\t\tWRITE_ONCE(history[victim], rxhash);",
+        "+"
+      ],
+      "hunks": [
+        {
+          "old_start": 1295,
+          "new_start": 1295
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-2be2f8da254ea650/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-2be2f8da254ea650/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-2be2f8da254ea650"
+}

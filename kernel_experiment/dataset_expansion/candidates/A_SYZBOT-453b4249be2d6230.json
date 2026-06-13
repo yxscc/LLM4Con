@@ -1,0 +1,36 @@
+{
+  "tier": "A",
+  "score": 200,
+  "bug_id": "SYZBOT-453b4249be2d6230",
+  "source": "syzbot",
+  "title": "KCSAN: data-race in xfrm_lookup_with_ifid / xfrm_lookup_with_ifid (7)",
+  "description": "KCSAN: data-race in xfrm_lookup_with_ifid / xfrm_lookup_with_ifid (7)",
+  "cwes": [],
+  "thread_hint": {
+    "kind": "kcsan",
+    "fn_a": "xfrm_lookup_with_ifid",
+    "fn_b": "xfrm_lookup_with_ifid"
+  },
+  "fix_commit": "de5724ca38fd5e442bae9c1fab31942b6544012d",
+  "affected_files": [
+    "net/xfrm/xfrm_policy.c"
+  ],
+  "patch_context_hunks": [
+    {
+      "path": "net/xfrm/xfrm_policy.c",
+      "changed_lines": [
+        "-\t\tpols[i]->curlft.use_time = ktime_get_real_seconds();",
+        "+\t\tWRITE_ONCE(pols[i]->curlft.use_time, ktime_get_real_seconds());"
+      ],
+      "hunks": [
+        {
+          "old_start": 3220,
+          "new_start": 3220
+        }
+      ]
+    }
+  ],
+  "patch_diff_path": "/tmp/ds_inspect/syzbot/SYZBOT-453b4249be2d6230/patch.diff",
+  "summary_md_path": "/tmp/ds_inspect/syzbot/SYZBOT-453b4249be2d6230/summary.md",
+  "src_dir": "/tmp/ds_inspect/syzbot/SYZBOT-453b4249be2d6230"
+}

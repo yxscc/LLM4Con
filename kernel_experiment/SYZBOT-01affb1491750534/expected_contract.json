@@ -1,0 +1,49 @@
+{
+  "bug_id": "SYZBOT-01affb1491750534",
+  "shared_object": "struct pool_workqueue::stats[PWQ_STAT_COMPLETED]",
+
+  "scope": "in_scope",
+  "scope_reason": "",
+
+  "thread_a": {
+    "role": "first kworker completion path",
+    "entry": "worker_thread",
+    "clause": {
+      "resource": "pwq->stats[PWQ_STAT_COMPLETED]",
+      "sites": [
+        {"function": "process_one_work", "file": "kernel/workqueue.c", "line": 3244, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([RMW pwq->stats[PWQ_STAT_COMPLETED]++ @3244])"],
+      "guarantee_protection": []
+    }
+  },
+  "thread_b": {
+    "role": "second kworker completion path (same pool_workqueue)",
+    "entry": "worker_thread",
+    "clause": {
+      "resource": "pwq->stats[PWQ_STAT_COMPLETED]",
+      "sites": [
+        {"function": "process_one_work", "file": "kernel/workqueue.c", "line": 3244, "op_kind": "WRITE"}
+      ],
+      "assume": ["atomic([RMW pwq->stats[PWQ_STAT_COMPLETED]++ @3244])"],
+      "guarantee_protection": []
+    }
+  },
+
+  "emergent_bug": {
+    "violated_requirement": "rho = atomic([pwq->stats[PWQ_STAT_COMPLETED]++ @3244]) from either worker (a single-location non-atomic RMW that assumes no concurrent conflicting access)",
+    "violating_event": "e@process_one_work:3244 = the peer worker's concurrent pwq->stats[PWQ_STAT_COMPLETED]++ on the same pool_workqueue's slot",
+    "missing_guarantee": "the increment is executed AFTER pool->lock was dropped (between trace_workqueue_execute_end and the later raw_spin_lock_irq(&pool->lock)), so neither worker holds pool->lock at :3244 -> no serialize establishes mutual exclusion on the shared counter",
+    "feasibility": {"concurrent": true, "ordered": false, "protected": false, "conflicts": true},
+    "category_label": "data_race",
+    "category_rationale": "rho = atomic(single-location access) broken by a concurrent unsynchronized RMW from a peer worker -> data race (lost update on the completion counter)"
+  },
+
+  "fix_maps_to": "patch moves pwq->stats[PWQ_STAT_COMPLETED]++ into the existing pool->lock critical section (after raw_spin_lock_irq(&pool->lock)) -> serialize(pool->lock, [increment]) -> establishes the atomic RMW",
+
+  "recall_plausibility": "high",
+  "recall_risk_notes": "Clean self-race on a concrete struct field, with surface support (vulnerability_surface gives primary_object + access_paths for both workers). Both threads enter worker_thread->process_one_work, so a self-race pair must be spawned (standard). Main risk is site-precise protection arbitration: process_one_work DOES take pool->lock elsewhere, but the lock is RELEASED across the work-function call where :3244 sits; the static not_lock_protected check must be precise to the site (lock dropped, then re-acquired) rather than concluding 'function holds pool->lock'. If it wrongly treats :3244 as pool->lock-protected, the bug is missed.",
+
+  "confidence": "high",
+  "needs_human_review": false
+}
