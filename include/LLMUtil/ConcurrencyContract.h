@@ -59,29 +59,37 @@ public:
     // 5. 并行关系 (Parallelism)
     std::set<ThreadID> intendedParallelThreads;
 
-    // ===== §4.6 order/sync assume-guarantee 内容（thread-contract "老故事"核心）=====
-    // 每个线程触碰的每项共享资源一条 clause。关系来自一个封闭、与子系统无关的代数 (WF4)：
-    //   assume    ∈ {prec, atomic, count_guarded}      —— 该线程为自身正确性"要求"的 order
-    //   guarantee ∈ {serialize, order, counts}         —— 该线程用同步"建立"的 order
-    // 它们是通用 order/sync 关系，绝不是按 CVE 增删的缺陷签名。
-    struct OrderReq {                 // 出现在 assume：本线程要求的一条 order
-        std::string relation;         // "prec" | "atomic" | "count_guarded"
-        std::string detail;           // 如 "prec(use, free)" / "atomic([check, use])"
+    // ===== ThreadContract requirement/guarantee content =====
+    // Each clause is anchored to one shared resource/protocol object, but the
+    // requirement side stays close to source code: it records the local statement
+    // or region whose safety depends on the environment.
+    //
+    //   assume    ∈ {ORDER, CONFLICT_MEDIATED, REGION_ISOLATED,
+    //                STABLE_DURING, PROGRESS_ENABLED}
+    //              -- local execution obligations of this thread.
+    //   guarantee ∈ {ORDER, EXCLUDE, LINEARIZE, WAIT}
+    //              -- Level-0 synchronization effects contributed by code.
+    //
+    // High-level APIs (RCU, refcount, close-and-drain, validation/retry) are
+    // represented in `detail` as macros that lower to the Level-0 atoms above.
+    struct OrderReq {                 // In assume: local safety obligation.
+        std::string relation;         // "ORDER" | "CONFLICT_MEDIATED" | ...
+        std::string detail;           // e.g. "STABLE_DURING(use_region, live(obj))"
         std::string provenance;       // 出处行 / caller，支撑该要求
     };
-    struct SyncProv {                 // 出现在 guarantee：本线程用同步建立的一条 order
-        std::string relation;         // "serialize" | "order" | "counts"
-        std::string detail;           // 如 "serialize(key->sem, region)"
+    struct SyncProv {                 // In guarantee: synchronization effect.
+        std::string relation;         // "ORDER" | "EXCLUDE" | "LINEARIZE" | "WAIT"
+        std::string detail;           // e.g. "WAIT(close_and_drain_return, active_callbacks_empty)"
         std::string provenance;
     };
     struct OrderClause {
         std::string resource;             // 共享对象/字段（可含 surface object id）
         int objectId = -1;                // 主锚点 = objectIds 的首个（兼容旧字段；-1=未锚定）
         std::vector<int> objectIds;       // 本 clause 覆盖的全部 surface 对象下标（锁区合并：一条
-                                          // serialize 可同时覆盖同锁下的多个字段，静态组合按它匹配）
+                                          // EXCLUDE 可同时覆盖同锁下的多个字段，静态组合按它匹配）
         std::vector<std::string> sites;   // "func @ file:line" —— clause 涉及操作的 provenance
-        std::vector<OrderReq> assume;     // 要求的 order（推断出的意图 —— 核心增量）
-        std::vector<SyncProv> guarantee;  // 建立 order 的同步
+        std::vector<OrderReq> assume;     // Local requirements (LLM-inferred, anchored).
+        std::vector<SyncProv> guarantee;  // Synchronization atoms/macros provided by code.
         // Contract COMPLETENESS (coverage invariant): when this thread has reviewed a
         // HIGH-RISK surface object (unprotected cross-thread write / free / list
         // mutation / self-race) and concluded it carries NO order obligation for this
@@ -109,7 +117,7 @@ public:
         }
         return false;
     }
-    // 选择性产出：只为有真实 order/sync 义务的资源各一条（而非逐变量穷举）；
+    // 选择性产出：只为有真实 requirement/guarantee 内容的资源各一条（而非逐变量穷举）；
     // 同锁覆盖的多字段合并为一条（objectIds 列多个）。未产出 clause 的对象由
     // Phase B 的 surface 冲突底线兜底（召回不丢）。
     std::vector<OrderClause> clauses;
@@ -147,7 +155,7 @@ public:
         this->intendedParallelThreads.insert(parallelThreadId);
     }
 
-    // §4.6 order/sync 内容的构建方法
+    // Requirement/guarantee 内容的构建方法
     void addClause(const OrderClause& clause) { this->clauses.push_back(clause); }
     void addOrdering(const std::string& o) { this->ordering.push_back(o); }
     bool hasOrderContent() const { return !clauses.empty() || !ordering.empty(); }

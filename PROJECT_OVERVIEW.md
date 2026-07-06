@@ -115,59 +115,63 @@ ThreadAccess { thread_id, function_name, containing_function, access_type(Read/W
 
 ## 4. 老故事：Thread-Contract（并发契约 + 交织推理）
 
-**动机**：并发问题的本质是**顺序问题**——没控制好语句间的 order 就会出错；要控制 order 就要**同步**（互斥、等待等）。因此若能把每个线程"需要什么 order"和"用同步建立了什么 order"刻画清楚，缺陷就等价于**一条被需要的 order 在某个可行交织里被破坏、且无同步保证它**。
+**动机**：静态分析能找到线程、访问、锁和可能的危险操作，但很难恢复框架 API、状态变量、refcount/RCU、callback drain 等同步语义。Lace 让 LLM 从静态证据中恢复这些语义，再把它们写成可组合的 ThreadContract。
 
-**Key idea**：为每个线程生成**并发契约**（order/sync 的 assume-guarantee），再**组合**多线程契约，按**单失配规则**推出涌现缺陷；静态分析负责给出可显式识别的保护，LLM 负责识别语义保护并最终判定。
+**Key idea**：为每个线程生成**并发契约**：`assume` 记录局部语句/区域对环境线程的安全需求，`guarantee` 记录同步对执行历史产生的效果。多线程组合时，checker 判断这些 guarantee 是否足以 discharge requirement；若仍允许违反性交错，则形成候选缺陷。
 
 ### 4.1 契约的形式化定义
 
-数据结构：`include/LLMUtil/ConcurrencyContract.h`。核心是 §4.6 的 order/sync 内容——线程触碰的**每项共享资源一条 clause**：
+数据结构：`include/LLMUtil/ConcurrencyContract.h`。线程触碰的共享资源或协议对象以 clause 记录：
 
 ```cpp
 struct OrderClause {
     std::string resource;        // 共享对象/字段（展示用）
     int         objectId;        // surface 共享对象下标（静态组合按它做跨线程匹配；-1=未锚定）
     std::vector<std::string> sites;     // "func @ file:line" provenance
-    std::vector<OrderReq>    assume;    // 本线程为自身正确性"要求"的 order（推断意图）
-    std::vector<SyncProv>    guarantee; // 本线程用同步"建立"的 order
+    std::vector<OrderReq>    assume;    // 局部 statement/region 的安全需求
+    std::vector<SyncProv>    guarantee; // 代码提供的同步效果
 };
 std::vector<OrderClause> clauses;       // 每项共享资源一条
 std::vector<std::string> ordering;      // 跨 clause 的线程级有向序（如 "writes_before_publish"）
 ```
 
-关系来自一个**封闭、与子系统无关的代数（WF4）**——它们是通用的 order/sync 关系，**绝不是按 CVE 增删的缺陷签名**：
+关系来自一个**封闭、与子系统无关的代数**，但不再按 bug symptom 设计。
 
-**assume（本线程要求的 order）**
+**assume（局部安全需求）**
 | 关系 | 含义 |
 |---|---|
-| `prec(a, b)` | 事件 a 必须 happen-before b（如 use 先于 free、init 先于 read） |
-| `atomic([a, b, ...])` | 该区域不可被冲突的外部事件打断（单事件 = "无并发冲突写" = 数据竞争情形） |
-| `count_guarded(R, free)` | R 仅当引用计数归零后方可释放 |
+| `ORDER(A, B)` | A 必须发生在 B 之前 |
+| `CONFLICT_MEDIATED(A, B)` | A/B 可能冲突，需要 order、non-overlap 或 linearized protocol 调停 |
+| `REGION_ISOLATED(region, hazards)` | region 执行时不应被指定 hazard 插入 |
+| `STABLE_DURING(region, P)` | region 执行期间资源或谓词 P 必须保持有效 |
+| `PROGRESS_ENABLED(wait, enabler)` | 可选扩展：wait 需要匹配的 enabler |
 
-**guarantee（本线程用同步建立的 order）**
+**guarantee（Level-0 同步效果）**
 | 关系 | 含义 |
 |---|---|
-| `serialize(L, region)` | 锁/RCU 读端/irq-preempt disable 使区域互斥 |
-| `order(a < b via m)` | 协作原语 m（rcu_assign/publish、synchronize_rcu/flush_work/kthread_stop/join、barrier、refcount-drop-then-free）建立 happens-before |
-| `counts(R)` | 引用计数纪律维持 `count_guarded(R)` |
+| `ORDER(a, b)` | a happens-before b |
+| `EXCLUDE(token, region, mode)` | 同 token 且冲突 mode 的 region 不能重叠 |
+| `LINEARIZE(object, operation)` | operation 在线性化点生效 |
+| `WAIT(wait_event, condition)` | wait_event 不能在 condition/enabler 满足前通过 |
 
-**诚实原则**：guarantee 只列代码**真正提供且确实覆盖该资源**的同步——守护别的字段、或在访问前已释放的锁，**不算**（留空）。静态给出的"候选锁"未必保护该对象，由模型据代码判断各锁实际序列化了什么。
+RCU、refcount、callback close-and-drain、handoff、validation/retry 等高级机制都作为这些 Level-0 atoms 上的宏表示。
+
+**诚实原则**：guarantee 只列代码**真正提供且确实覆盖该资源/协议**的同步效果。守护别的字段、wait 别的 domain、或纯 state check 都不能直接 discharge 当前 requirement。
 
 > 注：还保留了一组 legacy 描述字段（`role`, `summary`, `sharedVariables`, `synchronization`, `intendedParallelThreads`），仅在无 order clause 时作展示回退。承重的是上面的 assume/guarantee。
 
-### 4.2 单失配 / 涌现式组合规则
+### 4.2 Requirement Discharge / 涌现式组合规则
 
-对某条被需要的 order `R0`，缺陷**当且仅当**：
+对某条 requirement `R`，候选缺陷产生于：
 
 ```
-(1) 某线程 REQUIRES R0（一条 assume：prec / atomic / count_guarded）；
-(2) 另一线程有事件 VIOLATES R0（如 use 前的 free、atomic 区内的冲突写、init 前的 use）；
-(3) NO thread 的 guarantee 建立 R0（无 serialize/order/counts 覆盖它，或那把看似相关的锁守的是别的字段 / 已先释放）。
-然后用接地确认该交织 FEASIBLE：concurrent ∧ ¬hb ∧ ¬lock-protected ∧ conflicts。
-若 (3) 不成立——确有 guarantee 建立了 R0——则良性，不报。
+(1) 某线程的 concrete statement/region 有 R；
+(2) 另一线程或同线程并发实例有 event 可违反 R；
+(3) 所有相关 guarantee 组合后仍无法 discharge R；
+(4) static surface 仍允许该违反性交错：concurrent ∧ ¬HB/¬NO_OVERLAP ∧ conflicts。
 ```
 
-缺陷类别只是"哪条 R0 被破坏"的**标签**（涌现，而非选模板）：`prec(use,free)→use_after_free`、`prec(init,use)→uninitialized_read/publish`、`atomic(region)→data_race/atomicity_violation`、`count_guarded→refcount/double_free`。
+缺陷类别只是后验标签：例如 `STABLE_DURING(use_region, live(R))` 被 retire 违反可解释为 lifetime/UAF，`REGION_ISOLATED(check_use_region, invalidators)` 被冲突写插入可解释为 atomicity/check-use。
 
 ### 4.3 当前流水线（折叠式，默认）
 
@@ -176,7 +180,7 @@ std::vector<std::string> ordering;      // 跨 clause 的线程级有向序（�
 1. **Phase 1 — 漏洞面**（纯静态）。
 2. **Phase 2.5 — 对象分诊（Object Triage）**：一次廉价 LLM 调用，剔除不可能承载真实并发缺陷的对象（纯统计计数器、不透明匿名对象等），生命周期载体（free/list/self-race）强制保留。fail-open。可用 `LACE_DISABLE_OBJECT_TRIAGE=1` 关闭。
 3. **冲突簇聚类**：把被**同一组线程**访问的对象聚成一个会话（session 数随"不同线程集"而非"对象数"增长；不丢对象，召回安全）。超大簇按上限切块。
-4. **Phase 3 — 逐簇交织分析**（`InterleavingAnalysisAgent::analyzeCluster`）：每个簇一个 LLM 会话，**内联派生**该簇对象上的逐线程契约（assume/guarantee），按单失配判定，对每个真实违例调用 `propose_race_hypothesis`（经验证器接地后才记账）。源代码预加载进 prompt 以减少读工具调用；并带"lockset focus"把注意力引到无锁/跨锁的竞争前沿。
+4. **Phase 3 — 逐簇交织分析**（`InterleavingAnalysisAgent::analyzeCluster`）：每个簇一个 LLM 会话，**内联派生**该簇对象上的逐线程 requirement/guarantee，按 discharge 逻辑判定，对每个真实违例调用 `propose_race_hypothesis`（经验证器接地后才记账）。源代码预加载进 prompt 以减少读工具调用；并带"lockset focus"把注意力引到无锁/跨锁的竞争前沿。
 
 > "折叠"指：把独立的契约生成阶段并入 Phase 3——契约仍在理论上存在（会话内逐线程派生），但不再单独成阶段，省去重复的子句产出开销。
 
@@ -184,11 +188,11 @@ std::vector<std::string> ordering;      // 跨 clause 的线程级有向序（�
 
 为了让**契约真正承重**、并把昂贵的"逐簇交织推理"拆成"廉价静态 + 小范围校准"，新增一条可门控的三段式流水线（默认关闭，folded 路径不变）：
 
-- **Phase A — 逐线程契约**（agent，每线程一次）：用 surface 上该线程触碰的对象 + 其访问 + 预加载源码 **seed** `ContractGeneratorAgent`，产出 assume/guarantee；每条 clause 通过 `object_id` **锚定到 surface 对象下标**，供跨线程确定性匹配。每个线程的源码**只读一次**（在 fan-in case 上摊薄重复读）。
-- **Phase B — 确定性单失配组合**（无 LLM）：在 surface 的冲突访问对上机械套用单失配规则——
+- **Phase A — 逐线程契约**（agent，每线程一次）：用 surface 上该线程触碰的对象、当前线程访问、同一对象的环境线程访问摘要、以及预加载源码 **seed** `ContractGeneratorAgent`，产出 requirement/guarantee；每条 clause 通过 `object_id` **锚定到 surface 对象下标**，供跨线程确定性匹配。每个线程的源码**只读一次**（在 fan-in case 上摊薄重复读）。
+- **Phase B — 确定性 requirement-discharge 组合**（无 LLM）：在 surface 的冲突访问对上机械检查 requirement 是否被 guarantee 消解——
   - **召回底线**来自 surface 冲突（与今天聚类同源，不更差）；
-  - **消解（discharge）**：仅当 surface 显示双方都被**同一把锁**保护**且**至少一侧契约 guarantee 有 serialize/order/counts 时，才丢弃该对（保守 AND——单凭幻觉 guarantee 永不误杀真 bug）；
-  - **分档**：`prec`+对方 free → high(UAF)；`count_guarded`+free → high(refcount)；`atomic`+对方 write → high(atomicity)；有 assume 的其它冲突 → medium；无任何 assume 的裸冲突 → low；其中**良性 torn-scalar**（scalar-torn 且无 free/list/self-race）默认**抑制**（`LACE_COMPOSE_KEEP_LOW=1` 可保留）。
+  - **消解（discharge）**：lock/EXCLUDE 走 surface common-lock + contract guarantee 的保守 AND；RCU/refcount/barrier/join/drain 等 hard non-lock guarantee 默认作为强证据交给 Phase C 复核，只有在 `LACE_TRUST_HARD_NONLOCK_DISCHARGE=1` 的消融/提速配置下才直接消解；
+  - **分档**：`STABLE_DURING`+free/retire → high(lifetime)；`REGION_ISOLATED`+conflicting write/free → high(atomicity)；`CONFLICT_MEDIATED` 或其它 requirement 冲突 → medium；无任何 assume 的裸冲突 → low；其中**良性 torn-scalar**（scalar-torn 且无 free/list/self-race）默认**抑制**（`LACE_COMPOSE_KEEP_LOW=1` 可保留）。
 - **Phase C — agent 校准**（只看存活候选）：把 Phase A 的契约 + Phase B 的候选清单（含理由/分档）喂给交织 agent，逐条**确认 / 否决**，并允许**补充**组合漏掉的危害，最终经验证器接地产出 `Hypothesis`。无存活候选的簇**直接跳过**。
 
 成本/精度权衡：在**高 fan-in**（一个线程出现在很多簇）上，Phase A 的"每线程读一次"摊薄 + Phase B 的消解/抑制能显著减少昂贵会话；在低 fan-in 的中小 case 上，Phase A 的逐线程开销可能让总时长持平或略增。该路径正在 case 上实测调参。

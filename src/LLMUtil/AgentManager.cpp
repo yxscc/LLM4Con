@@ -37,9 +37,10 @@ namespace llm_client {
 // Static-composition pipeline (gated by LACE_STATIC_COMPOSE).
 //
 // Realises the "per-thread contract -> deterministic interleaving -> agent
-// calibration" design: Phase A derives each thread's order/sync contract once;
-// Phase B mechanically applies the single-mismatch rule over the surface's
-// conflicting accesses (surface = recall floor, contract = precision/discharge);
+// calibration" design: Phase A derives each thread's requirement/guarantee
+// contract once; Phase B mechanically applies the requirement-discharge rule over
+// the surface's conflicting accesses (surface = recall floor, contract =
+// precision/discharge);
 // Phase C only calibrates the surviving candidates. Helpers below implement the
 // deterministic Phase B composition. The folded per-cluster path is unchanged
 // when the env is unset.
@@ -48,17 +49,35 @@ namespace {
 
 using OrderClause = LLM::ConcurrencyContract::OrderClause;
 
-// thread tid's clause for surface object index oi. Three-level match:
+std::string relUpper(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::toupper((unsigned char)c));
+    return s;
+}
+
+bool allowFuzzyContractBinding() {
+    if (const char* e = std::getenv("LACE_ALLOW_FUZZY_CONTRACT_BINDING"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+bool trustHardNonLockDischarge() {
+    if (const char* e = std::getenv("LACE_TRUST_HARD_NONLOCK_DISCHARGE"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+// thread tid's clause for surface object index oi. Two-level match:
 //   1) oi listed in the clause's objectIds (lock-region group or single anchor);
 //   2) the compat single objectId == oi;
-//   3) fuzzy resource-name match (only for clauses with no anchor at all).
+// A legacy fuzzy resource-name fallback exists only behind an env flag. Phase B
+// must prefer an anchored miss over binding a requirement to the wrong resource.
 const OrderClause* clauseForObject(const LLM::ConcurrencyContract& c, int oi,
                                    const query::SharedObject& O) {
     for (const auto& cl : c.clauses) {
         for (int id : cl.objectIds) if (id == oi) return &cl;
         if (cl.objectId == oi) return &cl;
     }
-    if (O.name.size() > 2) {
+    if (allowFuzzyContractBinding() && O.name.size() > 2) {
         for (const auto& cl : c.clauses) {
             if (cl.objectId >= 0 || !cl.objectIds.empty() || cl.resource.empty()) continue;
             if (cl.resource.find(O.name) != std::string::npos ||
@@ -71,23 +90,27 @@ const OrderClause* clauseForObject(const LLM::ConcurrencyContract& c, int oi,
 
 bool hasAssumeRel(const OrderClause* cl, const std::string& rel) {
     if (!cl) return false;
-    for (const auto& a : cl->assume) if (a.relation == rel) return true;
+    const std::string want = relUpper(rel);
+    for (const auto& a : cl->assume) if (relUpper(a.relation) == want) return true;
     return false;
 }
 bool hasAnyAssume(const OrderClause* cl) { return cl && !cl->assume.empty(); }
 bool establishesOrder(const OrderClause* cl) {
     if (!cl) return false;
-    for (const auto& g : cl->guarantee)
-        if (g.relation == "serialize" || g.relation == "order" || g.relation == "counts")
+    for (const auto& g : cl->guarantee) {
+        std::string r = relUpper(g.relation);
+        if (r == "ORDER" || r == "EXCLUDE" || r == "LINEARIZE" || r == "WAIT" ||
+            r == "SERIALIZE" || r == "COUNTS")
             return true;
+    }
     return false;
 }
 
-// Mechanism soundness class for a stated guarantee (CONCURRENCY_CONTRACT_SPEC.md
-// §3.3). HARD = hardware/compiler-backed ordering (lock release-acquire, RCU
-// grace, barrier, join/quiesce, refcount RMW) -> safe to discharge
-// deterministically. SOFT = published flag / bare program order -> never
-// auto-discharged, must be verified by the step-3 calibration session.
+// Mechanism evidence class for a stated guarantee. HARD means the clause names a
+// concrete synchronization mechanism (lock, RCU grace, barrier, join/quiesce,
+// refcount RMW); SOFT means it relies on a weaker state/flag/protocol statement.
+// HARD is still only evidence unless the checker can prove it covers the current
+// requirement/hazard pair.
 enum class MechClass { None, Soft, Hard };
 
 MechClass mechanismClass(const LLM::ConcurrencyContract::SyncProv& g) {
@@ -95,15 +118,16 @@ MechClass mechanismClass(const LLM::ConcurrencyContract::SyncProv& g) {
     for (char& c : d) c = static_cast<char>(std::tolower((unsigned char)c));
     auto has = [&](const char* kw) { return d.find(kw) != std::string::npos; };
 
-    if (g.relation == "counts") return MechClass::Hard;  // refcount RMW discipline
-    if (g.relation == "serialize") {
+    const std::string rel = relUpper(g.relation);
+    if (rel == "COUNTS") return MechClass::Hard;  // legacy refcount RMW discipline
+    if (rel == "EXCLUDE" || rel == "SERIALIZE") {
         // A lock / interrupt-context guarantee is hard; a guarantee that leans on a
         // bare published flag/state bit is soft (needs the step-3 verifier).
         if (has("flag") || has("state bit") || has("bool"))
             return MechClass::Soft;
         return MechClass::Hard;
     }
-    if (g.relation == "order") {
+    if (rel == "ORDER" || rel == "WAIT") {
         // Hard ordering primitives: each one is a concrete cited mechanism, so a
         // stated guarantee here is well-grounded enough to discharge.
         if (has("rcu") || has("synchronize") || has("call_rcu") || has("kfree_rcu") ||
@@ -112,24 +136,37 @@ MechClass mechanismClass(const LLM::ConcurrencyContract::SyncProv& g) {
             has("cancel_work") || has("cancel_delayed_work") || has("kthread_stop") ||
             has("wait_for_completion") || has("del_timer_sync") || has("timer_delete_sync") ||
             has("napi_disable") || has("drain") || has("join") || has("quiesce") ||
+            has("grace") || has("active_callbacks") || has("callbacks_empty") ||
+            has("readers_empty") || has("active_holders") || has("holders==0") ||
             has("cmpxchg") || has("xchg") || has("refcount") || has("kref"))
             return MechClass::Hard;
         // Published flag / bare program order / unknown ordering: be conservative.
         return MechClass::Soft;
     }
+    if (rel == "LINEARIZE") {
+        // A bare linearization point is often only one atom of a larger macro. Trust it
+        // for deterministic discharge only when it names a concrete atomic/refcount
+        // object or a close/admission transition that the contract also grounds.
+        if (has("refcount") || has("kref") || has("counts") || has("cmpxchg") ||
+            has("xchg") || has("atomic") || has("admission") || has("close"))
+            return MechClass::Hard;
+        return MechClass::Soft;
+    }
     return MechClass::None;
 }
 
-// A clause establishes a HARD *non-lock* order (RCU/refcount/barrier/join/RMW).
-// These protections structurally cannot appear as a shared lock, so the
-// surfaceSharedLock() gate would otherwise make them un-dischargeable. We trust
-// a stated hard non-lock guarantee on its own because it names a concrete
-// primitive. `serialize` (lock) deliberately stays on the lock-confirmed path.
+// A clause names a HARD *non-lock* order (RCU/refcount/barrier/join/RMW).
+// These protections structurally cannot appear as a shared lock, so Phase C
+// needs to see them. By default Phase B treats them as review evidence, not as
+// an automatic discharge, because endpoint alignment still has to be checked
+// against the concrete requirement/hazard pair.
 bool establishesHardNonLockOrder(const OrderClause* cl) {
     if (!cl) return false;
     for (const auto& g : cl->guarantee) {
-        if (g.relation == "counts") return true;
-        if (g.relation == "order" && mechanismClass(g) == MechClass::Hard) return true;
+        std::string r = relUpper(g.relation);
+        if (r == "COUNTS") return true;
+        if ((r == "ORDER" || r == "WAIT" || r == "LINEARIZE") &&
+            mechanismClass(g) == MechClass::Hard) return true;
     }
     return false;
 }
@@ -171,16 +208,24 @@ bool surfaceSharedLock(const query::SharedObject& O, int ta, int tb) {
 // Strongest hazard a requirer-clause realises against a violator's access kind.
 // Returns {tier, label}; empty tier means "no assume hazard" (raw conflict).
 std::pair<std::string, std::string> hazardTier(const OrderClause* req, const AccKind& viol) {
-    if (hasAssumeRel(req, "prec") && viol.free)
-        return {"high", "prec(use,free) -> use_after_free"};
-    if (hasAssumeRel(req, "count_guarded") && viol.free)
-        return {"high", "count_guarded -> refcount/double_free"};
-    if (hasAssumeRel(req, "atomic") && viol.write)
-        return {"high", "atomic(region) -> atomicity/data_race"};
-    if (hasAssumeRel(req, "prec") && viol.write)
-        return {"medium", "prec violated by concurrent write"};
+    if (!req) return {"", ""};
+    const bool stable = hasAssumeRel(req, "STABLE_DURING") || hasAssumeRel(req, "COUNT_GUARDED");
+    const bool isolated = hasAssumeRel(req, "REGION_ISOLATED") || hasAssumeRel(req, "ATOMIC");
+    const bool ordered = hasAssumeRel(req, "ORDER") || hasAssumeRel(req, "PREC");
+    const bool mediated = hasAssumeRel(req, "CONFLICT_MEDIATED");
+
+    if (stable && viol.free)
+        return {"high", "STABLE_DURING violated by retire/free -> lifetime"};
+    if (isolated && (viol.write || viol.free))
+        return {"high", "REGION_ISOLATED violated by conflicting event -> atomicity"};
+    if (mediated && (viol.write || viol.free))
+        return {"medium", "CONFLICT_MEDIATED lacks covering synchronization"};
+    if (ordered && viol.free)
+        return {"high", "ORDER violated by retire/free -> lifetime/order"};
+    if (ordered && viol.write)
+        return {"medium", "ORDER violated by concurrent write"};
     if (hasAnyAssume(req))
-        return {"medium", "required order met by conflicting access"};
+        return {"medium", "local requirement met by conflicting access"};
     return {"", ""};
 }
 
@@ -285,7 +330,7 @@ void appendGuarantee(std::stringstream& vs, const OrderClause* a, const OrderCla
             vs << "        stated guarantee: " << g.relation;
             if (!g.detail.empty()) vs << " " << g.detail;
             vs << " [mechanism=" << mechClassName(mechanismClass(g))
-               << "] (B judged it does NOT cover this order)\n";
+               << "] (B did not deterministically discharge this candidate)\n";
             any = true;
         }
     }
@@ -474,13 +519,13 @@ struct PhaseBCandidate {
 
 std::string resourceFamily(const query::SharedObject* o);
 
-// Phase B: deterministic single-mismatch composition over one session's objects.
+// Phase B: deterministic requirement-discharge composition over one session's objects.
 // Produces the human-readable verdict block injected into Phase C and the tier
 // tallies. `kept` is the number of candidates that survive (drives whether the
 // session is calibrated at all). Discharged = serialized pairs dropped (surface
-// common-lock AND a contract serialize/order/counts guarantee — conservative AND
+// common-lock AND a contract guarantee — conservative AND
 // so a hallucinated guarantee alone never drops a real bug). Benign torn-scalar
-// raw conflicts (no stated order, scalar-torn, no free/list/self-race) are
+// raw conflicts (no stated requirement, scalar-torn, no free/list/self-race) are
 // suppressed unless keepLow.
 std::string composeVerdict(
     const std::vector<const query::SharedObject*>& objs,
@@ -521,26 +566,24 @@ std::string composeVerdict(
                 const OrderClause* clB = contractsByTid.count(t2)
                     ? clauseForObject(contractsByTid.at(t2), oi, *O) : nullptr;
 
-                // Deterministic discharge (CONCURRENCY_CONTRACT_SPEC.md §3.3/§4):
+                // Deterministic discharge:
                 //  (a) lock path: surface common-lock AND a stated guarantee -- the
-                //      conservative AND so a vague serialize alone never drops a bug;
+                //      conservative AND so a vague EXCLUDE alone never drops a bug;
                 //  (b) hard non-lock path: a stated RCU/refcount/barrier/join/RMW
-                //      guarantee, which can never manifest as a shared lock and so
-                //      was previously impossible to discharge. Soft guarantees
-                //      (published flag / bare program order) never auto-discharge.
+                //      guarantee is only auto-trusted when explicitly enabled. The
+                //      default sends it to Phase C because the checker does not yet
+                //      prove endpoint alignment (e.g. drain-before-free vs drain-after-free).
                 bool lockDischarge = surfaceSharedLock(*O, t1, t2) &&
                                      (establishesOrder(clA) || establishesOrder(clB));
                 bool hardDischarge = establishesHardNonLockOrder(clA) ||
                                      establishesHardNonLockOrder(clB);
-                // hardDischarge trusts a single LLM-ASSERTED hard guarantee
-                // (rcu/counts/barrier) with no structural confirmation. That is the
-                // right cost trade-off on the broad auto surface, but in analyst-scoped
-                // (manual entry) recall-first mode it silently drops real races when
-                // Phase A hallucinates a covering order. There, keep the pair and let
-                // Phase C confirm or refute the asserted guarantee instead of dropping.
-                // (lockDischarge stays authoritative: it needs EVERY access under a
-                // shared surface lock, a structural fact, not a bare assertion.)
-                const bool keepUnverifiedHard = manualentry::enabled() && !lockDischarge;
+                // lockDischarge stays authoritative: it needs EVERY access under a
+                // shared surface lock, a structural fact, not a bare assertion. Hard
+                // non-lock guarantees need endpoint-aware composition, so keep them for
+                // Phase C unless LACE_TRUST_HARD_NONLOCK_DISCHARGE=1 is set for an
+                // ablation/speed run.
+                const bool keepUnverifiedHard = hardDischarge &&
+                    !trustHardNonLockDischarge() && !lockDischarge;
                 if (lockDischarge || (hardDischarge && !keepUnverifiedHard)) {
                     ++dis;
                     continue;
@@ -1461,8 +1504,8 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
     SessionList sessions = buildBudgetedSessions(clusters, surface, kMaxObjsPerSession, flowPrior);
 
     // ----- Gated: static-composition pipeline (Phase A -> B -> C) -----
-    // Per-thread contracts, then a deterministic single-mismatch composition over
-    // the surface conflicts, then agent calibration ONLY of surviving candidates.
+    // Per-thread contracts, then deterministic requirement-discharge composition
+    // over the surface conflicts, then agent calibration ONLY of surviving candidates.
     // Default off: the folded per-cluster path below is unchanged.
     bool staticCompose = false;
     if (const char* e = std::getenv("LACE_STATIC_COMPOSE")) staticCompose = (e[0] && e[0] != '0');

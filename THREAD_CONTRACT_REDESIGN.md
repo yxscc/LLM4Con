@@ -1,5 +1,12 @@
 # Thread-Contract 入口（老故事）重构设计蓝图
 
+> **Archived note (2026-07-06):** 本文件记录的是上一版
+> `prec/atomic/count_guarded` 与 `serialize/order/counts` 设计过程，保留用于追溯
+> 早期实验和实现演进。当前 `lace-architecture` 分支的 contract 词表与 checker
+> 语义以 `CONCURRENCY_CONTRACT_SPEC.md` 为准：requirement 使用
+> `ORDER / CONFLICT_MEDIATED / REGION_ISOLATED / STABLE_DURING / PROGRESS_ENABLED`，
+> guarantee 使用 Level-0 atoms `ORDER / EXCLUDE / LINEARIZE / WAIT`。
+
 > 状态：设计阶段（动手前蓝图）。本文件只描述目标架构与改造方案，不含已落地代码。
 > 适用范围：`llm_detector` 的 **legacy / thread-contract 入口**（`--legacy-workflow`）。
 > 不影响：`--agent-mode`（新故事 / surface + 机制 KB）。

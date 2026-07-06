@@ -12,9 +12,9 @@ namespace llm_client {
 
 namespace {
 
-// Compact, prompt-friendly rendering of one thread's contract: the §4.6 order/sync
-// content (assume/guarantee per resource) is what drives the mismatch reasoning;
-// the legacy descriptive fields are rendered only as a fallback.
+// Compact, prompt-friendly rendering of one thread's contract: requirements and
+// guarantee atoms/macros per resource are what drive the discharge reasoning; the
+// legacy descriptive fields are rendered only as a fallback.
 std::string contractToText(const LLM::ConcurrencyContract& c) {
     std::stringstream ss;
     ss << "  - thread " << c.threadId << " role=" << (c.role.empty() ? "?" : c.role) << "\n";
@@ -22,12 +22,12 @@ std::string contractToText(const LLM::ConcurrencyContract& c) {
 
     for (const auto& cl : c.clauses) {
         ss << "    resource " << (cl.resource.empty() ? "?" : cl.resource) << ":\n";
-        ss << "      requires(assume):";
+        ss << "      local requirements(assume):";
         if (cl.assume.empty()) ss << " (none)";
-        else for (const auto& r : cl.assume) ss << " " << r.detail;
-        ss << "\n      establishes(guarantee):";
+        else for (const auto& r : cl.assume) ss << " " << r.relation << ":" << r.detail;
+        ss << "\n      synchronization effects(guarantee):";
         if (cl.guarantee.empty()) ss << " (none)";
-        else for (const auto& g : cl.guarantee) ss << " " << g.detail;
+        else for (const auto& g : cl.guarantee) ss << " " << g.relation << ":" << g.detail;
         ss << "\n";
     }
     if (!c.ordering.empty()) {
@@ -86,30 +86,43 @@ InterleavingAnalysisAgent::InterleavingAnalysisAgent(
 std::string InterleavingAnalysisAgent::build_system_prompt() {
     return R"(You are an expert in concurrent Linux-kernel C code. You are given a pair of
 concurrent threads (or one self-racing thread) and the shared object(s) they both touch,
-plus each thread's "concurrency contract": for those objects, the ORDER it requires
-(assume) and the order it establishes via synchronization (guarantee). Your job is to find
-whether the threads can INTERLEAVE so that a required order is broken, and to propose
+plus each thread's ThreadContract. A contract contains local requirements (assume) and
+synchronization effects (guarantee) for those objects. Your job is to find whether the
+threads can interleave so that a local requirement remains undischarged, and to propose
 grounded hypotheses. A single bug may span MORE THAN ONE object (e.g. a free of object A
-and a dangling use reached via object B) -- reason across all the listed objects together.
+and a dangling use reached via object B) -- reason across all listed objects together.
 
-THE SINGLE MISMATCH (how a bug emerges -- no pattern catalog):
-A real bug exists when, for some required order R0:
-  (1) one thread REQUIRES R0 on this object (an `assume`: prec / atomic / count_guarded);
-  (2) another thread has an event that VIOLATES R0 (e.g. a free before the use; a
-      conflicting write inside the atomic region; a use before init); AND
-  (3) NO thread's `guarantee` establishes R0 (no serialize/order/counts covers it --
-      or the lock that looks relevant guards a different field / is dropped first).
-Then confirm the interleaving is FEASIBLE by grounding (concurrent AND not-hb AND
-not-lock-protected AND conflicts). If (3) fails -- some guarantee really does establish
-R0 -- it is benign; do not report.
+DISCHARGE RULE (how a bug emerges):
+A real bug candidate exists when:
+  (1) one thread has a local requirement on a concrete statement/region:
+      ORDER, CONFLICT_MEDIATED, REGION_ISOLATED, STABLE_DURING, or PROGRESS_ENABLED;
+  (2) another thread, or another concurrent instance of the same thread, has an event
+      that can violate that requirement; AND
+  (3) the available synchronization effects do not discharge the requirement.
 
-The bug category is just a LABEL for which R0 broke (it EMERGES, you do not pick a
-template): prec(use,free)->use_after_free, prec(init,use)->uninitialized_read/publish,
-atomic(region)->data_race/atomicity_violation, count_guarded->refcount/double_free.
-`bug_category` is FREE-FORM; do not force a fixed template.
+Guarantees are Level-0 synchronization atoms:
+  ORDER(a,b), EXCLUDE(token,region,mode), LINEARIZE(object,operation), WAIT(wait,condition).
+High-level APIs such as locks, RCU, refcounts, callbacks close-and-drain, handoffs, and
+validation/retry protocols are useful only through these atoms. A state check by itself
+is evidence, not a guarantee.
 
-Use the contracts to spot the candidate R0 and the missing guarantee; if no contracts
-are provided, infer the required order directly from the source and accesses.
+Examples:
+  - STABLE_DURING(use_region, live(R)) is discharged if every retire(R) is ordered after
+    use_region, excluded from use_region, or mediated by a valid ref/RCU/drain protocol.
+  - REGION_ISOLATED(check_use_region, invalidators) is discharged by a lock/EXCLUDE over
+    the whole region and the invalidator, or by validation/retry.
+  - ORDER(init, publish) is discharged only if the composed program/synchronization facts
+    establish that order.
+
+Confirm the reported interleaving with grounding predicates: concurrent, conflicts or
+same_location, no covering HB, and no covering lock/EXCLUDE. If a guarantee really
+discharges the requirement for THIS resource/protocol, the interaction is benign.
+
+The bug category is an explanatory label derived after the violated requirement is
+identified. `bug_category` is FREE-FORM; do not force a fixed template.
+
+Use the contracts to spot the candidate requirement and missing guarantee; if no
+contracts are provided, infer the requirement directly from the source and accesses.
 
 You may read source freely:
 - `get_function_by_name(name)`  -> full function body (PREFERRED lens).
@@ -133,9 +146,11 @@ Then give `constraints` over those roles using this static predicate vocabulary
   - reachable {from,to}         : control-flow reachable
   - hb {a,b,expected}           : a happens-before b (expected=false asserts NO hb)
   - in_thread {node,thread}     : node executes in thread id
-A typical data race: roles writer+reader, constraints concurrent{writer,reader} +
-conflicts{writer,reader} + not_lock_protected{writer}. A UAF: roles free+use,
-concurrent{free,use} + same_location{free,use} + hb{free,use,expected:false}.
+A typical atomicity/race candidate: roles writer+reader, constraints
+concurrent{writer,reader} + conflicts{writer,reader} + not_lock_protected{writer}.
+A lifetime candidate: roles retire+use, concurrent{retire,use} + same_location{retire,use}
++ hb{use,retire,expected:false} or hb{retire,use,expected:false}, depending on the
+requirement being checked.
 The verifier grounds your proposal and returns per-predicate feedback; if it does not
 hold, gather more evidence or refine — do not restate the same failing proposal.
 
@@ -523,29 +538,30 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
 
     if (calibrate) {
         // CALIBRATION mode: contracts were derived per-thread in Phase A and the
-        // deterministic single-mismatch composition already produced candidate
-        // violations. The session's job is to VET them, not re-derive from scratch.
-        ps << "Per-thread concurrency contracts (already derived in Phase A — assume = order\n"
-              "REQUIRED for correctness; guarantee = order ESTABLISHED by synchronization):\n";
+        // deterministic composition already produced candidate violations. The
+        // session's job is to VET them, not re-derive from scratch.
+        ps << "Per-thread concurrency contracts (already derived in Phase A — assume = local\n"
+              "requirements; guarantee = Level-0 synchronization effects):\n";
         for (int tid : threadSet) {
             auto it = precomputedContracts->find(tid);
             if (it != precomputedContracts->end()) ps << contractToText(it->second);
         }
         if (staticVerdict && !staticVerdict->empty()) {
-            ps << "\nSTATIC COMPOSITION (single-mismatch) candidate violations for these\n"
-                  "object(s). Each candidate already states the CONCRETE content: the requirer's\n"
-                  "required order (relation + provenance), the violator's exact conflicting site\n"
-                  "(function @ location + code), and what guarantee B weighed. This is your\n"
+            ps << "\nSTATIC COMPOSITION candidate violations for these object(s). Each candidate\n"
+                  "already states the CONCRETE content: the requirer's local requirement\n"
+                  "(relation + provenance), the violator's exact conflicting site (function @\n"
+                  "location + code), and what guarantees B weighed. This is your\n"
                   "primary evidence -- decide mostly FROM IT plus the contracts above; the source\n"
                   "is preloaded for context. Use the read tools ONLY to resolve a SPECIFIC doubt\n"
                   "(e.g. confirm a lock scope or a missing guard), not to re-derive the analysis.\n"
                   "CANDIDATE-ONLY REVIEW: evaluate ONLY the candidate IDs listed below (C1, C2,\n"
                   "...). Do NOT enumerate new thread pairs or add fresh bugs in calibration mode.\n"
                   "For each listed candidate, decide CONFIRM vs REJECT from the static composition\n"
-                  "evidence and per-thread contracts above. CONFIRM when the assume violation is\n"
-                  "real and no thread guarantee on THIS object establishes the required order R0.\n"
+                  "evidence and per-thread contracts above. CONFIRM when the requirement violation\n"
+                  "is real and no thread guarantee on THIS object discharges it.\n"
                   "REJECT if ANY holds: (a) a synchronization guarantee on THIS object truly covers\n"
-                  "R0 (a lock/RCU/refcount guarding a DIFFERENT field does NOT count); (b) the two\n"
+                  "the requirement (a lock/RCU/refcount guarding a DIFFERENT field does NOT count);\n"
+                  "(b) the two\n"
                   "flows provably cannot run concurrently -- NOTE a reentrant kernel entry\n"
                   "(syscall/ioctl/handler/work) executes on multiple CPUs at once, so two instances\n"
                   "of the SAME entry ARE concurrent unless an object-covering lock/HB serializes\n"
@@ -561,9 +577,10 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
                   "  - join/RCU/refcount on a parent/container while a nested field is still racy;\n"
                   "  - weak-memory / barrier annotation gaps (missing smp_wmb) when the candidate is a\n"
                   "    plain concurrent write vs read on the same field.\n"
-                  "When the candidate states a concrete assume violation on THIS object and (a) does\n"
-                  "not apply, default to CONFIRM unless you can cite a guarantee that directly\n"
-                  "serializes the two listed sites on THIS object. CONFIRM by calling\n"
+                  "When the candidate states a concrete requirement violation on THIS object and\n"
+                  "(a) does not apply, default to CONFIRM unless you can cite a guarantee that\n"
+                  "directly orders, excludes, linearizes, or waits away the two listed sites on\n"
+                  "THIS object. CONFIRM by calling\n"
                   "propose_race_hypothesis (mention the candidate ID). The same-anchor alternate\n"
                   "observations are supporting context for the representative candidate, not separate\n"
                   "candidates:\n"
@@ -574,17 +591,15 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
         ps << "METHOD — per-thread concurrency contracts (derive inline, then check):\n"
               "For EACH thread above, from the preloaded source determine, FOR THESE "
               "OBJECT(S) ONLY (do not enumerate other state):\n"
-              "  assume[] — the order this thread REQUIRES for its own correctness:\n"
-              "    prec(a,b) (a happens-before b, e.g. init-before-read, use-before-free),\n"
-              "    atomic([..]) (region/single access must not be interleaved by a conflicting write),\n"
-              "    count_guarded(R,free) (free only after refcount hits zero).\n"
-              "  guarantee[] — the order it actually ESTABLISHES via synchronization PRESENT in\n"
-              "    the code: serialize(L,region) (lock/RCU/irq-disable), order(a<b via m)\n"
-              "    (publish/flush/join/barrier/refcount-drop), counts(R). Leave empty if none\n"
-              "    truly covers the object (a lock guarding a different field does NOT count).\n"
-              "A BUG is exactly: one thread's assume order on an object is violated by another\n"
-              "thread's (or a concurrent copy's) conflicting access, and NO thread's guarantee\n"
-              "establishes that order. Reason briefly (you need not print full contracts), then\n"
+              "  assume[] — local requirements: ORDER, CONFLICT_MEDIATED, REGION_ISOLATED,\n"
+              "    STABLE_DURING, and optional PROGRESS_ENABLED.\n"
+              "  guarantee[] — Level-0 synchronization effects actually present in the code:\n"
+              "    ORDER, EXCLUDE, LINEARIZE, WAIT. Leave empty if none truly covers the object\n"
+              "    (a lock guarding a different field does NOT count).\n"
+              "A BUG candidate is exactly: one thread's local requirement on an object is\n"
+              "violated by another thread's (or a concurrent copy's) conflicting access, and NO\n"
+              "thread's guarantee discharges that requirement. Reason briefly (you need not\n"
+              "print full contracts), then\n"
               "call propose_race_hypothesis for each such violation.\n\n";
     } else {
         ps << "(Contract ablation OFF: reason about harmful interleavings directly from the "

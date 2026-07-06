@@ -64,18 +64,17 @@ public:
     // session fan-out -- sessions scale with the number of distinct thread-sets,
     // not the number of objects -- without dropping any object (recall-safe).
     // `useContractFraming` selects the reasoning method: when true, the session
-    // first derives each thread's order/synchronization obligations (assume:
-    // prec/atomic/count_guarded; guarantee: serialize/order/counts) for THIS
-    // cluster's objects -- i.e. the per-thread concurrency contract, scoped to what
-    // this cluster needs and derived inline from the preloaded source -- and a bug
-    // is a required order violated by a concurrent access with no covering
-    // guarantee. When false (contract ablation), it reasons about interleavings
+    // first derives each thread's local requirements (ORDER/CONFLICT_MEDIATED/
+    // REGION_ISOLATED/STABLE_DURING) and synchronization effects (ORDER/EXCLUDE/
+    // LINEARIZE/WAIT) for THIS cluster's objects. A bug candidate is a local
+    // requirement violated by a concurrent event with no covering guarantee.
+    // When false (contract ablation), it reasons about interleavings
     // directly without the assume/guarantee framing.
     // When `precomputedContracts` is non-null, the session runs in CALIBRATION
     // mode (the static-composition pipeline): instead of deriving contracts
     // inline, it is shown the per-thread contracts already derived in Phase A and
-    // the `staticVerdict` -- the deterministic single-mismatch composition's
-    // candidate violations (and discharged pairs). The model then CONFIRMS or
+    // the `staticVerdict` -- the deterministic contract-composition candidate
+    // violations (and discharged pairs). The model then CONFIRMS or
     // REJECTS each candidate and may ADD a hazard it sees that the composition
     // missed, emitting hypotheses through the same grounded propose path. When
     // null, behaviour is unchanged (inline-derivation folded mode).

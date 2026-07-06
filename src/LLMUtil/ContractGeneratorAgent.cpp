@@ -52,6 +52,31 @@ std::string lowerCopy(std::string s) {
     return s;
 }
 
+std::string upperCopy(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+}
+
+std::string canonicalRequirementRelation(const std::string& rel) {
+    std::string r = lowerCopy(rel);
+    if (r == "prec" || r == "order") return "ORDER";
+    if (r == "atomic") return "REGION_ISOLATED";
+    if (r == "count_guarded" || r == "stable_during") return "STABLE_DURING";
+    if (r == "conflict_mediated") return "CONFLICT_MEDIATED";
+    if (r == "region_isolated") return "REGION_ISOLATED";
+    if (r == "progress_enabled") return "PROGRESS_ENABLED";
+    return upperCopy(rel);
+}
+
+std::string canonicalGuaranteeRelation(const std::string& rel) {
+    std::string r = lowerCopy(rel);
+    if (r == "order") return "ORDER";
+    if (r == "serialize" || r == "exclude") return "EXCLUDE";
+    if (r == "counts" || r == "linearize") return "LINEARIZE";
+    if (r == "wait") return "WAIT";
+    return upperCopy(rel);
+}
+
 bool containsAny(const std::string& s, const std::vector<std::string>& needles) {
     for (const auto& n : needles)
         if (s.find(n) != std::string::npos) return true;
@@ -96,118 +121,95 @@ ContractGeneratorAgent::ContractGeneratorAgent(CCPG* ccpg, std::shared_ptr<LLMCl
 std::string ContractGeneratorAgent::build_system_prompt() {
     return R"CONTRACT(
 You are an expert in concurrent Linux-kernel C code. For ONE thread (given its entry
-function and creation site), build that thread's "concurrency contract": an
-ORDER/SYNCHRONIZATION assume-guarantee description of how it touches shared state.
+function and creation site), build that thread's ThreadContract.
 
 **CRITICAL: DO NOT REPLY WITH CHAT TEXT. ONLY USE THE PROVIDED TOOLS.**
 
-A contract describes ONE thread's order obligations. It has NO notion of a "bug" and
-is NOT a bug/defect pattern -- describe only what THIS thread requires and provides.
-A contract is a SELECTIVE, high-signal summary, NOT a per-variable enumeration: the
-shared objects listed to you are the surface's exhaustive access inventory and do not
-need restating. Emit a clause for a resource ONLY when THIS thread either (1) has a
-real order requirement for its OWN correctness, or (2) provides synchronization that
-covers it. For each such resource you state two things using a CLOSED relation algebra:
+The contract has NO notion of a final bug. It records:
+  1. local requirements: what THIS thread's statements/regions need from the
+     environment to be safe; and
+  2. guarantee candidates: synchronization effects this thread actually provides.
 
-  assume[] : the execution ORDER this thread REQUIRES for its OWN correctness
-             (the inferred INTENT; it is usually NOT written literally in the source):
-    * prec(a, b)             : event a must happen-before event b. Common instances:
-                               prec(use, free) (use before free);
-                               prec(init, expose) (fully initialize before the object/
-                               pointer is published or made reachable).
-    * atomic([a, b, ...])    : that region of events must not be interleaved by a
-                               conflicting outside event (a single event means
-                               "no concurrent conflicting write", the data-race case).
-    * count_guarded(R, free) : R may be freed only after its refcount reaches zero.
+A requirement is NOT a bug symptom such as UAF/data-race/deadlock. It is an
+anchored execution obligation over a concrete statement or region. Use only this
+obligation vocabulary in assume[]:
 
-  guarantee[] : the order this thread actually ESTABLISHES via SYNCHRONIZATION present
-             in the buggy code (do NOT invent synchronization that is not there):
-    * serialize(L, region)   : a lock/context (mutex, spinlock, RCU read-side,
-                               irq/preempt disable) makes the region mutually exclusive.
-                               Name the real lock as L (e.g. serialize(sk->sk_lock, region)).
-    * order(a < b via m)     : a primitive m establishes a happens-before. Write m as ONE
-                               canonical token below so composition can classify it.
-                               HARD (hardware/compiler-backed memory ordering):
-                                 - rcu       : synchronize_rcu / call_rcu / kfree_rcu /
-                                               rcu read-side + rcu_assign_pointer
-                                 - barrier   : smp_mb / smp_store_release / smp_load_acquire
-                                 - join      : flush_work / cancel_work_sync / kthread_stop /
-                                               wait_for_completion / del_timer_sync /
-                                               synchronize_irq / napi_disable
-                                 - refcount  : refcount/kref drop-then-free (atomic RMW)
-                               SOFT (program order only, NOT memory-ordered -> will be
-                               VERIFIED, never trusted blindly; label honestly):
-                                 - published_flag : a plain bool/state bit (->valid/->dead/
-                                                    ->closing) gates the access
-                                 - program_order  : statements merely reordered, no barrier
-                               e.g. order(publish < use via rcu); order(set < read via published_flag).
-    * counts(R)              : refcount discipline maintains count_guarded(R).
+  * ORDER(A, B)
+      A must happen before B. Example: ORDER(init(obj), publish(obj)).
 
-RED LINE: use ONLY the six relations above. Do NOT enumerate "patterns" (no
-"check-use-release", no "state-guard pattern"). Just describe THIS thread's order
-requirements and the synchronization it provides. The relations are general and
-subsystem-independent -- never tailor them to a specific bug.
+  * CONFLICT_MEDIATED(A, B)
+      A and B may conflict; correctness requires ordering, non-overlap, or a
+      valid linearized synchronization protocol between them.
 
-KEEP PROTECTION HONEST: only list a guarantee that the code actually provides AND that
-covers the resource in question. A lock that guards a different field, or is dropped
-before the access, does NOT establish order for this resource -- omit it (leave
-guarantee empty). Static "candidate locks" you see may not protect this object; judge
-from the code what each one actually serializes.
+  * REGION_ISOLATED(region, hazards)
+      No listed environment hazard may enter the region while it is executing.
 
-Use get_callees / get_function_by_name to follow the thread's real work into callees
-before deciding the requirements. Attach PROVENANCE (a source line / caller) to every
-assume and guarantee.
+  * STABLE_DURING(region, predicate_or_resource)
+      A resource or protocol predicate must remain valid throughout the region.
+      Example: STABLE_DURING(pattern_show_use_region, live(trigger_data)).
 
-SELECTIVITY vs COMPLETENESS: emit a clause when one of these holds for THIS thread:
-  * a genuine order requirement: use-before-free / free-before-destroy /
-    check-then-act / init-before-publish / refcount-before-free; or
-  * the resource's racy value flows into a branch / index / size / pointer /
-    lifetime decision (a NON-benign torn read -> assume atomic); or
-  * this thread provides a real synchronization discipline over it
-    (guarantee: serialize / order / counts).
+  * PROGRESS_ENABLED(wait, enabler)
+      Optional: a wait must have a matching enabling event or condition.
+
+A guarantee is NOT an API family. It is what synchronization contributes to the
+execution history. Use only these Level-0 atoms in guarantee[]:
+
+  * ORDER(a, b)
+      a happens before b, e.g. ORDER(callback_exit, device_remove_groups_return).
+
+  * EXCLUDE(token, region, mode)
+      regions under the same token and incompatible modes cannot overlap, e.g.
+      EXCLUDE(sk->sk_lock, sendmsg_critical_region, exclusive).
+
+  * LINEARIZE(object, operation)
+      operation takes effect at one abstract point in the synchronization object's
+      history, e.g. LINEARIZE(refcount, acquire) or LINEARIZE(sysfs_domain, close).
+
+  * WAIT(wait_event, condition_or_enabler)
+      execution cannot pass wait_event until the condition/enabler holds, e.g.
+      WAIT(synchronize_rcu_return, preexisting_readers_empty).
+
+High-level APIs are macros over these atoms. For example:
+  - mutex/spinlock: LINEARIZE(lock state) + EXCLUDE(locked region)
+  - handoff/completion: WAIT(wait_return, signal) + ORDER(signal_side_effects, wait_return)
+  - RCU grace period: LINEARIZE(reader enter/exit) + WAIT(grace period, readers empty)
+    + ORDER(reader_exit, grace_period_return)
+  - refcount/capability: LINEARIZE(acquire/release) + WAIT(retire, active_holders==0)
+  - callback close-and-drain: LINEARIZE(domain admission := closed) +
+    WAIT(api_return, active_callbacks_empty) + ORDER(callback_exit, api_return)
+  - validation/retry: LINEARIZE(version transitions) + successful-path validation.
+
+KEEP GUARANTEES HONEST: only list effects the code actually provides and only when
+they cover the resource/protocol in this clause. A lock that guards a different
+field, a wait on another domain, or a state check without synchronization does not
+discharge this resource's requirement. Static candidate locks are evidence, not proof.
+
+Requirement proposal is bounded by the static evidence packet. Emit a clause when
+THIS thread has a source-anchored safety obligation or provides a synchronization
+effect for the resource/protocol. Good requirement evidence includes:
+  * a region that uses a resource whose lifetime may be changed elsewhere;
+  * a check-use or validate-use interval whose predicate can be invalidated elsewhere;
+  * a value that flows into a branch, selection, index, size, pointer, list/tree link,
+    publication, or lifetime/free decision;
+  * a publish-before-use or init-before-publish relationship;
+  * a wait whose matching enabler is part of the protocol.
+
 For an ordinary read-only scalar / statistics counter / config value that drives no
-decision, you may skip it.
+safety decision, you may skip it unless it is marked HIGH-RISK; for HIGH-RISK objects
+you must explicitly account for it.
 
-COVERAGE MANDATE (completeness is what makes the contract sound): some listed objects
-are marked **HIGH-RISK** (the static surface saw an unsynchronized write, a free, a
-list mutation, or a self-race on them). You must ACCOUNT FOR every high-risk object --
-never silently drop one -- but you decide its disposition by ONE test: does the racy
-value have a CONSEQUENTIAL USE?
+COVERAGE MANDATE: some listed objects are marked HIGH-RISK because static analysis saw
+an unsynchronized write, free, list mutation, or self-race. For each HIGH-RISK object:
+  (a) if it has a source-anchored safety obligation, emit a real assume and any real
+      guarantee atoms/macros;
+  (b) if it is reviewed and has no safety obligation for THIS thread, put all such ids
+      into ONE no_order_needed=true clause with object_ids=[...].
 
-  CONSEQUENTIAL USE (=> emit a real assume/guarantee): the racy value flows into
-    * control flow  -- a branch / comparison / condition / predicate; or
-    * an index / a size / a length / a loop bound; or
-    * a pointer that is dereferenced or stored for later dereference; or
-    * a lifetime / free decision -- use-before-free, init-before-publish,
-      refcount-before-free; or
-    * a list / tree link that is mutated or traversed.
-    FOLLOW THE VALUE: if this object's racy value is passed into a callee, returned to a
-    caller, or copied to an alias, follow it (get_callees / get_function_by_name) to the
-    point of use before deciding -- the consequence is often one or two calls away (e.g.
-    a charge/RMW helper, a list helper, a deref in a worker). Do not judge "benign" just
-    because the cited line itself only loads/stores it.
-
-  NO CONSEQUENTIAL USE (=> benign): the value is only stored, copied, counted, or logged
-    and never reaches any of the uses above.
-
-DISPOSITION:
-  (a) Consequential objects: emit report_clause with the matching assume (and any real
-      guarantee). These are few -- only the values that actually drive a decision.
-  (b) Benign high-risk objects: do NOT emit one clause each. Make ONE report_clause with
-      no_order_needed=true and object_ids=[ALL benign high-risk ids], plus a one-line
-      no_order_reason. This keeps the contract complete (every high-risk object is
-      accounted for) without inventing order requirements.
-COMMON TRAP: fields named id/state/count/flag often look like harmless metadata, but
-they are consequential whenever they participate in equality/range predicates,
-matching/selection/removal decisions, shutdown/free gates, or limit checks. Such uses
-need an order requirement (often `assume atomic([read, branch])` or
-`assume atomic([read, limit_check])`), not no_order_needed.
-Be honest in BOTH directions: do not fabricate an atomic([...]) for a value that drives
-nothing (that is a false positive), and do not bucket as benign a value that feeds a
-branch/index/pointer/lifetime (that is a missed bug).
-LOCK-REGION MERGING: when several listed fields are protected by the SAME lock/region,
-emit ONE clause that lists all of them in object_ids and states a single serialize(...)
-guarantee -- do NOT repeat the same guarantee field-by-field.
+Follow values into callees when needed. Attach provenance to every assume and
+guarantee. Do not invent requirements for values that drive nothing, and do not
+bucket as benign a value that reaches a branch/index/pointer/lifetime/list decision.
+LOCK-REGION MERGING: when several listed fields are protected by the same lock/region,
+emit one clause with object_ids=[...] and one EXCLUDE(...) guarantee.
 
 **Workflow (one message, few clauses):**
 1. Call confirm_role_and_summary (a one-line, informational characterization).
@@ -242,17 +244,16 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
     };
     nlohmann::json assume_schema = {
         {"type", "array"},
-        {"description", "Order this thread REQUIRES for its own correctness (the inferred intent)."},
-        {"items", reqItem("prec | atomic | count_guarded",
-                          "\"prec(use, free)\" | \"prec(init, expose)\" | \"atomic([check, use])\" | \"count_guarded(R, free)\"")}
+        {"description", "Local execution obligations this thread REQUIRES for its own correctness."},
+        {"items", reqItem("ORDER | CONFLICT_MEDIATED | REGION_ISOLATED | STABLE_DURING | PROGRESS_ENABLED",
+                          "\"STABLE_DURING(use_region, live(obj))\" | \"ORDER(init(obj), publish(obj))\" | \"REGION_ISOLATED(check_use_region, invalidators)\"")}
     };
     nlohmann::json guarantee_schema = {
         {"type", "array"},
-        {"description", "Order this thread ESTABLISHES via synchronization actually present in the code (may be empty). "
-                        "For order(a < b via m), m MUST be one canonical token: HARD = rcu|barrier|join|refcount; "
-                        "SOFT = published_flag|program_order (verified, not trusted)."},
-        {"items", reqItem("serialize | order | counts",
-                          "\"serialize(sk->sk_lock, region)\" | \"order(publish < use via rcu)\" | \"order(set < read via published_flag)\" | \"counts(R)\"")}
+        {"description", "Level-0 synchronization effects this thread actually provides (may be empty). "
+                        "High-level APIs should be described as macros over ORDER/EXCLUDE/LINEARIZE/WAIT."},
+        {"items", reqItem("ORDER | EXCLUDE | LINEARIZE | WAIT",
+                          "\"ORDER(callback_exit, drain_return)\" | \"EXCLUDE(lock, region, exclusive)\" | \"LINEARIZE(refcount, acquire)\" | \"WAIT(drain_return, active_callbacks_empty)\"")}
     };
     nlohmann::json sites_schema = {
         {"type", "array"},
@@ -263,7 +264,7 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
     nlohmann::json object_ids_schema = {
         {"type", "array"},
         {"description", "The [obj#N] indices this clause covers. Use MULTIPLE ids to merge "
-                        "several fields under the SAME lock/region into one serialize clause."},
+                        "several fields under the SAME lock/region into one EXCLUDE clause."},
         {"items", {{"type", "integer"}}}
     };
 
@@ -286,12 +287,13 @@ std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
         "resource has no order obligation (e.g. 'plain diagnostic counter, value never "
         "drives control flow or lifetime').", false);
     tools.push_back({"report_clause",
-        "Report THIS thread's order/sync obligations for ONE shared resource, using only the "
-        "closed relation algebra (assume: prec/atomic/count_guarded; guarantee: serialize/order/counts). "
-        "For a HIGH-RISK object with no obligation, set no_order_needed=true + no_order_reason.",
+        "Report THIS thread's local requirements and synchronization guarantees for ONE shared resource/protocol. "
+        "Use assume: ORDER/CONFLICT_MEDIATED/REGION_ISOLATED/STABLE_DURING/PROGRESS_ENABLED; "
+        "guarantee: ORDER/EXCLUDE/LINEARIZE/WAIT. For a HIGH-RISK object with no obligation, "
+        "set no_order_needed=true + no_order_reason.",
         std::move(clause_params)});
 
-    tools.push_back({"report_ordering", "Optional: a thread-level cross-resource order requirement.", {
+    tools.push_back({"report_ordering", "Optional: a thread-level cross-resource ordering note.", {
         {"detail", "string", "e.g. 'writes_before_publish: init obj->data before publishing obj'.", true},
         {"provenance", "string", "source line / caller.", false}
     }});
@@ -349,25 +351,27 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
     std::set<std::string> preloadNames;
     const bool coverage = coverageEnabled();
     if (seeded) {
-        // The objects this thread touches, with THIS thread's own accesses.
+        // The objects this thread touches, with THIS thread's own accesses and a
+        // compact environment summary for the same surface object.
         candidates_ss << "\n--- Shared objects THIS thread touches (from static analysis) ---\n"
                          "This is the surface's EXHAUSTIVE inventory -- you do NOT need to restate it.\n"
                          "Skip pure reads, statistics counters, and config scalars that drive no\n"
                          "decision. Set object_id to the [obj#N] number (or object_ids for several\n"
                          "fields under the SAME lock) so the resource is matched unambiguously. You\n"
                          "generally do NOT need to explore the call graph -- the accessing functions\n"
-                         "are preloaded below.\n";
+                         "and the main environment hazards are preloaded or summarized below.\n";
         if (coverage)
             candidates_ss << "Every object tagged [HIGH-RISK] below must be ACCOUNTED FOR. Emit a real\n"
-                             "assume only for those whose racy value has a CONSEQUENTIAL USE (branch /\n"
-                             "index / size / pointer-deref / use-before-free / list-or-tree); follow the\n"
+                             "assume only for those with an anchored safety obligation (branch /\n"
+                             "index / size / pointer-deref / use-before-free / list-or-tree / publish-use);\n"
+                             "follow the\n"
                              "value into callees if needed. Put ALL the remaining (benign) HIGH-RISK ids\n"
                              "into a SINGLE no_order_needed=true clause (object_ids=[...]). Do NOT silently\n"
                              "drop a HIGH-RISK object, and do NOT invent an assume for a value that drives\n"
                              "nothing. IMPORTANT: fields named id/state/count/flag are NOT automatically\n"
                              "benign metadata -- if they are used to match/select/remove an object, gate a\n"
-                             "shutdown/free, or enforce a limit, they have CONSEQUENTIAL USE and need an\n"
-                             "assume (e.g. atomic([read, branch])).\n";
+                             "shutdown/free, or enforce a limit, they need an anchored assume such as\n"
+                             "STABLE_DURING(...) or REGION_ISOLATED(...).\n";
         for (size_t k = 0; k < touchedObjects.size(); ++k) {
             const query::SharedObject* o = touchedObjects[k];
             if (!o) continue;
@@ -388,6 +392,46 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
                                                       : " [no lock]")
                               << "\n          code: " << a.code_snippet << "\n";
                 if (!fn.empty()) preloadNames.insert(fn);
+            }
+            std::vector<const query::ThreadAccess*> envHazards;
+            std::vector<const query::ThreadAccess*> envReads;
+            for (const auto& a : o->accesses) {
+                const bool otherThread = a.thread_id != tid;
+                const bool concurrentInstance = o->is_self_race && a.thread_id == tid;
+                if (!otherThread && !concurrentInstance) continue;
+                const bool mutating = a.access_type == "Write" || a.access_type == "Free" ||
+                                      a.code_snippet.find("[list-helper]") != std::string::npos;
+                if (mutating) envHazards.push_back(&a);
+                else envReads.push_back(&a);
+            }
+            if (!envHazards.empty() || !envReads.empty()) {
+                candidates_ss << "    Environment accesses on the same surface object"
+                              << " (use these to decide what THIS thread's code must tolerate):\n";
+                auto renderEnv = [&](const std::vector<const query::ThreadAccess*>& v,
+                                     size_t limit) {
+                    size_t n = 0;
+                    for (const auto* ap : v) {
+                        if (!ap || n >= limit) break;
+                        const std::string& fn = ap->containing_function.empty()
+                            ? ap->function_name : ap->containing_function;
+                        candidates_ss << "      - thread " << ap->thread_id << " "
+                                      << ap->access_type << " in " << fn << " @ " << ap->location;
+                        if (ap->node_id >= 0) candidates_ss << " [node=" << ap->node_id << "]";
+                        candidates_ss << (ap->is_lock_protected
+                                          ? (" [lock=" + ap->protecting_lock + "]")
+                                          : " [no lock]")
+                                      << "\n            code: " << ap->code_snippet << "\n";
+                        if (!fn.empty() && (ap->access_type == "Write" ||
+                                            ap->access_type == "Free"))
+                            preloadNames.insert(fn);
+                        ++n;
+                    }
+                    if (v.size() > limit)
+                        candidates_ss << "      - ... " << (v.size() - limit)
+                                      << " more similar access(es)\n";
+                };
+                renderEnv(envHazards, 8);
+                renderEnv(envReads, 4);
             }
         }
         std::string preloaded = preloadSource(preloadNames, /*charBudget=*/28000);
@@ -415,7 +459,7 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         ? "The accessing functions are preloaded above, so you have everything needed and\n"
           "should NOT read anything. Emit the contract in a SINGLE response: in one message\n"
           "issue confirm_role_and_summary, then a report_clause ONLY for the FEW resources\n"
-          "that have a real order requirement or synchronization discipline (merge same-lock\n"
+          "that have a real local requirement or synchronization guarantee (merge same-lock\n"
           "fields into one clause via object_ids), then finalize_contract. Skip pure\n"
           "reads/counters/config scalars -- emitting few clauses is correct. Only if a clause\n"
           "genuinely depends on code not shown should you call get_function_by_name first.\n\n"
@@ -426,22 +470,23 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
           "they touch; note in the summary that those callees are inferred.\n\n";
 
     std::string user_prompt = 
-        "Build the concurrency contract for the following thread: its per-resource ORDER\n"
-        "requirements (assume) and the synchronization it ESTABLISHES (guarantee).\n"
+        "Build the concurrency contract for the following thread: its per-resource local\n"
+        "requirements (assume) and synchronization effects (guarantee).\n"
         "Fork statement: " + fork_stmt + "\n"
         "Thread entry function body:\n```cpp\n" + entry_func_code + "\n```" +
         candidates_ss.str() + "\n\n" +
         explore_hint +
-        "For each resource you report: state what order this thread NEEDS for its own\n"
-        "correctness (assume: prec/atomic/count_guarded) and what order it actually\n"
-        "ENFORCES here (guarantee: serialize/order/counts) — leave guarantee empty if the\n"
-        "code provides no synchronization that truly covers that resource. Emit a real\n"
-        "assume ONLY for a value with a CONSEQUENTIAL USE (branch / index / size /\n"
-        "pointer-deref / use-before-free / list-or-tree); follow the value into callees to\n"
-        "decide. Do not classify id/state/count/flag fields as benign merely because the\n"
-        "name looks like metadata: if the value is used to match/select/remove an object,\n"
-        "gate shutdown/free, or enforce a limit, it has CONSEQUENTIAL USE and needs an\n"
-        "assume (typically atomic([read, branch]) or atomic([read, limit_check])).\n"
+        "For each resource you report: state the local requirement this thread needs\n"
+        "(assume: ORDER / CONFLICT_MEDIATED / REGION_ISOLATED / STABLE_DURING /\n"
+        "PROGRESS_ENABLED) and the Level-0 synchronization effects the code actually\n"
+        "provides (guarantee: ORDER / EXCLUDE / LINEARIZE / WAIT). Leave guarantee empty\n"
+        "if the code provides no synchronization that truly covers that resource. Emit a\n"
+        "real assume ONLY for a source-anchored safety obligation: a lifetime-sensitive\n"
+        "use region, check-use interval, branch/index/size/pointer/list/lifetime decision,\n"
+        "publish-before-use relation, or wait/enabler protocol. Follow the value into\n"
+        "callees to decide. Do not classify id/state/count/flag fields as benign merely\n"
+        "because the name looks like metadata: if the value is used to match/select/remove\n"
+        "an object, gate shutdown/free, or enforce a limit, it needs an anchored assume.\n"
         "Account for every [HIGH-RISK] object: the benign ones go together into a\n"
         "SINGLE no_order_needed=true clause (object_ids=[...]) — do not drop one, and do\n"
         "not fabricate an assume for a value that drives nothing.\n"
@@ -469,8 +514,8 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
             "CRITICAL ERROR: You have NOT produced a contract via tools. "
             "Use the tools (no chat text):\n"
             "1. Call `confirm_role_and_summary`.\n"
-            "2. Call `report_clause` for the resources with a real order requirement or\n"
-            "   synchronization discipline (assume and/or guarantee) -- few is fine.\n"
+            "2. Call `report_clause` for the resources with a real local requirement or\n"
+            "   synchronization guarantee (assume and/or guarantee) -- few is fine.\n"
             "3. Call `finalize_contract`.\n"
             "Perform these tool calls NOW based on your analysis.";
 
@@ -520,14 +565,14 @@ void ContractGeneratorAgent::repairContractCoverage(
 
         std::stringstream ss;
         ss << "CONTRACT COMPLETENESS CHECK: the following HIGH-RISK shared object(s) this "
-              "thread touches are not yet accounted for. Decide each by ONE test -- does its "
-              "racy value have a CONSEQUENTIAL USE?\n"
+              "thread touches are not yet accounted for. Decide whether each one has a "
+              "source-anchored safety obligation for THIS thread.\n"
               "  * If YES (the value flows into a branch/comparison, an index/size/length, a "
               "pointer that is dereferenced, a use-before-free / init-before-publish / "
               "refcount-before-free, or a list/tree link): call report_clause for that "
-              "[obj#N] with the matching assume (atomic([...]) / prec(use,free) / "
-              "prec(init,expose) / count_guarded(R,free)) (+ a real guarantee only if the "
-              "code provides one). FOLLOW the value into callees (get_callees / "
+              "[obj#N] with the matching assume (STABLE_DURING / REGION_ISOLATED / "
+              "ORDER / CONFLICT_MEDIATED) (+ real ORDER/EXCLUDE/LINEARIZE/WAIT guarantees "
+              "only if the code provides them). FOLLOW the value into callees (get_callees / "
               "get_function_by_name) if the use is not visible at the cited line.\n"
               "  * If NO (the value is only stored/copied/counted/logged and drives nothing): "
               "it is benign. Put ALL such ids together into a SINGLE report_clause with "
@@ -601,7 +646,7 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
     if (tool_name == "confirm_role_and_summary") {
         contract->setRole(arguments.at("role").get<std::string>());
         contract->setSummary(arguments.at("summary").get<std::string>());
-        return R"({"status": "Role/summary recorded. Now call report_clause ONLY for resources with a real order requirement or synchronization discipline (skip pure reads/counters/config scalars; merge same-lock fields via object_ids), then finalize_contract."})";
+        return R"({"status": "Role/summary recorded. Now call report_clause ONLY for resources with a real local requirement or synchronization guarantee (skip pure reads/counters/config scalars; merge same-lock fields via object_ids), then finalize_contract."})";
     }
 
     if (tool_name == "report_clause") {
@@ -621,19 +666,38 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
                     if (v.is_number_integer()) add(v.get<int>());
             if (!clause.objectIds.empty()) clause.objectId = clause.objectIds.front();
         }
+        if (!seededObjectIds_.empty()) {
+            if (clause.objectIds.empty()) {
+                return R"({"error":"Seeded ThreadContract clauses must bind to the static surface with object_id or object_ids. Use the [obj#N] id shown in the evidence packet, or use report_ordering for a thread-level cross-resource note."})";
+            }
+            for (int oid : clause.objectIds) {
+                if (!seededObjectIds_.count(oid)) {
+                    nlohmann::json err;
+                    err["error"] = "object_id " + std::to_string(oid) +
+                        " was not listed in this thread's evidence packet. Use only the shown [obj#N] ids.";
+                    return err.dump();
+                }
+            }
+        }
 
         if (arguments.contains("sites") && arguments["sites"].is_array())
             for (const auto& s : arguments["sites"])
                 if (s.is_string()) clause.sites.push_back(s.get<std::string>());
 
-        // WF4: keep only relations from the closed algebra; drop the rest with a note.
-        static const std::set<std::string> kAssumeRel  = {"prec", "atomic", "count_guarded"};
-        static const std::set<std::string> kGuardRel    = {"serialize", "order", "counts"};
+        // Keep only relations from the current closed contract vocabulary. Legacy
+        // outputs are accepted and mapped into the new obligation/atom names.
+        static const std::set<std::string> kAssumeRel = {
+            "ORDER", "CONFLICT_MEDIATED", "REGION_ISOLATED",
+            "STABLE_DURING", "PROGRESS_ENABLED"
+        };
+        static const std::set<std::string> kGuardRel = {
+            "ORDER", "EXCLUDE", "LINEARIZE", "WAIT"
+        };
         int dropped = 0;
         if (arguments.contains("assume") && arguments["assume"].is_array()) {
             for (const auto& it : arguments["assume"]) {
                 if (!it.is_object()) continue;
-                std::string rel = it.value("relation", std::string());
+                std::string rel = canonicalRequirementRelation(it.value("relation", std::string()));
                 if (!kAssumeRel.count(rel)) { ++dropped; continue; }
                 clause.assume.push_back({rel, it.value("detail", std::string()),
                                          it.value("provenance", std::string())});
@@ -642,7 +706,7 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
         if (arguments.contains("guarantee") && arguments["guarantee"].is_array()) {
             for (const auto& it : arguments["guarantee"]) {
                 if (!it.is_object()) continue;
-                std::string rel = it.value("relation", std::string());
+                std::string rel = canonicalGuaranteeRelation(it.value("relation", std::string()));
                 if (!kGuardRel.count(rel)) { ++dropped; continue; }
                 clause.guarantee.push_back({rel, it.value("detail", std::string()),
                                             it.value("provenance", std::string())});
@@ -671,8 +735,9 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
                         "Do not treat id/state/count/flag metadata as benign when it "
                         "drives a branch/comparison, selection/removal, size/index, "
                         "free/refcount, or list/tree operation. Emit report_clause with "
-                        "a real assume such as atomic([read, branch]) / atomic([read, "
-                        "limit_check]) / prec(use,free), or split this object out of "
+                        "a real assume such as REGION_ISOLATED(check_use_region, "
+                        "invalidators) or STABLE_DURING(use_region, live(resource)), "
+                        "or split this object out of "
                         "the benign object_ids list.";
                     if (!evidence.empty()) err["evidence"] = evidence;
                     return err.dump();
@@ -686,7 +751,7 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
         nlohmann::json resp;
         if (dropped > 0)
             resp["warning"] = "Dropped " + std::to_string(dropped) +
-                " relation(s) outside the closed algebra (assume: prec/atomic/count_guarded; guarantee: serialize/order/counts).";
+                " relation(s) outside the closed vocabulary (assume: ORDER/CONFLICT_MEDIATED/REGION_ISOLATED/STABLE_DURING/PROGRESS_ENABLED; guarantee: ORDER/EXCLUDE/LINEARIZE/WAIT).";
 
         // Selective progress feedback (survives token pruning -- it is the latest tool
         // result). Do NOT push the model to cover every object: a contract is a
@@ -695,8 +760,8 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
         resp["clauses_so_far"] = static_cast<int>(contract->clauses.size());
         resp["status"] =
             "Clause recorded. For remaining [HIGH-RISK] objects, emit a real assume ONLY "
-            "when the value has consequential use (branch/selection/removal, index/size, "
-            "pointer/lifetime, list/tree, limit check). Batch the rest into ONE "
+            "when there is an anchored safety obligation (branch/selection/removal, index/size, "
+            "pointer/lifetime, list/tree, limit check, publish/use, wait/enabler). Batch the rest into ONE "
             "no_order_needed=true clause with object_ids=[...]. id/state/count/flag fields "
             "are NOT benign if they drive a decision. Then finalize_contract.";
         return resp.dump();
