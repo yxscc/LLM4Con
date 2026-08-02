@@ -1,0 +1,175 @@
+
+### CVE-2016-7911  GT=['ioprio.c']  reports=1
+    [1] C1: unmediated task->io_context check/use race with exit detach (severity: medium)  || block/ioprio.c:154 , blk-ioc.c:206
+
+### CVE-2016-9806  GT=['af_netlink.c']  reports=4
+    [1] C4: unsynchronized allocation-size hint race on nlk->max_recvmsg_len (severity: medium)  || af_netlink.c:2084
+    [2] C6: unmediated skb->sk owner publication/read race (severity: medium)  || af_netlink.c:319 , af_netlink.c:223
+    [3] C7: concurrent packet-type classification write on same skb layout field (severity: medium)  || 
+    [4] C2: unlocked dump-state flag read races with mutex-protected cb_running transition (severity: medium)  || af_netlink.c:2136 , af_netlink.c:1867
+
+### CVE-2017-15265  GT=['seq_clientmgr.c', 'seq_ports.c']  reports=4
+    [1] C2: callback/private-data publication race with port teardown (severity: medium)  || sound/core/seq/seq_clientmgr.c:1280 , seq_ports.c:269
+    [2] C1: subscriber object lifetime race / double free during concurrent clear_subscriber_list (severity: high  || seq_ports.c:245 , seq_ports.c:245
+    [3] C3: concurrent mutation of snd_seq_event flags during validation/delivery (severity: medium)  || seq_clientmgr.c:564 , seq_clientmgr.c:966
+    [4] C4: deletion/closing protocol not excluding concurrent port-info update (severity: high)  || seq_ports.c:262 , seq_ports.c:360
+
+### CVE-2017-6346  GT=['af_packet.c']  reports=4
+    [1] C3: unsynchronized TPACKET_V3 block sequence increment in prb_open_block (severity: medium)  || net/packet/af_packet.c:852 , net/packet/af_packet.c:852
+    [2] C4: PACKET_VERSION update races with ring version decoding/validation (severity: medium)  || net/packet/af_packet.c:3559 , net/packet/af_packet.c:3608
+    [3] C1: packet fanout rollover pointer lifetime race during fanout_add (severity: high)  || net/packet/af_packet.c:1709 , net/packet/af_packet.c:1710
+    [4] C2: pg_vec buffer lifetime race between free_pg_vec and ring initialization/use (severity: high)  || i , i
+
+### CVE-2022-48830  GT=['isotp.c']  reports=4
+    [1] C2: unmediated ISO-TP RX state-machine race (severity: medium)  || net/can/isotp.c:491 , net/can/isotp.c:621
+    [2] C2: unmediated self-race in ISO-TP RX block-size accounting (severity: high)  || net/can/isotp.c:580 , net/can/isotp.c:580
+    [3] C3: unisolated ISO-TP TX flow-control timing update (severity: high)  || 
+    [4] C1: unmediated ISO-TP RX STmin timestamp admission race (severity: medium)  || net/can/isotp.c:237
+
+### CVE-2022-49215  GT=['xsk.c']  reports=2
+    [1] C1: unmediated AF_XDP state transition observed concurrently with send bound check (severity: medium)  || net/xdp/xsk.c:209 , net/xdp/xsk.c:727
+    [2] C2: unprotected xs->dev dereference races with device pointer clearing during AF_XDP unbind (severity: me  || net/xdp/xsk.c:444 , net/xdp/xsk.c:731
+
+### CVE-2022-49607  GT=['core.c']  reports=2
+    [1] C3: unmediated event->rcu_pending detach/reattach state race (severity: medium)  || kernel/events/core.c:5926 , kernel/events/core.c:5920
+    [2] C1: unmediated BPF overflow-handler install/free atomicity violation (severity: high)  || 
+
+### CVE-2024-26984  GT=['nv50.c']  reports=1
+    [1] C1: BAR VMA lifetime race across concurrent nv50_instobj_kmap instances (severity: high)  || drivers/gpu/drm/nouveau/nvkm/subdev/instmem/nv50.c:128 , drivers/gpu/drm/nouveau/nvkm/subdev/instmem/nv50.c:168
+
+### CVE-2024-27019  GT=['nf_tables_api.c']  reports=1
+    [1] C1: REGION_ISOLATED violation on nf_tables_objects RCU list traversal vs unregister (severity: high)  || net/netfilter/nf_tables_api.c:6908 , net/netfilter/nf_tables_api.c:6908
+
+### CVE-2024-27030  GT=['rvu.c']  reports=1
+    [1] C1: unmediated self-race on mailbox header num_msgs during check/copy/clear (severity: medium)  || drivers/net/ethernet/marvell/octeontx2/af/rvu.c:2517 , i
+
+### CVE-2024-27404  GT=['pm_netlink.c', 'subflow.c']  reports=6
+    [1] C1: socket lifetime use-after-free in PM callback (severity: high)  || net/mptcp/pm_netlink.c:787
+    [2] C2: unisolated MPTCP conn_list traversal vs list_add publication (severity: medium)  || net/mptcp/subflow.c:1571
+    [3] C3: subflow parent pointer publication/use race (severity: medium)  || net/mptcp/subflow.c:494 , net/mptcp/subflow.c:1703
+    [4] C5: parent remote_key publication/consumer race (severity: medium)  || net/mptcp/subflow.c:1543 , net/mptcp/subflow.c:459
+    [5] C1: unsynchronized subflow remote_id update vs PM address/subflow selection (severity: medium)  || net/mptcp/pm_netlink.c:805 , net/mptcp/subflow.c:538
+    [6] C2: unsynchronized bitfield flag update in subflow protocol state (severity: medium)  || net/mptcp/pm_netlink.c:476 , net/mptcp/subflow.c:454
+
+### CVE-2024-35898  GT=['nf_tables_api.c']  reports=1
+    [1] C1: unlocked nft flowtable-type registry traversal races with unregister list_del_rcu (severity: high)  || net/netfilter/nf_tables_api.c:8303 , net/netfilter/nf_tables_api.c:8156
+
+### CVE-2024-39503  GT=['ip_set_core.c', 'ip_set_list_set.c']  reports=3
+    [1] C1: concurrent ipset set destruction causing UAF/double destruction (severity: high)  || net/netfilter/ipset/ip_set_core.c:1185 , net/netfilter/ipset/ip_set_core.c:1183
+    [2] C2: list:set GC timer use-after-free of set->data/member list during destroy (severity: high)  || net/netfilter/ipset/ip_set_list_set.c:176 , net/netfilter/ipset/ip_set_list_set.c:179
+    [3] C2: list:set GC timer rearm allows post-destroy use-after-free of ip_set (severity: high)  || net/netfilter/ipset/ip_set_list_set.c:580 , net/netfilter/ipset/ip_set_core.c:1266
+
+### CVE-2024-39508  GT=['io-wq.c']  reports=1
+    [1] C4: unmediated io_wq_work flags cancellation/queueing race (severity: medium)  || io_uring/io-wq.c:895 , io_uring/io-wq.c:931
+
+### CVE-2024-40953  GT=['kvm_main.c']  reports=1
+    [1] C1: unmediated self-race on KVM round-robin boost cursor (severity: medium)  || virt/kvm/kvm_main.c:2589 , virt/kvm/kvm_main.c:2623
+
+### CVE-2024-41081  GT=['ila_lwt.c']  reports=2
+    [1] C1: unprotected concurrent skb destination metadata update (severity: high)  || net/ipv6/ila/ila_lwt.c:93 , net/ipv6/ila/ila_lwt.c:93
+    [2] C2: concurrent skb lifetime violation / double free (severity: high)  || net/ipv6/ila/ila_lwt.c:97 , net/ipv6/ila/ila_lwt.c:97
+
+### CVE-2024-43830  GT=['led-triggers.c']  reports=1
+    [1] C1: use-after-free of pattern trigger data during sysfs repeat_store vs trigger deactivation (severity: h  || drivers/leds/trigger/ledtrig-pattern.c:214
+
+### CVE-2024-53124  GT=['ipv6.c', 'tcp_ipv6.c']  reports=5
+    [1] C1: unmediated concurrent TCP_SKB_CB timestamp-flag update (severity: high)  || 
+    [2] C2: unmediated concurrent skb checksum/offload metadata mutation (severity: high)  || net/ipv6/tcp_ipv6.c:1778 , net/ipv6/tcp_ipv6.c:1778
+    [3] C3: concurrent double free of request_sock saved_syn (severity: high)  || net/ipv6/tcp_ipv6.c:1004 , net/ipv6/tcp_ipv6.c:1004
+    [4] C4: concurrent opt_skb lifetime cleanup double free (severity: high)  || net/ipv6/tcp_ipv6.c:1677 , net/ipv6/tcp_ipv6.c:1677
+    [5] C5: unmediated concurrent TCP_SKB_CB end_seq update/read (severity: medium)  || net/ipv6/tcp_ipv6.c:1697
+
+### CVE-2024-53186  GT=['server.c']  reports=1
+    [1] C2: lockless connection status state-check instability (severity: medium)  || fs/smb/server/connection.h:231 , fs/smb/server/connection.h:196
+
+### CVE-2024-56555  GT=['binder.c']  reports=6
+    [1] C1: binder_ref.death lifetime race / UAF across death-notification release paths (severity: high)  || drivers/android/binder.c:1354
+    [2] C1: unisolated Binder work.entry membership check versus concurrent enqueue (severity: high)  || drivers/android/binder.c:443 , drivers/android/binder.c:442
+    [3] C2: unisolated binder_node refs hlist iteration versus ref insertion (severity: high)  || drivers/android/binder.c:1176 , drivers/android/binder.c:6159
+    [4] C3: unisolated delivered_death list enqueue versus proc-free empty check (severity: high)  || drivers/android/binder.c:5228 , drivers/android/binder.c:443
+    [5] C1: unsynchronized transaction-stack link update vs release walk (severity: medium)  || drivers/android/binder.c:5069 , drivers/android/binder.c:5302
+    [6] C2: unmediated binder_txn_fd_fixup publication/cleanup race (severity: medium)  || drivers/android/binder.c:1636 , drivers/android/binder.c:2393
+
+### CVE-2024-56788  GT=['oa_tc6.c']  reports=1
+    [1] C1: unmediated pending-SKB handoff slot race (severity: medium)  || drivers/net/ethernet/oa_tc6.c:1213 , drivers/net/ethernet/oa_tc6.c:1008
+
+### CVE-2024-58072  GT=['base.c', 'base.h', 'pci.c', 'wifi.h']  reports=2
+    [1] C2: unsynchronized PCI RX buffer-size reinitialization versus IRQ RX-ring processing (severity: high)  || drivers/net/wireless/realtek/rtlwifi/pci.c:1113 , drivers/net/wireless/realtek/rtlwifi/pci.c:733
+    [2] C1: unprotected scan-list teardown can race with another scan-list teardown (severity: high)  || drivers/net/wireless/realtek/rtlwifi/base.c:1924 , drivers/net/wireless/realtek/rtlwifi/base.c:1924
+
+### CVE-2025-21732  GT=['mr.c', 'odp.c']  reports=2
+    [1] C1: child MR private-descriptor lifetime race during ODP invalidation (severity: high)  || drivers/infiniband/hw/mlx5/odp.c:229 , drivers/infiniband/hw/mlx5/mr.c:1945
+    [2] C2: mr->umem lifetime race between deregistration and implicit-child ODP destroy (severity: medium)  || drivers/infiniband/hw/mlx5/odp.c:227 , drivers/infiniband/hw/mlx5/mr.c:2102
+
+### CVE-2025-22050  GT=['usbnet.c']  reports=1
+    [1] C1: deferred URB context lifetime violation / skb use-after-free (severity: high)  || drivers/net/usb/usbnet.c:1651 , drivers/net/usb/usbnet.c:602
+
+### CVE-2025-23142  GT=['structs.h', 'socket.c', 'transport.c']  reports=1
+    [1] C2: unmediated sk_err reset versus connect wait error predicate (severity: medium)  || net/sctp/socket.c:1238 , net/sctp/socket.c:9340
+
+### CVE-2025-23151  GT=['main.c']  reports=2
+    [1] C1: unprotected reset drain races with producer buffer-slot publication/free (severity: high)  || drivers/bus/mhi/host/main.c:1206 , drivers/bus/mhi/host/main.c:1589
+    [2] C2: unprotected transfer-ring producer cursor update races with reset drain loop (severity: high)  || drivers/bus/mhi/host/main.c:254 , drivers/bus/mhi/host/main.c:1573
+
+### CVE-2025-37882  GT=['xhci-ring.c']  reports=4
+    [1] C1: unsynchronized transfer-ring producer/cycle-state mutation (severity: high)  || drivers/usb/host/xhci-ring.c:264 , xhci-ring.c:4091
+    [2] C2: unstable endpoint-state doorbell gate (severity: medium)  || drivers/usb/host/xhci-ring.c:1220 , drivers/usb/host/xhci-ring.c:499
+    [3] C2: unsynchronized ring TD list mutation race (severity: high)  || xhci-ring.c:3351 , drivers/usb/host/xhci-ring.c:992
+    [4] C1: unsynchronized TD cancel_status state transition race (severity: high)  || drivers/usb/host/xhci-ring.c:1061 , drivers/usb/host/xhci-ring.c:1477
+
+### CVE-2025-38078  GT=['pcm.h', 'pcm_oss.c', 'pcm_native.c']  reports=3
+    [1] C1: unmediated DMA-buffer descriptor free/reconfiguration races with hw_free release region (severity: hi  || sound/core/pcm_memory.c:85 , sound/core/pcm_memory.c:89
+    [2] C3: unmediated stop_operating check/clear allows duplicate or missed sync-stop action (severity: medium)  || sound/core/pcm_native.c:615 , sound/core/pcm_native.c:616
+    [3] C4: state validation-to-action window not covered by the stream-state lock (severity: medium)  || sound/core/pcm_native.c:892 , include/sound/pcm.h:695
+
+### CVE-2025-38104  GT=['amdgpu_device.c', 'amdgpu_virt.c', 'amdgpu_virt.h']  reports=1
+    [1] C1: unmediated concurrent writes to caller-provided RLCG flag output slot (severity: medium)  || drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c:992 , drivers/gpu/drm/amd/amdgpu/amdgpu_virt.c:992
+
+### CVE-2025-38165  GT=['skmsg.c']  reports=3
+    [1] C1: unmediated concurrent sk_msg initialization corrupts queued message metadata (severity: high)  || net/core/skmsg.c:557 , net/core/skmsg.c:557
+    [2] C3: skb BPF metadata read/clear races with ingress-bit update (severity: medium)  || net/core/skmsg.c:546 , net/core/skmsg.c:554
+    [3] C1: unmediated socket memory accounting RMW on sk_forward_alloc (severity: high)  || net/core/skmsg.c:1046 , net/core/skmsg.c:1046
+
+### CVE-2025-38337  GT=['transaction.c']  reports=1
+    [1] C1: unmediated journal_head list-state transition racing dirty-metadata membership decision (severity: me  || fs/jbd2/transaction.c:2065
+
+### SYZBOT-01affb1491750534  GT=['workqueue.c']  reports=1
+    [1] C2: unsynchronized concurrent updates to task_struct.wake_cpu placement hint (severity: medium)  || kernel/workqueue.c:1200 , kernel/workqueue.c:1200
+
+### SYZBOT-2e4de7fe846aba66  GT=['tun.c', 'dev.c']  reports=5
+    [1] C1: unprotected NAPI GRO rx_count/list batching atomicity violation (severity: high)  || net/core/dev.c:5822 , net/core/dev.c:5813
+    [2] C4: unprotected skb mac_header/header-geometry metadata race (severity: medium)  || net/core/dev.c:4531 , net/core/dev.c:4531
+    [3] C5: skb protocol classification sees concurrent protocol rewrite (severity: medium)  || net/core/dev.c:4920 , net/core/dev.c:5985
+    [4] C3: concurrent skb consume/free lifetime violation (severity: high)  || 
+    [5] C2: unprotected GRO/receive list_head topology reinitialization race (severity: high)  || net/core/dev.c:5812 , net/core/dev.c:5812
+
+### SYZBOT-35301db28c64310d  GT=['macsec.c']  reports=3
+    [1] C2: concurrent consume/free violates skb exclusive-lifetime requirement (severity: high)  || drivers/net/macsec.c:899 , drivers/net/macsec.c:899
+    [2] C1: unisolated concurrent skb header-geometry check/update (severity: high)  || drivers/net/macsec.c:815 , drivers/net/macsec.c:816
+    [3] C1: unmediated concurrent mutation of skb length during MACsec RX processing (severity: medium)  || drivers/net/macsec.c:1262 , drivers/net/macsec.c:937
+
+### SYZBOT-3b6b32dc50537a49  GT=['eventpoll.c', 'eventpoll.h']  reports=5
+    [1] C1: eventpoll lifetime race on ready/overflow-list scan versus ep_free (severity: high)  || fs/eventpoll.c:784 , fs/eventpoll.c:732
+    [2] C5: double final file_free/backing-resource release (severity: high)  || fs/file_table.c:70 , fs/file_table.c:70
+    [3] C7: epitems_head detach/free protocol race leading to double free or stale head ownership (severity: high  || fs/eventpoll.c:285 , fs/eventpoll.c:285
+    [4] C1: concurrent ep_unregister_pollwait eppoll_entry lifetime violation / double free (severity: high)  || fs/eventpoll.c:663 , fs/eventpoll.c:663
+    [5] C1: concurrent epi->ws withdrawal during wakeup-source destroy/use protocol (severity: medium)  || fs/eventpoll.c:670 , fs/eventpoll.c:1571
+
+### SYZBOT-3cc3a12efa69aa6f  GT=['dev.c', 'net-sysfs.c']  reports=1
+    [1] C1: unmediated net_device reg_state read racing with registration state transition (severity: medium)  || net/core/dev.c:10050
+
+### SYZBOT-417aeb05fd190f3a  GT=['hugetlb.c']  reports=1
+    [1] C2: racy hstate surplus accounting decision (unprotected branch read vs hugetlb_lock-protected counter up  || mm/hugetlb.c:5954 , mm/hugetlb.c:2272
+
+### SYZBOT-44cf88a58d91b12b  GT=['raw.c']  reports=3
+    [1] C1: raw_bind state gate is not mediated with connect state update (severity: medium)  || net/ipv4/raw.c:725 , net/ipv4/datagram.c:73
+    [2] C2: raw_bind source-address publication is not mediated with connect source-address update (severity: med  || net/ipv4/raw.c:739 , net/ipv4/datagram.c:66
+    [3] C3: raw_bind dst-reset tx-queue clear is outside the connect socket-lock protocol (severity: medium)  || net/ipv4/raw.c:742 , net/ipv4/datagram.c:36
+
+### SYZBOT-4a03518df1e31b53  GT=['extents_status.c']  reports=1
+    [1] C1: unexcluded concurrent writes to caller-provided extent_status result tuple under shared read lock (se  || fs/ext4/extents_status.c:269 , fs/ext4/extents_status.c:269
+
+### SYZBOT-5676077ba016d741  GT=['netdevice.h', 'ip_tunnel.c', 'ip6_tunnel.c', 'ip_output.c']  reports=1
+    [1] C2: unmediated skb->protocol mutation during tunnel protocol-dependent transmit decisions (severity: medi  || net/ipv4/ip_tunnel.c:566 , net/ipv4/ip_output.c:428
+
+=== FOUND_CASES=40  TOTAL_REPORTS=93 ===

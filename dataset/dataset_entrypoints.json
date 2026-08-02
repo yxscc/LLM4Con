@@ -1,0 +1,774 @@
+{
+  "CVE-2013-1792": {
+    "thread_roots": [
+      "sys_keyctl"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "sys_keyctl",
+      "sys_keyctl"
+    ]
+  },
+  "CVE-2015-7550": {
+    "thread_roots": [
+      "SyS_keyctl"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "SyS_keyctl",
+      "SyS_keyctl"
+    ]
+  },
+  "CVE-2016-7911": {
+    "thread_roots": [
+      "SyS_ioprio_get",
+      "exit_io_context"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "SyS_ioprio_get",
+      "exit_io_context"
+    ]
+  },
+  "CVE-2016-9806": {
+    "thread_roots": [
+      "netlink_recvmsg",
+      "__netlink_dump_start"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "netlink_recvmsg",
+      "__netlink_dump_start"
+    ]
+  },
+  "CVE-2017-15265": {
+    "thread_roots": [
+      "snd_seq_ioctl_create_port",
+      "snd_seq_ioctl_delete_port"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_seq_ioctl_create_port",
+      "snd_seq_ioctl_delete_port"
+    ]
+  },
+  "CVE-2017-6346": {
+    "thread_roots": [
+      "packet_setsockopt"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "packet_setsockopt",
+      "packet_setsockopt"
+    ]
+  },
+  "CVE-2022-48830": {
+    "thread_roots": [
+      "isotp_rcv"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "isotp_rcv",
+      "isotp_rcv"
+    ]
+  },
+  "CVE-2022-48931": {
+    "thread_roots": [
+      "configfs_unregister_subsystem"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "configfs_unregister_subsystem",
+      "configfs_unregister_subsystem"
+    ]
+  },
+  "CVE-2022-49215": {
+    "thread_roots": [
+      "xsk_sendmsg",
+      "xsk_notifier"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "xsk_sendmsg",
+      "xsk_notifier"
+    ]
+  },
+  "CVE-2022-49607": {
+    "thread_roots": [
+      "perf_mmap_close",
+      "perf_ioctl"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "perf_mmap_close",
+      "perf_ioctl"
+    ]
+  },
+  "CVE-2023-53046": {
+    "thread_roots": [
+      "hci_cmd_sync_work",
+      "hci_cmd_sync_clear"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "hci_cmd_sync_work",
+      "hci_cmd_sync_clear"
+    ]
+  },
+  "CVE-2024-26974": {
+    "thread_roots": [
+      "adf_slot_reset",
+      "adf_device_reset_worker"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "adf_slot_reset",
+      "adf_device_reset_worker"
+    ]
+  },
+  "CVE-2024-26984": {
+    "thread_roots": [
+      "nv50_instobj_acquire"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "nv50_instobj_acquire",
+      "nv50_instobj_acquire"
+    ]
+  },
+  "CVE-2024-27019": {
+    "thread_roots": [
+      "nft_unregister_obj",
+      "nf_tables_newobj"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "nft_unregister_obj",
+      "nf_tables_newobj"
+    ]
+  },
+  "CVE-2024-27030": {
+    "thread_roots": [
+      "rvu_mbox_intr_handler"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "rvu_mbox_intr_handler",
+      "rvu_mbox_intr_handler"
+    ]
+  },
+  "CVE-2024-27404": {
+    "thread_roots": [
+      "subflow_finish_connect",
+      "mptcp_pm_nl_work"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "subflow_finish_connect",
+      "mptcp_pm_nl_work"
+    ]
+  },
+  "CVE-2024-35898": {
+    "thread_roots": [
+      "nft_unregister_flowtable_type",
+      "nf_tables_newflowtable"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "nft_unregister_flowtable_type",
+      "nf_tables_newflowtable"
+    ]
+  },
+  "CVE-2024-35977": {
+    "thread_roots": [
+      "cros_ec_uart_probe",
+      "cros_ec_uart_rx_bytes"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "cros_ec_uart_probe",
+      "cros_ec_uart_rx_bytes"
+    ]
+  },
+  "CVE-2024-35986": {
+    "thread_roots": [
+      "tusb1210_chg_det_work",
+      "power_supply_unregister"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "tusb1210_chg_det_work",
+      "power_supply_unregister"
+    ]
+  },
+  "CVE-2024-35999": {
+    "thread_roots": [
+      "compound_send_recv",
+      "cifs_try_adding_channels"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "compound_send_recv",
+      "cifs_try_adding_channels"
+    ]
+  },
+  "CVE-2024-36938": {
+    "thread_roots": [
+      "sk_psock_put",
+      "sk_psock_verdict_data_ready"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "sk_psock_put",
+      "sk_psock_verdict_data_ready"
+    ]
+  },
+  "CVE-2024-39503": {
+    "thread_roots": [
+      "ip_set_net_exit / ip_set_destroy",
+      "list_set_gc"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "ip_set_net_exit / ip_set_destroy",
+      "list_set_gc"
+    ]
+  },
+  "CVE-2024-39508": {
+    "thread_roots": [
+      "io_wq_worker",
+      "io_wq_enqueue"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "io_wq_worker",
+      "io_wq_enqueue"
+    ]
+  },
+  "CVE-2024-40953": {
+    "thread_roots": [
+      "kvm_vcpu_on_spin"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "kvm_vcpu_on_spin",
+      "kvm_vcpu_on_spin"
+    ]
+  },
+  "CVE-2024-41081": {
+    "thread_roots": [
+      "ila_output"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "ila_output",
+      "ila_output"
+    ]
+  },
+  "CVE-2024-42234": {
+    "thread_roots": [
+      "folio_migrate_mapping",
+      "deferred_split_scan"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "folio_migrate_mapping",
+      "deferred_split_scan"
+    ]
+  },
+  "CVE-2024-43830": {
+    "thread_roots": [
+      "led_trigger_set",
+      "pattern_show / pattern_store / repeat_show / repeat_store"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "led_trigger_set",
+      "pattern_show / pattern_store / repeat_show / repeat_store"
+    ]
+  },
+  "CVE-2024-43891": {
+    "thread_roots": [
+      "event removal / eventfs release path",
+      "f_start"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "event removal / eventfs release path",
+      "f_start"
+    ]
+  },
+  "CVE-2024-45000": {
+    "thread_roots": [
+      "fscache_cookie_worker",
+      "netfs_rreq_write_to_cache_work"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "fscache_cookie_worker",
+      "netfs_rreq_write_to_cache_work"
+    ]
+  },
+  "CVE-2024-46704": {
+    "thread_roots": [
+      "__flush_work",
+      "flush_work"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "__flush_work",
+      "flush_work"
+    ]
+  },
+  "CVE-2024-47715": {
+    "thread_roots": [
+      "mt76_sta_state",
+      "mt7915_band_config"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "mt76_sta_state",
+      "mt7915_band_config"
+    ]
+  },
+  "CVE-2024-50082": {
+    "thread_roots": [
+      "rq_qos_wait",
+      "rq_qos_wake_function"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "rq_qos_wait",
+      "rq_qos_wake_function"
+    ]
+  },
+  "CVE-2024-53124": {
+    "thread_roots": [
+      "tcp_v6_rcv"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "tcp_v6_rcv",
+      "tcp_v6_rcv"
+    ]
+  },
+  "CVE-2024-53136": {
+    "thread_roots": [
+      "shmem_getattr",
+      "unknown_nfs_getattr_or_revalidate_path"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "shmem_getattr",
+      "unknown_nfs_getattr_or_revalidate_path"
+    ]
+  },
+  "CVE-2024-53160": {
+    "thread_roots": [
+      "kvfree_call_rcu",
+      "kfree_rcu_monitor"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "kvfree_call_rcu",
+      "kfree_rcu_monitor"
+    ]
+  },
+  "CVE-2024-53186": {
+    "thread_roots": [
+      "ksmbd_conn_handler_loop",
+      "handle_ksmbd_work"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "ksmbd_conn_handler_loop",
+      "handle_ksmbd_work"
+    ]
+  },
+  "CVE-2024-56555": {
+    "thread_roots": [
+      "binder_ioctl",
+      "binder_deferred_func"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "binder_ioctl",
+      "binder_deferred_func"
+    ]
+  },
+  "CVE-2024-56788": {
+    "thread_roots": [
+      "oa_tc6_start_xmit",
+      "oa_tc6_spi_thread_handler"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "oa_tc6_start_xmit",
+      "oa_tc6_spi_thread_handler"
+    ]
+  },
+  "CVE-2024-58072": {
+    "thread_roots": [
+      "rtl_pci_probe"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "rtl_pci_probe",
+      "rtl_pci_probe"
+    ]
+  },
+  "CVE-2025-21732": {
+    "thread_roots": [
+      "__mlx5_ib_dereg_mr",
+      "mlx5_ib_invalidate_range"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "__mlx5_ib_dereg_mr",
+      "mlx5_ib_invalidate_range"
+    ]
+  },
+  "CVE-2025-22050": {
+    "thread_roots": [
+      "rx_complete",
+      "usbnet_disconnect"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "rx_complete",
+      "usbnet_disconnect"
+    ]
+  },
+  "CVE-2025-23142": {
+    "thread_roots": [
+      "sctp_sendmsg",
+      "sctp_setsockopt"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "sctp_sendmsg",
+      "sctp_setsockopt"
+    ]
+  },
+  "CVE-2025-23151": {
+    "thread_roots": [
+      "mhi_queue_buf",
+      "mhi_unprepare_from_transfer"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "mhi_queue_buf",
+      "mhi_unprepare_from_transfer"
+    ]
+  },
+  "CVE-2025-37772": {
+    "thread_roots": [
+      "cma_netevent_callback",
+      "cma_netevent_work_handler"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "cma_netevent_callback",
+      "cma_netevent_work_handler"
+    ]
+  },
+  "CVE-2025-37854": {
+    "thread_roots": [
+      "kfd_process_wq_release",
+      "amdgpu_amdkfd_reset_work"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "kfd_process_wq_release",
+      "amdgpu_amdkfd_reset_work"
+    ]
+  },
+  "CVE-2025-37882": {
+    "thread_roots": [
+      "xhci_irq",
+      "xhci_queue_isoc_tx"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "xhci_irq",
+      "xhci_queue_isoc_tx"
+    ]
+  },
+  "CVE-2025-37920": {
+    "thread_roots": [
+      "xsk_generic_rcv"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "xsk_generic_rcv",
+      "xsk_generic_rcv"
+    ]
+  },
+  "CVE-2025-38078": {
+    "thread_roots": [
+      "snd_pcm_oss_change_params",
+      "snd_pcm_hw_free"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_pcm_oss_change_params",
+      "snd_pcm_hw_free"
+    ]
+  },
+  "CVE-2025-38104": {
+    "thread_roots": [
+      "gmc_v11_0_flush_gpu_tlb",
+      "amdgpu_device_init"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "gmc_v11_0_flush_gpu_tlb",
+      "amdgpu_device_init"
+    ]
+  },
+  "CVE-2025-38165": {
+    "thread_roots": [
+      "sk_psock_backlog",
+      "sk_psock_verdict_apply"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "sk_psock_backlog",
+      "sk_psock_verdict_apply"
+    ]
+  },
+  "CVE-2025-38217": {
+    "thread_roots": [
+      "fts_read"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "fts_read",
+      "fts_read"
+    ]
+  },
+  "CVE-2025-38242": {
+    "thread_roots": [
+      "move_pages",
+      "swapin and swapout fault/reclaim paths"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "move_pages",
+      "swapin and swapout fault/reclaim paths"
+    ]
+  },
+  "CVE-2025-38250": {
+    "thread_roots": [
+      "vhci_release",
+      "hci_dev_reset"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "vhci_release",
+      "hci_dev_reset"
+    ]
+  },
+  "CVE-2025-38337": {
+    "thread_roots": [
+      "jbd2_journal_dirty_metadata"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "jbd2_journal_dirty_metadata",
+      "jbd2_journal_dirty_metadata"
+    ]
+  },
+  "CVE-2025-38383": {
+    "thread_roots": [
+      "vmalloc_info_show"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "vmalloc_info_show",
+      "vmalloc_info_show"
+    ]
+  },
+  "CVE-2025-38429": {
+    "thread_roots": [
+      "mhi_ep_ring_add_element",
+      "host ring consumer"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "mhi_ep_ring_add_element",
+      "host ring consumer"
+    ]
+  },
+  "SYZBOT-01affb1491750534": {
+    "thread_roots": [
+      "worker_thread"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "worker_thread",
+      "worker_thread"
+    ]
+  },
+  "SYZBOT-1c486d0b62032c82": {
+    "thread_roots": [
+      "bprm_execve",
+      "copy_fs"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "bprm_execve",
+      "copy_fs"
+    ]
+  },
+  "SYZBOT-2d373c9936c00d7e": {
+    "thread_roots": [
+      "snd_seq_poll",
+      "snd_seq_ioctl"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_seq_poll",
+      "snd_seq_ioctl"
+    ]
+  },
+  "SYZBOT-2e4de7fe846aba66": {
+    "thread_roots": [
+      "tun_chr_write_iter",
+      "napi_busy_loop"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "tun_chr_write_iter",
+      "napi_busy_loop"
+    ]
+  },
+  "SYZBOT-35301db28c64310d": {
+    "thread_roots": [
+      "macsec_handle_frame"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "macsec_handle_frame",
+      "macsec_handle_frame"
+    ]
+  },
+  "SYZBOT-3b6b32dc50537a49": {
+    "thread_roots": [
+      "do_epoll_ctl",
+      "__fput"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "do_epoll_ctl",
+      "__fput"
+    ]
+  },
+  "SYZBOT-3cc3a12efa69aa6f": {
+    "thread_roots": [
+      "register_netdevice",
+      "type_show"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "register_netdevice",
+      "type_show"
+    ]
+  },
+  "SYZBOT-417aeb05fd190f3a": {
+    "thread_roots": [
+      "__unmap_hugepage_range",
+      "alloc_surplus_hugetlb_folio"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "__unmap_hugepage_range",
+      "alloc_surplus_hugetlb_folio"
+    ]
+  },
+  "SYZBOT-44cf88a58d91b12b": {
+    "thread_roots": [
+      "raw_bind",
+      "ip4_datagram_connect"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "raw_bind",
+      "ip4_datagram_connect"
+    ]
+  },
+  "SYZBOT-4a03518df1e31b53": {
+    "thread_roots": [
+      "ext4_es_find_extent_range"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "ext4_es_find_extent_range",
+      "ext4_es_find_extent_range"
+    ]
+  },
+  "SYZBOT-4a06d4373fd52f0b": {
+    "thread_roots": [
+      "inotify_handle_inode_event",
+      "__x64_sys_inotify_rm_watch"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "inotify_handle_inode_event",
+      "__x64_sys_inotify_rm_watch"
+    ]
+  },
+  "SYZBOT-52e3dbded1f71729": {
+    "thread_roots": [
+      "strp_work",
+      "kcm_recvmsg"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "strp_work",
+      "kcm_recvmsg"
+    ]
+  },
+  "SYZBOT-5676077ba016d741": {
+    "thread_roots": [
+      "ipgre_xmit",
+      "ip_output"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "ipgre_xmit",
+      "ip_output"
+    ]
+  },
+  "SYZBOT-5a486fef3de40e0d": {
+    "thread_roots": [
+      "__x64_sys_io_uring_register"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "__x64_sys_io_uring_register",
+      "__x64_sys_io_uring_register"
+    ]
+  },
+  "SYZBOT-5cce5938c6c2c518": {
+    "thread_roots": [
+      "__x64_sys_sendmmsg"
+    ],
+    "self_race": true,
+    "raw_entries": [
+      "__x64_sys_sendmmsg",
+      "__x64_sys_sendmmsg"
+    ]
+  },
+  "SYZBOT-63cbe31877bb80ef": {
+    "thread_roots": [
+      "snd_seq_check_queue",
+      "snd_seq_control_queue"
+    ],
+    "self_race": false,
+    "raw_entries": [
+      "snd_seq_check_queue",
+      "snd_seq_control_queue"
+    ]
+  }
+}

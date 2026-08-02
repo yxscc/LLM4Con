@@ -2,6 +2,54 @@
 #include "CCPG/ThreadAPIUtil.h"
 #include "CPG/Node.h"
 #include <vector>
+#include <algorithm>
+#include <cstring>
+
+namespace {
+
+bool endsWith(const std::string& s, const std::string& suffix) {
+    return s.size() >= suffix.size() &&
+           s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+bool isLockWrapperByName(const std::string& name) {
+    static const char* suffixes[] = {
+        "_lock", "_lock_irq", "_lock_irqsave", "_lock_bh",
+        "_lock_nested", "_rlock", "_wlock",
+    };
+    for (const char* sfx : suffixes) {
+        if (endsWith(name, sfx) && name.size() > std::strlen(sfx)) {
+            if (name == "clock" || name == "flock") continue;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool isUnlockWrapperByName(const std::string& name) {
+    static const char* suffixes[] = {
+        "_unlock", "_unlock_irq", "_unlock_irqrestore", "_unlock_bh",
+        "_runlock", "_wunlock",
+    };
+    for (const char* sfx : suffixes) {
+        if (endsWith(name, sfx) && name.size() > std::strlen(sfx))
+            return true;
+    }
+    return false;
+}
+
+bool isTryLockWrapperByName(const std::string& name) {
+    static const char* suffixes[] = {
+        "_trylock", "_trylock_irq", "_trylock_irqsave", "_trylock_bh",
+    };
+    for (const char* sfx : suffixes) {
+        if (endsWith(name, sfx) && name.size() > std::strlen(sfx))
+            return true;
+    }
+    return false;
+}
+
+} // anonymous namespace
 
 ThreadAPIUtil* ThreadAPIUtil::instance = nullptr;
 
@@ -411,7 +459,7 @@ bool ThreadAPIUtil::isAcquire(Node* node)
     if(threadAPIMap.find(callName) != threadAPIMap.end()){
         return threadAPIMap[callName] == ThreadAPIUtil::TYPE::ACQUIRE;
     }
-    return false;
+    return isLockWrapperByName(callName);
 }
 
 bool ThreadAPIUtil::isTryAcquire(Node* node)
@@ -422,7 +470,7 @@ bool ThreadAPIUtil::isTryAcquire(Node* node)
     if(threadAPIMap.find(callName) != threadAPIMap.end()){
         return threadAPIMap[callName] == ThreadAPIUtil::TYPE::TRY_ACQUIRE;
     }
-    return false;
+    return isTryLockWrapperByName(callName);
 }
 
 bool ThreadAPIUtil::isRelease(Node* node)
@@ -433,7 +481,7 @@ bool ThreadAPIUtil::isRelease(Node* node)
     if(threadAPIMap.find(callName) != threadAPIMap.end()){
         return threadAPIMap[callName] == ThreadAPIUtil::TYPE::RELEASE;
     }
-    return false;
+    return isUnlockWrapperByName(callName);
 }
 
 bool ThreadAPIUtil::isExit(Node* node)

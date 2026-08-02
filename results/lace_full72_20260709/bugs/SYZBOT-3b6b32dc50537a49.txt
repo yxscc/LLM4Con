@@ -1,0 +1,95 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: eventpoll lifetime race on ready/overflow-list scan versus ep_free (severity: high)
+Description: C1 confirms the STABLE_DURING violation. Thread 1 can be in ep_done_scan under ep->lock reading ep->ovflist as part of the ready/overflow-list scan, while thread 0 reaches ep_free for the same eventpoll without taking ep->lock or draining that scan. The ep->lock guarantee only excludes other ready-list critical sections; it does not cover the no-lock parent free.  [consequence] Use-after-free of the containing struct eventpoll while ep_done_scan reads ep->ovflist and may dereference epitems/list links derived from it.
+
+--- Involved Nodes ---
+  free_eventpoll (node 549): return true;  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:784]
+  use_ovflist (node 586): READ_ONCE(ep->ovflist)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:732]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"use_ovflist","b":"free_eventpoll"}
+  [1] same_location {"a":"use_ovflist","b":"free_eventpoll"}
+  [2] hb {"a":"use_ovflist","b":"free_eventpoll","expected":false}
+  [3] not_lock_protected {"node":"free_eventpoll"}
+========================================================
+
+count  1 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_2
+Mechanism: C5: double final file_free/backing-resource release (severity: high)
+Description: C5 confirms the CONFLICT_MEDIATED/STABLE_DURING violation on the concrete file_free region. The controller's fdget references only protect ordinary fd-derived use until fdput; they do not authorize or serialize two final file_free executions for the same file/backing resources. Thus thread 0 in __fput/file_free and a concurrent thread 1 file_free can both release the same backing_file_user_path/backing allocation without an object-covering exclusion or HB edge.  [consequence] Two final-release paths can both execute file_free on the same struct file/backing-file state, causing duplicate path_put/kfree/credential/security release or slab double-free.
+
+--- Involved Nodes ---
+  file_free_t0 (node 294): path_put(backing_file_user_path(f))  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/file_table.c:70]
+  file_free_t1 (node 294): path_put(backing_file_user_path(f))  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/file_table.c:70]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"file_free_t1","b":"file_free_t0"}
+  [1] same_location {"a":"file_free_t1","b":"file_free_t0"}
+  [2] hb {"a":"file_free_t0","b":"file_free_t1","expected":false}
+  [3] not_lock_protected {"node":"file_free_t1"}
+  [4] not_lock_protected {"node":"file_free_t0"}
+========================================================
+
+count  2 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_3
+Mechanism: C7: epitems_head detach/free protocol race leading to double free or stale head ownership (severity: high)
+Description: C7 confirms the REGION_ISOLATED/STABLE_DURING violation. The file->f_lock exclusion covers the local detach/emptiness decision, but free_ephead() itself is reached outside a protecting lock and the stated ORDER from detach decision to free does not serialize a concurrent remover/reclaimer that retained the same epitems_head. Thus a controller-side __ep_remove cleanup and the reclaimer-side release cleanup can both reach free_ephead for the same head without a covering HB or exclusion over the detach-to-free region.  [consequence] The same epitems_head can be freed concurrently or after another removal path retained it from an earlier detach decision, corrupting the ephead slab and file epoll-hook list state.
+
+--- Involved Nodes ---
+  controller_free_ephead (node 542): kmem_cache_free(ephead_cache, head)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:285]
+  reclaimer_free_ephead (node 542): kmem_cache_free(ephead_cache, head)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:285]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"controller_free_ephead","b":"reclaimer_free_ephead"}
+  [1] same_location {"a":"controller_free_ephead","b":"reclaimer_free_ephead"}
+  [2] hb {"a":"controller_free_ephead","b":"reclaimer_free_ephead","expected":false}
+  [3] not_lock_protected {"node":"controller_free_ephead"}
+  [4] not_lock_protected {"node":"reclaimer_free_ephead"}
+========================================================
+
+count  3 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: concurrent ep_unregister_pollwait eppoll_entry lifetime violation / double free (severity: high)
+Description: C1 confirms thread 0's STABLE_DURING/REGION_ISOLATED requirement for ep_unregister_pollwait. ep_unregister_pollwait walks epi->pwqlist with pwq = *p, reads pwq->next, removes the wait-queue hook, then frees pwq. A concurrent do_epoll_ctl->__ep_remove instance can enter the same unguarded ep_unregister_pollwait for the same epitem and retire the same eppoll_entry while the release path is still in that traversal. The contracts state no EXCLUDE, ORDER, RCU wait, refcount, or drain guarantee for the pwqlist/eppoll_entry lifetime, so the local stability requirement is undischarged.  [consequence] Use-after-free while one traversal reads/removes pwq, or double free/corruption when both paths reach kmem_cache_free on the same pwq.
+
+--- Involved Nodes ---
+  controller_retire_pwq (node 556): kmem_cache_free(pwq_cache, pwq)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:663]
+  reclaimer_retire_pwq (node 556): kmem_cache_free(pwq_cache, pwq)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:663]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"controller_retire_pwq","b":"reclaimer_retire_pwq"}
+  [1] same_location {"a":"controller_retire_pwq","b":"reclaimer_retire_pwq"}
+  [2] op_kind {"kind":"CALL","node":"controller_retire_pwq"}
+  [3] op_kind {"kind":"CALL","node":"reclaimer_retire_pwq"}
+  [4] not_lock_protected {"node":"controller_retire_pwq"}
+  [5] not_lock_protected {"node":"reclaimer_retire_pwq"}
+  [6] hb {"a":"controller_retire_pwq","b":"reclaimer_retire_pwq","expected":false}
+========================================================
+
+count  4 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: concurrent epi->ws withdrawal during wakeup-source destroy/use protocol (severity: medium)
+Description: C1 confirms the candidate STABLE_DURING/ORDER violation on epi->ws. One path reads epi->ws via ep_wakeup_source() as part of ep_destroy_wakeup_source/ep_done_scan wakeup-source handling while another path executes RCU_INIT_POINTER(epi->ws, NULL) in ep_destroy_wakeup_source() for the same epitem. The RCU withdraw+synchronize_rcu+unregister protocol protects pre-existing RCU readers from the subsequent unregister, but it is not an EXCLUDE/HB edge between the two listed sites and does not make the pointer stable across a concurrent destroy/use region.  [consequence] Two concurrent destroy/use regions for the same epitem can observe or withdraw the same RCU-published wakeup_source without mutual exclusion. Even though each withdrawal waits for pre-existing RCU readers before unregistering its observed ws, that wait does not serialize another concurrent destroy path, so the same old ws may be used/unregistered inconsistently.
+
+--- Involved Nodes ---
+  use_read (node 536): lockdep_is_held(&epi->ep->mtx)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:670]
+  withdraw_write (node 319): RCU_INIT_POINTER(epi->ws, NULL)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3b6b32dc50537a49/src/fs/eventpoll.c:1571]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"use_read","b":"withdraw_write"}
+  [1] same_location {"a":"use_read","b":"withdraw_write"}
+  [2] conflicts {"a":"use_read","b":"withdraw_write"}
+  [3] op_kind {"kind":"READ","node":"use_read"}
+  [4] op_kind {"kind":"WRITE","node":"withdraw_write"}
+  [5] not_lock_protected {"node":"use_read"}
+  [6] not_lock_protected {"node":"withdraw_write"}
+  [7] hb {"a":"withdraw_write","b":"use_read","expected":false}
+  [8] hb {"a":"use_read","b":"withdraw_write","expected":false}
+========================================================
+
+count  5 ----------------------------------------

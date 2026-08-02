@@ -1,0 +1,20 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: unexcluded concurrent writes to caller-provided extent_status result tuple under shared read lock (severity: high)
+Description: C1 is confirmed. Thread 0's lookup region assumes isolation from concurrent writes to the caller-provided struct extent_status result. A concurrent instance of the same lookup can enter under the same shared read lock and execute the initial result clear (`es->es_lblk = es->es_len = es->es_pblk = 0`) while the first instance is in its find/copy-out region. Because the available guarantee is only EXCLUDE(..., shared_read), it does not exclude another reader instance and does not serialize writes to the shared result fields.  [consequence] Two concurrent ext4_es_find_extent_range/__es_find_extent_range executions that are given the same result struct can interleave the zeroing/copy-out of es_lblk/es_len/es_pblk, leaving the caller with a torn or stale extent tuple despite the lookup region's REGION_ISOLATED/STABLE_DURING requirement. The inode i_es_lock is only held in shared read mode and protects the tree/cache traversal, not exclusive access to the caller-provided result object.
+
+--- Involved Nodes ---
+  result_write_concurrent_instance (node 22): es->es_lblk = es->es_len = es->es_pblk = 0  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-4a03518df1e31b53/src/fs/ext4/extents_status.c:269]
+  result_write_t0 (node 22): es->es_lblk = es->es_len = es->es_pblk = 0  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-4a03518df1e31b53/src/fs/ext4/extents_status.c:269]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"result_write_t0","b":"result_write_concurrent_instance"}
+  [1] conflicts {"a":"result_write_t0","b":"result_write_concurrent_instance"}
+  [2] op_kind {"kind":"WRITE","node":"result_write_t0"}
+  [3] op_kind {"kind":"WRITE","node":"result_write_concurrent_instance"}
+  [4] not_lock_protected {"node":"result_write_t0"}
+  [5] not_lock_protected {"node":"result_write_concurrent_instance"}
+  [6] hb {"a":"result_write_t0","b":"result_write_concurrent_instance","expected":false}
+========================================================
+
+count  1 ----------------------------------------

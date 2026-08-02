@@ -1,0 +1,53 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: unmediated net_device reg_state read racing with registration state transition (severity: medium)
+Description: C1: register_netdevice writes dev->reg_state = NETREG_REGISTERED while the sysfs type_show path may concurrently call dev_isalive and read dev->reg_state. The registrar's RTNL exclusion only covers RTNL participants and does not cover the sysfs dev_isalive read; no other synchronization effect in thread 0 stabilizes this field.  [consequence] type_show can evaluate the net_device alive predicate from dev->reg_state concurrently with registration changing that state.
+
+--- Involved Nodes ---
+  reader_dev_isalive (node 551): int
+netdev_queue_update_kobjects(struct net_device *dev, int old_num, int new_num)
+{
+#ifdef CONFIG_SYSFS
+	int i;
+	int error = 0;
+
+	/* Tx queue kobjects are allowed to be updated when a device is being
+	 * unregistered, but solely to remove queues from qdiscs. Any path
+	 * adding queues should be fixed.
+	 */
+	WARN(dev->reg_state == NETREG_UNREGISTERING && new_num > old_num,
+	     "New queues can't be registered after device unregistration.");
+
+	for (i = old_num; i < new_num; i++) {
+		error = netdev_queue_add_kobject(dev, i);
+		if (error) {
+			new_num = old_num;
+			break;
+		}
+	}
+
+	while (--i >= new_num) {
+		struct netdev_queue *queue = dev->_tx + i;
+
+		if (!refcount_read(&dev_net(dev)->ns.count))
+			queue->kobj.uevent_suppress = 1;
+#ifdef CONFIG_BQL
+		sysfs_remove_group(&queue->kobj, &dql_group);
+#endif
+		kobject_put(&queue->kobj);
+	}
+
+	return error;
+#else
+	return 0;
+#endif /* CONFIG_SYSFS */
+}  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3cc3a12efa69aa6f/src/net/core/net-sysfs.c:1702]
+  writer_registered (node 83): dev->reg_state = NETREG_REGISTERED  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-3cc3a12efa69aa6f/src/net/core/dev.c:10050]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"writer_registered","b":"reader_dev_isalive"}
+  [1] hb {"a":"writer_registered","b":"reader_dev_isalive","expected":false}
+  [2] not_lock_protected {"node":"reader_dev_isalive"}
+========================================================
+
+count  1 ----------------------------------------

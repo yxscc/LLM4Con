@@ -1,0 +1,54 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: raw_bind state gate is not mediated with connect state update (severity: medium)
+Description: C1 CONFIRM. The candidate's concrete accesses are raw_bind's unlocked sk->sk_state TCP_CLOSE check and __ip4_datagram_connect's sk->sk_state = TCP_ESTABLISHED write. raw_bind has no socket-lock EXCLUDE/ORDER/WAIT guarantee, so the connector's REGION_ISOLATED/CONFLICT_MEDIATED requirement for connect state/address updates is not discharged.  [consequence] raw_bind can pass the TCP_CLOSE gate while a concurrent connect establishes the socket, letting bind state/address publication overlap the connect state transition.
+
+--- Involved Nodes ---
+  bind_state_read (node 9): sk->sk_state != TCP_CLOSE  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/raw.c:725]
+  connect_state_write (node 83): sk->sk_state = TCP_ESTABLISHED  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/datagram.c:73]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"bind_state_read","b":"connect_state_write"}
+  [1] op_kind {"kind":"READ","node":"bind_state_read"}
+  [2] op_kind {"kind":"WRITE","node":"connect_state_write"}
+  [3] not_lock_protected {"node":"bind_state_read"}
+  [4] hb {"a":"bind_state_read","b":"connect_state_write","expected":false}
+========================================================
+
+count  1 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_2
+Mechanism: C2: raw_bind source-address publication is not mediated with connect source-address update (severity: medium)
+Description: C2 CONFIRM. raw_bind writes inet->inet_rcv_saddr/inet_saddr without synchronization while __ip4_datagram_connect writes inet->inet_rcv_saddr in the connector path. The connector's socket-lock exclusion does not cover raw_bind, and raw_bind has no alternative synchronization effect on these source-address fields.  [consequence] Concurrent bind and connect can race to publish the socket receive/source address, producing inconsistent bind/connect address state.
+
+--- Involved Nodes ---
+  bind_rcv_saddr_store (node 24): inet->inet_rcv_saddr = inet->inet_saddr = addr->sin_addr.s_addr  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/raw.c:739]
+  connect_rcv_saddr_store (node 73): inet->inet_rcv_saddr = fl4->saddr  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/datagram.c:66]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"bind_rcv_saddr_store","b":"connect_rcv_saddr_store"}
+  [1] op_kind {"kind":"WRITE","node":"bind_rcv_saddr_store"}
+  [2] op_kind {"kind":"WRITE","node":"connect_rcv_saddr_store"}
+  [3] not_lock_protected {"node":"bind_rcv_saddr_store"}
+  [4] hb {"a":"bind_rcv_saddr_store","b":"connect_rcv_saddr_store","expected":false}
+========================================================
+
+count  2 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_3
+Mechanism: C3: raw_bind dst-reset tx-queue clear is outside the connect socket-lock protocol (severity: medium)
+Description: C3 CONFIRM. raw_bind calls sk_dst_reset(), reaching sk_tx_queue_clear/skc_tx_queue_mapping store without holding the socket lock. The connect path also calls sk_dst_reset()/sk_tx_queue_clear in its socket-lock protected reset region. Because raw_bind has no EXCLUDE/ORDER/WAIT guarantee for skc_tx_queue_mapping, the connector's tx-queue clear mediation requirement remains unmet.  [consequence] Concurrent dst-reset paths can both clear skc_tx_queue_mapping without a common exclusion protocol.
+
+--- Involved Nodes ---
+  bind_dst_reset_call (node 28): sk_dst_reset(sk)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/raw.c:742]
+  connect_dst_reset_call (node 44): sk_dst_reset(sk)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-44cf88a58d91b12b/src/net/ipv4/datagram.c:36]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"bind_dst_reset_call","b":"connect_dst_reset_call"}
+  [1] op_kind {"kind":"CALL","node":"bind_dst_reset_call"}
+  [2] op_kind {"kind":"CALL","node":"connect_dst_reset_call"}
+  [3] not_lock_protected {"node":"bind_dst_reset_call"}
+  [4] hb {"a":"bind_dst_reset_call","b":"connect_dst_reset_call","expected":false}
+========================================================
+
+count  3 ----------------------------------------

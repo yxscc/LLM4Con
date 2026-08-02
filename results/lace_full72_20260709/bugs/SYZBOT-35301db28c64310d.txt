@@ -1,0 +1,60 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C2: concurrent consume/free violates skb exclusive-lifetime requirement (severity: high)
+Description: C2: macsec_handle_frame/macsec_decrypt requires the skb to remain live and exclusively owned until the packet is consumed or returned. A concurrent instance can reach the error path in macsec_decrypt() and call kfree_skb(skb) on the same skb at line 899, while the first instance is still in its skb processing region. The only stated skb lifetime effect is the local consume/free linearization; it does not exclude or order a second instance's consume of the same skb, and the accesses are not protected by an object-covering lock.  [consequence] If the same skb is processed by two RX-handler instances, one instance can consume it via kfree_skb() in macsec_decrypt() while the other is still parsing or mutating it, leading to double-free or use-after-free of the skb and its buffer/header fields.
+
+--- Involved Nodes ---
+  skb_free_t0 (node 249): kfree_skb(skb)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:899]
+  skb_free_t1 (node 249): kfree_skb(skb)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:899]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"skb_free_t0","b":"skb_free_t1"}
+  [1] same_location {"a":"skb_free_t0","b":"skb_free_t1"}
+  [2] op_kind {"kind":"CALL","node":"skb_free_t0"}
+  [3] op_kind {"kind":"CALL","node":"skb_free_t1"}
+  [4] not_lock_protected {"node":"skb_free_t0"}
+  [5] not_lock_protected {"node":"skb_free_t1"}
+  [6] hb {"a":"skb_free_t0","b":"skb_free_t1","expected":false}
+========================================================
+
+count  1 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_2
+Mechanism: C1: unisolated concurrent skb header-geometry check/update (severity: high)
+Description: C1: macsec_reset_skb() requires the skb header-geometry update region to be isolated for the same skb. One instance tests skb->transport_header via skb_transport_header_was_set(), while a concurrent instance can execute skb_reset_transport_header() and write the same header-geometry field. No guarantee covers this per-skb geometry: the accesses are in the RX path with no object-covering lock or HB edge, so the check/update sequence can be invalidated by the other instance.  [consequence] A concurrent reset of skb header geometry can make the transport-header presence test and subsequent reset operate on stale/inconsistent skb header offsets, corrupting per-skb geometry used by later parsing/finalization.
+
+--- Involved Nodes ---
+  transport_header_check_t0 (node 202): skb_transport_header_was_set(skb)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:815]
+  transport_header_reset_t1 (node 204): skb_reset_transport_header(skb)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:816]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"transport_header_check_t0","b":"transport_header_reset_t1"}
+  [1] same_location {"a":"transport_header_check_t0","b":"transport_header_reset_t1"}
+  [2] op_kind {"kind":"CALL","node":"transport_header_check_t0"}
+  [3] op_kind {"kind":"CALL","node":"transport_header_reset_t1"}
+  [4] not_lock_protected {"node":"transport_header_check_t0"}
+  [5] not_lock_protected {"node":"transport_header_reset_t1"}
+  [6] hb {"a":"transport_header_check_t0","b":"transport_header_reset_t1","expected":false}
+========================================================
+
+count  2 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: unmediated concurrent mutation of skb length during MACsec RX processing (severity: medium)
+Description: C1 is confirmed. A MACsec RX-handler instance has a STABLE_DURING/CONFLICT_MEDIATED requirement for skb->len across parse/decrypt/validate/finalize regions, but a concurrent instance can write the same skb->len in __skb_set_length during skb trimming. The static candidate reports no guarantee for this skb resource; any RCU read-side coverage is for MACsec RX state lookup and is not an EXCLUDE/ownership guarantee for skb->len, and rx_sa->lock protects RX-SA state rather than the skb geometry. Thus the read/size decision can overlap the length mutation with no covering HB or skb-covering lock.  [consequence] If two MACsec RX-handler instances operate on the same skb, one instance can change skb->len while the other is using it for MACsec header/ICV arithmetic, scatterlist sizing, AEAD associated-data length, validation, or trimming. That can make the parser/crypto/finalization decisions use an inconsistent skb geometry.
+
+--- Involved Nodes ---
+  concurrent_len_write (node 170): len = skb->len  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:1262]
+  len_use_for_decrypt_size (node 281): len = skb->len - macsec_hdr_len(macsec_skb_cb(skb)->has_sci)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-35301db28c64310d/src/drivers/net/macsec.c:937]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"concurrent_len_write","b":"len_use_for_decrypt_size"}
+  [1] conflicts {"a":"concurrent_len_write","b":"len_use_for_decrypt_size"}
+  [2] same_location {"a":"concurrent_len_write","b":"len_use_for_decrypt_size"}
+  [3] op_kind {"kind":"WRITE","node":"concurrent_len_write"}
+  [4] op_kind {"kind":"READ","node":"len_use_for_decrypt_size"}
+  [5] not_lock_protected {"node":"len_use_for_decrypt_size"}
+  [6] hb {"a":"concurrent_len_write","b":"len_use_for_decrypt_size","expected":false}
+========================================================
+
+count  3 ----------------------------------------

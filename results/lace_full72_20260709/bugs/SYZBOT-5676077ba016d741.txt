@@ -1,0 +1,21 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C2: unmediated skb->protocol mutation during tunnel protocol-dependent transmit decisions (severity: medium)
+Description: C2 confirms thread 1's STABLE_DURING(skb->protocol) requirement. During GRE/IP tunnel transmit, ip_md_tunnel_xmit branches on skb->protocol with no protecting lock; concurrently, thread 0's ip_output stores skb->protocol = htons(ETH_P_IP) on the same sk_buff. The contracts state no guarantee for this sk_buff field, so there is no ORDER/EXCLUDE/LINEARIZE/WAIT discharging the stable-protocol requirement.  [consequence] The tunnel transmit path can evaluate the skb as IPv4/IPv6 using a value that is concurrently overwritten to ETH_P_IP, leading to inconsistent encapsulation/PMTU/TOS handling for the same packet.
+
+--- Involved Nodes ---
+  protocol_reader (node 256): skb->protocol == htons(ETH_P_IP)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5676077ba016d741/src/net/ipv4/ip_tunnel.c:566]
+  protocol_writer (node 38): skb->protocol = htons(ETH_P_IP)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5676077ba016d741/src/net/ipv4/ip_output.c:428]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"protocol_reader","b":"protocol_writer"}
+  [1] same_location {"a":"protocol_reader","b":"protocol_writer"}
+  [2] conflicts {"a":"protocol_reader","b":"protocol_writer"}
+  [3] op_kind {"kind":"READ","node":"protocol_reader"}
+  [4] op_kind {"kind":"WRITE","node":"protocol_writer"}
+  [5] not_lock_protected {"node":"protocol_reader"}
+  [6] not_lock_protected {"node":"protocol_writer"}
+  [7] hb {"a":"protocol_reader","b":"protocol_writer","expected":false}
+========================================================
+
+count  1 ----------------------------------------

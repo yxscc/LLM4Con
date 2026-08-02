@@ -1,0 +1,21 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C2: unsynchronized concurrent updates to task_struct.wake_cpu placement hint (severity: medium)
+Description: C2 CONFIRM: kick_pool reads task->wake_cpu and later stores a selected CPU hint without any lock, ordering, or linearization for task_struct.wake_cpu. A concurrent instance of the same path can store the same task's wake_cpu at workqueue.c:1274 at the same time, violating the CONFLICT_MEDIATED requirement for the selection/update region.  [consequence] Concurrent kick_pool executions can lose or overwrite a wake placement hint, so a worker may be woken using a stale/non-coherent CPU selection.
+
+--- Involved Nodes ---
+  updater0 (node 56): return true;  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-01affb1491750534/src/kernel/workqueue.c:1200]
+  updater1 (node 56): return true;  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-01affb1491750534/src/kernel/workqueue.c:1200]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"updater0","b":"updater1"}
+  [1] conflicts {"a":"updater0","b":"updater1"}
+  [2] same_location {"a":"updater0","b":"updater1"}
+  [3] op_kind {"kind":"WRITE","node":"updater0"}
+  [4] op_kind {"kind":"WRITE","node":"updater1"}
+  [5] not_lock_protected {"node":"updater0"}
+  [6] not_lock_protected {"node":"updater1"}
+  [7] hb {"a":"updater0","b":"updater1","expected":false}
+========================================================
+
+count  1 ----------------------------------------

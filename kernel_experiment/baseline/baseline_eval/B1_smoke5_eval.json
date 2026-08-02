@@ -1,0 +1,117 @@
+{
+  "timestamp": "2026-07-12T01:30:01",
+  "model": "gpt-5.5-2026-04-24",
+  "total_cves": 5,
+  "cves_with_detection": 5,
+  "recall_hits": 3,
+  "recall_misses": 2,
+  "judge_errors": 0,
+  "recall_overall": 60.0,
+  "recall_among_with_output": 60.0,
+  "per_bug": {
+    "total": 5,
+    "tp_match": 3,
+    "tp_related": 2,
+    "fp": 0,
+    "fp_rate": 0.0,
+    "precision_strict": 60.0,
+    "precision_lenient": 100.0
+  },
+  "llm_error_rate": 0.0,
+  "details": [
+    {
+      "cve_id": "CVE-2017-15265",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B1_zeroshot/CVE-2017-15265_2026-07-12_01-21-12",
+      "has_detection": true,
+      "n_reports_total": 2,
+      "n_reports_judged": 2,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report 1 matches the CVE: missing use_lock reference on newly published ALSA seq port during create ioctl allows concurrent delete/free while create path still uses port.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same port lifetime race fixed by patch: snd_seq_create_port publishes port, create ioctl uses it, concurrent delete can kfree without creator holding use_lock."
+        },
+        {
+          "idx": 2,
+          "label": "TP_RELATED",
+          "reason": "Plausible adjacent ALSA seq subscription-list lifetime race, but different shared object and code path from the patched port create/delete UAF."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2022-49607",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B1_zeroshot/CVE-2022-49607_2026-07-12_01-21-12",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the perf_event_set_output()/perf_mmap_close() race on ring buffer attachment/mmap_count.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    },
+    {
+      "cve_id": "CVE-2024-26974",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B1_zeroshot/CVE-2024-26974_2026-07-12_01-21-12",
+      "has_detection": true,
+      "n_reports_total": 2,
+      "n_reports_judged": 2,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report #1 matches the CVE: reset_data is freed after sync timeout in adf_dev_aer_schedule_reset while adf_device_reset_worker can later dereference/complete it.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same reset_data UAF, same sync timeout/free vs worker use, and overlaps patched functions adf_dev_aer_schedule_reset/adf_device_reset_worker."
+        },
+        {
+          "idx": 2,
+          "label": "TP_RELATED",
+          "reason": "Adjacent plausible atomicity issue in the same reset scheduling code, but concerns accel_dev->status guard, not reset_data lifetime/UAF."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-27019",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B1_zeroshot/CVE-2024-27019_2026-07-12_01-21-12",
+      "has_detection": true,
+      "n_reports_total": 1,
+      "n_reports_judged": 1,
+      "judged_truncated": false,
+      "recall": "HIT",
+      "recall_reason": "Report 1 matches the CVE: nf_tables_objects/nft_object_type list raced between __nft_obj_type_get()/nft_obj_type_get() lookup and nft_unregister_obj() deletion, fixed by RCU iteration/read lock.",
+      "matched_bug_indices": [
+        1
+      ],
+      "bug_verdicts": [
+        {
+          "idx": 1,
+          "label": "TP_MATCH",
+          "reason": "Same shared list/object, same unregister vs lookup race, overlapping patched functions, and same RCU fix suggestion."
+        }
+      ]
+    },
+    {
+      "cve_id": "CVE-2024-27404",
+      "dump_dir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/baseline_dump/B1_zeroshot/CVE-2024-27404_2026-07-12_01-21-12",
+      "has_detection": true,
+      "n_reports_total": 0,
+      "n_reports_judged": 0,
+      "judged_truncated": false,
+      "recall": "MISS",
+      "recall_reason": "Tool produced no bug reports, so none matched the CVE data race on mptcp subflow->remote_id in pm_netlink.c/subflow.c.",
+      "matched_bug_indices": [],
+      "bug_verdicts": []
+    }
+  ]
+}

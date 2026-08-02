@@ -44,6 +44,18 @@ private:
     std::string parseResult(const std::vector<ChatMessage>& history) override;
     static std::string build_system_prompt();
 
+    // L2 (paper-faithful) mode. When LACE_CONTRACT_L2 is set, the agent emits the
+    // node-anchored MustPrecede/MustBeAtomic/MustBeMediated requirements and
+    // Order/Exclude/AtomicOp/Wait guarantees (operands = concrete CCPG node ids)
+    // consumed by the deterministic L2 checker, instead of the free-text
+    // assume/guarantee clauses. Set once in the constructor from the env so the
+    // tool set and prompt stay consistent across the session. The legacy path is
+    // untouched when the flag is off.
+    bool l2Mode_ = false;
+    std::vector<Tool> get_l2_tools() const;
+    std::string execute_l2_tool(const std::string& tool_name, const nlohmann::json& arguments,
+                                LLM::ConcurrencyContract* contract);
+
     // Concatenate the source bodies of the named functions (deduped) up to a char
     // budget, for one-shot preloading into the contract prompt.
     std::string preloadSource(const std::set<std::string>& funcNames,

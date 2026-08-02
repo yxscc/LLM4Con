@@ -567,14 +567,20 @@ std::string composeVerdict(
                     ? clauseForObject(contractsByTid.at(t2), oi, *O) : nullptr;
 
                 // Deterministic discharge:
-                //  (a) lock path: surface common-lock AND a stated guarantee -- the
-                //      conservative AND so a vague EXCLUDE alone never drops a bug;
+                //  (a) lock path: surface common-lock AND BOTH threads state a
+                //      guarantee -- requiring both sides avoids discharging when
+                //      only one thread's contract (possibly hallucinated) claims
+                //      ORDER while the other is silent about synchronization.
+                //      Self-race objects are exempt: lock serializes individual
+                //      critical sections but not semantic state across re-entrant
+                //      invocations, so they always go to Phase C.
                 //  (b) hard non-lock path: a stated RCU/refcount/barrier/join/RMW
                 //      guarantee is only auto-trusted when explicitly enabled. The
                 //      default sends it to Phase C because the checker does not yet
                 //      prove endpoint alignment (e.g. drain-before-free vs drain-after-free).
-                bool lockDischarge = surfaceSharedLock(*O, t1, t2) &&
-                                     (establishesOrder(clA) || establishesOrder(clB));
+                bool lockDischarge = !O->is_self_race &&
+                                     surfaceSharedLock(*O, t1, t2) &&
+                                     establishesOrder(clA) && establishesOrder(clB);
                 bool hardDischarge = establishesHardNonLockOrder(clA) ||
                                      establishesHardNonLockOrder(clB);
                 // lockDischarge stays authoritative: it needs EVERY access under a
@@ -681,8 +687,10 @@ std::string composeVerdict(
     const int maxMed = envInt("LACE_B2C_MAX_MED", 10000);
     const int maxLow = keepLow ? envInt("LACE_B2C_MAX_LOW", 10000) : 0;
     const int maxTotal = envInt("LACE_B2C_MAX_TOTAL", 60);
+    const int maxPerFamily = envInt("LACE_B2C_MAX_PER_FAMILY", 3);
     std::vector<PhaseBCandidate> selected;
     int sh = 0, sm = 0, sl = 0;
+    std::map<std::string, int> familyCount;
     for (auto& c : candidates) {
         if (static_cast<int>(selected.size()) >= maxTotal) break;
         if (c.tier == "high") {
@@ -695,6 +703,14 @@ std::string composeVerdict(
             if (sl >= maxLow) continue;
             ++sl;
         }
+        std::string famKey = resourceFamily(c.object) + "|" +
+                             std::to_string(std::min(c.reqT, c.violT)) + ":" +
+                             std::to_string(std::max(c.reqT, c.violT));
+        int& fc = familyCount[famKey];
+        if (fc >= maxPerFamily && c.tier != "high") {
+            continue;
+        }
+        ++fc;
         selected.push_back(std::move(c));
     }
 

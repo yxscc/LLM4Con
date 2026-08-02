@@ -1,0 +1,135 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C1: unprotected NAPI GRO rx_count/list batching atomicity violation (severity: high)
+Description: C1 CONFIRM. Thread 1's gro_normal_one/gro_normal_list region requires the rx_count update and flush decision for a given NAPI instance to be isolated from other rx_count/list mutations. Thread 0 can concurrently execute gro_normal_list on the same napi and store napi->rx_count = 0 without any object-covering lock, HB edge, or linearization for the rx_count/list protocol.  [consequence] Concurrent reset of napi->rx_count can race with another GRO enqueue/increment, making rx_count diverge from napi->rx_list membership; packets may be skipped, prematurely flushed, or left on a corrupted/unaccounted list.
+
+--- Involved Nodes ---
+  increment_threshold (node 959): ++napi->rx_count >= gro_normal_batch  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5822]
+  reset (node 1102): napi->rx_count = 0  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5813]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"increment_threshold","b":"reset"}
+  [1] conflicts {"a":"increment_threshold","b":"reset"}
+  [2] not_lock_protected {"node":"increment_threshold"}
+  [3] not_lock_protected {"node":"reset"}
+  [4] hb {"a":"increment_threshold","b":"reset","expected":false}
+========================================================
+--- Alternate Angles (1 additional hypothesis instance(s) on the same race) ---
+  [1] interleave_5 (severity: high) | nodes: thread0_rx_count_reset=1102 thread1_rx_count_increment=959
+      C1 CONFIRM.
+
+count  1 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_2
+Mechanism: C4: unprotected skb mac_header/header-geometry metadata race (severity: medium)
+Description: C4 CONFIRM. Thread 0 requires skb header offsets and derived mac_len to remain coherent during skb_reset_mac_len/receive metadata use. Thread 1 can concurrently write skb->mac_header in netif_receive_generic_xdp with no covering metadata lock. The stated skb->users linearization covers callback lifetime acquisition, not mutable header geometry.  [consequence] A receive-path computation of skb header geometry can observe skb->mac_header while generic XDP concurrently rebases it, causing incoherent mac_len/header offsets and incorrect packet classification or header access.
+
+--- Involved Nodes ---
+  thread0_mac_header_use (node 607): skb->mac_header += off  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:4531]
+  thread1_mac_header_rebase (node 607): skb->mac_header += off  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:4531]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"thread0_mac_header_use","b":"thread1_mac_header_rebase"}
+  [1] conflicts {"a":"thread0_mac_header_use","b":"thread1_mac_header_rebase"}
+  [2] not_lock_protected {"node":"thread0_mac_header_use"}
+  [3] not_lock_protected {"node":"thread1_mac_header_rebase"}
+  [4] hb {"a":"thread0_mac_header_use","b":"thread1_mac_header_rebase","expected":false}
+========================================================
+
+count  2 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_3
+Mechanism: C5: skb protocol classification sees concurrent protocol rewrite (severity: medium)
+Description: C5 CONFIRM. The classification region requires skb->protocol to remain stable after initialization while receive code branches on it. Thread 0 reads skb->protocol in skb_pfmemalloc_protocol while a concurrent receive/GRO path writes skb->protocol in napi_frags_skb. No guarantee in the contracts excludes or orders protocol writes against classification reads for this field; preempt_disable/RCU guarantees protect other regions and do not cover this no-lock read/write pair.  [consequence] The receive path may classify, admit/drop pfmemalloc traffic, or select VLAN/offload delivery based on a protocol value that is concurrently being initialized or rewritten for another receive/GRO path, leading to inconsistent packet handling.
+
+--- Involved Nodes ---
+  protocol_reader (node 1318): skb->protocol  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:4920]
+  protocol_writer (node 812): skb->protocol = eth->h_proto  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5985]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"protocol_reader","b":"protocol_writer"}
+  [1] conflicts {"a":"protocol_reader","b":"protocol_writer"}
+  [2] not_lock_protected {"node":"protocol_reader"}
+  [3] not_lock_protected {"node":"protocol_writer"}
+  [4] hb {"a":"protocol_reader","b":"protocol_writer","expected":false}
+========================================================
+
+count  3 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_4
+Mechanism: C3: concurrent skb consume/free lifetime violation (severity: high)
+Description: C3 CONFIRM. Thread 0 requires live(skb) and exclusive owner rights through the receive-processing/drop-handoff region. Thread 1 can retire the same skb in sch_handle_ingress via consume_skb/kfree_skb, and the stated skb->users callback-acquire linearization does not cover this ingress free against the broader receive-processing ownership region.  [consequence] The same skb can be consumed/freed by one receive-path instance while another instance still requires it to remain live and exclusively owned, causing a double-free or use-after-free in receive processing.
+
+--- Involved Nodes ---
+  thread0_ingress_consume (node 965): static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+{
+	if (unlikely(skb->pfmemalloc)) {
+		consume_skb(skb);
+		return;
+	}
+	__skb_pull(skb, skb_headlen(skb));
+	/* restore the reserve we had after netdev_alloc_skb_ip_align() */
+	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN - skb_headroom(skb));
+	__vlan_hwaccel_clear_tag(skb);
+	skb->dev = napi->dev;
+	skb->skb_iif = 0;
+
+	/* eth_type_trans() assumes pkt_type is PACKET_HOST */
+	skb->pkt_type = PACKET_HOST;
+
+	skb->encapsulation = 0;
+	skb_shinfo(skb)->gso_type = 0;
+	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+	skb_ext_reset(skb);
+
+	napi->skb = skb;
+}  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5878]
+  thread1_ingress_consume (node 965): static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+{
+	if (unlikely(skb->pfmemalloc)) {
+		consume_skb(skb);
+		return;
+	}
+	__skb_pull(skb, skb_headlen(skb));
+	/* restore the reserve we had after netdev_alloc_skb_ip_align() */
+	skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN - skb_headroom(skb));
+	__vlan_hwaccel_clear_tag(skb);
+	skb->dev = napi->dev;
+	skb->skb_iif = 0;
+
+	/* eth_type_trans() assumes pkt_type is PACKET_HOST */
+	skb->pkt_type = PACKET_HOST;
+
+	skb->encapsulation = 0;
+	skb_shinfo(skb)->gso_type = 0;
+	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
+	skb_ext_reset(skb);
+
+	napi->skb = skb;
+}  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5878]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"thread0_ingress_consume","b":"thread1_ingress_consume"}
+  [1] not_lock_protected {"node":"thread0_ingress_consume"}
+  [2] not_lock_protected {"node":"thread1_ingress_consume"}
+  [3] hb {"a":"thread0_ingress_consume","b":"thread1_ingress_consume","expected":false}
+========================================================
+
+count  4 ----------------------------------------
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_6
+Mechanism: C2: unprotected GRO/receive list_head topology reinitialization race (severity: high)
+Description: C2 CONFIRM. The list topology contract requires REGION_ISOLATED over gro_normal_list/netif_receive_skb_list mutations of napi->rx_list/skb->list. The same gro_normal_list reinitialization of napi->rx_list is reachable from both concurrent thread roles, with no EXCLUDE/ORDER/LINEARIZE guarantee for these list links. This violates isolation even though the verifier cannot refine the list helper store access index.  [consequence] Two receive/GRO contexts can reinitialize or mutate the same napi rx_list head while another context is adding or flushing members, corrupting list topology or dropping queued skbs.
+
+--- Involved Nodes ---
+  thread0_rx_list_reinit (node 1101): INIT_LIST_HEAD(&napi->rx_list)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5812]
+  thread1_rx_list_reinit (node 1101): INIT_LIST_HEAD(&napi->rx_list)  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-2e4de7fe846aba66/src/net/core/dev.c:5812]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"thread0_rx_list_reinit","b":"thread1_rx_list_reinit"}
+  [1] not_lock_protected {"node":"thread0_rx_list_reinit"}
+  [2] not_lock_protected {"node":"thread1_rx_list_reinit"}
+  [3] hb {"a":"thread0_rx_list_reinit","b":"thread1_rx_list_reinit","expected":false}
+========================================================
+
+count  5 ----------------------------------------

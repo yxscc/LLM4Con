@@ -1,0 +1,20 @@
+========== Mechanism-Rule Violation Detected ==========
+Rule: interleave_1
+Mechanism: C2: racy hstate surplus accounting decision (unprotected branch read vs hugetlb_lock-protected counter update) (severity: medium)
+Description: Candidate C2 is confirmed. Thread 0 updates h->surplus_huge_pages under hugetlb_lock as part of the surplus allocation/accounting critical section, but thread 1 reads the same hstate counter in __unmap_hugepage_range without hugetlb_lock to compute the adjust_reservation condition. The hugetlb_lock EXCLUDE/LINEARIZE guarantee covers thread 0's check/update region only; it does not exclude thread 1's unlocked read on this object and there is no HB/WAIT/refcount/RCU protocol that stabilizes the value for the branch decision.  [consequence] __unmap_hugepage_range can observe a stale or incoherent h->surplus_huge_pages value while deciding whether to adjust reservations, racing with alloc_surplus_hugetlb_folio incrementing the same counter. That decision affects reservation/accounting state, so this is not a benign diagnostic/statistics race.
+
+--- Involved Nodes ---
+  reader_decision (node 76): !h->surplus_huge_pages  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-417aeb05fd190f3a/src/mm/hugetlb.c:5954]
+  writer_increment (node 116): h->surplus_huge_pages++  [mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-417aeb05fd190f3a/src/mm/hugetlb.c:2272]
+
+--- Verified Constraints ---
+  [0] concurrent {"a":"writer_increment","b":"reader_decision"}
+  [1] same_location {"a":"writer_increment","b":"reader_decision"}
+  [2] conflicts {"a":"writer_increment","b":"reader_decision"}
+  [3] op_kind {"kind":"WRITE","node":"writer_increment"}
+  [4] op_kind {"kind":"READ","node":"reader_decision"}
+  [5] not_lock_protected {"node":"reader_decision"}
+  [6] hb {"a":"writer_increment","b":"reader_decision","expected":false}
+========================================================
+
+count  1 ----------------------------------------

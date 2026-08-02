@@ -1,4 +1,4 @@
-# Build directories
+# Build / IDE
 joern-cli/
 .vscode/
 Debug-build/
@@ -7,8 +7,9 @@ Release-build/
 .cache/
 .cursor/
 .specstory/
+.cursorignore
 
-# Generated files
+# Generated analysis artifacts
 race_result.txt
 SVFG.txt
 svfg.dot
@@ -24,58 +25,39 @@ cpg.bin
 llvmbc/
 LLM_dump/
 bug_reports/
+*.plan.md
+monitor.log
+monitor_and_kill.sh
 
-# Experiment data (large files)
+# Bitcode & logs (not part of the paper artifact)
+**/*.bc
+**/*.ll
+**/*.log
+**/*.log.prev
+**/batch_run.pid
+**/__pycache__/
+
+# Local / obsolete experiment trees (kept on disk if present, not in artifact)
 ConVul/
+LinConVul/
+LinConVul_facts.tar.gz
+experimental_result/
 baselines/
 coturn/
 lwan/
 redis/
 memcached/
-
-# Generated bitcode and logs
-**/*.bc
-**/*.log
-**/*.log.prev
-**/*.log.m5_baseline
-**/*.log.m6_baseline
-**/*.log.m7_phaseA_only
-**/detection_hypothesis_batch.prev.log
-**/batch_run.pid
-**/entry_config*
-*.log
-
-# Real world experiments (large)
 real_world_experiment/
-experimental_result/*.log
-experimental_result/lwan/
-experimental_result/mysql_analysis/
-experimental_result/git_analysis.log
-experimental_result/result
+convul_experiment/
+kernel_experiment_v2_staging/
 
-# Temporary files
-monitor.log
-monitor_and_kill.sh
-.cursorignore
-
-# Analysis reports (keep only templates)
-LinConVul/**/uafx_*.log
-LinConVul/**/uafx_*.md
-LinConVul/**/*.bc
-# Kernel experiment — track dataset + final run artifacts in repo
-kernel_experiment/**/*_compile.log
-kernel_experiment/batch_*.log
-kernel_experiment/cve_survey.csv
-kernel_experiment/dataset_expansion/evidence/*.error
+# Heavy local experiment residue under kernel_experiment/
+kernel_experiment/**/detection_manualentry_*.log
+kernel_experiment/eval_ablation/
+kernel_experiment/eval_l2*/
+kernel_experiment/dataset_expansion/
+kernel_experiment/baseline/logs/
 kernel_experiment/baseline/B4_codex_skill/codex_home/
-kernel_experiment/**/__pycache__/
-# Exceptions to global *.log ignore above (cpg.bin stays excluded via global rule)
-!kernel_experiment/**/*.ll
-!kernel_experiment/**/detection_manualentry_*.log
-!kernel_experiment/runs/**
-
-LinConVul/**/*.ll
-LinConVul_facts.tar.gz
-
-# Plan/scratch files
-*.plan.md
+kernel_experiment/baseline_dump/
+kernel_experiment/cve_survey.csv
+kernel_experiment/batch_*.log

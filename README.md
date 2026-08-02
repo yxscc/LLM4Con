@@ -1,133 +1,105 @@
-# Lace: LLM-Enhanced Concurrency Vulnerability Detector
+# Lace
 
-> **🚧 Picking up an in-progress experiment? Start here:**
-> [`kernel_experiment/HANDOFF.md`](./kernel_experiment/HANDOFF.md)
-> — TL;DR of current state, every pitfall the previous LLM/engineer hit, and exact next steps for the kernel-CVE detection experiment (M7).
+**Lace** is an LLM-enhanced static detector for concurrency vulnerabilities in C/C++ (Linux kernel slices in our evaluation). It combines a concurrent code property graph (CCPG), pointer analysis (Phasar), per-thread concurrency contracts (LLM), deterministic discharge, and LLM calibration.
 
-Lace is a static analysis tool for C/C++ designed to detect complex concurrency vulnerabilities. It integrates Code Property Graphs (CPG), precise pointer analysis via Phasar, and Large Language Models (LLMs) to enhance traditional static analysis with semantic understanding.
+This repository is the **paper artifact**: source code, the 72-case dataset (sources + labels), and the frozen main evaluation results.
 
-## Core Features
+## Repository layout
 
--   **LLM-Enhanced Analysis**: Leverages Large Language Models to understand program semantics and identify complex concurrency patterns.
--   **High-Precision Pointer Analysis**: Integrates Phasar for precise pointer and alias analysis on LLVM bitcode.
--   **Code Property Graph (CPG)**: Utilizes Joern to construct comprehensive CPGs, providing rich structural and flow information.
--   **Multiple Analysis Modes**: Provides different executables for targeted analysis (`llm_detector`) and comparative studies (`llm_comparison`).
+| Path | Contents |
+|------|----------|
+| `src/`, `include/` | Lace implementation |
+| `dataset/` | 72-case kernel concurrency dataset (sources + ground truth; **no** bitcode) |
+| `results/lace_full72_20260709/` | **Paper main result** (frozen) |
+| `kernel_experiment/` | Experiment runners / baseline harnesses (optional for reproduction) |
+| `scripts/`, `build.sh`, `CMakeLists.txt` | Build & utility scripts |
 
-## Prerequisites
+## Paper main result
 
-Before you begin, please ensure your system is properly configured.
+Frozen snapshot: [`results/lace_full72_20260709/`](./results/lace_full72_20260709/)
 
-### 1. System Dependencies (Ubuntu/Debian)
+| Metric | Value |
+|--------|-------|
+| Dataset | 72 kernel concurrency cases |
+| Recall (TP cases) | **36/72 (50.0%)** |
+| Model | `gpt-5.5-2026-04-24` |
 
-```bash
-sudo apt-get update && sudo apt-get install -y \
-    build-essential \
-    cmake \
-    g++ \
-    clang-15 \
-    libtinfo5 \
-    libz3-dev \
-    graphviz \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libboost-system-dev \
-    libboost-thread-dev \
-    libcpprest-dev
-```
+Details: `results/lace_full72_20260709/cost_statistics.md`, `run_summary.txt`, and per-case dumps under `bugs/`.
 
-### 2. Joern
+## Dataset
 
-Please follow the official installation guide at [Joern's Documentation](https://joern.io/docs/installing). Ensure the `joern-parse` and `joern-export` commands are available in your `PATH`.
+See [`dataset/README.md`](./dataset/README.md). Each case provides:
 
-### 3. Phasar
+- `ground_truth.json` — bug metadata / description  
+- `flow_annotation.json` — true interleaving (evaluation)  
+- `src/` — vulnerable source slice  
 
-This project relies on Phasar for pointer analysis, which in turn requires **LLVM/Clang-15**. The recommended way to install Phasar is from the source.
+LLVM bitcode is **not** shipped. To re-run Lace you must produce `.ll`/`.bc` for the slice (same files historically used under `kernel_experiment/<CASE>/`).
 
-```bash
-git clone https://github.com/secure-software-engineering/phasar.git
-cd phasar
-# This script will manage dependencies and build Phasar along with LLVM-15
-./bootstrap.sh
-```
+Thread entry functions used in the paper’s manual-entry setting are recorded in `flow_annotation.json` (`true_interleaving.thread_a/b.entry.function`).
 
-**Important**: The Phasar bootstrap script will download and compile LLVM/Clang-15. Please ensure this does not conflict with other versions of Clang on your system.
+## Build
 
-## Building the Project
+### Dependencies (high level)
 
-The project includes a convenient build script.
+- CMake, Clang/LLVM **16** (tool build), Clang **15** often used for kernel bitcode  
+- Joern (`joern-parse` / `joern-export` on `PATH`)  
+- Phasar (pointer analysis), Boost, libcurl, OpenSSL, Z3, Graphviz  
 
-1.  **Clone the Repository**
-    ```bash
-    git clone <your-repository-url>
-    cd Lace
-    ```
+Exact machine setup used in our experiments is documented in `setup_env.sh` (ByteDance internal paths — adapt locally). **Do not commit API keys.**
 
-2.  **Build the executables**
-    -   For a **Release build**:
-        ```bash
-        ./build.sh
-        ```
-        Executables will be located at `build/`.
-
-    -   For a **Debug build**:
-        ```bash
-        ./build.sh debug
-        ```
-        Executables will be located at `Debug-build/`.
-
-## How to Use
-
-The project builds two main executables: `llm_detector` and `llm_comparison`. Both require similar arguments to run an analysis.
-
-### Command-Line Arguments
-
-Both executables share a common set of arguments for basic analysis and LLM configuration.
-
-**Analysis Arguments:**
-
-*   `--input-src <path>`: **(Required)** The absolute path to the target project's source directory or a single source file.
-*   `--input-bc <path>`: **(Required)** The path to the pre-generated LLVM bitcode file (`.ll` or `.bc`).
-
-**LLM Configuration:**
-
-*   `--llm-provider <provider>`: Choose LLM provider: `openai` or `gemini` (default: `openai`).
-*   `--llm-key <api_key>`: API key for the chosen LLM provider. Can also be set via `OPENAI_API_KEY` or `GEMINI_API_KEY` environment variables.
-*   `--llm-model <model_name>`: Model name for the chosen LLM provider (e.g., `gpt-4o`).
-*   `--llm-url <base_url>`: (Optional) Custom base URL for the LLM API.
-
-### Running `llm_detector`
-
-This is the primary tool for detecting concurrency bugs. It performs a detailed analysis and then uses an LLM to evaluate its own findings against other tools (Fsam, RacerF).
-
-**Example:**
+### Compile
 
 ```bash
-./Debug-build/llm_detector \
-    --input-src /path/to/your/project \
-    --input-bc /path/to/your/project.ll \
-    --llm-provider openai \
-    --llm-model gpt-4o
+./build.sh          # Release → Release-build/llm_detector
+# or
+./build.sh debug    # → Debug-build/llm_detector
 ```
 
-### Running `llm_comparison`
-
-This tool is designed for comparative analysis. It runs the standard detection and then uses a powerful, separate LLM (hardcoded as GPT-5) to compare the results of its own analysis against a zero-shot LLM analysis.
-
-**Example:**
+## Running Lace (sketch)
 
 ```bash
-./Debug-build/llm_comparison \
-    --input-src /path/to/your/project \
-    --input-bc /path/to/your/project.ll \
-    --llm-provider gemini \
-    --llm-model gemini-1.5-pro
+export LLM_BASE_URL="https://<your-openai-compatible-endpoint>/v1/chat/completions"
+export LLM_API_KEY="..."
+export LLM_MODEL="gpt-5.5-2026-04-24"
+
+# Example: analyze one prepared case directory that contains src/ + bitcode
+./Release-build/llm_detector \
+  --input-bc merged.ll \
+  --input-src src \
+  --legacy-workflow \
+  --abl-contract on \
+  --llm-provider openai \
+  --llm-url "$LLM_BASE_URL" \
+  --llm-key "$LLM_API_KEY" \
+  --llm-model "$LLM_MODEL"
 ```
 
-### Provided Datasets
+Batch / manual-entry orchestration lives under `kernel_experiment/run_manual_entry.py` (expects a case directory layout compatible with the historical experiment tree). Point it at a working directory that includes bitcode you generated locally.
 
-The project includes comprehensive datasets for testing and evaluation:
+Useful environment flags (see source / experiment scripts):
 
-*   **`LinConVul/`**: A custom dataset of real-world concurrency vulnerabilities from the Linux kernel. Each subdirectory corresponds to a specific CVE and contains the vulnerable source code, a `README.md` with a detailed description of the vulnerability, and often a `run.sh` script to compile the code.
-*   **`ConVul/`**: A collection of additional concurrency vulnerability benchmarks and test cases.
+- `LACE_STATIC_COMPOSE=1` — thread-contract pipeline  
+- `LACE_ENTRYPOINTS=fn1,fn2` — restrict to configured thread roots  
+- `LACE_ENABLE_SELF_RACE=1` — model reentrant self-race objects  
 
-These datasets can be used as targets for analysis with `llm_detector` or `llm_comparison`.
+## Pipeline (paper)
+
+1. **Static surface** — CCPG + shared-object / conflict candidates  
+2. **Phase A** — LLM emits per-thread concurrency contracts  
+3. **Phase B** — deterministic requirement discharge (locks / hard order)  
+4. **Phase C** — LLM calibration / filtering of remaining candidates  
+
+## What is not in this artifact
+
+- LLVM bitcode (`.ll`) and live `LLM_dump/` traces  
+- Obsolete trees (`LinConVul/`, `experimental_result/`, …)  
+- Later exploratory full runs that are **not** the paper main table  
+
+## Citation
+
+If you use Lace or this dataset, please cite the paper (TODO: add final bibtex upon publication).
+
+## License
+
+See repository license files where present; third-party kernel sources retain their original licenses.
