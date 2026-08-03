@@ -13,6 +13,7 @@
 #include "LLMUtil/DetectorAgent.h"
 #include "LLMUtil/InterleavingAnalysisAgent.h"
 #include "LLMUtil/ObjectTriageAgent.h"
+#include "LLMUtil/SharedToolKit.h"
 #include "Query/VulnerabilitySurfaceGenerator.h"
 #include "CCPG/HBGraph.h"
 #include <set>
@@ -60,10 +61,54 @@ bool allowFuzzyContractBinding() {
     return false;
 }
 
+// Evaluation/observability switch: when LACE_EVAL_VERBOSE=1, Phase A dumps each
+// per-thread contract's clauses (resource + assume/guarantee relations), and
+// Phase B logs every deterministic discharge decision. Off by default so normal
+// runs stay quiet; used for the deep per-stage evaluation.
+bool evalVerbose() {
+    if (const char* e = std::getenv("LACE_EVAL_VERBOSE")) return e[0] && e[0] != '0';
+    return false;
+}
+
 bool trustHardNonLockDischarge() {
     if (const char* e = std::getenv("LACE_TRUST_HARD_NONLOCK_DISCHARGE"))
         return e[0] && e[0] != '0';
     return false;
+}
+
+// Ablation switches: each removes exactly one pipeline component.
+bool skipPhaseCEnabled() {
+    if (const char* e = std::getenv("LACE_SKIP_PHASE_C"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+bool noDeterministicDischargeEnabled() {
+    if (const char* e = std::getenv("LACE_NO_DETERMINISTIC_DISCHARGE"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+// Paper-faithful node-anchored composition (L2). When set (together with
+// LACE_STATIC_COMPOSE), Phase A emits node-anchored contracts and Phase B runs
+// the requirement-driven L2 checker instead of the surface-driven composeVerdict.
+bool contractL2Enabled() {
+    if (const char* e = std::getenv("LACE_CONTRACT_L2"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+// Which static edges the L2 checker accepts as cross-thread synchronization.
+// By default only the structural ones (lockset, fork/join): the protocol-level
+// edges the static model seeds from API names -- RCU grace periods, completion
+// signal/wait, registration-to-callback -- are exactly the mechanisms the
+// contract is supposed to supply as Order/Wait guarantees, so letting them
+// discharge a requirement on their own would bypass the contract. Set
+// LACE_L2_SYNC_ALL=1 to admit them again (ablation).
+HBGraph::SyncPolicy l2SyncPolicy() {
+    if (const char* e = std::getenv("LACE_L2_SYNC_ALL"))
+        if (e[0] && e[0] != '0') return HBGraph::SyncPolicy::AllMechanisms;
+    return HBGraph::SyncPolicy::StructuralOnly;
 }
 
 // thread tid's clause for surface object index oi. Two-level match:
@@ -86,6 +131,31 @@ const OrderClause* clauseForObject(const LLM::ConcurrencyContract& c, int oi,
         }
     }
     return nullptr;
+}
+
+// Whether clause `cl`'s local requirements (`assume`) are anchored to surface
+// object `oi` -- i.e. the requirement is *about this pointer/resource*.
+//
+// A clause may COVER several surface objects through `objectIds` (a lock-region
+// merge: one EXCLUDE guarantee spans multiple fields protected by the same
+// lock, and `clauseForObject` returns it for any member so the guarantee can
+// discharge across the group). But `assume` names ONE concrete resource -- the
+// clause's primary anchor (`objectId`). Raising a resource-specific requirement
+// such as STABLE_DURING(live(A)) as a hazard on a *sibling* object B that merely
+// shares A's lock would bind the requirement to the wrong pointer and invent a
+// bug on B. So the guarantee side keeps spanning the merge group, while the
+// assume side (hazard generation) is honoured only on the clause's own object.
+//
+// This is the "each event must bind the pointer it actually reasons about"
+// invariant applied to the requirement side of composition.
+bool assumeAnchoredToObject(const OrderClause* cl, int oi) {
+    if (!cl) return false;
+    if (cl->objectId == oi) return true;             // explicit primary anchor
+    // Compat: a single-object clause that used only `objectIds` (no separate
+    // primary) is unambiguously anchored to that one object.
+    if (cl->objectId < 0 && cl->objectIds.size() == 1 && cl->objectIds.front() == oi)
+        return true;
+    return false;
 }
 
 bool hasAssumeRel(const OrderClause* cl, const std::string& rel) {
@@ -181,6 +251,33 @@ AccKind threadAccessKind(const query::SharedObject& O, int tid) {
         else                               k.read  = true;
     }
     return k;
+}
+
+bool keepLockedNullHazardsEnabled() {
+    if (const char* e = std::getenv("LACE_KEEP_LOCKED_NULL_HAZARDS"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
+bool nullStateHazard(const query::SharedObject& O) {
+    bool nullWrite = false;
+    bool readLikeUse = false;
+    for (const auto& a : O.accesses) {
+        std::string code = a.code_snippet;
+        std::string lower = code;
+        for (char& c : lower) c = static_cast<char>(std::tolower((unsigned char)c));
+        if (a.access_type == "Write" &&
+            (lower.find("= null") != std::string::npos ||
+             lower.find("= nullptr") != std::string::npos)) {
+            nullWrite = true;
+        }
+        if (a.access_type == "Read" &&
+            (code.find("->") != std::string::npos ||
+             lower.find("deref") != std::string::npos)) {
+            readLikeUse = true;
+        }
+    }
+    return nullWrite && readLikeUse;
 }
 
 // Surface-side serialization: every access of BOTH threads to O is lock-protected
@@ -548,13 +645,32 @@ std::string composeVerdict(
         if (oiIt == objIndex.end()) continue;
         int oi = oiIt->second;
         std::vector<int> tids(O->accessing_thread_ids.begin(), O->accessing_thread_ids.end());
-        for (size_t i = 0; i < tids.size(); ++i) {
-            for (size_t j = i + 1; j < tids.size(); ++j) {
-                int t1 = tids[i], t2 = tids[j];
-                auto T1 = threadById.find(t1), T2 = threadById.find(t2);
-                if (T1 != threadById.end() && T2 != threadById.end() && T1->second && T2->second &&
-                    !tct->mayHappenInParallel(T1->second, T2->second))
-                    continue;
+        // Candidate thread pairs: distinct cross-thread pairs from the object's
+        // accessing threads. A self-race is NOT a special case here: the surface
+        // materialises a second concurrent instance of a reentrant root as a
+        // sibling synthetic thread id (rootId + 1000000) and duplicates the
+        // root's accesses under it, so the ordinary (rootId, synthId) cross-pair
+        // below already models "the handler racing itself". That synthId has no
+        // Thread object, so the mayHappenInParallel gate skips it (correct: two
+        // instances of the same handler on different CPUs are parallel by
+        // construction -- the surface's is_self_race IS that MHP evidence).
+        std::vector<std::pair<int, int>> pairs;
+        for (size_t i = 0; i < tids.size(); ++i)
+            for (size_t j = i + 1; j < tids.size(); ++j)
+                pairs.emplace_back(tids[i], tids[j]);
+        for (const auto& pr : pairs) {
+                int t1 = pr.first, t2 = pr.second;
+                // A self-race sibling (synthId = base + 1000000) shares the base
+                // root's real Thread for MHP purposes; only re-gate genuine
+                // distinct roots that both have Thread objects.
+                const bool selfRace = O->is_self_race &&
+                    (t1 % 1000000 == t2 % 1000000);
+                if (!selfRace) {
+                    auto T1 = threadById.find(t1), T2 = threadById.find(t2);
+                    if (T1 != threadById.end() && T2 != threadById.end() && T1->second && T2->second &&
+                        !tct->mayHappenInParallel(T1->second, T2->second))
+                        continue;
+                }
                 AccKind k1 = threadAccessKind(*O, t1), k2 = threadAccessKind(*O, t2);
                 bool t1touch = k1.read || k1.write || k1.free;
                 bool t2touch = k2.read || k2.write || k2.free;
@@ -566,37 +682,49 @@ std::string composeVerdict(
                 const OrderClause* clB = contractsByTid.count(t2)
                     ? clauseForObject(contractsByTid.at(t2), oi, *O) : nullptr;
 
-                // Deterministic discharge:
-                //  (a) lock path: surface common-lock AND BOTH threads state a
-                //      guarantee -- requiring both sides avoids discharging when
-                //      only one thread's contract (possibly hallucinated) claims
-                //      ORDER while the other is silent about synchronization.
-                //      Self-race objects are exempt: lock serializes individual
-                //      critical sections but not semantic state across re-entrant
-                //      invocations, so they always go to Phase C.
-                //  (b) hard non-lock path: a stated RCU/refcount/barrier/join/RMW
-                //      guarantee is only auto-trusted when explicitly enabled. The
-                //      default sends it to Phase C because the checker does not yet
-                //      prove endpoint alignment (e.g. drain-before-free vs drain-after-free).
-                bool lockDischarge = !O->is_self_race &&
-                                     surfaceSharedLock(*O, t1, t2) &&
-                                     establishesOrder(clA) && establishesOrder(clB);
-                bool hardDischarge = establishesHardNonLockOrder(clA) ||
-                                     establishesHardNonLockOrder(clB);
-                // lockDischarge stays authoritative: it needs EVERY access under a
-                // shared surface lock, a structural fact, not a bare assertion. Hard
-                // non-lock guarantees need endpoint-aware composition, so keep them for
-                // Phase C unless LACE_TRUST_HARD_NONLOCK_DISCHARGE=1 is set for an
-                // ablation/speed run.
-                const bool keepUnverifiedHard = hardDischarge &&
-                    !trustHardNonLockDischarge() && !lockDischarge;
-                if (lockDischarge || (hardDischarge && !keepUnverifiedHard)) {
-                    ++dis;
-                    continue;
+                // Deterministic discharge (skipped under LACE_NO_DETERMINISTIC_DISCHARGE):
+                const bool lifetimeHazard = k1.free || k2.free;
+                const bool semanticNullHazard =
+                    keepLockedNullHazardsEnabled() && nullStateHazard(*O);
+                if (!noDeterministicDischargeEnabled()) {
+                    bool lockDischarge = !lifetimeHazard && !semanticNullHazard &&
+                                         surfaceSharedLock(*O, t1, t2) &&
+                                         (establishesOrder(clA) || establishesOrder(clB));
+                    bool hardDischarge = establishesHardNonLockOrder(clA) ||
+                                         establishesHardNonLockOrder(clB);
+                    const bool keepUnverifiedHard = hardDischarge &&
+                        !trustHardNonLockDischarge() && !lockDischarge;
+                    if (lockDischarge || (hardDischarge && !keepUnverifiedHard)) {
+                        ++dis;
+                        if (evalVerbose()) {
+                            std::cout << "    [dischargeB] obj#" << oi << " '"
+                                      << (O->name.empty() ? "<anon>" : O->name) << "' t" << t1
+                                      << (selfRace ? "(self)" : ("/t" + std::to_string(t2)))
+                                      << " via " << (lockDischarge ? "lock-exclusion" : "hard-nonlock")
+                                      << " lifetimeHazard=" << (lifetimeHazard ? 1 : 0) << std::endl;
+                        }
+                        continue;
+                    }
                 }
 
-                auto hA = hazardTier(clA, k2);  // t1 requires, t2 violates
-                auto hB = hazardTier(clB, k1);  // t2 requires, t1 violates
+                // Pointer/resource binding: discharge above used clA/clB as-is
+                // (a merged EXCLUDE guarantee legitimately spans the whole
+                // lock-region group), but the resource-specific `assume` that
+                // generates a hazard must be honoured only on the object it is
+                // anchored to -- otherwise a lifetime/atomicity requirement about
+                // resource A mis-fires as a bug on sibling field B (same lock).
+                const OrderClause* reqA = assumeAnchoredToObject(clA, oi) ? clA : nullptr;
+                const OrderClause* reqB = assumeAnchoredToObject(clB, oi) ? clB : nullptr;
+                auto hA = hazardTier(reqA, k2);  // t1 requires, t2 violates
+                auto hB = hazardTier(reqB, k1);  // t2 requires, t1 violates
+                if (semanticNullHazard) {
+                    if (reqA && hasAssumeRel(reqA, "STABLE_DURING") && k2.write) {
+                        hA = {"high", "STABLE_DURING violated by NULL-state invalidation"};
+                    }
+                    if (reqB && hasAssumeRel(reqB, "STABLE_DURING") && k1.write) {
+                        hB = {"high", "STABLE_DURING violated by NULL-state invalidation"};
+                    }
+                }
                 std::string tier, label;
                 int reqT = t1, violT = t2;
                 if (!hA.first.empty() && tierRank(hA.first) >= tierRank(hB.first)) {
@@ -635,7 +763,6 @@ std::string composeVerdict(
                 c.violAccess = escapingViolatorAccess(*O, violT, vk);
                 c.anchor = mutatingAnchor(*O, reqT, rk, violT, vk);
                 raw.push_back(std::move(c));
-            }
         }
     }
 
@@ -687,10 +814,8 @@ std::string composeVerdict(
     const int maxMed = envInt("LACE_B2C_MAX_MED", 10000);
     const int maxLow = keepLow ? envInt("LACE_B2C_MAX_LOW", 10000) : 0;
     const int maxTotal = envInt("LACE_B2C_MAX_TOTAL", 60);
-    const int maxPerFamily = envInt("LACE_B2C_MAX_PER_FAMILY", 3);
     std::vector<PhaseBCandidate> selected;
     int sh = 0, sm = 0, sl = 0;
-    std::map<std::string, int> familyCount;
     for (auto& c : candidates) {
         if (static_cast<int>(selected.size()) >= maxTotal) break;
         if (c.tier == "high") {
@@ -703,14 +828,6 @@ std::string composeVerdict(
             if (sl >= maxLow) continue;
             ++sl;
         }
-        std::string famKey = resourceFamily(c.object) + "|" +
-                             std::to_string(std::min(c.reqT, c.violT)) + ":" +
-                             std::to_string(std::max(c.reqT, c.violT));
-        int& fc = familyCount[famKey];
-        if (fc >= maxPerFamily && c.tier != "high") {
-            continue;
-        }
-        ++fc;
         selected.push_back(std::move(c));
     }
 
@@ -842,6 +959,437 @@ std::string renderBatchVerdict(const std::vector<PhaseBCandidate>& sel) {
     }
     return vs.str();
 }
+
+// ---- Ablation: Phase-B candidates -> Hypotheses (skip Phase C) ------------
+// Converts PhaseBCandidate objects directly to query::Hypothesis so Phase C
+// (LLM calibration) can be skipped entirely. Each candidate becomes an
+// unverified hypothesis with nodes derived from the surface access node_ids.
+query::Hypothesis phaseBToHypothesis(const PhaseBCandidate& c, int seqId) {
+    query::Hypothesis h;
+    h.id = "phaseB_" + std::to_string(seqId);
+    h.severity = c.tier;
+    std::string cls = phaseBHazardClass(c.label);
+    if (cls == "UAF" || cls == "lifetime")
+        h.bug_category = "use_after_free";
+    else if (cls == "refcount" || cls == "double_free")
+        h.bug_category = "double_free";
+    else if (cls == "null_deref")
+        h.bug_category = "null_dereference";
+    else
+        h.bug_category = "data_race";
+    std::ostringstream desc;
+    desc << "[Phase-B direct] " << c.label;
+    if (c.object)
+        desc << " on " << (c.object->name.empty() ? "<anon>" : c.object->name);
+    desc << " (thread " << c.reqT << " vs thread " << c.violT << ")";
+    if (c.merged > 1)
+        desc << " [" << c.merged << " same-anchor variants]";
+    h.description = desc.str();
+    if (c.violAccess && c.violAccess->node_id >= 0)
+        h.nodes["violator"] = c.violAccess->node_id;
+    if (c.anchor && c.anchor->node_id >= 0 && c.anchor != c.violAccess)
+        h.nodes["anchor"] = c.anchor->node_id;
+    return h;
+}
+
+// ===========================================================================
+// L2 (paper-faithful) requirement-driven checker.
+//
+// Realises paper Sections 3.4-3.5 directly: build an ordering-evidence graph
+// E_ord from the node-anchored Order/Wait guarantees composed across the
+// thread-set PLUS the static happens-before graph, derive a protection map from
+// the Exclude/AtomicOp guarantees and the surface locksets, then evaluate each
+// requirement's discharge condition as graph queries. A requirement that cannot
+// be discharged becomes a violation candidate. Candidates are NOT generated from
+// bare surface conflicts here -- only from undischarged requirements -- which is
+// the key difference from the surface-driven composeVerdict() above.
+// ===========================================================================
+namespace l2 {
+
+using NodeReq = LLM::ConcurrencyContract::NodeReq;
+using NodeGuar = LLM::ConcurrencyContract::NodeGuar;
+
+// Ordering evidence composed across all contracts in a thread-set.
+struct OrderingEvidence {
+    CCPG* ccpg = nullptr;
+    HBGraph* hb = nullptr;
+    std::vector<std::pair<int,int>> guarEdges;          // Order(a->b) and Wait(c->v_w)
+    std::map<std::string, std::vector<int>> exclExclusive; // token -> nodes (exclusive mode)
+    std::map<std::string, std::vector<int>> exclShared;    // token -> nodes (shared mode)
+    std::map<std::string, std::vector<int>> atomicTok;     // token -> nodes (AtomicOp)
+    int maxDepth = 64;
+
+    bool nodeOk(int id) const { return ccpg && ccpg->getNodeByID(id) != nullptr; }
+
+    // Control-flow may-reach (no cross-thread sync required). Paper's approximation
+    // for source-side closure / target-side prefix; imprecise guards remain a
+    // source of error, as the methodology states.
+    bool cfReach(int from, int to) const {
+        if (from == to) return true;
+        CCPGNode* a = ccpg->getNodeByID(from);
+        CCPGNode* b = ccpg->getNodeByID(to);
+        if (!a || !b) return false;
+        return hb->hbReachable(a, b, maxDepth, /*requireSyncEdge=*/false);
+    }
+    // Static must-order that crosses at least one genuine synchronization edge.
+    // Restricted to structural synchronization (locks, fork/join); RCU,
+    // completion and registration orderings must come from a recovered
+    // guarantee instead (see l2SyncPolicy).
+    bool staticSyncOrder(int from, int to) const {
+        CCPGNode* a = ccpg->getNodeByID(from);
+        CCPGNode* b = ccpg->getNodeByID(to);
+        if (!a || !b) return false;
+        return hb->hbReachable(a, b, maxDepth, /*requireSyncEdge=*/true,
+                               l2SyncPolicy());
+    }
+
+    // Must-order witness a (prec) b: a static synchronized chain, OR a chain that
+    // uses >=1 composed guarantee edge (source closure -> guarantee -> target
+    // prefix, possibly chained). Pure control-flow reachability alone is NOT a
+    // witness (it never returns true without a sync edge or a guarantee hop).
+    bool ordReach(int from, int to) const {
+        if (from == to) return true;
+        if (staticSyncOrder(from, to)) return true;
+        if (guarEdges.empty()) return false;
+        std::set<int> visited;
+        std::vector<int> work;
+        for (const auto& e : guarEdges)
+            if (cfReach(from, e.first) && visited.insert(e.second).second)
+                work.push_back(e.second);
+        while (!work.empty()) {
+            int x = work.back(); work.pop_back();
+            if (cfReach(x, to)) return true;
+            for (const auto& e : guarEdges)
+                if ((x == e.first || cfReach(x, e.first)) &&
+                    visited.insert(e.second).second)
+                    work.push_back(e.second);
+        }
+        return false;
+    }
+
+    // Both nodes covered by the same exclusion token under incompatible modes
+    // (at least one exclusive) -> mutual exclusion mediates the pair.
+    bool commonExclusion(int a, int b) const {
+        for (const auto& [tok, nodes] : exclExclusive) {
+            bool aIn = std::find(nodes.begin(), nodes.end(), a) != nodes.end();
+            bool bInEx = std::find(nodes.begin(), nodes.end(), b) != nodes.end();
+            bool bInSh = false;
+            auto sh = exclShared.find(tok);
+            if (sh != exclShared.end())
+                bInSh = std::find(sh->second.begin(), sh->second.end(), b) != sh->second.end();
+            bool bIn = bInEx || bInSh;
+            // symmetric: a may be in shared, b in exclusive
+            bool aInSh = false;
+            if (sh != exclShared.end())
+                aInSh = std::find(sh->second.begin(), sh->second.end(), a) != sh->second.end();
+            if ((aIn && bIn) || (aInSh && bInEx)) return true;
+        }
+        return false;
+    }
+    // Both nodes are atomic accesses to the same token -> compatible atomic protocol.
+    bool atomicCompatible(int a, int b) const {
+        for (const auto& [tok, nodes] : atomicTok) {
+            bool aIn = std::find(nodes.begin(), nodes.end(), a) != nodes.end();
+            bool bIn = std::find(nodes.begin(), nodes.end(), b) != nodes.end();
+            if (aIn && bIn) return true;
+        }
+        return false;
+    }
+};
+
+// Compose ordering + protection evidence from every contract in the thread-set.
+OrderingEvidence buildEvidence(const std::set<int>& threadSet,
+                               const std::map<int, LLM::ConcurrencyContract>& contractsByTid,
+                               CCPG* ccpg, HBGraph* hb) {
+    OrderingEvidence ev;
+    ev.ccpg = ccpg;
+    ev.hb = hb;
+    for (int tid : threadSet) {
+        auto it = contractsByTid.find(tid);
+        if (it == contractsByTid.end()) continue;
+        for (const NodeGuar& g : it->second.nodeGuars) {
+            if (g.form == "Order" || g.form == "Wait") {
+                for (int a : g.a)
+                    for (int b : g.b)
+                        if (ev.nodeOk(a) && ev.nodeOk(b)) ev.guarEdges.push_back({a, b});
+            } else if (g.form == "Exclude") {
+                bool shared = (g.mode == "shared");
+                auto& dst = shared ? ev.exclShared[g.token] : ev.exclExclusive[g.token];
+                for (int a : g.a) if (ev.nodeOk(a)) dst.push_back(a);
+            } else if (g.form == "AtomicOp") {
+                for (int a : g.a) if (ev.nodeOk(a)) ev.atomicTok[g.token].push_back(a);
+            }
+        }
+    }
+    return ev;
+}
+
+// One undischarged requirement.
+struct L2Candidate {
+    int objectId = -1;
+    const query::SharedObject* object = nullptr;
+    std::string form;
+    std::string reason;
+    int reqTid = -1;
+    int aNode = -1;
+    int bNode = -1;
+    bool lifetime = false;   // a free is on the failing side -> UAF/lifetime shape
+};
+
+// Access type ("Read"/"Write"/"Free") of the surface access at node_id on object O.
+std::string accTypeOfNode(const query::SharedObject* O, int node) {
+    if (!O) return "";
+    for (const auto& a : O->accesses)
+        if (a.node_id == node) return a.access_type;
+    return "";
+}
+bool sameLockCovers(const query::SharedObject* O, int a, int b) {
+    if (!O) return false;
+    const query::ThreadAccess* pa = nullptr;
+    const query::ThreadAccess* pb = nullptr;
+    for (const auto& acc : O->accesses) {
+        if (acc.node_id == a) pa = &acc;
+        if (acc.node_id == b) pb = &acc;
+    }
+    if (!pa || !pb) return false;
+    return pa->is_lock_protected && pb->is_lock_protected &&
+           !pa->protecting_lock.empty() && pa->protecting_lock == pb->protecting_lock;
+}
+
+// Evaluate every requirement in the thread-set's contracts; collect the
+// undischarged ones as candidates.
+std::vector<L2Candidate> checkRequirements(
+    const std::vector<const query::SharedObject*>& objs,
+    const std::set<int>& threadSet,
+    const std::map<int, LLM::ConcurrencyContract>& contractsByTid,
+    const std::map<const query::SharedObject*, int>& objIndex,
+    CCPG* ccpg, HBGraph* hb) {
+
+    OrderingEvidence ev = buildEvidence(threadSet, contractsByTid, ccpg, hb);
+
+    // objectId -> SharedObject* for this session (so a requirement's objectId can
+    // recover its surface accesses for lock/conflict facts).
+    std::map<int, const query::SharedObject*> objById;
+    for (const query::SharedObject* O : objs) {
+        auto it = objIndex.find(O);
+        if (it != objIndex.end()) objById[it->second] = O;
+    }
+
+    std::vector<L2Candidate> out;
+    for (int tid : threadSet) {
+        auto cit = contractsByTid.find(tid);
+        if (cit == contractsByTid.end()) continue;
+        for (const NodeReq& r : cit->second.nodeReqs) {
+            const query::SharedObject* O =
+                (r.objectId >= 0 && objById.count(r.objectId)) ? objById.at(r.objectId) : nullptr;
+
+            if (r.form == "MustPrecede") {
+                // Discharged iff every a precedes every b via a must-order witness.
+                for (int a : r.a) {
+                    for (int b : r.b) {
+                        if (ev.ordReach(a, b)) continue;
+                        L2Candidate c;
+                        c.objectId = r.objectId; c.object = O; c.form = r.form;
+                        c.reqTid = tid; c.aNode = a; c.bNode = b;
+                        c.lifetime = (accTypeOfNode(O, b) == "Free");
+                        c.reason = "MustPrecede undischarged: no must-order witness from "
+                                   "node " + std::to_string(a) + " to node " + std::to_string(b) +
+                                   (r.note.empty() ? "" : ("  [" + r.note + "]"));
+                        out.push_back(std::move(c));
+                        goto nextReq;  // one candidate per requirement is enough
+                    }
+                }
+            } else if (r.form == "MustBeMediated") {
+                for (int a : r.a) {
+                    for (int b : r.b) {
+                        bool mediated = ev.ordReach(a, b) || ev.ordReach(b, a) ||
+                                        ev.commonExclusion(a, b) || ev.atomicCompatible(a, b) ||
+                                        sameLockCovers(O, a, b);
+                        if (mediated) continue;
+                        L2Candidate c;
+                        c.objectId = r.objectId; c.object = O; c.form = r.form;
+                        c.reqTid = tid; c.aNode = a; c.bNode = b;
+                        c.lifetime = (accTypeOfNode(O, a) == "Free" || accTypeOfNode(O, b) == "Free");
+                        c.reason = "MustBeMediated undischarged: conflicting nodes " +
+                                   std::to_string(a) + " and " + std::to_string(b) +
+                                   " share no ordering, exclusion, or atomic protocol" +
+                                   (r.note.empty() ? "" : ("  [" + r.note + "]"));
+                        out.push_back(std::move(c));
+                        goto nextReq;
+                    }
+                }
+            } else if (r.form == "MustBeAtomic") {
+                // Conflicting accesses = other threads' writes/frees on the object.
+                std::vector<int> conflicts;
+                if (O) {
+                    for (const auto& acc : O->accesses) {
+                        if (threadSet.count(acc.thread_id) == 0) continue;
+                        if (acc.thread_id == tid) continue;
+                        if ((acc.access_type == "Write" || acc.access_type == "Free") &&
+                            acc.node_id >= 0)
+                            conflicts.push_back(acc.node_id);
+                    }
+                }
+                if (r.a.empty()) goto nextReq;
+                int first = r.a.front(), last = r.a.back();
+                for (int cnode : conflicts) {
+                    // Discharged for cnode iff it is fully ordered outside the region
+                    // or excluded/atomically coordinated with it.
+                    bool outside = ev.ordReach(cnode, first) || ev.ordReach(last, cnode);
+                    bool excluded = false;
+                    for (int s : r.a)
+                        if (ev.commonExclusion(s, cnode) || ev.atomicCompatible(s, cnode) ||
+                            sameLockCovers(O, s, cnode)) { excluded = true; break; }
+                    if (outside || excluded) continue;
+                    L2Candidate c;
+                    c.objectId = r.objectId; c.object = O; c.form = r.form;
+                    c.reqTid = tid; c.aNode = first; c.bNode = cnode;
+                    c.lifetime = (accTypeOfNode(O, cnode) == "Free");
+                    c.reason = "MustBeAtomic undischarged: conflicting node " +
+                               std::to_string(cnode) + " can interleave the atomic region" +
+                               (r.note.empty() ? "" : ("  [" + r.note + "]"));
+                    out.push_back(std::move(c));
+                    goto nextReq;
+                }
+            }
+            nextReq:;
+        }
+    }
+    return out;
+}
+
+query::Hypothesis toHypothesis(const L2Candidate& c, int seqId) {
+    query::Hypothesis h;
+    h.id = "l2_" + std::to_string(seqId);
+    if (c.form == "MustPrecede")
+        h.bug_category = c.lifetime ? "use_after_free" : "order_violation";
+    else if (c.form == "MustBeMediated")
+        h.bug_category = c.lifetime ? "use_after_free" : "data_race";
+    else  // MustBeAtomic
+        h.bug_category = c.lifetime ? "use_after_free" : "atomicity_violation";
+    h.severity = c.lifetime ? "high" : "medium";
+    std::ostringstream d;
+    d << "[L2] " << c.reason;
+    if (c.object) d << " on " << (c.object->name.empty() ? "<anon>" : c.object->name);
+    d << " (thread " << c.reqTid << ")";
+    h.description = d.str();
+    if (c.aNode >= 0) h.nodes["a"] = c.aNode;
+    if (c.bNode >= 0) h.nodes["b"] = c.bNode;
+    return h;
+}
+
+// ---- Strict evidence-bounded Phase C filter (paper's calibration step) ----
+// Reviews the checker's candidates and keeps only those it does NOT reject. It
+// cannot add candidates: the output is always a subset of the input, so recall
+// is bounded by Phase B and calibration only affects precision. Fail-open: an
+// un-judged candidate stays kept.
+class Calibrator : public Conversation {
+public:
+    Calibrator(std::shared_ptr<LLMClient> client, CCPG* ccpg)
+        : Conversation(client, sysPrompt(), 40), ccpg_(ccpg) {}
+
+    std::vector<char> review(const std::vector<L2Candidate>& cands) {
+        keep_.assign(cands.size(), 1);   // fail-open default: keep
+        n_ = static_cast<int>(cands.size());
+        if (n_ == 0) return keep_;
+        reset();
+        set_token_budget(20000);
+        set_max_turns(2 * n_ + 8);
+        pin_next_user_message();
+        send_message(renderBatch(cands));
+        return keep_;
+    }
+
+private:
+    static std::string sysPrompt() {
+        return R"CAL(
+You calibrate concurrency-defect CANDIDATES produced by a deterministic checker.
+Each candidate is a requirement the checker could NOT discharge (no ordering,
+mutual exclusion, or atomic protocol was found between two operations).
+
+Your ONLY job is to decide, for each candidate, whether it is a genuine,
+reportable concurrency defect or a false positive. You CANNOT introduce new
+defects; you only keep or reject the given candidates.
+
+Reject a candidate ONLY with concrete evidence that it is not a real defect, e.g.:
+  * the two operations cannot actually run concurrently -- one is one-time
+    init/setup/activation that happens-before any user/sysfs access, or a
+    parent step that completes before the child context starts;
+  * they are ordered by construction, or genuinely covered by the same lock;
+  * the field is a benign statistic/log value that drives no safety decision.
+Keep a candidate when a real unordered/unmediated conflict or use-before-free is
+plausible. When in doubt, KEEP (recall matters more than precision here).
+
+**CRITICAL: use ONLY the tools. Call judge(candidate_id, verdict, reason) once per
+candidate, then finish_review. Inspect code with the read tools if needed.**
+)CAL";
+    }
+
+    std::string nodeStr(int id) const {
+        CCPGNode* n = (ccpg_ && id >= 0) ? ccpg_->getNodeByID(id) : nullptr;
+        if (!n || !n->getCPGNode()) return "node " + std::to_string(id) + " <unknown>";
+        return "node " + std::to_string(id) + ": " + oneLine(n->getCPGNode()->getCode(), 120) +
+               "  @ " + n->getNodeLoc().toString();
+    }
+
+    std::string renderBatch(const std::vector<L2Candidate>& cands) {
+        std::stringstream ss;
+        ss << "Calibrate the following " << n_ << " candidate(s). For EACH, call "
+              "judge(candidate_id, verdict, reason) with verdict \"keep\" or \"reject\", "
+              "then finish_review.\n\n";
+        for (int i = 0; i < n_; ++i) {
+            const L2Candidate& c = cands[i];
+            ss << "[" << i << "] " << c.form << (c.lifetime ? " (lifetime/UAF)" : "")
+               << (c.object ? ("  on " + (c.object->name.empty() ? std::string("<anon>")
+                                                                 : c.object->name)) : "")
+               << "\n";
+            ss << "     a = " << nodeStr(c.aNode) << "\n";
+            if (c.bNode >= 0) ss << "     b = " << nodeStr(c.bNode) << "\n";
+            ss << "     checker: " << oneLine(c.reason, 240) << "\n";
+            ss << "     requirer thread = " << c.reqTid << "\n\n";
+        }
+        return ss.str();
+    }
+
+    std::vector<Tool> get_available_tools() const override {
+        auto tools = SharedToolKit::get_shared_tools();
+        tools.push_back({"judge", "Keep or reject ONE candidate by its [i] id.", {
+            {"candidate_id", "integer", "The [i] index of the candidate.", true},
+            {"verdict", "string", "\"keep\" or \"reject\".", true},
+            {"reason", "string", "One concise justification.", true}
+        }});
+        tools.push_back({"finish_review", "Call after judging all candidates.", {}});
+        return tools;
+    }
+
+    std::string execute_tool(const std::string& name, const nlohmann::json& args) override {
+        auto shared = SharedToolKit::handle_shared_tool(name, args, ccpg_);
+        if (shared) return *shared;
+        if (name == "judge") {
+            if (!args.contains("candidate_id") || !args["candidate_id"].is_number_integer())
+                return R"({"error":"judge needs integer candidate_id."})";
+            int id = args["candidate_id"].get<int>();
+            if (id < 0 || id >= n_)
+                return R"({"error":"candidate_id out of range."})";
+            std::string v = args.value("verdict", std::string());
+            keep_[id] = (v == "reject") ? 0 : 1;
+            nlohmann::json r;
+            r["status"] = std::string("recorded ") + (keep_[id] ? "keep" : "reject") +
+                          " for candidate " + std::to_string(id);
+            return r.dump();
+        }
+        if (name == "finish_review") return "finish";
+        nlohmann::json e; e["error"] = "unknown tool " + name; return e.dump();
+    }
+
+    std::string parseResult(const std::vector<ChatMessage>&) override { return "done"; }
+
+    CCPG* ccpg_ = nullptr;
+    std::vector<char> keep_;
+    int n_ = 0;
+};
+
+}  // namespace l2
 
 // ---- Hypothesis dedup (deterministic post-pass; recall-safe) --------------
 // The same root cause is often confirmed in several sessions at different
@@ -1528,7 +2076,13 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
     bool keepLow = false;
     if (const char* e = std::getenv("LACE_COMPOSE_KEEP_LOW")) keepLow = (e[0] && e[0] != '0');
 
-    if (staticCompose && useContracts) {
+    // w/o LLM ablation: force the compose path even without contracts.
+    bool skipPhaseA = false;
+    if (const char* e = std::getenv("LACE_SKIP_PHASE_A"))
+        if (e[0] && e[0] != '0') skipPhaseA = true;
+    const bool enterCompose = staticCompose && (useContracts || skipPhaseA);
+
+    if (enterCompose) {
         std::unordered_map<int, Thread*> threadById;
         for (Thread* t : tct->getThreads()) if (t) threadById[t->getId()] = t;
         std::map<const query::SharedObject*, int> objIndex;
@@ -1537,9 +2091,12 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
 
         std::set<int> tidsInPlay = budgetContractThreads(sessions, surface, tct, threadById, flowPrior);
 
+        std::map<int, LLM::ConcurrencyContract> contractsByTid;
+        if (skipPhaseA) {
+            std::cout << "\n[Phase A: SKIPPED (ablation: no LLM contracts)]" << std::endl;
+        } else {
         // Phase A: one seeded contract per thread (each thread's source read once).
         std::cout << "\n[Phase A: Per-Thread Contracts] threads=" << tidsInPlay.size() << std::endl;
-        std::map<int, LLM::ConcurrencyContract> contractsByTid;
         std::vector<int> tidsVec(tidsInPlay.begin(), tidsInPlay.end());
         const int workers = std::min<int>(contractParallelism(), static_cast<int>(tidsVec.size()));
         std::cout << "  [contract-parallel] workers=" << workers << std::endl;
@@ -1592,13 +2149,128 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
         for (auto& f : futures) f.get();
         std::cout << "  [contract-parallel] generated " << contractsByTid.size()
                   << "/" << tidsVec.size() << " contracts" << std::endl;
+        if (evalVerbose()) {
+            for (const auto& [tid, c] : contractsByTid) {
+                // L2 node-anchored dump.
+                if (contractL2Enabled() && c.hasL2Content()) {
+                    std::cout << "  [contractA-L2] thread " << tid << " role="
+                              << (c.role.empty() ? "?" : c.role)
+                              << " reqs=" << c.nodeReqs.size()
+                              << " guars=" << c.nodeGuars.size() << std::endl;
+                    for (const auto& r : c.nodeReqs) {
+                        std::cout << "        req " << r.form << " a=[";
+                        for (size_t i = 0; i < r.a.size(); ++i) std::cout << (i ? "," : "") << r.a[i];
+                        std::cout << "] b=[";
+                        for (size_t i = 0; i < r.b.size(); ++i) std::cout << (i ? "," : "") << r.b[i];
+                        std::cout << "] obj=" << r.objectId
+                                  << (r.note.empty() ? "" : ("  " + oneLine(r.note, 90))) << std::endl;
+                    }
+                    for (const auto& g : c.nodeGuars) {
+                        std::cout << "        guar " << g.form << " a=[";
+                        for (size_t i = 0; i < g.a.size(); ++i) std::cout << (i ? "," : "") << g.a[i];
+                        std::cout << "] b=[";
+                        for (size_t i = 0; i < g.b.size(); ++i) std::cout << (i ? "," : "") << g.b[i];
+                        std::cout << "]";
+                        if (!g.token.empty()) std::cout << " token=" << g.token;
+                        if (!g.mode.empty()) std::cout << " mode=" << g.mode;
+                        std::cout << (g.note.empty() ? "" : ("  " + oneLine(g.note, 90))) << std::endl;
+                    }
+                    continue;
+                }
+                std::cout << "  [contractA] thread " << tid << " role="
+                          << (c.role.empty() ? "?" : c.role)
+                          << " clauses=" << c.clauses.size() << std::endl;
+                for (const auto& cl : c.clauses) {
+                    std::cout << "      resource='" << cl.resource << "' obj=" << cl.objectId;
+                    if (!cl.objectIds.empty()) {
+                        std::cout << " objs=[";
+                        for (size_t i = 0; i < cl.objectIds.size(); ++i)
+                            std::cout << (i ? "," : "") << cl.objectIds[i];
+                        std::cout << "]";
+                    }
+                    if (cl.noOrderNeeded)
+                        std::cout << " NO_ORDER_NEEDED(" << oneLine(cl.noOrderReason, 80) << ")";
+                    std::cout << std::endl;
+                    for (const auto& a : cl.assume)
+                        std::cout << "        assume " << a.relation << ": "
+                                  << oneLine(a.detail, 110) << std::endl;
+                    for (const auto& g : cl.guarantee)
+                        std::cout << "        guarantee " << g.relation << ": "
+                                  << oneLine(g.detail, 110) << std::endl;
+                }
+            }
+        }
         if (contractsByTid.empty() && !tidsVec.empty()) {
             std::cout << "  [contract-parallel] no contracts generated; Phase B will use raw surface conflicts"
                       << std::endl;
         }
+        } // end else (!skipPhaseA)
+
+        // ----- L2 (paper-faithful) requirement-driven checker -----
+        // Candidates come ONLY from undischarged node-anchored requirements (no
+        // bare-surface-conflict floor). Phase C is not wired here yet: this path
+        // emits the checker's candidates directly so the deterministic discharge
+        // logic can be validated in isolation (e.g. buggy vs fixed CVE).
+        if (contractL2Enabled()) {
+            const bool skipPhaseC = skipPhaseCEnabled();
+            std::cout << "\n[Phase B: L2 requirement-driven checker] sessions="
+                      << sessions.size()
+                      << (skipPhaseC ? "  (Phase C filter skipped, ablation)"
+                                     : "  (+ Phase C strict calibration filter)")
+                      << std::endl;
+            HBGraph* hb = HBGraph::getInstance();
+            l2::Calibrator calibrator(llmClient, ccpg);
+            std::vector<query::Hypothesis> composedL2;
+            int seq = 0;
+            size_t sDone = 0;
+            size_t totalCands = 0, totalKept = 0;
+            for (auto& [ts, objs] : sessions) {
+                ++sDone;
+                auto cands = l2::checkRequirements(objs, ts, contractsByTid, objIndex, ccpg, hb);
+                totalCands += cands.size();
+                if (cands.empty()) continue;
+                // Phase C: strict filter (subset of candidates; recall bounded by B).
+                std::vector<char> keep;
+                if (skipPhaseC) keep.assign(cands.size(), 1);
+                else keep = calibrator.review(cands);
+                size_t kept = 0;
+                for (size_t i = 0; i < cands.size(); ++i) {
+                    if (evalVerbose())
+                        std::cout << "      [L2 cand " << (keep[i] ? "keep" : "REJECT")
+                                  << "] " << cands[i].reason << std::endl;
+                    if (!keep[i]) continue;
+                    ++kept;
+                    composedL2.push_back(l2::toHypothesis(cands[i], ++seq));
+                }
+                totalKept += kept;
+                std::cout << "  [L2 session " << sDone << "/" << sessions.size()
+                          << "] undischarged=" << cands.size() << " kept=" << kept
+                          << (skipPhaseC ? "" : " (calibrated)") << std::endl;
+            }
+            std::cout << "  [L2] undischarged_total=" << totalCands
+                      << " kept_after_calibration=" << totalKept << std::endl;
+            if (dedupEnabled()) {
+                size_t before = composedL2.size();
+                composedL2 = dedupHypotheses(std::move(composedL2), surface, dedupLevelFromEnv());
+                std::cout << "  [dedup] " << before << " -> " << composedL2.size()
+                          << " hypotheses (merged near-duplicate root causes)" << std::endl;
+            }
+            confirmedHypotheses_ = std::move(composedL2);
+            std::cout << "\n--- L2 Static-Composition Analysis Finished: "
+                      << confirmedHypotheses_.size() << " hypotheses ("
+                      << totalCands << " undischarged requirements over "
+                      << sessions.size() << " sessions) ---\n" << std::endl;
+            return;
+        }
 
         // Phase B (deterministic) + Phase C (calibrate surviving candidates only).
-        std::cout << "\n[Phase B/C: Static Composition + Calibration] sessions=" << sessions.size()
+        const bool skipPhaseC = skipPhaseCEnabled();
+        const bool noDetDischarge = noDeterministicDischargeEnabled();
+        std::string phaseBCLabel = "Phase B";
+        if (!skipPhaseC) phaseBCLabel += "/C: Static Composition + Calibration";
+        else phaseBCLabel += " only (Phase C skipped, ablation)";
+        if (noDetDischarge) phaseBCLabel += " [no deterministic discharge]";
+        std::cout << "\n[" << phaseBCLabel << "] sessions=" << sessions.size()
                   << std::endl;
         InterleavingAnalysisAgent calAgent(llmClient, ccpg, tct, &verifier);
         std::vector<query::Hypothesis> composed;
@@ -1617,15 +2289,27 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
         if (!batchVerify) {
             // Legacy per-thread-set calibration (one dialogue per surviving session).
             size_t sDone = 0;
+            int phaseBSeq = 0;
             for (auto& [ts, objs] : sessions) {
                 ++sDone;
                 int hi = 0, med = 0, low = 0, disc = 0, kc = 0;
+                std::vector<PhaseBCandidate> sessionCands;
                 std::string verdict = composeVerdict(objs, ts, contractsByTid, objIndex,
                                                      tct, threadById, keepLow,
-                                                     hi, med, low, disc, kc);
+                                                     hi, med, low, disc, kc,
+                                                     skipPhaseC ? &sessionCands : nullptr);
                 if (kc == 0) {
                     std::cout << "  [session " << sDone << "/" << sessions.size()
                               << "] no surviving candidate (discharged=" << disc << ") -- skip"
+                              << std::endl;
+                    continue;
+                }
+                if (skipPhaseC) {
+                    for (const auto& cand : sessionCands)
+                        composed.push_back(phaseBToHypothesis(cand, ++phaseBSeq));
+                    std::cout << "  [session " << sDone << "/" << sessions.size()
+                              << "] Phase-B direct: " << sessionCands.size()
+                              << " candidates -> hypotheses (discharged=" << disc << ")"
                               << std::endl;
                     continue;
                 }
@@ -1646,6 +2330,8 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                 std::cout << "  [session " << sDone << "/" << sessions.size()
                           << "] candidates hi=" << hi << " med=" << med << " low=" << low
                           << " (discharged=" << disc << ") -> calibrate" << std::endl;
+                if (evalVerbose() && !verdict.empty())
+                    std::cout << "  [composeB survivors]\n" << verdict << std::endl;
                 auto hyps = calAgent.analyzeCluster(objs, ts, surface, true, &sub, &verdict);
                 for (auto& h : hyps) composed.push_back(std::move(h));
             }
@@ -1699,6 +2385,15 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                     return a.first.size() < b.first.size();
                 });
 
+            if (skipPhaseC) {
+                int phaseBSeq = 0;
+                for (auto& [gts, gcands] : ordered)
+                    for (auto& c : gcands)
+                        composed.push_back(phaseBToHypothesis(c, ++phaseBSeq));
+                std::cout << "  [phase-B batch, Phase C skipped] total=" << totalUnique
+                          << " candidates -> hypotheses (discharged=" << totalDischarged << ")"
+                          << std::endl;
+            } else {
             const int maxBatches = envInt("LACE_PHASE_C_MAX_BATCHES", 60);
             const int batchSize = std::max(1, envInt("LACE_PHASE_C_BATCH_SIZE", 12));
             std::cout << "  [phase-C batch] survivors=" << totalSurvivors
@@ -1712,9 +2407,6 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
             bool capHit = false;
             for (auto& [gts, gcands] : ordered) {
                 if (batchNo >= maxBatches) { capHit = true; break; }
-                // Step 3: one capped dialogue per candidate chunk inside the SAME
-                // thread-set. Families/clauses remain visible in each candidate label
-                // and object name, but no cross-thread-set mixing is allowed.
                 for (size_t off = 0; off < gcands.size();
                      off += static_cast<size_t>(batchSize)) {
                     if (batchNo >= maxBatches) { capHit = true; break; }
@@ -1760,6 +2452,7 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                 std::cout << "  [phase-C batch] max_batches=" << maxBatches
                           << " reached; remaining groups deferred" << std::endl;
             calibratedUnits = static_cast<size_t>(batchNo);
+            } // end else (!skipPhaseC) for batch path
         }
 
         if (dedupEnabled()) {

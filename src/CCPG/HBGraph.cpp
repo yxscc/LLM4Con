@@ -588,20 +588,60 @@ void HBGraph::buildLifecycleFlagEdges(CCPG* ccpg) {
   }
 }
 
-bool HBGraph::hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth) const {
+namespace {
+// PROGRAM_ORDER / CALL_RETURN are intra-procedural control flow that both
+// concurrent threads traverse when they run the same shared code, so they
+// never order two accesses from different threads.
+//
+// Among the remaining kinds, LOCK_RELEASE_ACQUIRE / FORK_TO_ENTRY /
+// JOIN_FROM_EXIT come from lockset analysis and the thread-creation tree,
+// i.e. structural facts of the static model. The rest (RCU_SYNC, COMPLETION,
+// LIFECYCLE_FLAG, ...) are seeded by recognizing API names; StructuralOnly
+// drops them so that those protocols must be established by a recovered
+// Order/Wait guarantee instead.
+bool isSyncEdge(HBEdgeKind k, HBGraph::SyncPolicy policy) {
+  switch (k) {
+    case HBEdgeKind::PROGRAM_ORDER:
+    case HBEdgeKind::CALL_RETURN:
+      return false;
+    case HBEdgeKind::LOCK_RELEASE_ACQUIRE:
+    case HBEdgeKind::FORK_TO_ENTRY:
+    case HBEdgeKind::JOIN_FROM_EXIT:
+      return true;
+    default:
+      return policy == HBGraph::SyncPolicy::AllMechanisms;
+  }
+}
+}  // namespace
+
+bool HBGraph::hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth,
+                          bool requireSyncEdge, SyncPolicy policy) const {
   if (!n1 || !n2) return false;
-  if (n1 == n2) return true;
+  if (n1 == n2) return !requireSyncEdge;
   int cap = envInt("HB_MAX_DEPTH", max_depth);
 
-  std::queue<std::pair<CCPGNode*, int>> q;
-  std::unordered_set<CCPGNode*> vis;
+  // BFS state carries whether the path so far crossed a synchronization edge.
+  // With requireSyncEdge, n2 only counts as reached once such an edge is on
+  // the path. Visited-set is keyed on (node, sawSync) so a node can be
+  // re-expanded if we later arrive with sync already crossed.
+  std::queue<std::pair<CCPGNode*, int>> q;   // node, depth
+  std::unordered_set<CCPGNode*> visNoSync, visSync;
+  auto seen = [&](CCPGNode* n, bool sawSync) -> bool {
+    auto& set = sawSync ? visSync : visNoSync;
+    return !set.insert(n).second;
+  };
+  // Encode sawSync in a parallel queue to avoid changing the pair type.
+  std::queue<bool> qSync;
   q.push({n1, 0});
-  vis.insert(n1);
+  qSync.push(false);
+  visNoSync.insert(n1);
 
   while (!q.empty()) {
     CCPGNode* u = q.front().first;
     int d = q.front().second;
+    bool sawSync = qSync.front();
     q.pop();
+    qSync.pop();
     if (d >= cap) continue;
 
     auto it = outEdges_.find(u);
@@ -609,9 +649,11 @@ bool HBGraph::hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth) const {
     for (const HBEdge& e : it->second) {
       CCPGNode* v = e.dst;
       if (!v) continue;
-      if (v == n2) return true;
-      if (vis.insert(v).second) {
+      bool nextSync = sawSync || isSyncEdge(e.kind, policy);
+      if (v == n2 && (!requireSyncEdge || nextSync)) return true;
+      if (!seen(v, nextSync)) {
         q.push({v, d + 1});
+        qSync.push(nextSync);
       }
     }
   }

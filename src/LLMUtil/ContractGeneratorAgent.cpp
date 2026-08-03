@@ -38,6 +38,15 @@ bool coverageEnabled() {
     return manualentry::enabled();
 }
 
+// Paper-faithful node-anchored contract mode. Off by default: the legacy free-text
+// clause path is unchanged unless LACE_CONTRACT_L2 is set (together with
+// LACE_STATIC_COMPOSE, which gates the composition pipeline).
+bool contractL2Enabled() {
+    if (const char* e = std::getenv("LACE_CONTRACT_L2"))
+        return e[0] && e[0] != '0';
+    return false;
+}
+
 const char* riskTag(const query::SharedObject* o) {
     if (!o) return "high-risk";
     if (o->has_free_operation) return "free/UAF";
@@ -116,9 +125,84 @@ bool hasObviousLocalConsequence(const query::SharedObject* o, int tid, std::stri
 }  // namespace
 
 ContractGeneratorAgent::ContractGeneratorAgent(CCPG* ccpg, std::shared_ptr<LLMClient> client)
-    : Conversation(client, build_system_prompt(), 25), ccpg_(ccpg) {}
+    : Conversation(client, build_system_prompt(), 25), ccpg_(ccpg) {
+    l2Mode_ = contractL2Enabled();
+}
 
 std::string ContractGeneratorAgent::build_system_prompt() {
+    if (contractL2Enabled()) {
+        return R"CONTRACT(
+You are an expert in concurrent Linux-kernel C code. For ONE thread (given its entry
+function and creation site), build that thread's ThreadContract, anchoring every
+operand to CONCRETE CCPG NODE IDS.
+
+**CRITICAL: DO NOT REPLY WITH CHAT TEXT. ONLY USE THE PROVIDED TOOLS.**
+
+A ThreadContract has NO notion of a final bug. It records two things about THIS
+thread's operations on shared objects:
+
+  1. REQUIREMENTS -- structural obligations this thread needs from its concurrent
+     environment for its own operations to be safe. Use ONLY these three forms
+     (each operand is a LIST OF NODE IDS naming concrete operations):
+
+       * MustPrecede(a_nodes, b_nodes)
+           Every operation in a_nodes must complete before any operation in
+           b_nodes begins. Example: a read/use of an object must precede its free.
+
+       * MustBeAtomic(a_nodes)
+           The ordered operation sequence in a_nodes must execute as one
+           indivisible unit; no conflicting operation from another thread may
+           interleave between its steps. (b_nodes is empty.)
+
+       * MustBeMediated(a_nodes, b_nodes)
+           a_nodes and b_nodes are conflicting operations on the same object
+           (at least one a write). They must be coordinated by ordering, mutual
+           exclusion, or a compatible atomic-access protocol. If nothing mediates
+           them, that is an unmediated conflict (a data race).
+
+  2. GUARANTEES -- synchronization effects THIS thread's code actually provides.
+     Use ONLY these four forms (operands are NODE IDS):
+
+       * Order(a_nodes, b_nodes)
+           a happens-before b (a determinate handoff), e.g. the node after a
+           completion wait, a matched release->acquire, thread join, or a
+           close-and-drain API return. Emit ONLY when the code truly forces it.
+
+       * Exclude(a_nodes, token, mode)
+           the a_nodes run under mutual exclusion named by `token` (e.g. a lock
+           pointer) in `mode` (exclusive/shared); regions under the same token in
+           incompatible modes cannot overlap.
+
+       * AtomicOp(a_nodes, token)
+           the a_nodes are a single atomic access to `token` (hardware atomics,
+           cmpxchg, atomic_* helpers).
+
+       * Wait(a_nodes, b_nodes)
+           execution cannot reach b_nodes (the continuation after a blocking call)
+           until the enabling event a_nodes has happened.
+
+KEEP GUARANTEES HONEST: emit a guarantee ONLY for synchronization the code really
+provides for THIS resource. A lock guarding a different field, a wait on another
+domain, or a bare state check is NOT a guarantee. Do not invent an Order edge to
+make a requirement look discharged -- if the ordering is not established in the
+code, simply omit it; the checker will then surface the requirement as a candidate.
+
+HOW TO NAME NODES: the evidence packet lists each access as `[node=N]`. Use those
+ids as operands. To find more operations inside a function, call
+`get_function_ops(function_id)` -- it returns each operation's node_id, code, and
+location. Always pass real node ids that appear in the evidence or in a
+get_function_ops result; never invent an id.
+
+**Workflow (few tool calls):**
+1. (Optional) confirm_role_and_summary -- a one-line characterization.
+2. For each shared object this thread meaningfully operates on, call
+   add_requirement with the matching form and node operands, and add_guarantee for
+   any synchronization the code provides. Attach object_id and a short note.
+3. For a HIGH-RISK object you reviewed and found carries no obligation for THIS
+   thread, call declare_no_obligation(object_id, reason) instead of dropping it.
+4. Call finalize_contract.
+)CONTRACT";
+    }
     return R"CONTRACT(
 You are an expert in concurrent Linux-kernel C code. For ONE thread (given its entry
 function and creation site), build that thread's ThreadContract.
@@ -222,7 +306,77 @@ emit one clause with object_ids=[...] and one EXCLUDE(...) guarantee.
 )CONTRACT";
 }
 
+std::vector<Tool> ContractGeneratorAgent::get_l2_tools() const {
+    auto tools = SharedToolKit::get_shared_tools();
+
+    tools.push_back({"confirm_role_and_summary", "Confirms the role and summary of the thread (informational).", {
+        {"role", "string", "A single, concise category (e.g., 'Worker', 'Reader', 'Reclaimer').", true},
+        {"summary", "string", "A one-sentence description of the thread's function.", true}
+    }});
+
+    // Node-id array schema reused for operands.
+    auto nodeArray = [](const std::string& desc) {
+        return nlohmann::json{
+            {"type", "array"},
+            {"description", desc},
+            {"items", {{"type", "integer"}}}
+        };
+    };
+
+    {
+        std::vector<Parameter> p;
+        p.emplace_back("form", "string",
+            "One of: MustPrecede | MustBeAtomic | MustBeMediated.", true);
+        p.emplace_back("a_nodes", nodeArray(
+            "CCPG node ids of operand a. MustPrecede: the operations that must finish first. "
+            "MustBeAtomic: the ordered sequence that must be indivisible. "
+            "MustBeMediated: one side of the conflicting pair."), true);
+        p.emplace_back("b_nodes", nodeArray(
+            "CCPG node ids of operand b. MustPrecede: the operations that must happen after a. "
+            "MustBeMediated: the other side of the conflicting pair. Leave empty for MustBeAtomic."), false);
+        p.emplace_back("object_id", "integer", "The [obj#N] surface index this requirement is about.", false);
+        p.emplace_back("note", "string", "One concise sentence of provenance / rationale.", false);
+        tools.push_back({"add_requirement",
+            "Record ONE node-anchored requirement this thread needs from its environment "
+            "(MustPrecede / MustBeAtomic / MustBeMediated). Operands are concrete CCPG node ids.",
+            std::move(p)});
+    }
+    {
+        std::vector<Parameter> p;
+        p.emplace_back("form", "string",
+            "One of: Order | Exclude | AtomicOp | Wait.", true);
+        p.emplace_back("a_nodes", nodeArray(
+            "CCPG node ids of operand a. Order: source. Exclude: the protected region nodes. "
+            "AtomicOp: the atomic operation nodes. Wait: the enabling event."), true);
+        p.emplace_back("b_nodes", nodeArray(
+            "CCPG node ids of operand b. Order: target (a happens-before b). "
+            "Wait: the continuation after the blocking call. Unused for Exclude/AtomicOp."), false);
+        p.emplace_back("token", "string",
+            "Exclude/AtomicOp only: the synchronization token (e.g. lock pointer 'sk->sk_lock', "
+            "or an atomic variable). Regions/ops sharing a token are coordinated.", false);
+        p.emplace_back("mode", "string", "Exclude only: 'exclusive' or 'shared'.", false);
+        p.emplace_back("object_id", "integer", "The [obj#N] surface index this guarantee covers.", false);
+        p.emplace_back("note", "string", "One concise sentence of provenance / rationale.", false);
+        tools.push_back({"add_guarantee",
+            "Record ONE node-anchored synchronization effect THIS thread's code truly provides "
+            "(Order / Exclude / AtomicOp / Wait). Operands are concrete CCPG node ids. "
+            "Do NOT emit an effect the code does not establish.",
+            std::move(p)});
+    }
+    tools.push_back({"declare_no_obligation",
+        "Explicitly declare that a reviewed HIGH-RISK object carries NO obligation for THIS thread "
+        "(auditable no-op instead of silently omitting it).", {
+        {"object_id", "integer", "The [obj#N] surface index reviewed and found benign for this thread.", true},
+        {"reason", "string", "One concise sentence justifying why there is no obligation.", true}
+    }});
+
+    tools.push_back({"finalize_contract", "Final action to submit the complete contract.", {}});
+    return tools;
+}
+
 std::vector<Tool> ContractGeneratorAgent::get_available_tools() const {
+    if (l2Mode_) return get_l2_tools();
+
     auto tools = SharedToolKit::get_shared_tools();
 
     tools.push_back({"confirm_role_and_summary", "Confirms the role and summary of the thread (informational).", {
@@ -387,14 +541,20 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
                 if (a.thread_id != tid) continue;  // only this thread's accesses
                 const std::string& fn = a.containing_function.empty() ? a.function_name
                                                                       : a.containing_function;
-                candidates_ss << "    - " << a.access_type << " in " << fn << " @ " << a.location
-                              << (a.is_lock_protected ? (" [lock=" + a.protecting_lock + "]")
+                candidates_ss << "    - " << a.access_type << " in " << fn << " @ " << a.location;
+                if (l2Mode_ && a.node_id >= 0) candidates_ss << " [node=" << a.node_id << "]";
+                candidates_ss << (a.is_lock_protected ? (" [lock=" + a.protecting_lock + "]")
                                                       : " [no lock]")
                               << "\n          code: " << a.code_snippet << "\n";
                 if (!fn.empty()) preloadNames.insert(fn);
             }
             std::vector<const query::ThreadAccess*> envHazards;
             std::vector<const query::ThreadAccess*> envReads;
+            static const bool noCrossThreadCtx = []() {
+                const char* e = std::getenv("LACE_NO_CROSS_THREAD_CONTEXT");
+                return e && e[0] && e[0] != '0';
+            }();
+            if (!noCrossThreadCtx) {
             for (const auto& a : o->accesses) {
                 const bool otherThread = a.thread_id != tid;
                 const bool concurrentInstance = o->is_self_race && a.thread_id == tid;
@@ -403,6 +563,7 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
                                       a.code_snippet.find("[list-helper]") != std::string::npos;
                 if (mutating) envHazards.push_back(&a);
                 else envReads.push_back(&a);
+            }
             }
             if (!envHazards.empty() || !envReads.empty()) {
                 candidates_ss << "    Environment accesses on the same surface object"
@@ -469,13 +630,36 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
           "dispatch), search for the handlers it invokes and reason about the shared state\n"
           "they touch; note in the summary that those callees are inferred.\n\n";
 
+    // Node-anchored (L2) instructions replace the free-text clause guidance.
+    std::string l2_hint =
+        "Every access above is tagged [node=N]. Use those N as operands; call\n"
+        "get_function_ops(function_id) to list more operations (each with its node_id) when\n"
+        "you need a node that is not shown. NEVER invent a node id.\n\n";
+    std::string l2_tail =
+        "For each shared object this thread meaningfully operates on, decide its\n"
+        "structural obligation and record it with add_requirement using CONCRETE node ids:\n"
+        "  * MustPrecede(a_nodes, b_nodes): a use/read that must complete before a free or\n"
+        "    reuse (a_nodes=the uses, b_nodes=the free/overwrite).\n"
+        "  * MustBeAtomic(a_nodes): a check-then-use or multi-step update that must not be\n"
+        "    interrupted (a_nodes=the ordered steps).\n"
+        "  * MustBeMediated(a_nodes, b_nodes): two conflicting accesses on the same object\n"
+        "    (>=1 write) that must be ordered/excluded/atomic (a_nodes and b_nodes=the two sides).\n"
+        "Then use add_guarantee ONLY for synchronization THIS thread's code truly provides\n"
+        "(Order / Exclude / AtomicOp / Wait), with node operands + token where applicable.\n"
+        "If the code does NOT establish the ordering/exclusion a requirement needs, DO NOT\n"
+        "invent a guarantee -- just omit it; the checker will surface the requirement.\n"
+        "For a [HIGH-RISK] object you reviewed and found benign for THIS thread, call\n"
+        "declare_no_obligation(object_id, reason) rather than dropping it. Then\n"
+        "finalize_contract. Describe only this thread's obligations, not bug patterns.";
+
     std::string user_prompt = 
         "Build the concurrency contract for the following thread: its per-resource local\n"
         "requirements (assume) and synchronization effects (guarantee).\n"
         "Fork statement: " + fork_stmt + "\n"
         "Thread entry function body:\n```cpp\n" + entry_func_code + "\n```" +
         candidates_ss.str() + "\n\n" +
-        explore_hint +
+        (l2Mode_ ? l2_hint : explore_hint) +
+        (l2Mode_ ? l2_tail :
         "For each resource you report: state the local requirement this thread needs\n"
         "(assume: ORDER / CONFLICT_MEDIATED / REGION_ISOLATED / STABLE_DURING /\n"
         "PROGRESS_ENABLED) and the Level-0 synchronization effects the code actually\n"
@@ -491,7 +675,7 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         "SINGLE no_order_needed=true clause (object_ids=[...]) — do not drop one, and do\n"
         "not fabricate an assume for a value that drives nothing.\n"
         "Attach provenance. Do NOT describe bug patterns; describe only this thread's "
-        "obligations.";
+        "obligations.");
 
     std::string response = send_message(user_prompt, contract.get());
 
@@ -501,8 +685,10 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
     bool valid = false;
 
     while (retries < MAX_RETRIES) {
-        // A minimal valid contract must carry at least a role or one order clause.
-        if (!contract->role.empty() || contract->hasOrderContent()) {
+        // A minimal valid contract must carry at least a role or real content. In
+        // L2 mode the content is the node-anchored requirements/guarantees.
+        if (!contract->role.empty() || contract->hasOrderContent() ||
+            (l2Mode_ && contract->hasL2Content())) {
             valid = true;
             break;
         }
@@ -510,14 +696,23 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         std::cout << "  [ContractGenerator] Warning: LLM failed to use tools (empty contract). Retrying ("
                   << (retries + 1) << "/" << MAX_RETRIES << ")..." << std::endl;
 
-        std::string retry_prompt = 
+        std::string retry_prompt = l2Mode_ ?
+            std::string(
+            "CRITICAL ERROR: You have NOT produced a contract via tools. "
+            "Use the tools (no chat text):\n"
+            "1. Call `confirm_role_and_summary`.\n"
+            "2. Call `add_requirement` (MustPrecede/MustBeAtomic/MustBeMediated) with concrete\n"
+            "   node ids, and `add_guarantee` for any real synchronization -- few is fine.\n"
+            "3. Call `finalize_contract`.\n"
+            "Perform these tool calls NOW based on your analysis.") :
+            std::string(
             "CRITICAL ERROR: You have NOT produced a contract via tools. "
             "Use the tools (no chat text):\n"
             "1. Call `confirm_role_and_summary`.\n"
             "2. Call `report_clause` for the resources with a real local requirement or\n"
             "   synchronization guarantee (assume and/or guarantee) -- few is fine.\n"
             "3. Call `finalize_contract`.\n"
-            "Perform these tool calls NOW based on your analysis.";
+            "Perform these tool calls NOW based on your analysis.");
 
         response = send_message(retry_prompt, contract.get());
         retries++;
@@ -530,7 +725,9 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
         // Phase B with no candidate for the real bug. Drive a few focused repair rounds
         // so each such object gets a position (real assume/guarantee or explicit
         // no_order_needed). Seeded + coverage-enabled (analyst-scoped) runs only.
-        if (seeded && coverageEnabled())
+        // The repair loop drives the legacy report_clause tool, so it is skipped in
+        // node-anchored (L2) mode (which has its own declare_no_obligation path).
+        if (!l2Mode_ && seeded && coverageEnabled())
             repairContractCoverage(*contract, tid, touchedObjects, objectIds);
         return std::move(*contract);
     }
@@ -631,6 +828,18 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
     auto* contract = static_cast<LLM::ConcurrencyContract*>(this->get_context_for_tools());
     if (!contract) {
         return R"({"error": "Internal context error: ConcurrencyContract not found."})";
+    }
+
+    // Paper-faithful node-anchored mode: route to the L2 tool handlers. Returns a
+    // non-empty result when handled (including the "finish" sentinel); an empty
+    // string means the tool is not an L2 tool and falls through to the error below.
+    if (l2Mode_) {
+        std::string r = execute_l2_tool(tool_name, arguments, contract);
+        if (!r.empty()) return r;
+        nlohmann::json err;
+        err["error"] = "Tool '" + tool_name + "' is not available in node-anchored (L2) mode. "
+                       "Use add_requirement / add_guarantee / declare_no_obligation / finalize_contract.";
+        return err.dump();
     }
 
     // Bound the reporting loop: report_clause/confirm/report_ordering are not capped
@@ -782,6 +991,118 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
     nlohmann::json error_resp;
     error_resp["error"] = "Tool '" + tool_name + "' not found or not implemented by this agent.";
     return error_resp.dump();
+}
+
+std::string ContractGeneratorAgent::execute_l2_tool(
+    const std::string& tool_name, const nlohmann::json& arguments,
+    LLM::ConcurrencyContract* contract) {
+
+    // Bound the reporting loop the same way the legacy path does: node-anchored
+    // reporting tools are not subject to the read budget, so cap total rounds.
+    if (tool_name == "confirm_role_and_summary" || tool_name == "add_requirement" ||
+        tool_name == "add_guarantee" || tool_name == "declare_no_obligation") {
+        if (++reportRounds_ > reportHardCap()) return "finish";
+    }
+
+    // Parse a node-id array argument, validating each id against the CCPG. Collects
+    // the invalid ones so the model gets an actionable error instead of a silent drop.
+    auto parseNodes = [&](const char* key, std::vector<int>& out, std::vector<int>& invalid) {
+        if (!arguments.contains(key) || !arguments[key].is_array()) return;
+        std::set<int> seen;
+        for (const auto& v : arguments[key]) {
+            if (!v.is_number_integer()) continue;
+            int id = v.get<int>();
+            if (!seen.insert(id).second) continue;
+            if (ccpg_ && ccpg_->getNodeByID(id)) out.push_back(id);
+            else invalid.push_back(id);
+        }
+    };
+
+    if (tool_name == "confirm_role_and_summary") {
+        contract->setRole(arguments.value("role", std::string()));
+        contract->setSummary(arguments.value("summary", std::string()));
+        return R"({"status":"Role/summary recorded. Now call add_requirement / add_guarantee with concrete node ids, then finalize_contract."})";
+    }
+
+    if (tool_name == "add_requirement") {
+        static const std::set<std::string> kForms = {"MustPrecede", "MustBeAtomic", "MustBeMediated"};
+        std::string form = arguments.value("form", std::string());
+        if (!kForms.count(form)) {
+            return R"({"error":"add_requirement.form must be one of MustPrecede | MustBeAtomic | MustBeMediated."})";
+        }
+        LLM::ConcurrencyContract::NodeReq r;
+        r.form = form;
+        std::vector<int> invalid;
+        parseNodes("a_nodes", r.a, invalid);
+        parseNodes("b_nodes", r.b, invalid);
+        if (r.a.empty()) {
+            nlohmann::json err;
+            err["error"] = "add_requirement needs a non-empty a_nodes of valid CCPG node ids.";
+            if (!invalid.empty()) err["invalid_node_ids"] = invalid;
+            return err.dump();
+        }
+        if (form != "MustBeAtomic" && r.b.empty()) {
+            return R"({"error":"MustPrecede / MustBeMediated need a non-empty b_nodes (the second operand)."})";
+        }
+        r.objectId = arguments.contains("object_id") && arguments["object_id"].is_number_integer()
+                         ? arguments["object_id"].get<int>() : -1;
+        r.note = arguments.value("note", std::string());
+        contract->addNodeReq(r);
+        nlohmann::json resp;
+        resp["status"] = "Requirement recorded (" + form + "). Continue with more requirements/guarantees, then finalize_contract.";
+        resp["requirements_so_far"] = static_cast<int>(contract->nodeReqs.size());
+        if (!invalid.empty()) resp["ignored_invalid_node_ids"] = invalid;
+        return resp.dump();
+    }
+
+    if (tool_name == "add_guarantee") {
+        static const std::set<std::string> kForms = {"Order", "Exclude", "AtomicOp", "Wait"};
+        std::string form = arguments.value("form", std::string());
+        if (!kForms.count(form)) {
+            return R"({"error":"add_guarantee.form must be one of Order | Exclude | AtomicOp | Wait."})";
+        }
+        LLM::ConcurrencyContract::NodeGuar g;
+        g.form = form;
+        std::vector<int> invalid;
+        parseNodes("a_nodes", g.a, invalid);
+        parseNodes("b_nodes", g.b, invalid);
+        if (g.a.empty()) {
+            nlohmann::json err;
+            err["error"] = "add_guarantee needs a non-empty a_nodes of valid CCPG node ids.";
+            if (!invalid.empty()) err["invalid_node_ids"] = invalid;
+            return err.dump();
+        }
+        if ((form == "Order" || form == "Wait") && g.b.empty()) {
+            return R"({"error":"Order / Wait need a non-empty b_nodes (the target / continuation)."})";
+        }
+        if ((form == "Exclude" || form == "AtomicOp") && arguments.value("token", std::string()).empty()) {
+            return R"({"error":"Exclude / AtomicOp need a non-empty 'token' (the lock/atomic that coordinates the region)."})";
+        }
+        g.token = arguments.value("token", std::string());
+        g.mode = arguments.value("mode", std::string());
+        g.objectId = arguments.contains("object_id") && arguments["object_id"].is_number_integer()
+                         ? arguments["object_id"].get<int>() : -1;
+        g.note = arguments.value("note", std::string());
+        contract->addNodeGuar(g);
+        nlohmann::json resp;
+        resp["status"] = "Guarantee recorded (" + form + ").";
+        resp["guarantees_so_far"] = static_cast<int>(contract->nodeGuars.size());
+        if (!invalid.empty()) resp["ignored_invalid_node_ids"] = invalid;
+        return resp.dump();
+    }
+
+    if (tool_name == "declare_no_obligation") {
+        if (!arguments.contains("object_id") || !arguments["object_id"].is_number_integer())
+            return R"({"error":"declare_no_obligation needs an integer object_id."})";
+        contract->addNoObligation(arguments["object_id"].get<int>());
+        return R"({"status":"No-obligation declaration recorded."})";
+    }
+
+    if (tool_name == "finalize_contract") {
+        return "finish";
+    }
+
+    return std::string();  // not an L2 tool
 }
 
 std::string ContractGeneratorAgent::parseResult(const std::vector<llm_client::ChatMessage>& history) {

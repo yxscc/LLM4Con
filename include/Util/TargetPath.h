@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <sstream>
 #include <iostream>
+#include <cstdlib>
 
 namespace fs = std::filesystem;
 
@@ -78,9 +79,18 @@ class TargetPath
                 return outputDir;
             }
 
-            fs::path ccpg_dump = fs::path(PROJECT_PATH) / "LLM_dump";
+            // Ablation isolation: LACE_DUMP_ROOT redirects the dump base so each
+            // ablation/baseline configuration writes to its own tree (e.g.
+            // LLM_dump_abl/<config>/) instead of the shared LLM_dump. Keeps
+            // configurations comparable and never clobbers a frozen reference run.
+            fs::path ccpg_dump;
+            if (const char* dr = std::getenv("LACE_DUMP_ROOT"); dr && dr[0] != '\0') {
+                ccpg_dump = fs::path(dr);
+            } else {
+                ccpg_dump = fs::path(PROJECT_PATH) / "LLM_dump";
+            }
             if (!fs::exists(ccpg_dump)) {
-                fs::create_directory(ccpg_dump);
+                fs::create_directories(ccpg_dump);
             }
 
             std::string targetProjectName = getTargetProjectName();
@@ -92,7 +102,7 @@ class TargetPath
             ss << targetProjectName << "_";
             ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%H-%M-%S");
             // create output dir with system time as name
-            fs::path outputDir0 = fs::path(PROJECT_PATH) / "LLM_dump" / ss.str();
+            fs::path outputDir0 = ccpg_dump / ss.str();
             outputDir = outputDir0;
             
             if (!fs::exists(outputDir)) {

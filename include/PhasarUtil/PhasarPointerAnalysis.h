@@ -43,6 +43,18 @@ public:
     EntryPointInfo getMainFunction() const override;
     std::vector<EntryPointInfo> getAllEntryPointInfos() const;  // NEW: Get all entry points for kernel modules
     std::vector<EntryPointInfo> getThreadRootEntryPointInfos() const;
+    // Standard concurrency-API entry discovery: every function handed to a
+    // recognized thread/async-creation primitive (pthread_create, thrd_create,
+    // kthread_run/kthread_create*, request_[threaded_]irq, tasklet/timer/work/
+    // rcu callbacks, …). These run concurrently by the API contract itself,
+    // independent of any analyst configuration. Used to UNION with the
+    // manually-configured roots so entry discovery is principled and not
+    // "configured-only". Deterministic: only a direct llvm::Function argument
+    // (after stripping casts) is accepted; no aliasing chase. Scoped to
+    // creation sites reachable (over direct call edges) from a configured root
+    // so unrelated module-wide kthread/irq/rcu sites do not explode the surface.
+    std::vector<EntryPointInfo> getStandardThreadApiEntryInfos(
+        const std::vector<std::string>& configuredRoots) const;
     std::vector<const llvm::Function *> getAllLLVMFunctions() const override;
 
     std::vector<const llvm::CallInst *> getCallInstsByLoc(const NodeLoc &Loc) const;

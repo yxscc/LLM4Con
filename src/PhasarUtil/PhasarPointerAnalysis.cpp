@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <cstring>
 #include <cstdlib>
+#include <queue>
+#include <set>
 
 using namespace psr;
 
@@ -290,6 +292,14 @@ computeStructuralEntrySignals(const llvm::Module* M) {
         unsigned argMask;
     };
     static const SinkSpec kSinks[] = {
+        // POSIX / C11 / framework user-space thread spawns. start_routine is
+        // arg 2 for pthread_create, arg 1 for thrd_create. Kept here so
+        // automatic (non-manual) discovery recognizes user-space threads too,
+        // not just kernel primitives.
+        {"pthread_create",              1u << 2},
+        {"thrd_create",                 1u << 1},
+        {"celixThread_create",          1u << 2},
+        {"apr_thread_create",           1u << 2},
         // kthread_create / kthread_run family: first arg is the thread fn.
         {"kthread_create",              1u << 0},
         {"kthread_create_on_node",      1u << 0},
@@ -1490,6 +1500,190 @@ std::vector<EntryPointInfo> PhasarPointerAnalysis::getThreadRootEntryPointInfos(
               << roots.size()
               << " thread-root entry points for kernel module analysis"
               << std::endl;
+    return roots;
+}
+
+std::vector<EntryPointInfo>
+PhasarPointerAnalysis::getStandardThreadApiEntryInfos(
+    const std::vector<std::string>& configuredRoots) const {
+    std::vector<EntryPointInfo> roots;
+    const llvm::Module* M = getModule();
+    if (!M) return roots;
+
+    // Genuine concurrency-creation primitives whose function-pointer argument
+    // *is* the concurrent entry: a thread start-routine, or a deferred/async
+    // callback the kernel/runtime schedules on a separate context. Any function
+    // handed to one of these runs concurrently by the API contract itself,
+    // independent of analyst configuration. bit i of argMask ⇒ argument i is a
+    // callback function pointer. We only accept a *direct* llvm::Function arg
+    // (after stripping pointer casts) so the set stays deterministic and tight.
+    struct ApiSpec { const char* name; unsigned argMask; };
+    // Genuine thread SPAWNS: the argument is a start routine that runs as its
+    // own scheduling entity. These are the canonical "standard thread APIs" and
+    // are always promoted to top-level thread roots (scoped by reachability
+    // below). On kernel bitcode these are rare, so promoting them is
+    // surface-neutral in practice; the recognizer exists so the entry model is
+    // principled ("we discover thread entries via pthread/kthread") and
+    // generalizes to user-space code.
+    static const ApiSpec kThreadSpawnApis[] = {
+        // POSIX / C11 / framework user-space thread spawns.
+        {"pthread_create",           1u << 2},   // (tid, attr, start_routine, arg)
+        {"thrd_create",              1u << 1},   // (thrd, func, arg)
+        {"celixThread_create",       1u << 2},
+        {"apr_thread_create",        1u << 2},
+        // Linux kernel kthread spawns: first arg is the thread fn.
+        {"kthread_create",           1u << 0},
+        {"kthread_create_on_node",   1u << 0},
+        {"kthread_create_on_cpu",    1u << 0},
+        {"kthread_run",              1u << 0},
+        {"kthread_run_on_cpu",       1u << 0},
+    };
+    // Deferred / async execution contexts (IRQ handlers, tasklets, timers,
+    // workqueue, RCU callbacks). They DO run concurrently, but on this dataset
+    // they are already recovered as *child* threads by ThreadCreationTree
+    // following the creation edge from a reachable entry, so hoisting them to
+    // top-level roots only reshuffles parentage and can enlarge the surface
+    // (e.g. the rtlwifi IRQ+tasklet handlers add ~40 objects on CVE-2024-58072).
+    // Hoisting is therefore OPT-IN (LACE_STDAPI_ASYNC_ENTRIES=1) so the default
+    // stays surface-neutral / precision-preserving.
+    static const ApiSpec kAsyncCallbackApis[] = {
+        {"request_irq",              1u << 1},
+        {"request_any_context_irq",  1u << 1},
+        {"request_threaded_irq",     (1u << 1) | (1u << 2)},
+        {"tasklet_init",             1u << 1},
+        {"tasklet_setup",            1u << 1},
+        {"timer_setup",              1u << 1},
+        {"setup_timer",              1u << 1},
+        {"INIT_WORK",                1u << 1},
+        {"INIT_DELAYED_WORK",        1u << 1},
+        {"call_rcu",                 1u << 1},
+        {"call_srcu",                1u << 2},
+    };
+
+    std::vector<ApiSpec> kThreadApis(std::begin(kThreadSpawnApis),
+                                     std::end(kThreadSpawnApis));
+    bool asyncEntries = false;
+    if (const char* e = std::getenv("LACE_STDAPI_ASYNC_ENTRIES"))
+        asyncEntries = (e[0] != '\0' && e[0] != '0');
+    if (asyncEntries)
+        kThreadApis.insert(kThreadApis.end(),
+                           std::begin(kAsyncCallbackApis),
+                           std::end(kAsyncCallbackApis));
+
+    // Reachability gate. On merged/whole-subsystem kernel bitcode a module-wide
+    // scan finds hundreds of unrelated kthread/irq/rcu creation sites all over
+    // the kernel; promoting those as top-level threads explodes the shared
+    // surface (false positives). A thread is only relevant to the analyzed
+    // concurrency if the program actually SPAWNS it along a path from one of
+    // the configured ambient entry contexts. So we keep a standard-API entry
+    // only when its creation call site sits in a function reachable, over
+    // direct call edges, from a configured root. Direct-call BFS strictly
+    // UNDER-approximates reachability, so it can never mis-classify an orphan
+    // as reachable -> it can never cause an explosion; genuinely-reachable
+    // threads it happens to miss are still recovered downstream by
+    // ThreadCreationTree following the fork edge as a child thread.
+    auto normCore = [](std::string n) -> std::string {
+        std::size_t paren = n.find('(');
+        if (paren != std::string::npos) n = n.substr(0, paren);
+        std::transform(n.begin(), n.end(), n.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+        static const char* const kPfx[] = {
+            "__x64_sys_","__x32_sys_","__ia32_sys_","__arm64_sys_","__arm_sys_",
+            "__mips_sys_","__riscv_sys_","__s390x_sys_","__s390_sys_",
+            "__powerpc64_sys_","__powerpc_sys_","__se_compat_sys_","__se_sys_",
+            "__do_compat_sys_","__do_sys_","__sys_","compat_sys_","sys_","syscall_"};
+        bool changed = true;
+        while (changed) { changed = false;
+            for (const char* p : kPfx) { std::size_t l = std::strlen(p);
+                if (n.size() > l && n.compare(0,l,p)==0){ n=n.substr(l); changed=true; break; } } }
+        std::size_t u = 0; while (u < n.size() && n[u]=='_') ++u;
+        return n.substr(u);
+    };
+
+    std::set<std::string> rootCores;
+    for (const std::string& r : configuredRoots) rootCores.insert(normCore(r));
+
+    // Seed set: module functions whose (normalized) name matches a configured
+    // root. Then BFS over direct callees to build the reachable-function set.
+    std::set<const llvm::Function*> reachable;
+    std::queue<const llvm::Function*> work;
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration() || !F.hasName()) continue;
+        if (rootCores.count(normCore(F.getName().str()))) {
+            if (reachable.insert(&F).second) work.push(&F);
+        }
+    }
+    while (!work.empty()) {
+        const llvm::Function* F = work.front(); work.pop();
+        for (const llvm::BasicBlock& BB : *F)
+            for (const llvm::Instruction& I : BB)
+                if (const auto* CB = llvm::dyn_cast<llvm::CallBase>(&I))
+                    if (const llvm::Function* cal = CB->getCalledFunction())
+                        if (!cal->isDeclaration() && reachable.insert(cal).second)
+                            work.push(cal);
+    }
+
+    std::unordered_map<std::string, bool> seen;
+    std::unordered_map<std::string, int> perApi;
+    size_t orphanSkipped = 0;
+    for (const llvm::Function& F : M->functions()) {
+        if (F.isDeclaration()) continue;
+        const bool creatorReachable = reachable.count(&F) > 0;
+        for (const llvm::BasicBlock& BB : F) {
+            for (const llvm::Instruction& I : BB) {
+                const auto* CI = llvm::dyn_cast<llvm::CallBase>(&I);
+                if (!CI) continue;
+                const llvm::Function* callee = CI->getCalledFunction();
+                if (!callee || !callee->hasName()) continue;
+                llvm::StringRef cname = callee->getName();
+                for (const ApiSpec& spec : kThreadApis) {
+                    if (cname != spec.name) continue;
+                    for (unsigned i = 0; i < CI->arg_size() && i < 32; ++i) {
+                        if (((spec.argMask >> i) & 1u) == 0) continue;
+                        const llvm::Value* arg =
+                            CI->getArgOperand(i)->stripPointerCasts();
+                        const auto* CF = llvm::dyn_cast<llvm::Function>(arg);
+                        if (!CF || CF->isDeclaration() || !CF->hasName()) continue;
+                        std::string fn = CF->getName().str();
+                        if (!creatorReachable) { ++orphanSkipped; continue; }
+                        if (!seen.emplace(fn, true).second) continue;
+                        EntryPointInfo info;
+                        info.functionName = fn;
+                        if (auto* SP = CF->getSubprogram()) {
+                            info.fileName = SP->getFilename().str();
+                            info.lineNumber = SP->getLine();
+                        } else {
+                            info.fileName = "N/A";
+                            info.lineNumber = 0;
+                        }
+                        info.signalMask = SIG_INDIRECT_FORK;
+                        info.signalSummary = signalsToString(info.signalMask);
+                        info.threadRoot = true;
+                        roots.push_back(info);
+                        perApi[spec.name]++;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    std::cout << "getStandardThreadApiEntryInfos: " << roots.size()
+              << " reachable standard thread-API entry function(s) [mode="
+              << (asyncEntries ? "spawn+async" : "spawn-only")
+              << "], " << orphanSkipped
+              << " orphan site(s) skipped (unreachable from configured roots)";
+    if (!perApi.empty()) {
+        std::cout << " [";
+        bool first = true;
+        for (const auto& kv : perApi) {
+            if (!first) std::cout << ", ";
+            std::cout << kv.first << "=" << kv.second;
+            first = false;
+        }
+        std::cout << "]";
+    }
+    std::cout << std::endl;
     return roots;
 }
 

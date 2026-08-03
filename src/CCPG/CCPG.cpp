@@ -268,7 +268,14 @@ void CCPG::build(){
     // roots. See include/CCPG/ManualEntryConfig.h for the rationale/guardrail.
     const bool manualEntries = manualentry::enabled();
 
-    CCPGNode* main = getMain();
+    // In manual-entry mode the analyst-provided roots are authoritative. Do NOT
+    // call getMain() here: it eagerly createCCPGNode()s the main-heuristic
+    // candidate, which then shadows a configured root of the same function as
+    // "Already exists" in the parallel-entry loop below and silently drops it
+    // (e.g. cros_ec_uart_probe is picked as main, so only cros_ec_uart_rx_bytes
+    // survives -> 1 thread -> 0 shared objects). main is only consumed under
+    // !manualEntries anyway.
+    CCPGNode* main = manualEntries ? nullptr : getMain();
     if(main != nullptr && !manualEntries){
         ccpg::Function * f = createFunction(main);
         entryFunctions.insert(f);
@@ -282,16 +289,49 @@ void CCPG::build(){
     if (pointerAnalyzer) {
         std::vector<EntryPointInfo> allEntries;
         if (manualEntries) {
+            std::set<std::string> configuredCores;
             for (const std::string& r : manualentry::get().roots) {
                 EntryPointInfo e;
                 e.functionName = r;
                 e.signalSummary = "manual";
                 e.threadRoot = true;
                 allEntries.push_back(e);
+                configuredCores.insert(manualentry::normalizeCore(r));
             }
-            std::cout << "[Manual Entry Mode] automatic entry-point discovery "
-                         "DISABLED; using "
-                      << allEntries.size() << " configured thread root(s):";
+            const size_t configuredCount = allEntries.size();
+
+            // Entry discovery = STANDARD CONCURRENCY-API entries UNION the
+            // analyst-configured roots. The standard-API half recognizes every
+            // function handed to a thread/async-creation primitive (pthread_
+            // create, kthread_run/kthread_create*, request_[threaded_]irq,
+            // tasklet/timer/work/rcu callbacks, …) — these are concurrent by
+            // the API contract itself, so the tool is NOT "configured-only".
+            // The configured roots remain necessary only for *ambient* kernel
+            // contexts that have no in-module creation site (syscall/ioctl/
+            // sysfs show-store/softirq entry — invoked by the core kernel
+            // outside the analyzed TU). On this dataset the standard-API
+            // entries are (almost) all already reachable as child threads of a
+            // configured root, so ThreadCreationTree dedups them to zero new
+            // threads (see its entry-function dedup); we still union them as
+            // first-class roots so the mechanism generalizes beyond the config.
+            std::vector<EntryPointInfo> apiEntries =
+                pointerAnalyzer->getStandardThreadApiEntryInfos(
+                    manualentry::get().roots);
+            size_t apiNew = 0;
+            for (auto& e : apiEntries) {
+                if (configuredCores.count(manualentry::normalizeCore(e.functionName)))
+                    continue;  // same context as a configured root already added
+                allEntries.push_back(e);
+                ++apiNew;
+            }
+
+            std::cout << "[Manual Entry Mode] entry discovery = standard "
+                         "thread-creation APIs (pthread/kthread; +irq/tasklet/"
+                         "timer/work/rcu when LACE_STDAPI_ASYNC_ENTRIES=1) "
+                         "UNION "
+                      << configuredCount << " configured root(s); standard "
+                         "thread-API added "
+                      << apiNew << " new candidate root(s):";
             for (const auto& e : allEntries) std::cout << " " << e.functionName;
             std::cout << std::endl;
         } else {
@@ -396,6 +436,20 @@ void CCPG::build(){
                     }
                 }
                 if (methodNode == nullptr) {
+                    // Demangle-variant CPG lookup: the same recovery the ops-table
+                    // discovery (P8a) uses -- try C++/kernel demangled spellings of
+                    // the symbol before falling back to IR anchoring, so a root that
+                    // exists in the CPG under a variant name keeps a real CPG node.
+                    for (const std::string& v : CPG::demangleVariants(entryInfo.functionName)) {
+                        methodNode = cpg->findMethod(v);
+                        if (methodNode) {
+                            std::cout << "  - Demangle-variant CPG match: "
+                                      << entryInfo.functionName << " -> " << v << std::endl;
+                            break;
+                        }
+                    }
+                }
+                if (methodNode == nullptr) {
                     const llvm::Module* M = pointerAnalyzer->getModule();
                     const llvm::Function* llvmFn =
                         M ? M->getFunction(entryInfo.functionName) : nullptr;
@@ -419,6 +473,44 @@ void CCPG::build(){
                     const llvm::Module* Mfb = pointerAnalyzer->getModule();
                     const llvm::Function* llvmFnFb =
                         Mfb ? Mfb->getFunction(entryInfo.functionName) : nullptr;
+                    // Fuzzy symbol fallback: an exact getFunction() misses static
+                    // functions the compiler decorated (foo.part.0 / foo.isra.0 /
+                    // foo.constprop.0 / foo.cold / foo.llvm.<hash>) and internal
+                    // implementations reached only via a demangled/core name. Without
+                    // this a configured root that IS present in the module under a
+                    // decorated symbol is silently dropped (its whole thread role is
+                    // lost). Prefer an exact defined match, then a "<name>.<suffix>"
+                    // clone, then a normalized-core match; require a UNIQUE core match
+                    // so we never bind an unrelated same-core function.
+                    if (llvmFnFb == nullptr && Mfb != nullptr) {
+                        const std::string want = entryInfo.functionName;
+                        const std::string wantCore = manualentry::normalizeCore(want);
+                        const llvm::Function* exactDef = nullptr;
+                        const llvm::Function* suffixClone = nullptr;
+                        const llvm::Function* coreMatch = nullptr;
+                        int coreMatches = 0;
+                        for (const llvm::Function& F : Mfb->functions()) {
+                            if (F.isDeclaration() || !F.hasName()) continue;
+                            std::string fn = F.getName().str();
+                            if (fn == want) { exactDef = &F; break; }
+                            // compiler clone: "<want>." prefix (foo.part.0 etc.)
+                            if (!suffixClone && fn.size() > want.size() + 1 &&
+                                fn.compare(0, want.size(), want) == 0 &&
+                                fn[want.size()] == '.')
+                                suffixClone = &F;
+                            if (!wantCore.empty() &&
+                                manualentry::normalizeCore(fn) == wantCore) {
+                                ++coreMatches;
+                                coreMatch = &F;
+                            }
+                        }
+                        if (exactDef) llvmFnFb = exactDef;
+                        else if (suffixClone) llvmFnFb = suffixClone;
+                        else if (coreMatch && coreMatches == 1) llvmFnFb = coreMatch;
+                        if (llvmFnFb)
+                            std::cout << "  - Fuzzy LLVM symbol fallback: " << want
+                                      << " -> " << llvmFnFb->getName().str() << std::endl;
+                    }
                     ccpg::Function* irFn =
                         createIRAnchoredEntryFunction(llvmFnFb);
                     if (irFn != nullptr) {

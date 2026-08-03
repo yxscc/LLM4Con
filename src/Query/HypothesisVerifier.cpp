@@ -18,8 +18,19 @@
 #include <sstream>
 #include <iostream>
 #include <algorithm>
+#include <cstdlib>
 
 namespace query {
+
+// Cross-thread HB paths must go through a real synchronization edge, not just
+// shared PROGRAM_ORDER/CALL control flow. On by default; set
+// LACE_HB_REQUIRE_SYNC=0 to restore the legacy (over-ordering) behavior for
+// ablation.
+static bool hbRequireSyncEnabled() {
+    if (const char* e = std::getenv("LACE_HB_REQUIRE_SYNC"))
+        return !(e[0] == '0' && e[1] == '\0');
+    return true;
+}
 
 // ---- OpKind helpers (M7 Phase B) -------------------------------------------
 
@@ -971,8 +982,15 @@ bool HypothesisVerifier::eval_hb(int n1, int n2, bool expected,
     bool actual;
     std::string source;
     if (hb_) {
-        actual = hb_->hbReachable(a, b);
-        source = "HBGraph";
+        // For a "no happens-before" assertion (expected=false, the UAF /
+        // concurrency templates), require a genuine synchronization edge on
+        // the path: a pure PROGRAM_ORDER/CALL path across shared kernel
+        // helpers is NOT a cross-thread order and must not defeat the
+        // absence-of-hb claim. Ordering assertions (expected=true) keep the
+        // plain reachability semantics.
+        const bool requireSync = !expected && hbRequireSyncEnabled();
+        actual = hb_->hbReachable(a, b, 16, requireSync);
+        source = requireSync ? "HBGraph(sync-only)" : "HBGraph";
     } else {
         std::string r;
         actual = const_cast<HypothesisVerifier*>(this)
@@ -1100,9 +1118,15 @@ bool HypothesisVerifier::eval_concurrent(int n1, int n2, std::string& detail) {
     bool ab, ba;
     std::string source;
     if (hb_) {
-        ab = hb_->hbReachable(a, b);
-        ba = hb_->hbReachable(b, a);
-        source = "HBGraph";
+        // Concurrency refutation must use genuine cross-thread ordering only.
+        // Shared control-flow (PO/CALL through helpers both threads run) is
+        // not an ordering and previously refuted real cross-thread races
+        // whose accesses sit in common kernel helpers (e.g. snd_pcm buffer
+        // free vs. reconfigure).
+        const bool requireSync = hbRequireSyncEnabled();
+        ab = hb_->hbReachable(a, b, 16, requireSync);
+        ba = hb_->hbReachable(b, a, 16, requireSync);
+        source = requireSync ? "HBGraph(sync-only)" : "HBGraph";
     } else {
         std::string r1, r2;
         ab = const_cast<HypothesisVerifier*>(this)->eval_reachable(n1, n2, r1);

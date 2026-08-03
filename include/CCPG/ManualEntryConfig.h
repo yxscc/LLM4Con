@@ -92,7 +92,18 @@ inline std::string trim(const std::string& s) {
 }
 
 inline void splitInto(const std::string& raw, std::vector<std::string>& out) {
-    std::stringstream ss(raw);
+    // Split on BOTH ',' and '/'. Dataset entry configs sometimes group several
+    // interchangeable role-entry functions on one line as "a / b / c" (e.g. the
+    // set of sysfs show/store callbacks that all reach the same shared field).
+    // LACE_ENTRYPOINTS joins roots with ',', so without also splitting '/' the
+    // whole "a / b / c" string is treated as a single (unmatchable) function
+    // name and every entry after the first is silently dropped -- which erased
+    // the entire second concurrent thread role (e.g. the sysfs readers of
+    // trigger_data in CVE-2024-43830) and left only one thread. '/' cannot
+    // appear in a C identifier, so splitting on it is unambiguous.
+    std::string norm = raw;
+    for (char& ch : norm) if (ch == '/') ch = ',';
+    std::stringstream ss(norm);
     std::string tok;
     while (std::getline(ss, tok, ',')) {
         std::string t = trim(tok);

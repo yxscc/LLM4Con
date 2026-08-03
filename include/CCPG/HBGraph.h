@@ -20,7 +20,30 @@ public:
   // 一次性构建；调用顺序：CCPG::build() → LSAnalysis::build() → build(ccpg)
   void build(CCPG* ccpg);
 
-  bool hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth = 16) const;
+  // Which edge kinds count as cross-thread synchronization for a
+  // requireSyncEdge query.
+  //   AllMechanisms  -- every non-PROGRAM_ORDER/CALL_RETURN kind.
+  //   StructuralOnly -- only orderings derived from lockset analysis and the
+  //                     thread-creation tree (LOCK_RELEASE_ACQUIRE,
+  //                     FORK_TO_ENTRY, JOIN_FROM_EXIT). Protocol-level
+  //                     orderings seeded from API-name tables (RCU_SYNC,
+  //                     COMPLETION, LIFECYCLE_FLAG) are excluded: those
+  //                     mechanisms are recovered as Order/Wait guarantees and
+  //                     must reach the checker through the contract, not
+  //                     through a built-in API classification.
+  enum class SyncPolicy { AllMechanisms, StructuralOnly };
+
+  // When requireSyncEdge is true, a path from n1 to n2 only establishes
+  // happens-before if it traverses at least one edge that `policy` accepts as
+  // genuine cross-thread synchronization. A path made purely of PROGRAM_ORDER
+  // + CALL_RETURN edges is shared intra-procedural control flow through code
+  // that BOTH concurrent threads execute -- it does NOT order two accesses
+  // from different threads. Used by the concurrency / no-hb (UAF) predicates
+  // so shared kernel helpers no longer spuriously "order" a real cross-thread
+  // race out of existence.
+  bool hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth = 16,
+                   bool requireSyncEdge = false,
+                   SyncPolicy policy = SyncPolicy::AllMechanisms) const;
 
   void dumpDot(const std::filesystem::path& outDir) const;
 

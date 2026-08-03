@@ -124,6 +124,47 @@ public:
     // 跨 clause 的线程级有向序（如 "writes_before_publish"）
     std::vector<std::string> ordering;
 
+    // ===== L2 (paper-faithful) node-anchored contract content =====
+    // Gated by LACE_CONTRACT_L2. Unlike the free-text `assume`/`guarantee` above,
+    // these bind every operand to concrete CCPG node ids that the LLM selects, so
+    // the deterministic checker can build E_ord edges and evaluate requirement
+    // discharge as graph queries (paper Sections 3.4-3.5). The vocabulary matches
+    // the paper exactly. These are populated ONLY on the L2 path; the legacy path
+    // leaves them empty and is unaffected.
+
+    // Requirement: MustPrecede | MustBeAtomic | MustBeMediated.
+    //   MustPrecede(a,b):  a = source (use) nodes,   b = target (hazard) nodes.
+    //   MustBeAtomic(S):   a = ordered sequence S,   b = empty.
+    //   MustBeMediated(a,b): a and b = the two conflicting operand node groups.
+    struct NodeReq {
+        std::string form;            // "MustPrecede" | "MustBeAtomic" | "MustBeMediated"
+        std::vector<int> a;          // operand p_a node ids (or the sequence S)
+        std::vector<int> b;          // operand p_b node ids (empty for MustBeAtomic)
+        int objectId = -1;           // anchored surface object index (-1 if none)
+        std::string note;            // human-readable provenance / rationale
+    };
+
+    // Guarantee: Order | Exclude | AtomicOp | Wait (paper Table "Guarantee forms").
+    //   Order(a,b):     a -> b directed happens-before edge.
+    //   Wait(c,v_w):    a = enabler c, b = wait-return v_w  (edge c -> v_w).
+    //   Exclude(k,C,m): a = protected nodes C, token=k, mode=m.
+    //   AtomicOp(k,S):  a = sequence S, token=k.
+    struct NodeGuar {
+        std::string form;            // "Order" | "Exclude" | "AtomicOp" | "Wait"
+        std::vector<int> a;          // Order:p_a  Wait:enabler c  Exclude:C  AtomicOp:S
+        std::vector<int> b;          // Order:p_b  Wait:v_w        (unused otherwise)
+        std::string token;           // Exclude/AtomicOp synchronization token k
+        std::string mode;            // Exclude access mode (e.g. "exclusive"/"shared")
+        int objectId = -1;
+        std::string note;
+    };
+
+    std::vector<NodeReq> nodeReqs;
+    std::vector<NodeGuar> nodeGuars;
+    // Objects the thread reviewed and explicitly declared free of any obligation
+    // (auditable no-op, paper's DeclareNoObligation).
+    std::vector<int> noObligationObjs;
+
 public:
     // --- 构造与构建方法 ---
 
@@ -159,6 +200,14 @@ public:
     void addClause(const OrderClause& clause) { this->clauses.push_back(clause); }
     void addOrdering(const std::string& o) { this->ordering.push_back(o); }
     bool hasOrderContent() const { return !clauses.empty() || !ordering.empty(); }
+
+    // L2 node-anchored builders.
+    void addNodeReq(const NodeReq& r) { this->nodeReqs.push_back(r); }
+    void addNodeGuar(const NodeGuar& g) { this->nodeGuars.push_back(g); }
+    void addNoObligation(int oid) { if (oid >= 0) this->noObligationObjs.push_back(oid); }
+    bool hasL2Content() const {
+        return !nodeReqs.empty() || !nodeGuars.empty() || !noObligationObjs.empty();
+    }
 };
 
 } // namespace LLM
