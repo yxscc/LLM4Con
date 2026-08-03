@@ -56,14 +56,24 @@ Exact machine setup used in our experiments is documented in `setup_env.sh` (Byt
 ./build.sh debug    # → Debug-build/llm_detector
 ```
 
-## Running Lace (sketch)
+## Running Lace
+
+Lace talks to any OpenAI-compatible **Chat Completions** endpoint.
 
 ```bash
 export LLM_BASE_URL="https://<your-openai-compatible-endpoint>/v1/chat/completions"
 export LLM_API_KEY="..."
 export LLM_MODEL="gpt-5.5-2026-04-24"
+```
 
-# Example: analyze one prepared case directory that contains src/ + bitcode
+### Single case
+
+Run from a prepared case directory containing `src/` and the bitcode you generated:
+
+```bash
+LACE_STATIC_COMPOSE=1 \
+LACE_CONTRACT_L2=1 \
+LACE_ENTRYPOINTS="led_trigger_set,pattern_show / pattern_store" \
 ./Release-build/llm_detector \
   --input-bc merged.ll \
   --input-src src \
@@ -75,20 +85,43 @@ export LLM_MODEL="gpt-5.5-2026-04-24"
   --llm-model "$LLM_MODEL"
 ```
 
-Batch / manual-entry orchestration lives under `kernel_experiment/run_manual_entry.py` (expects a case directory layout compatible with the historical experiment tree). Point it at a working directory that includes bitcode you generated locally.
+`LACE_CONTRACT_L2=1` selects the checker described in the paper: contracts are anchored to concrete CCPG node ids and every candidate comes from an undischarged requirement rather than from a second free-form LLM pass.
 
-Useful environment flags (see source / experiment scripts):
+### Batch
 
-- `LACE_STATIC_COMPOSE=1` — thread-contract pipeline  
-- `LACE_ENTRYPOINTS=fn1,fn2` — restrict to configured thread roots  
-- `LACE_ENABLE_SELF_RACE=1` — model reentrant self-race objects  
+```bash
+python3 kernel_experiment/run_manual_entry.py            # all configured cases
+python3 kernel_experiment/run_manual_entry.py CVE-2024-43830
+python3 kernel_experiment/score_l2_run.py                # recall / precision over the newest dump per case
+```
 
-## Pipeline (paper)
+The runner reads each case's thread roots from `dataset_entrypoints.json` (derived from `flow_annotation.json`) and enables the paper checker by default. It expects a case directory layout compatible with the experiment tree, including locally generated bitcode.
 
-1. **Static surface** — CCPG + shared-object / conflict candidates  
-2. **Phase A** — LLM emits per-thread concurrency contracts  
-3. **Phase B** — deterministic requirement discharge (locks / hard order)  
-4. **Phase C** — LLM calibration / filtering of remaining candidates  
+### Environment flags
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `LACE_STATIC_COMPOSE=1` | off | Thread-contract pipeline |
+| `LACE_CONTRACT_L2=1` | off (on in the batch runner) | Paper checker: node-anchored contracts, requirement-driven discharge, evidence-bounded calibration |
+| `LACE_ENTRYPOINTS=fn1,fn2` | unset | Restrict to configured thread roots, disabling automatic entry discovery. Both `,` and `/` separate names, so interchangeable role entries can be grouped as `"a / b / c"` |
+| `LACE_SELF_RACE=1` | off | Model reentrant entries as racing against themselves |
+| `LACE_L2_SYNC_ALL=1` | off | Ablation: let protocol-level HB edges (RCU, completion, lifecycle flags) discharge requirements instead of requiring an LLM guarantee |
+| `LACE_HB_REQUIRE_SYNC=0` | on | Ablation: accept plain control flow as cross-thread ordering |
+| `LACE_DUMP_ROOT=<dir>` | `LLM_dump/` | Redirect dumps so ablation configurations do not clobber each other |
+
+## Pipeline
+
+1. **Static surface** — build the CCPG (control flow, calls, data flow, thread contexts, locksets) and derive the shared objects with potentially conflicting cross-thread accesses. Thread entries come from the standard concurrency-creation APIs (`pthread_create`, `kthread_run`, `request_irq`, tasklet/timer/work/RCU callbacks) unioned with any configured roots.
+
+2. **Phase A — contract generation.** For each thread, the LLM reads a bounded object-centered slice and emits a ThreadContract over a closed vocabulary, with every operand naming concrete CCPG node ids:
+   - *Requirements* — `MustPrecede`, `MustBeAtomic`, `MustBeMediated`
+   - *Guarantees* — `Order`, `Exclude`, `AtomicOp`, `Wait`
+
+3. **Phase B — deterministic discharge.** Contracts are composed across threads without further LLM involvement. `Order`/`Wait` extend the ordering evidence graph `E_ord`; `Exclude`/`AtomicOp` extend the protection map `P`. Each requirement is then discharged against that evidence — `MustPrecede` needs a must-order witness (source-side closure, cross-thread synchronization, target-side prefix), not mere reachability. Requirements that cannot be discharged become violation candidates.
+
+   Only structural synchronization (lock release–acquire, fork, join) counts as an ordering edge here. Protocol-level mechanisms such as RCU grace periods and completions must be recovered by the LLM as `Order`/`Wait` guarantees rather than inferred from an API name table.
+
+4. **Phase C — calibration.** Candidates are batched back to the LLM with their slices and checker evidence. The calibrator may only retain or reject; it keeps a candidate unless some guarantee supported by concrete evidence in the supplied context discharges the requirement. Retained candidates are emitted as reports.
 
 ## What is not in this artifact
 

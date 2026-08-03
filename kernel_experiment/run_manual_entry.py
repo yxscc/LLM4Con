@@ -93,6 +93,9 @@ def run_case(case_id: str, table: dict, contract_par: str) -> str:
     env = os.environ.copy()
     env.update({
         "LACE_STATIC_COMPOSE": "1",
+        # Paper-faithful checker: node-anchored contracts + requirement-driven
+        # discharge. Set LACE_CONTRACT_L2=0 to fall back to the legacy path.
+        "LACE_CONTRACT_L2": os.environ.get("LACE_CONTRACT_L2", "1"),
         "LACE_CONTRACT_PARALLELISM": contract_par,
         "LACE_ENABLE_FLOW_PRIOR": "0",
         "LACE_ENTRYPOINTS": ",".join(roots),
