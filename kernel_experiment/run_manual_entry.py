@@ -139,10 +139,18 @@ def main():
     from concurrent.futures import ThreadPoolExecutor, as_completed
     table = json.loads(TABLE.read_text())
     args = sys.argv[1:]
-    if args and args[0].upper() == "ALL":
+    if not args:
+        print(f"usage: {os.path.basename(sys.argv[0])} ALL | SMOKE | <case-id> ...\n"
+              f"  ALL    every case in {TABLE.name} ({len(table)} cases)\n"
+              f"  SMOKE  the {len(DEFAULT_CASES)}-case sanity subset",
+              file=sys.stderr)
+        return 1
+    if args[0].upper() == "ALL":
         cases = sorted(table.keys())
+    elif args[0].upper() == "SMOKE":
+        cases = DEFAULT_CASES
     else:
-        cases = args or DEFAULT_CASES
+        cases = args
     contract_par = os.environ.get("LACE_CONTRACT_PARALLELISM", "2")
     case_par = int(os.environ.get("CASE_PARALLELISM", "1"))
 
@@ -170,4 +178,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)

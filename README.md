@@ -90,10 +90,12 @@ LACE_ENTRYPOINTS="led_trigger_set,pattern_show / pattern_store" \
 ### Batch
 
 ```bash
-python3 kernel_experiment/run_manual_entry.py            # all configured cases
-python3 kernel_experiment/run_manual_entry.py CVE-2024-43830
-python3 kernel_experiment/score_l2_run.py                # recall / precision over the newest dump per case
+python3 kernel_experiment/run_manual_entry.py ALL             # every case in the entry table
+python3 kernel_experiment/run_manual_entry.py CVE-2024-43830  # one or more named cases
+python3 kernel_experiment/score_l2_run.py                     # recall / precision over the newest dump per case
 ```
+
+`CASE_PARALLELISM` (default 1) controls how many cases run at once and `LACE_CONTRACT_PARALLELISM` (default 2) how many per-thread contracts are generated concurrently within a case.
 
 The runner reads each case's thread roots from `dataset_entrypoints.json` (derived from `flow_annotation.json`) and enables the paper checker by default. It expects a case directory layout compatible with the experiment tree, including locally generated bitcode.
 
