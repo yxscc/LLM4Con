@@ -10,14 +10,20 @@
 # Everything is model-controlled on GPT-5.5 via the gateway (same as B1/B2/B3).
 set -o pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LLM4CON_HOME="${LLM4CON_HOME:-/mlx_devbox/users/mayunlong.39/playground/LLM4Con}"
+LLM4CON_HOME="${LLM4CON_HOME:-$(cd "$HERE/../../.." && pwd)}"
 # shellcheck disable=SC1091
 source "$LLM4CON_HOME/setup_env.sh" >/dev/null 2>&1
 
-# Proxy needs an explicit scheme for codex/semgrep's HTTP clients.
-PROXY="http://sys-proxy-rd-relay.byted.org:8118"
-export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
-export NO_PROXY="127.0.0.1,localhost,.byted.org,byted.org,.bytedance.net,bytedance.net"
+# codex/semgrep's HTTP clients require an explicit scheme, which site proxy
+# settings often omit. Normalize whatever setup_env.sh exported.
+if [ -n "${http_proxy:-}" ]; then
+    case "$http_proxy" in
+        *://*) PROXY="$http_proxy" ;;
+        *)     PROXY="http://$http_proxy" ;;
+    esac
+    export HTTP_PROXY="$PROXY" HTTPS_PROXY="$PROXY" http_proxy="$PROXY" https_proxy="$PROXY"
+fi
+export NO_PROXY="${NO_PROXY:-127.0.0.1,localhost}"
 export no_proxy="$NO_PROXY"
 export CODEX_HOME="$HERE/codex_home"
 export GW_KEY="${GW_KEY:-dummy}"

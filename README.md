@@ -11,7 +11,7 @@ This repository is the **paper artifact**: source code, the 72-case dataset (sou
 | `src/`, `include/` | Lace implementation |
 | `dataset/` | 72-case kernel concurrency dataset (sources + ground truth; **no** bitcode) |
 | `results/lace_full72_20260709/` | **Paper main result** (frozen) |
-| `kernel_experiment/` | Experiment runners / baseline harnesses (optional for reproduction) |
+| `kernel_experiment/` | Experiment runners, scoring scripts, and baseline harnesses |
 | `scripts/`, `build.sh`, `CMakeLists.txt` | Build & utility scripts |
 
 ## Paper main result
@@ -34,19 +34,19 @@ See [`dataset/README.md`](./dataset/README.md). Each case provides:
 - `flow_annotation.json` — true interleaving (evaluation)  
 - `src/` — vulnerable source slice  
 
-LLVM bitcode is **not** shipped. To re-run Lace you must produce `.ll`/`.bc` for the slice (same files historically used under `kernel_experiment/<CASE>/`).
+LLVM bitcode is **not** shipped. To re-run Lace, compile each slice into a single `.ll`/`.bc` and place it in the case directory.
 
 Thread entry functions used in the paper’s manual-entry setting are recorded in `flow_annotation.json` (`true_interleaving.thread_a/b.entry.function`).
 
 ## Build
 
-### Dependencies (high level)
+### Dependencies
 
-- CMake, Clang/LLVM **16** (tool build), Clang **15** often used for kernel bitcode  
-- Joern (`joern-parse` / `joern-export` on `PATH`)  
-- Phasar (pointer analysis), Boost, libcurl, OpenSSL, Z3, Graphviz  
+- CMake and Clang/LLVM **16** to build the tool; the kernel bitcode in our evaluation was produced with Clang **15**
+- Joern, with `joern-parse` and `joern-export` on `PATH`
+- Phasar (pointer analysis), Boost, libcurl, OpenSSL, Z3, Graphviz
 
-Exact machine setup used in our experiments is documented in `setup_env.sh` (ByteDance internal paths — adapt locally). **Do not commit API keys.**
+`setup_env.example.sh` lists the environment variables the tool reads. Copy it and fill in the paths and LLM endpoint for your machine.
 
 ### Compile
 
@@ -123,16 +123,10 @@ The runner reads each case's thread roots from `dataset_entrypoints.json` (deriv
 
 4. **Phase C — calibration.** Candidates are batched back to the LLM with their slices and checker evidence. The calibrator may only retain or reject; it keeps a candidate unless some guarantee supported by concrete evidence in the supplied context discharges the requirement. Retained candidates are emitted as reports.
 
-## What is not in this artifact
-
-- LLVM bitcode (`.ll`) and live `LLM_dump/` traces  
-- Obsolete trees (`LinConVul/`, `experimental_result/`, …)  
-- Later exploratory full runs that are **not** the paper main table  
-
 ## Citation
 
-If you use Lace or this dataset, please cite the paper (TODO: add final bibtex upon publication).
+If you use Lace or this dataset, please cite the accompanying paper. BibTeX will be added once it appears.
 
 ## License
 
-See repository license files where present; third-party kernel sources retain their original licenses.
+The kernel sources under `dataset/` are derived from Linux and retain their original licenses. See the license files in this repository for the Lace implementation.

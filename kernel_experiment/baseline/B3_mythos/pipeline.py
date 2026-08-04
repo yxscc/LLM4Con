@@ -3,7 +3,7 @@
 
 Faithful reproduction of the Mythos Research Edition v4 pipeline
 (Keyvanhardani/mythos-research, Apache-2.0) for the CVE setting,
-adapted to the ByteDance gateway / GPT-5.5 / Lace evaluation harness.
+adapted to the GPT-5.5 endpoint / Lace evaluation harness.
 
 Pipeline phases (per CVE)
 -------------------------
@@ -70,10 +70,7 @@ SINK_CATALOG = HERE / "sinks" / "c-cpp.txt"
 DEFAULT_DUMP_BASE = os.environ.get(
     "BASELINE_DUMP_BASE",
     os.path.join(
-        os.environ.get(
-            "LLM4CON_HOME",
-            "/mlx_devbox/users/mayunlong.39/playground/LLM4Con",
-        ),
+        os.environ.get("LLM4CON_HOME", str(HERE.parents[2])),
         "kernel_experiment", "baseline_dump",
     ),
 )

@@ -74,7 +74,7 @@ Review is designed to flag.
 * Adaptation only at the runtime layer: the bash-`!`-substitutions
   the upstream prompt invokes (`git status`, `git diff --merge-base
   origin/HEAD`, ...) are filled in with synthetic outputs since
-  Claude Code CLI's bash expansion is unavailable on the ByteDance
+  Claude Code CLI's bash expansion is unavailable on our
   endpoint.
 * Entry point: [`B2_ccsr/run.py`](B2_ccsr/run.py)
 * Cost per CVE: ~$0.05–0.10 (one call, system prompt is ~14 K chars
@@ -126,7 +126,7 @@ do bias the result *toward* Mythos:
 | Variable | Lace | B1 | B2 | B3 |
 | --- | --- | --- | --- | --- |
 | Model | gpt-5.5-2026-04-24 | same | same | same |
-| Endpoint | ByteDance internal gateway | same | same | same |
+| Endpoint | shared OpenAI-compatible gateway | same | same | same |
 | CVE set | 50 prepared kernel CVEs | same | same | same |
 | Judge | `scripts/evaluate_recall.py` (root-cause-vs-patch LLM judge) | same | same | same |
 | **Pipeline** | **CPG + Phasar + HBGraph + Verifier** | none | PR-diff prompt | Mythos 5-phase scaffold |
@@ -240,14 +240,14 @@ message to compensate. For CVE files smaller than the kernel norm
 (< 5 K LoC) this should approximate the agentic case well; for
 heavier files the single-shot reading may miss cross-function
 context that an agentic hunter would chase. Future work: implement
-real tool-loop dispatching against the ByteDance gateway (the
+real tool-loop dispatching against the gateway (the
 gateway is OpenAI-protocol, so OpenAI-style function calling will
 work).
 
 ### 6.4 Model-controlled vs. product-controlled comparison
 We chose **model-controlled** (everyone uses GPT-5.5) over
 **product-controlled** (each baseline uses its native model).
-Rationale: the ByteDance internal gateway AK does not authorise
+Rationale: the gateway credentials available to us do not authorise
 `claude-*` models, and renting Anthropic-direct credit for 50 × N
 calls is operationally heavy. Model-controlled is the more
 scientifically meaningful split anyway — it isolates the
@@ -269,7 +269,7 @@ baseline/
 ├── README.md                 # this file
 ├── compare.py                # produces RESULTS.md from N evaluation_report.json
 ├── common/
-│   ├── llm_client.py         # ByteDance OpenAI-compatible HTTP client
+│   ├── llm_client.py         # OpenAI-compatible HTTP client
 │   ├── cve_loader.py         # ground_truth.json + src/ + patch readers
 │   └── dump_writer.py        # bugs.txt / confirmed_hypotheses.log writer
 ├── B1_zeroshot/

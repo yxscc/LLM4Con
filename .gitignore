@@ -61,3 +61,7 @@ kernel_experiment/baseline/B4_codex_skill/codex_home/
 kernel_experiment/baseline_dump/
 kernel_experiment/cve_survey.csv
 kernel_experiment/batch_*.log
+
+# Site-local environment (paths, proxy, LLM endpoint). Start from
+# setup_env.example.sh; never commit the filled-in copy.
+setup_env.sh

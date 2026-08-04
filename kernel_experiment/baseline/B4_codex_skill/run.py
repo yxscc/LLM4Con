@@ -47,8 +47,7 @@ from common import cve_loader  # noqa: E402
 from common.llm_client import parse_json_block  # noqa: E402
 from common.dump_writer import Finding, write_dump  # noqa: E402
 
-LLM4CON_HOME = os.environ.get(
-    "LLM4CON_HOME", "/mlx_devbox/users/mayunlong.39/playground/LLM4Con")
+LLM4CON_HOME = os.environ.get("LLM4CON_HOME", str(HERE.parents[2]))
 PLAYGROUND = os.path.dirname(LLM4CON_HOME)
 EXTERNAL_BIN = os.path.join(PLAYGROUND, "external", "bin")
 CODEX_BIN = os.environ.get("CODEX_BIN", os.path.join(EXTERNAL_BIN, "codex"))

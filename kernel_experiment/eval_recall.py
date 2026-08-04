@@ -85,7 +85,9 @@ def parse_bugs(case):
             for line in nodes.group(1).splitlines():
                 # code after the "): "
                 code = line.split("):", 1)[1] if "):" in line else line
-                code = code.split("[mlx_devbox")[0]
+                # Drop the trailing "[<path>:<line>]" location marker; keeping
+                # it would feed path components into the token match.
+                code = re.split(r"\s*\[[^\]]*:\d+\]", code)[0]
                 for t in re.findall(r"[A-Za-z_]\w{2,}", code):
                     tl = t.lower()
                     if tl not in STOP:

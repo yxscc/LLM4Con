@@ -16,8 +16,10 @@ that is the honest result for a driver-entry-model tool on heterogeneous code.
 """
 import argparse, datetime, glob, json, os, re, shutil, subprocess, sys, time
 
-PLAY     = "/mlx_devbox/users/mayunlong.39/playground"
-LLM4CON  = f"{PLAY}/LLM4Con"
+LLM4CON  = os.environ.get(
+    "LLM4CON_HOME",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+PLAY     = os.path.dirname(LLM4CON)
 EXPBASE  = f"{LLM4CON}/kernel_experiment"
 UAFX     = f"{PLAY}/external/baselines/uafx"
 LLVM14   = f"{PLAY}/external/llvm14/bin"

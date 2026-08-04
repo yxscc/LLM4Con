@@ -23,7 +23,7 @@ from typing import Dict, List, Optional
 
 _LLM4CON_HOME = os.environ.get(
     "LLM4CON_HOME",
-    "/mlx_devbox/users/mayunlong.39/playground/LLM4Con",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")),
 )
 EXPERIMENT_BASE = os.environ.get(
     "EXPERIMENT_BASE", os.path.join(_LLM4CON_HOME, "kernel_experiment")

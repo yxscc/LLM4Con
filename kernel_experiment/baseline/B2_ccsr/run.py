@@ -3,7 +3,7 @@
 
 Replays Anthropic's publicly released ``/security-review`` prompt
 (``anthropics/claude-code-security-review`` → ``.claude/commands/
-security-review.md``) verbatim against GPT-5.5 over the ByteDance
+security-review.md``) verbatim against GPT-5.5 over the same LLM
 gateway. The prompt is designed for PR-diff inputs; we adapt the
 CVE setting to it by **reversing the fix patch** so the synthetic
 diff represents "the commit that introduced the vulnerability".
@@ -34,7 +34,7 @@ Disclaimers
 This is NOT "Claude Code Security Review the product" — that product
 ships with Claude Sonnet as the backbone model and a Claude Code CLI
 runtime with file-system tooling. We hold the model+endpoint constant
-with Lace (GPT-5.5 over the same ByteDance gateway) so the comparison
+with Lace (GPT-5.5 over the same gateway) so the comparison
 controls for *capability*, not *product surface*. The baseline label
 in the final report is therefore:
   "Claude Code Security Review prompt (Anthropic OSS, commit-pinned),
@@ -64,10 +64,7 @@ UPSTREAM_PROMPT = HERE / "upstream" / "security-review.md"
 DEFAULT_DUMP_BASE = os.environ.get(
     "BASELINE_DUMP_BASE",
     os.path.join(
-        os.environ.get(
-            "LLM4CON_HOME",
-            "/mlx_devbox/users/mayunlong.39/playground/LLM4Con",
-        ),
+        os.environ.get("LLM4CON_HOME", str(HERE.parents[2])),
         "kernel_experiment", "baseline_dump",
     ),
 )

@@ -15,8 +15,10 @@ locking analysis is reduced; this is noted in the writeup.
 """
 import argparse, datetime, glob, json, os, re, subprocess, sys, time
 
-PLAY    = "/mlx_devbox/users/mayunlong.39/playground"
-LLM4CON = f"{PLAY}/LLM4Con"
+LLM4CON = os.environ.get(
+    "LLM4CON_HOME",
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
+PLAY    = os.path.dirname(LLM4CON)
 EXPBASE = f"{LLM4CON}/kernel_experiment"
 SMATCH  = f"{PLAY}/external/baselines/smatch/smatch"
 KERNEL  = os.environ.get("LINUX_REPO", f"{PLAY}/linux.git")

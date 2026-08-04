@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""OpenAI Responses  <->  Chat-Completions  <->  ByteDance gateway shim.
+"""OpenAI Responses  <->  Chat-Completions  gateway shim.
 
 Codex CLI (>=0.137) speaks ONLY the OpenAI *Responses* API and always
-streams. Our internal gateway is a single fixed endpoint that speaks
-*Chat Completions* (non-streaming):
-
-    https://search.bytedance.net/gpt/openapi/online/v2/crawl?ak=<AK>
+streams. Our gateway is a single fixed endpoint that speaks *Chat
+Completions* (non-streaming), configured through GW_URL / LLM_BASE_URL.
 
 This shim lets Codex run on that gateway (so the B4 baseline shares the
 exact GPT-5.5 backbone as B1/B2/B3). It:

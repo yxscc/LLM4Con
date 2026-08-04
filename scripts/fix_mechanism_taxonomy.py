@@ -21,7 +21,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-BASE = Path("/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment")
+BASE = Path(__file__).resolve().parents[1] / "kernel_experiment"
 
 # --- Guarantee-mechanism detectors (matched on ADDED patch lines) ---
 MECH = {

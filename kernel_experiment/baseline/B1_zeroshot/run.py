@@ -45,10 +45,7 @@ PROMPT_FILE = HERE / "prompt.md"
 DEFAULT_DUMP_BASE = os.environ.get(
     "BASELINE_DUMP_BASE",
     os.path.join(
-        os.environ.get(
-            "LLM4CON_HOME",
-            "/mlx_devbox/users/mayunlong.39/playground/LLM4Con",
-        ),
+        os.environ.get("LLM4CON_HOME", str(HERE.parents[2])),
         "kernel_experiment", "baseline_dump",
     ),
 )

@@ -14,7 +14,9 @@
 set -o pipefail
 
 CVE="$1"; FIX="$2"; shift 2; FILES=("$@")
-PLAY=/mlx_devbox/users/mayunlong.39/playground
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LLM4CON_HOME="${LLM4CON_HOME:-$(cd "$HERE/../../.." && pwd)}"
+PLAY="$(dirname "$LLM4CON_HOME")"
 SMATCH_DIR="$PLAY/external/baselines/smatch"
 KERNEL="${LINUX_REPO:-$PLAY/linux.git}"
 OUT="$PLAY/LLM4Con/kernel_experiment/baseline_dump/B6_smatch_xfn/$CVE"

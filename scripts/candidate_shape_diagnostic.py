@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_ROOT = Path("/mlx_devbox/users/mayunlong.39/playground/LLM4Con")
+DEFAULT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RUN = DEFAULT_ROOT / "kernel_experiment/full_staticcompose_p4x4_20260610_010518"
 DEFAULT_EXCLUSIONS = DEFAULT_ROOT / "kernel_experiment/dataset_benign_exclusions.json"
 DEFAULT_DUMP_BASE = DEFAULT_ROOT / "LLM_dump"

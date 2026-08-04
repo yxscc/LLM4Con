@@ -1,12 +1,11 @@
-"""Thin OpenAI-compatible HTTP client targeting the ByteDance internal
-GPT gateway (search.bytedance.net).
+"""Thin OpenAI-compatible HTTP client for the shared GPT gateway.
 
 Design notes
 ------------
-* The endpoint used by Lace (`scripts/batch_detect.sh`) is
-  `https://search.bytedance.net/gpt/openapi/online/v2/crawl?ak=$AK`
-  and the same URL is reused here. The gateway accepts both AK in the
-  query string AND a Bearer header; we send both to match Lace.
+* The endpoint is taken from `LLM_BASE_URL`, so the baselines hit the
+  same gateway as Lace (`scripts/batch_detect.sh`). Some gateways
+  authenticate with a key in the query string, others with a Bearer
+  header; we send both to match Lace.
 * `gpt-5.x` reasoning models reject `temperature` != 1, so the field
   is omitted for them (same logic as scripts/evaluate_recall.py:286).
 * Retries are explicit (no SDK) so the request shape is auditable and
@@ -24,11 +23,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 
-_DEFAULT_BASE_URL = os.environ.get(
-    "LLM_BASE_URL",
-    "https://search.bytedance.net/gpt/openapi/online/v2/crawl"
-    "?ak=${LLM_API_KEY}",
-)
+_DEFAULT_BASE_URL = os.environ.get("LLM_BASE_URL", "")
 
 
 def _resolve_endpoint(base_url: str) -> str:

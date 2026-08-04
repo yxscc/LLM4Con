@@ -7,7 +7,7 @@ matches the Mythos v4 sink-slice phase
 (`scripts/mythos-v4.sh` + `scripts/lib/sinks/c-cpp.txt`).
 
 Implementation note: upstream uses ripgrep through `ripgrep --json`,
-which is not installed on the ByteDance dev machine. We use Python's
+which is not installed on our evaluation machine. We use Python's
 `re` module instead, which is fast enough for typical CVE src trees
 (≤ 50 files, ≤ 5k LoC) and removes an external runtime dependency.
 """

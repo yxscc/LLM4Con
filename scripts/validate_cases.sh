@@ -5,7 +5,7 @@
 #
 # Usage: bash scripts/validate_cases.sh <stamp> CVE-... CVE-... ...
 set -o pipefail
-ROOT="/mlx_devbox/users/mayunlong.39/playground/LLM4Con"
+ROOT="${LLM4CON_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$ROOT/setup_env.sh" >/dev/null 2>&1
 export LLM4CON_HOME="$ROOT"
 export EXPERIMENT_BASE="$ROOT/kernel_experiment"
