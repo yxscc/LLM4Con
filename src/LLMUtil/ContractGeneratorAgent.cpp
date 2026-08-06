@@ -172,10 +172,16 @@ thread's operations on shared objects:
            the a_nodes run under mutual exclusion named by `token` (e.g. a lock
            pointer) in `mode` (exclusive/shared); regions under the same token in
            incompatible modes cannot overlap.
+           TOKEN SPELLING: write the token as the lock object's source expression
+           with no leading `&` and no prose, e.g. `krcp->lock`, not `&krcp->lock`
+           and not "the per-CPU krcp lock". Tokens are matched by identity across
+           threads, so a lock other threads also take must be spelled identically
+           or the checker will not see that you share it.
 
        * AtomicOp(a_nodes, token)
            the a_nodes are a single atomic access to `token` (hardware atomics,
-           cmpxchg, atomic_* helpers).
+           cmpxchg, atomic_* helpers). Spell `token` as the source expression of
+           the accessed variable, following the same rule as Exclude.
 
        * Wait(a_nodes, b_nodes)
            execution cannot reach b_nodes (the continuation after a blocking call)

@@ -1009,6 +1009,30 @@ namespace l2 {
 using NodeReq = LLM::ConcurrencyContract::NodeReq;
 using NodeGuar = LLM::ConcurrencyContract::NodeGuar;
 
+// Each thread's contract is generated independently, so the same lock is spelled
+// differently across threads ("&krcp->lock" vs "krcp->lock" vs "krcp->lock (per-CPU)").
+// Exclusion tokens are matched by identity, so unnormalized spellings put the two
+// sides of a conflicting pair in disjoint buckets and no pair is ever mediated.
+std::string normToken(const std::string& raw) {
+    std::string s = raw;
+    size_t par = s.find(" (");
+    if (par != std::string::npos) s.resize(par);
+    size_t b = s.find_first_not_of(" \t\n\r");
+    if (b == std::string::npos) return "";
+    size_t e = s.find_last_not_of(" \t\n\r");
+    s = s.substr(b, e - b + 1);
+    size_t lead = 0;
+    while (lead < s.size() && (s[lead] == '&' || s[lead] == '*')) ++lead;
+    s.erase(0, lead);
+    std::string out;
+    for (char ch : s) {
+        unsigned char u = static_cast<unsigned char>(ch);
+        if (std::isspace(u)) continue;
+        out.push_back(static_cast<char>(std::tolower(u)));
+    }
+    return out;
+}
+
 // Ordering evidence composed across all contracts in a thread-set.
 struct OrderingEvidence {
     CCPG* ccpg = nullptr;
@@ -1086,6 +1110,25 @@ struct OrderingEvidence {
         }
         return false;
     }
+    // What the checker credited for one node, so the calibrator can tell a pair
+    // that shares no protection from one whose protection it simply cannot see.
+    std::string coverageOf(int n) const {
+        std::vector<std::string> parts;
+        auto scan = [&](const std::map<std::string, std::vector<int>>& m,
+                        const char* kind) {
+            for (const auto& [tok, nodes] : m)
+                if (std::find(nodes.begin(), nodes.end(), n) != nodes.end())
+                    parts.push_back(std::string(kind) + tok);
+        };
+        scan(exclExclusive, "exclusive:");
+        scan(exclShared, "shared:");
+        scan(atomicTok, "atomic:");
+        if (parts.empty()) return "none declared by any contract";
+        std::string s;
+        for (size_t i = 0; i < parts.size(); ++i) { if (i) s += ", "; s += parts[i]; }
+        return s;
+    }
+
     // Both nodes are atomic accesses to the same token -> compatible atomic protocol.
     bool atomicCompatible(int a, int b) const {
         for (const auto& [tok, nodes] : atomicTok) {
@@ -1114,10 +1157,14 @@ OrderingEvidence buildEvidence(const std::set<int>& threadSet,
                         if (ev.nodeOk(a) && ev.nodeOk(b)) ev.guarEdges.push_back({a, b});
             } else if (g.form == "Exclude") {
                 bool shared = (g.mode == "shared");
-                auto& dst = shared ? ev.exclShared[g.token] : ev.exclExclusive[g.token];
+                const std::string tok = normToken(g.token);
+                if (tok.empty()) continue;
+                auto& dst = shared ? ev.exclShared[tok] : ev.exclExclusive[tok];
                 for (int a : g.a) if (ev.nodeOk(a)) dst.push_back(a);
             } else if (g.form == "AtomicOp") {
-                for (int a : g.a) if (ev.nodeOk(a)) ev.atomicTok[g.token].push_back(a);
+                const std::string tok = normToken(g.token);
+                if (tok.empty()) continue;
+                for (int a : g.a) if (ev.nodeOk(a)) ev.atomicTok[tok].push_back(a);
             }
         }
     }
@@ -1152,8 +1199,9 @@ bool sameLockCovers(const query::SharedObject* O, int a, int b) {
         if (acc.node_id == b) pb = &acc;
     }
     if (!pa || !pb) return false;
+    const std::string la = normToken(pa->protecting_lock);
     return pa->is_lock_protected && pb->is_lock_protected &&
-           !pa->protecting_lock.empty() && pa->protecting_lock == pb->protecting_lock;
+           !la.empty() && la == normToken(pb->protecting_lock);
 }
 
 // Evaluate every requirement in the thread-set's contracts; collect the
@@ -1163,9 +1211,10 @@ std::vector<L2Candidate> checkRequirements(
     const std::set<int>& threadSet,
     const std::map<int, LLM::ConcurrencyContract>& contractsByTid,
     const std::map<const query::SharedObject*, int>& objIndex,
-    CCPG* ccpg, HBGraph* hb) {
+    CCPG* ccpg, HBGraph* hb, OrderingEvidence* evOut = nullptr) {
 
     OrderingEvidence ev = buildEvidence(threadSet, contractsByTid, ccpg, hb);
+    if (evOut) *evOut = ev;
 
     // objectId -> SharedObject* for this session (so a requirement's objectId can
     // recover its surface accesses for lock/conflict facts).
@@ -1288,7 +1337,9 @@ public:
     Calibrator(std::shared_ptr<LLMClient> client, CCPG* ccpg)
         : Conversation(client, sysPrompt(), 40), ccpg_(ccpg) {}
 
-    std::vector<char> review(const std::vector<L2Candidate>& cands) {
+    std::vector<char> review(const std::vector<L2Candidate>& cands,
+                             const OrderingEvidence* ev = nullptr) {
+        ev_ = ev;
         keep_.assign(cands.size(), 1);   // fail-open default: keep
         n_ = static_cast<int>(cands.size());
         if (n_ == 0) return keep_;
@@ -1311,12 +1362,37 @@ Your ONLY job is to decide, for each candidate, whether it is a genuine,
 reportable concurrency defect or a false positive. You CANNOT introduce new
 defects; you only keep or reject the given candidates.
 
-Reject a candidate ONLY with concrete evidence that it is not a real defect, e.g.:
-  * the two operations cannot actually run concurrently -- one is one-time
-    init/setup/activation that happens-before any user/sysfs access, or a
-    parent step that completes before the child context starts;
-  * they are ordered by construction, or genuinely covered by the same lock;
-  * the field is a benign statistic/log value that drives no safety decision.
+SCOPE -- read this before judging anything. The two operations `a` and `b` in a
+candidate are sites that the analysis believes can be live in DIFFERENT concurrent
+execution contexts at the same time. Even when both sites sit in one function, the
+conflict is between one context's execution of that code and ANOTHER context's
+execution of the conflicting site. Therefore:
+  * Program order between `a` and `b` inside a single execution is NEVER a reason
+    to reject. "They are consecutive statements", "same loop iteration", "same
+    function", "the read precedes the write here" all answer the wrong question:
+    the conflicting access comes from the other context, not from the line above.
+  * Reject on control flow only if the two contexts themselves cannot overlap in
+    time (see the first bullet below).
+
+Reject a candidate ONLY with concrete evidence that it is not a real defect:
+  * the two contexts cannot overlap in time -- one is one-time init/setup/probe
+    that completes before the other context can be reached, or a parent step that
+    finishes before the child context starts;
+  * one named lock is held across BOTH `a` and `b`. A lock held around only one
+    side does not mediate the pair; name the lock and both acquisition sites.
+  * the two sites are ordered by a concrete synchronization handoff you can point
+    at in the code (completion, join, barrier-carrying release/acquire, drain).
+  * the value is advisory in the strong sense: it feeds no pointer, index, length,
+    lifetime, refcount, capacity, or state-machine decision anywhere, AND a stale
+    or torn read of it cannot change behaviour. "It only affects timing,
+    scheduling, or statistics" is NOT sufficient on its own -- kernel maintainers
+    routinely fix races on such fields.
+
+The candidate lists the protection each side already has under `checker credited`.
+If that shows a lock the checker missed, rejecting on that lock is legitimate;
+if it shows `none declared` for one side, be sceptical of your own assumption
+that something protects it.
+
 Keep a candidate when a real unordered/unmediated conflict or use-before-free is
 plausible. When in doubt, KEEP (recall matters more than precision here).
 
@@ -1332,6 +1408,35 @@ candidate, then finish_review. Inspect code with the read tools if needed.**
                "  @ " + n->getNodeLoc().toString();
     }
 
+    const query::ThreadAccess* accessOf(const L2Candidate& c, int node) const {
+        if (!c.object) return nullptr;
+        for (const auto& a : c.object->accesses)
+            if (a.node_id == node) return &a;
+        return nullptr;
+    }
+
+    int threadOf(const L2Candidate& c, int node) const {
+        const query::ThreadAccess* a = accessOf(c, node);
+        return a ? a->thread_id : -1;
+    }
+
+    // Which context a side runs in, and what protection the checker already
+    // credited for it -- without this the model cannot distinguish "nothing
+    // mediates these" from "the checker could not see the lock".
+    std::string sideStr(const L2Candidate& c, int node) const {
+        std::stringstream ss;
+        ss << "\n         ";
+        if (const query::ThreadAccess* a = accessOf(c, node)) {
+            ss << "thread " << a->thread_id << ", "
+               << (a->containing_function.empty() ? a->function_name
+                                                  : a->containing_function)
+               << "(), " << a->access_type << "; ";
+        }
+        ss << "checker credited: "
+           << (ev_ ? ev_->coverageOf(node) : std::string("unavailable"));
+        return ss.str();
+    }
+
     std::string renderBatch(const std::vector<L2Candidate>& cands) {
         std::stringstream ss;
         ss << "Calibrate the following " << n_ << " candidate(s). For EACH, call "
@@ -1343,10 +1448,19 @@ candidate, then finish_review. Inspect code with the read tools if needed.**
                << (c.object ? ("  on " + (c.object->name.empty() ? std::string("<anon>")
                                                                  : c.object->name)) : "")
                << "\n";
-            ss << "     a = " << nodeStr(c.aNode) << "\n";
-            if (c.bNode >= 0) ss << "     b = " << nodeStr(c.bNode) << "\n";
+            ss << "     a = " << nodeStr(c.aNode) << sideStr(c, c.aNode) << "\n";
+            if (c.bNode >= 0)
+                ss << "     b = " << nodeStr(c.bNode) << sideStr(c, c.bNode) << "\n";
             ss << "     checker: " << oneLine(c.reason, 240) << "\n";
-            ss << "     requirer thread = " << c.reqTid << "\n\n";
+            ss << "     requiring thread = " << c.reqTid << "\n";
+            if (c.bNode >= 0) {
+                int ta = threadOf(c, c.aNode), tb = threadOf(c, c.bNode);
+                if (ta >= 0 && tb >= 0)
+                    ss << "     contexts = " << (ta == tb
+                            ? "same thread entry, reentrant/concurrent activations"
+                            : "different thread entries") << "\n";
+            }
+            ss << "\n";
         }
         return ss.str();
     }
@@ -1385,6 +1499,7 @@ candidate, then finish_review. Inspect code with the read tools if needed.**
     std::string parseResult(const std::vector<ChatMessage>&) override { return "done"; }
 
     CCPG* ccpg_ = nullptr;
+    const OrderingEvidence* ev_ = nullptr;
     std::vector<char> keep_;
     int n_ = 0;
 };
@@ -2226,13 +2341,15 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
             size_t totalCands = 0, totalKept = 0;
             for (auto& [ts, objs] : sessions) {
                 ++sDone;
-                auto cands = l2::checkRequirements(objs, ts, contractsByTid, objIndex, ccpg, hb);
+                l2::OrderingEvidence ev;
+                auto cands = l2::checkRequirements(objs, ts, contractsByTid, objIndex,
+                                                   ccpg, hb, &ev);
                 totalCands += cands.size();
                 if (cands.empty()) continue;
                 // Phase C: strict filter (subset of candidates; recall bounded by B).
                 std::vector<char> keep;
                 if (skipPhaseC) keep.assign(cands.size(), 1);
-                else keep = calibrator.review(cands);
+                else keep = calibrator.review(cands, &ev);
                 size_t kept = 0;
                 for (size_t i = 0; i < cands.size(); ++i) {
                     if (evalVerbose())
