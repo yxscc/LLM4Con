@@ -7,11 +7,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Path.h"
 
 #include <queue>
 #include <set>
@@ -136,9 +138,28 @@ static std::string rootIdentifier(const llvm::Value* root) {
         return ss.str();
     }
     if (root->hasName()) return root->getName().str();
-    std::stringstream ss;
-    ss << "val@" << static_cast<const void*>(root);
-    return ss.str();
+    // Last resort: identify the root by where it is produced in the source.
+    // Keying on the llvm::Value address would make every SSA temp its own
+    // object -- two evaluations of the same expression would never bucket
+    // together, and the name would be meaningless in an LLM prompt.
+    if (const auto* I = llvm::dyn_cast<llvm::Instruction>(root)) {
+        std::stringstream ss;
+        if (const llvm::DebugLoc& DL = I->getDebugLoc()) {
+            llvm::StringRef file;
+            if (auto* scope = llvm::dyn_cast_or_null<llvm::DIScope>(DL.getScope()))
+                file = scope->getFilename();
+            ss << "at:"
+               << (file.empty() ? std::string("?")
+                                : llvm::sys::path::filename(file).str())
+               << ":" << DL.getLine();
+            return ss.str();
+        }
+        const llvm::Function* F = I->getFunction();
+        ss << "in:" << (F && F->hasName() ? F->getName().str() : "?")
+           << ":" << I->getOpcodeName();
+        return ss.str();
+    }
+    return "anon.value";
 }
 
 // Try to recover the most likely struct type for an opaque-pointer SSA
@@ -382,19 +403,19 @@ SharedFieldKey::fromValue(const llvm::Value* v, const llvm::Module& M,
         }
     }
 
-    // Whole-object accesses (free-like calls) often land here under
-    // opaque pointers because the call site discards the struct type
-    // and the freed pointer is not behind a GEP. Recover the struct
-    // type from the GEP users of the same SSA value so the free can
-    // aggregate with field-level accesses of the same struct in other
-    // threads. Without this, kfree(nlk) and Read(nlk->field) sit in
-    // disjoint buckets and the cross-thread UAF is invisible to the
-    // Surface/LLM.
-    if (is_whole_object_access) {
-        if (const llvm::StructType* inferred = inferStructTypeFromUsers(v)) {
+    // No struct type on the GEP path. Under opaque pointers this is common:
+    // a free-like call discards the struct type, and a pointer arriving as a
+    // function parameter carries none either. Recover it from the GEP users
+    // of the value, which pin the source element type. Without this,
+    // kfree(nlk) and Read(nlk->field) sit in disjoint buckets and the
+    // cross-thread UAF is invisible to the Surface/LLM; likewise a thread
+    // rooted at unregister(struct power_supply *psy) never meets the thread
+    // that reaches the same object through a containing struct.
+    for (const llvm::Value* cand : {v, root}) {
+        if (const llvm::StructType* inferred = inferStructTypeFromUsers(cand)) {
             key.kind = Kind::StructField;
             key.type_name = structTypeName(inferred);
-            key.field_offset = 0;
+            key.field_offset = is_whole_object_access ? 0 : offset;
             return key;
         }
     }

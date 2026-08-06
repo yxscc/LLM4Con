@@ -24,6 +24,7 @@ cpg_dot/
 cpg.bin
 llvmbc/
 LLM_dump/
+LLM_dump_surf_*/
 bug_reports/
 *.plan.md
 monitor.log
