@@ -61,22 +61,69 @@ def kind_compatible(acc: dict, gt: dict) -> bool:
     return acc.get("access_type") in allowed
 
 
+_DEREF = re.compile(r"[a-z_][a-z0-9_]*(?:\s*->\s*[a-z_][a-z0-9_]*)+")
+
+
+def _deref_chains(code: str) -> set:
+    return {re.sub(r"\s*->\s*", "->", m) for m in _DEREF.findall(code)}
+
+
 def access_matches(acc: dict, gt: dict) -> int:
     """0 = no match, 1 = function only, 2 = function plus kind, 3 = plus code.
+
+    Matching on the annotated function name alone systematically undercounts:
+    the ground truth names the function as written, but small static helpers
+    are inlined, and then the access reports its inlining parent instead. So
+    an access also matches when its code carries a field-dereference chain
+    from the annotation, whatever function it now sits in.
 
     Code text is the strongest signal but is often unavailable: frees in
     particular are recorded synthetically (``[ir-fallback] free via kfree``)
     and never share text with the annotated ``kfree(data);``.
     """
-    fn = (gt.get("function") or "").strip()
-    if not fn:
-        return 0
-    if fn not in (acc.get("containing_function"), acc.get("function")):
-        return 0
     gc, ac = norm_code(gt.get("code", "")), norm_code(acc.get("code", ""))
+    fn = (gt.get("function") or "").strip()
+    same_fn = bool(fn) and fn in (acc.get("containing_function"),
+                                  acc.get("function"))
     if gc and ac and (gc in ac or ac in gc):
         return 3
+    if not same_fn:
+        chains = _deref_chains(gc) & _deref_chains(ac)
+        return 3 if chains else 0
     return 2 if kind_compatible(acc, gt) else 1
+
+
+_STRUCT = re.compile(r"struct\s+(\w+)")
+
+
+def object_present(objs, gt):
+    """Is the ground-truth *object* on the surface, touched by two threads?
+
+    The pair metric asks where two annotated access sites landed, which the
+    annotation style keeps breaking: ground truth names the call site while
+    the analyzer records the access inside the callee, and inlining rewrites
+    function names underneath both. Since objects are now grouped at the
+    owning struct, asking for the object directly sidesteps all of that. It
+    is the coarser question -- the right struct type, not the right field --
+    so read it as an upper bound on what the surface can support.
+
+    Returns (found, rank) with rank 1-based, or (False, 0).
+    """
+    names = {f"struct.{m}" for m in _STRUCT.findall(gt.get("object", ""))}
+    chains = _deref_chains(norm_code(gt.get("object", "")))
+    if not names and not chains:
+        return False, 0
+    for i, o in enumerate(objs):
+        if len(o.get("accessing_thread_ids") or
+               {a.get("thread_id") for a in o.get("accesses", [])}) < 2:
+            continue
+        nm = o.get("name", "")
+        if any(n in nm for n in names):
+            return True, i + 1
+        if chains and any(chains & _deref_chains(norm_code(a.get("code", "")))
+                          for a in o.get("accesses", [])):
+            return True, i + 1
+    return False, 0
 
 
 def latest_dump(case: str, stamp: str):
@@ -132,13 +179,15 @@ def main() -> int:
             except json.JSONDecodeError:
                 pass
         verdict, rank, touched = classify(objs, gt_a, gt_b, need)
-        rows.append((case, len(objs), verdict, rank, touched))
+        found, orank = object_present(objs, gt)
+        rows.append((case, len(objs), verdict, rank, touched,
+                     "yes" if found else "no", orank))
 
     rows.sort(key=lambda r: (r[2], -(r[1] or 0)))
-    print(f"{'case':26s} {'objs':>5} {'verdict':>8} {'rank':>5} {'gt-objs':>7}")
-    for case, n, v, rank, touched in rows:
+    print(f"{'case':26s} {'objs':>5} {'pair':>8} {'rank':>5} {'obj?':>5} {'rank':>5}")
+    for case, n, v, rank, touched, found, orank in rows:
         print(f"{case:26s} {('-' if n is None else n):>5} {v:>8} "
-              f"{(rank or '-'):>5} {(touched or '-'):>7}")
+              f"{(rank or '-'):>5} {found:>5} {(orank or '-'):>5}")
 
     ran = [r for r in rows if r[1] is not None]
     counts = {}
@@ -153,6 +202,14 @@ def main() -> int:
         ranks = sorted(r[3] for r in both)
         print(f"GT rank among BOTH       : median {ranks[len(ranks) // 2]}, "
               f"max {ranks[-1]}, top-10 {sum(1 for x in ranks if x <= 10)}/{len(ranks)}")
+    objfound = [r for r in ran if r[5] == "yes"]
+    print(f"GT object on the surface  : {len(objfound)}/{len(ran)}", end="")
+    if objfound:
+        oranks = sorted(r[6] for r in objfound)
+        print(f"  (median rank {oranks[len(oranks) // 2]}, "
+              f"top-10 {sum(1 for x in oranks if x <= 10)}/{len(oranks)})")
+    else:
+        print()
     sizes = sorted(r[1] for r in ran)
     if sizes:
         print(f"objects per case         : median {sizes[len(sizes) // 2]}, "
@@ -162,7 +219,8 @@ def main() -> int:
     if args.csv:
         with open(args.csv, "w", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow(["case", "objects", "verdict", "gt_rank", "gt_objects"])
+            w.writerow(["case", "objects", "verdict", "gt_rank", "gt_objects",
+                        "gt_object_found", "gt_object_rank"])
             w.writerows(rows)
         print(f"\nwrote {args.csv}")
     return 0
