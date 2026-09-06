@@ -66,3 +66,7 @@ kernel_experiment/batch_*.log
 # Site-local environment (paths, proxy, LLM endpoint). Start from
 # setup_env.example.sh; never commit the filled-in copy.
 setup_env.sh
+
+# Auto-entry baseline artifacts (295M of surface dumps, regenerable)
+kernel_experiment/auto_entry_dumps/
+kernel_experiment/*/auto_entry_*.log
