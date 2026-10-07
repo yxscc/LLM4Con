@@ -218,6 +218,14 @@ static callNameToTypePair callNameToTypePairs[]=
     {"read_seqlock_excl", ThreadAPIUtil::TYPE::ACQUIRE},
     {"raw_read_seqcount_begin", ThreadAPIUtil::TYPE::ACQUIRE},
     {"bit_spin_lock", ThreadAPIUtil::TYPE::ACQUIRE},
+    // The socket lock family is named `lock_<object>` rather than
+    // `<object>_lock`, so the `_lock`-suffix wrapper heuristic below misses
+    // it, and it is defined in net/core/sock.c — out of module for every
+    // per-file bitcode — so the acquire-potential-wrapper rule cannot see it
+    // either. It has to be named explicitly.
+    {"lock_sock", ThreadAPIUtil::TYPE::ACQUIRE},
+    {"lock_sock_nested", ThreadAPIUtil::TYPE::ACQUIRE},
+    {"lock_sock_fast", ThreadAPIUtil::TYPE::ACQUIRE},
     
     //==========================================================================
     // Mutex/Lock Try-Acquire
@@ -262,6 +270,10 @@ static callNameToTypePair callNameToTypePairs[]=
     {"raw_spin_unlock_irq", ThreadAPIUtil::TYPE::RELEASE},
     {"raw_spin_unlock_irqrestore", ThreadAPIUtil::TYPE::RELEASE},
     {"raw_spin_unlock_bh", ThreadAPIUtil::TYPE::RELEASE},
+    // Counterparts of the lock_sock family above; `release_sock` matches
+    // neither the `_unlock` suffix rule nor anything in this table.
+    {"release_sock", ThreadAPIUtil::TYPE::RELEASE},
+    {"unlock_sock_fast", ThreadAPIUtil::TYPE::RELEASE},
     {"read_unlock", ThreadAPIUtil::TYPE::RELEASE},
     {"read_unlock_irq", ThreadAPIUtil::TYPE::RELEASE},
     {"read_unlock_irqrestore", ThreadAPIUtil::TYPE::RELEASE},
