@@ -5,6 +5,7 @@ This directory contains **frozen** evaluation artifacts that match the paper tab
 | Path | Role |
 |------|------|
 | [`lace_full72_20260709/`](./lace_full72_20260709/) | Main Lace result on the 72-case kernel dataset (canonical) |
+| [`real_world_issues.md`](./real_world_issues.md) | Public issue links for the real-world unknown-defect study |
 
 ## Main result (Lace @ 72 cases)
 

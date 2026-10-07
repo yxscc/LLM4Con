@@ -26,6 +26,9 @@ Frozen snapshot: [`results/lace_full72_20260709/`](./results/lace_full72_2026070
 
 Details: `results/lace_full72_20260709/cost_statistics.md`, `run_summary.txt`, and per-case dumps under `bugs/`.
 
+Real-world unknown-defect issue links are listed in
+[`results/real_world_issues.md`](./results/real_world_issues.md).
+
 ## Dataset
 
 See [`dataset/README.md`](./dataset/README.md). Each case provides:
