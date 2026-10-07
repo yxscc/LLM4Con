@@ -328,6 +328,23 @@ public:
     ContextSet getContextSet() const { return contextSet; }
     void addContext(Context * context) { contextSet.insert(context); }
 
+    // ContextSet is keyed on the Context POINTER, so `addContext` happily
+    // stores several call stacks that are element-wise identical. That is
+    // harmless while contexts are only ever created one-per-call-site, but
+    // the interprocedural propagation pass revisits a function once per
+    // incoming edge and would otherwise grow the set without bound.
+    // Returns false (and does not take ownership) when an equal call stack
+    // is already present.
+    bool addContextUnique(Context * context) {
+        if (context == nullptr) return false;
+        for (Context * c : contextSet) {
+            if (c != nullptr && *c == *context) return false;
+        }
+        contextSet.insert(context);
+        return true;
+    }
+    size_t contextCount() const { return contextSet.size(); }
+
     std::unordered_map<NodeLoc, CCPGNodeSet, NodeLocHash> getLocToNodeSetMap() const { return locToNodeSetMap; }
 
     std::unordered_set<NodeLoc, NodeLocHash> findLocsInScope(NodeLoc l_1, NodeLoc l_2) const{

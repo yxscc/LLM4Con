@@ -11,6 +11,7 @@
 #include <sstream>
 #include <limits>
 #include <cstring>
+#include <cstdlib>
 #include <vector>
 
 #include "CCPG/HB.h"
@@ -342,6 +343,7 @@ void CCPG::build(){
                       << " thread-root entry points as parallel entries"
                       << std::endl;
             for (const auto& entryInfo : allEntries) {
+                noteEntrySignal(entryInfo.functionName, entryInfo.signalSummary);
                 // In automatic mode main was already queued above; skip the duplicate.
                 // In manual-entry mode main is NOT pre-queued — configured roots must
                 // still be added even when they match the CPG "main" heuristic.
@@ -761,7 +763,10 @@ void CCPG::build(){
             edge->setType(CCPGEdge::EdgeType::HB);
             this->addEdge(edge);
             functionQueue.push(f);
-            handleContext(forkNode, f);
+            // Deliberately NOT handleContext(forkNode, f): a thread entry must
+            // not inherit the creating thread's call frames, or the locks held
+            // at the fork site would leak into the child's lockset and mask
+            // real races. propagateContexts() seeds fork targets as roots.
         }
     }
     labelForkPotential();
@@ -773,6 +778,10 @@ void CCPG::build(){
     labelAPI();
 
     tree->handleJoins();
+
+    ExecutionTimer::getInstance()->start("Context propagation");
+    propagateContexts();
+    ExecutionTimer::getInstance()->stop("Context propagation");
 
     ExecutionTimer::getInstance()->start("LockSet Analysis");
     LSAnalysis * lsAnalysis = LSAnalysis::getInstance();
@@ -799,6 +808,120 @@ void handleContext(CCPGNode * caller, ccpg::Function * f){
             continue;
         }
         f->addContext(context->extend(caller));
+    }
+}
+
+// Push call stacks from the thread roots down the call graph until nothing
+// changes. Two knobs bound the blowup, since the number of distinct call
+// stacks is exponential in call-graph depth:
+//
+//   LACE_CONTEXT_MAX_PER_FUNC  contexts kept per function (0 = unbounded)
+//   LACE_CONTEXT_MAX_DEPTH     longest call stack retained
+//
+// Dropping contexts past the cap is safe for the consumers: a lockset query
+// reports "protected" only when EVERY context holds a lock, so a missing
+// context can only make an access look less protected, never more.
+void CCPG::propagateContexts() {
+    auto envSize = [](const char* name, size_t def) -> size_t {
+        const char* v = std::getenv(name);
+        if (v == nullptr || *v == '\0') return def;
+        char* end = nullptr;
+        unsigned long parsed = std::strtoul(v, &end, 10);
+        if (end == v) return def;
+        return static_cast<size_t>(parsed);
+    };
+    const size_t maxPerFunc = envSize("LACE_CONTEXT_MAX_PER_FUNC", 24);
+    const size_t maxDepth = envSize("LACE_CONTEXT_MAX_DEPTH", 12);
+
+    std::queue<ccpg::Function*> worklist;
+    for (ccpg::Function* entry : entryFunctions) {
+        if (entry == nullptr) continue;
+        if (entry->getContextSet().empty()) {
+            entry->addContextUnique(new Context());
+        }
+        worklist.push(entry);
+    }
+    // A fork target is a thread root too, and it starts with its own empty
+    // stack: a newly created thread does NOT hold whatever locks the creating
+    // thread happened to hold at the fork site, so its frames must not be
+    // inherited. Propagation below only follows CALL edges, so the only way a
+    // fork target gets a context is this seed.
+    for (ccpg::Function* function : functions) {
+        if (function == nullptr) continue;
+        CCPGNode* fnode = function->getFuncNode();
+        if (fnode == nullptr) continue;
+        bool forkTarget = false;
+        for (CCPGEdge* edge : fnode->getInEdges()) {
+            if (edge->getType() == CCPGEdge::EdgeType::HB) {
+                forkTarget = true;
+                break;
+            }
+        }
+        if (!forkTarget) continue;
+        if (function->getContextSet().empty()) {
+            function->addContextUnique(new Context());
+            worklist.push(function);
+        }
+    }
+
+    size_t added = 0;
+    size_t capped = 0;
+    size_t rounds = 0;
+    const size_t maxRounds = functions.size() * 8 + 1024;
+
+    while (!worklist.empty() && rounds < maxRounds) {
+        ccpg::Function* caller = worklist.front();
+        worklist.pop();
+        ++rounds;
+        if (caller == nullptr) continue;
+
+        ContextSet callerCtxs = caller->getContextSet();
+        if (callerCtxs.empty()) continue;
+
+        for (CCPGNode* site : caller->getNodes()) {
+            if (site == nullptr) continue;
+            CCPGEdge* callEdge = hasCallEdge(site);
+            if (callEdge == nullptr) continue;
+            ccpg::Function* callee = getFunctionByCCPGNode(callEdge->getDst());
+            if (callee == nullptr || callee == caller) continue;
+
+            bool grew = false;
+            for (Context* ctx : callerCtxs) {
+                if (ctx == nullptr) continue;
+                if (ctx->contains(site)) continue;          // recursion guard
+                if (static_cast<size_t>(ctx->size()) >= maxDepth) continue;
+                if (maxPerFunc != 0 && callee->contextCount() >= maxPerFunc) {
+                    ++capped;
+                    break;
+                }
+                Context* extended = ctx->extend(site);
+                if (callee->addContextUnique(extended)) {
+                    ++added;
+                    grew = true;
+                } else {
+                    delete extended;
+                }
+            }
+            if (grew) worklist.push(callee);
+        }
+    }
+
+    size_t withCtx = 0;
+    for (ccpg::Function* function : functions) {
+        if (function != nullptr && !function->getContextSet().empty()) ++withCtx;
+    }
+    std::cout << "[Context] Seeded " << entryFunctions.size()
+              << " root(s); propagated " << added << " call stack(s) to "
+              << withCtx << "/" << functions.size() << " functions"
+              << (capped > 0 ? (" (" + std::to_string(capped) +
+                                " capped at " + std::to_string(maxPerFunc) +
+                                "/function)")
+                             : std::string())
+              << std::endl;
+    if (rounds >= maxRounds) {
+        std::cout << "[Context] Warning: propagation stopped at the "
+                  << maxRounds << "-round guard; contexts may be incomplete"
+                  << std::endl;
     }
 }
 

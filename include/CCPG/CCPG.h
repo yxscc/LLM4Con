@@ -137,7 +137,28 @@ public:
     FunctionSet getEntryFunctions() const { return entryFunctions; }
     void addEntryFunction(ccpg::Function *function) { entryFunctions.insert(function); }
 
+    // How an entry was nominated ("manual", or the discovery signals such as
+    // ops-table member / work callback / syscall). Kept because the signal is
+    // the only record of which execution context an entry runs in, and that is
+    // what deciding whether two entries can overlap in time turns on.
+    void noteEntrySignal(const std::string &name, const std::string &signals) {
+        if (!name.empty()) entrySignals[name] = signals;
+    }
+    std::string getEntrySignal(const std::string &name) const {
+        auto it = entrySignals.find(name);
+        return it == entrySignals.end() ? std::string() : it->second;
+    }
+
     void build();
+
+    // Seed every thread-root function with a base (empty) call stack and push
+    // contexts down CALL edges to fixpoint. Without the seed, `handleContext`
+    // can never fire — it extends the CALLER's contexts, and a root has none —
+    // so every `getContextSet()` in the codebase returns empty and all the
+    // context-sensitive lock/alias queries silently degrade to the
+    // intra-procedural case.
+    void propagateContexts();
+
     //std::unordered_set<Node*> findChildren(Node* node, std::unordered_set<Node*> visited_node = std::unordered_set<Node*>());
     std::unordered_set<Node*> findChildren(Node* node);
 
@@ -219,6 +240,7 @@ public:
     std::unordered_map< SpecialCallType, std::unordered_set<const llvm::CallInst*>>, 
     NodeLocHash> locToSpecialCallMap;
     FunctionSet entryFunctions;
+    std::unordered_map<std::string, std::string> entrySignals;
     std::unordered_set<const llvm::Instruction*> visited;
     std::unordered_map<Node*, std::unordered_set<Node*>> findChildrenCache;
 };
