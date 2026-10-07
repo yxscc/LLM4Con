@@ -342,6 +342,26 @@ std::string oneLine(const std::string& in, size_t maxLen = 160) {
     return s;
 }
 
+// Node locations carry the absolute path of the analysed tree: ~90 characters of
+// prefix, repeated twice per candidate in the calibration packet, and not the
+// form the read tools accept. Trim to the source root so a printed location can
+// be pasted straight into read_file.
+std::string shortLoc(const std::string& loc) {
+    static const std::string root = [] {
+        std::string r = TargetPath::getInstance()->getTargetAbsolutePath();
+        while (!r.empty() && r.back() == '/') r.pop_back();
+        // Locations are emitted with the leading separator stripped.
+        if (!r.empty() && r.front() == '/') r.erase(0, 1);
+        return r;
+    }();
+    if (root.empty()) return loc;
+    const size_t at = loc.find(root);
+    if (at == std::string::npos) return loc;
+    size_t cut = at + root.size();
+    if (cut < loc.size() && loc[cut] == '/') ++cut;
+    return loc.substr(cut);
+}
+
 // The thread's access that best matches the violating kind (Free > Write > Read),
 // for citing the concrete site in the verdict (location + code).
 const query::ThreadAccess* representativeAccess(const query::SharedObject& O, int tid,
@@ -1112,6 +1132,20 @@ struct OrderingEvidence {
     }
     // What the checker credited for one node, so the calibrator can tell a pair
     // that shares no protection from one whose protection it simply cannot see.
+    // Exclusion/atomicity tokens any contract declared on node n.
+    std::set<std::string> tokensOf(int n) const {
+        std::set<std::string> out;
+        auto scan = [&](const std::map<std::string, std::vector<int>>& m) {
+            for (const auto& [tok, nodes] : m)
+                if (std::find(nodes.begin(), nodes.end(), n) != nodes.end())
+                    out.insert(tok);
+        };
+        scan(exclExclusive);
+        scan(exclShared);
+        scan(atomicTok);
+        return out;
+    }
+
     std::string coverageOf(int n) const {
         std::vector<std::string> parts;
         auto scan = [&](const std::map<std::string, std::vector<int>>& m,
@@ -1330,82 +1364,179 @@ query::Hypothesis toHypothesis(const L2Candidate& c, int seqId) {
 // ---- Strict evidence-bounded Phase C filter (paper's calibration step) ----
 // Reviews the checker's candidates and keeps only those it does NOT reject. It
 // cannot add candidates: the output is always a subset of the input, so recall
-// is bounded by Phase B and calibration only affects precision. Fail-open: an
-// un-judged candidate stays kept.
+// is bounded by Phase B and calibration only affects precision.
+//
+// An un-judged candidate still ends up kept, but that is now reported rather
+// than silent: a session that returns without judging everything is a session
+// whose precision number means nothing, and the previous version could spend
+// its whole turn budget browsing code and report "0 rejected" indistinguishably
+// from "reviewed and found nothing to reject". `unjudged()` carries the count so
+// the caller can label the run incomplete.
 class Calibrator : public Conversation {
 public:
-    Calibrator(std::shared_ptr<LLMClient> client, CCPG* ccpg)
-        : Conversation(client, sysPrompt(), 40), ccpg_(ccpg) {}
+    Calibrator(std::shared_ptr<LLMClient> client, CCPG* ccpg,
+               const query::VulnerabilitySurface* surface = nullptr)
+        : Conversation(client, sysPrompt(), 40), ccpg_(ccpg), surface_(surface) {}
 
     std::vector<char> review(const std::vector<L2Candidate>& cands,
                              const OrderingEvidence* ev = nullptr) {
         ev_ = ev;
-        keep_.assign(cands.size(), 1);   // fail-open default: keep
+        cands_ = &cands;
+        keep_.assign(cands.size(), 1);   // un-judged stays kept (and is counted)
+        judged_.assign(cands.size(), 0);
         n_ = static_cast<int>(cands.size());
         if (n_ == 0) return keep_;
+        exploreCalls_ = 0;
+        finishRefusals_ = 0;
+        exploreBudget_ = envInt("LACE_CALIB_EXPLORE_BUDGET",
+                                std::max(40, 6 * n_));
         reset();
-        set_token_budget(20000);
-        set_max_turns(2 * n_ + 8);
+        // The evidence packet below is several hundred bytes per candidate and
+        // is pinned, so the history has to hold it plus the code the model
+        // reads. 20k used to force pruning of the packet itself.
+        set_token_budget(48000);
+        // Enough turns to read a few functions per candidate and still judge
+        // every one. The old 2n+8 could not cover both, so sessions ran out
+        // mid-exploration having judged nothing. 0 disables the cap.
+        set_max_turns(envInt("LACE_CALIB_MAX_TURNS", std::max(60, 3 * n_ + 40)));
         pin_next_user_message();
         send_message(renderBatch(cands));
         return keep_;
     }
 
+    int judgedCount() const {
+        int k = 0;
+        for (char c : judged_) k += (c ? 1 : 0);
+        return k;
+    }
+    int unjudged() const { return n_ - judgedCount(); }
+
 private:
     static std::string sysPrompt() {
         return R"CAL(
 You calibrate concurrency-defect CANDIDATES produced by a deterministic checker.
-Each candidate is a requirement the checker could NOT discharge (no ordering,
-mutual exclusion, or atomic protocol was found between two operations).
+Each candidate is a requirement the checker could NOT discharge: it found no
+ordering, mutual exclusion, or atomic protocol between two operations `a` and `b`
+that it believes can be live in two concurrent execution contexts at once.
 
-Your ONLY job is to decide, for each candidate, whether it is a genuine,
-reportable concurrency defect or a false positive. You CANNOT introduce new
-defects; you only keep or reject the given candidates.
+Your ONLY job is to decide, for each candidate, keep or reject. You cannot
+introduce new defects; the output is a subset of what you are given.
 
-SCOPE -- read this before judging anything. The two operations `a` and `b` in a
-candidate are sites that the analysis believes can be live in DIFFERENT concurrent
-execution contexts at the same time. Even when both sites sit in one function, the
-conflict is between one context's execution of that code and ANOTHER context's
-execution of the conflicting site. Therefore:
-  * Program order between `a` and `b` inside a single execution is NEVER a reason
-    to reject. "They are consecutive statements", "same loop iteration", "same
-    function", "the read precedes the write here" all answer the wrong question:
-    the conflicting access comes from the other context, not from the line above.
-  * Reject on control flow only if the two contexts themselves cannot overlap in
-    time (see the first bullet below).
+SCOPE -- read this before judging anything. The conflict is between one context's
+execution of `a` and ANOTHER context's execution of `b`. Even when both sites sit
+in the same function, the conflicting access comes from the other context, not
+from the line above. Therefore program order between `a` and `b` within a single
+execution is NEVER a reason to reject: "consecutive statements", "same loop
+iteration", "same function", "the read precedes the write here" all answer the
+wrong question.
 
-Reject a candidate ONLY with concrete evidence that it is not a real defect:
-  * the two contexts cannot overlap in time -- one is one-time init/setup/probe
-    that completes before the other context can be reached, or a parent step that
-    finishes before the child context starts;
-  * one named lock is held across BOTH `a` and `b`. A lock held around only one
-    side does not mediate the pair; name the lock and both acquisition sites.
-  * the two sites are ordered by a concrete synchronization handoff you can point
-    at in the code (completion, join, barrier-carrying release/acquire, drain).
-  * the value is advisory in the strong sense: it feeds no pointer, index, length,
-    lifetime, refcount, capacity, or state-machine decision anywhere, AND a stale
-    or torn read of it cannot change behaviour. "It only affects timing,
-    scheduling, or statistics" is NOT sufficient on its own -- kernel maintainers
-    routinely fix races on such fields.
+=== HOW TO JUDGE: work these five checks in order ===
 
-The candidate lists the protection each side already has under `checker credited`.
-If that shows a lock the checker missed, rejecting on that lock is legitimate;
-if it shows `none declared` for one side, be sceptical of your own assumption
-that something protects it.
+Each check has one thing to establish and one `basis` word it yields. Stop at the
+first check that fires. If none fires, the candidate is a defect: keep it.
 
-Keep a candidate when a real unordered/unmediated conflict or use-before-free is
-plausible. When in doubt, KEEP (recall matters more than precision here).
+CHECK 1 -- can the two contexts overlap in time at all?  -> basis `disjoint`
+    Look at the thread roster: each context is a thread ENTRY function plus how
+    that entry was nominated (analyst-configured, ops-table member, work/timer/
+    RCU callback, IRQ handler, syscall, exported symbol). The nomination tells
+    you which execution context the entry runs in.
+    When BOTH entries are marked analyst-configured, they were handed to you as
+    the concurrent contexts of this defect. They overlap by construction and this
+    check is closed: go to CHECK 3. Do not spend turns arguing otherwise.
+    Otherwise, reject `disjoint` when you can establish one of:
+      * one entry is one-time init/setup/probe/module_init that must complete
+        before the other entry is reachable at all;
+      * one entry is teardown/exit that runs only after the other is quiesced by
+        a drain the code performs (unregister, cancel_work_sync, del_timer_sync,
+        synchronize_rcu, refcount drop to zero) -- but see the next paragraph;
+      * both entries are invoked only under one and the same outer lock held by
+        their callers (name that lock and both call sites).
+    The drain bullet does NOT apply to a candidate marked `lifetime`. There, one
+    side frees the object and the other uses it, and the existence of a drain is
+    the very thing under audit: teardown use-after-frees exist because the drain
+    left a window. For those, either show the drain covers THIS object on THIS
+    path with no window, or keep the candidate.
+    Being different subsystems, different files, or "unlikely to be concurrent"
+    is not establishing anything. Neither is the absence of evidence that they
+    overlap -- the default is that two distinct entries can overlap.
 
-**CRITICAL: use ONLY the tools. Call judge(candidate_id, verdict, reason) once per
-candidate, then finish_review. Inspect code with the read tools if needed.**
+CHECK 2 -- if both sides are the SAME entry, can that entry have two concurrent
+           activations?  -> basis `disjoint`
+    The roster marks such entries `self-concurrent`. When it says `assumed`, the
+    analysis did NOT derive this from the code -- it was declared, and it is the
+    only reason the candidate exists. So verify it. An entry is genuinely
+    self-concurrent when it is a syscall/ioctl/sysfs/procfs handler, a per-CPU
+    softirq or IRQ handler, or an ops-table method callable on several objects at
+    once. It is NOT self-concurrent when the code serializes its activations:
+      * a work item on an ordered/single-threaded workqueue, or one whose caller
+        holds the object's lock for the whole callback;
+      * a callback the caller invokes under one lock every time;
+      * an entry guarded by a run-once flag or a state machine that admits one
+        activation per object.
+    Read the queueing/registration site to decide. If serialized, reject
+    `disjoint` and say what serializes it.
+
+CHECK 3 -- do the two sides touch the same storage?  -> basis `unrelated`
+    The candidate prints the surface key (the object the grouping assigned) and
+    each side's actual expression and field path. The key can be coarser than the
+    expressions: two different fields of one struct instance can be grouped
+    together. Compare the field paths. When `a` and `b` provably touch different
+    fields, different array elements at distinct constant indices, or different
+    objects, reject `unrelated` and name both paths.
+    Three exceptions where different field paths are still the same storage, and
+    `unrelated` is WRONG:
+      * the candidate is marked lifetime/UAF -- a free consumes the whole object,
+        so it conflicts with every field of it. Judge these on CHECK 1/2/4;
+      * the requirement spans a check-then-act invariant over two fields (test
+        field X, then set field Y, and a concurrent context can do the same):
+        the race is on the invariant, not on one word. Keep it;
+      * the paths may alias -- a union, an embedded struct reached two ways, or
+        two pointers that could be the same object.
+    Note also that a side whose expression is not an access at all (a `case`
+    label, a declaration, a macro artifact) means the surface mis-attributed it.
+    That is still a false positive, but say so in the reason rather than calling
+    it `unrelated`.
+
+CHECK 4 -- is the interleaving mediated?  -> basis `mediated`
+    This is the one check the checker already ran: it searched every contract for
+    a lock, atomic token or ordering covering this pair, and that search coming up
+    empty is why you see the candidate. Each side prints `tokens credited by any
+    contract` and the lock the surface saw. Mediation requires ONE token across
+    BOTH sides -- a lock held around only `a` leaves `b` free to run unprotected.
+    Unless the two sides share a token, claims like "the only caller holds the
+    lock" or "this runs under RCU" are whole-program facts you cannot establish
+    from a bounded slice, and the rejection will be REFUSED. A concrete
+    synchronization handoff you can point at in the code (completion, join,
+    barrier-carrying release/acquire, drain between the two sites) also counts.
+
+CHECK 5 -- is the value advisory in the strong sense?  -> basis `advisory`
+    Only when it feeds no pointer, index, length, lifetime, refcount, capacity, or
+    state-machine decision ANYWHERE, AND a stale or torn read cannot change
+    behaviour. "It only affects timing, scheduling, or statistics" is NOT
+    sufficient on its own -- kernel maintainers routinely fix races on such
+    fields.
+
+Otherwise -> keep, basis `defect`. When in doubt, KEEP: recall matters more than
+precision here, and a wrong reject is unrecoverable while a wrong keep is triaged
+downstream.
+
+=== TOOL PROTOCOL ===
+
+You have read_file, grep_source and list_dir over the analysed source tree, plus
+get_callers / get_callees / get_object_details on the graph. Use them for exactly
+the questions above: find where an entry is registered or queued (CHECK 1, 2),
+find what a field feeds (CHECK 5), find a lock around both sites (CHECK 4).
+
+* judge(candidate_id, verdict, basis, reason) records ONE candidate. You may
+  issue several judge calls in a single turn, and you should: judge every
+  candidate you can already decide from the packet before you go read anything.
+* finish_review is REFUSED until every candidate has been judged. It will tell
+  you which ids are outstanding.
+* Exploration has a budget. When it runs out the read tools stop returning code
+  and you must judge the rest from the packet, defaulting to keep.
+* Never end a turn without either a judge call or a read that a later judge will
+  use. Browsing without judging burns the session and gets everything kept.
 )CAL";
-    }
-
-    std::string nodeStr(int id) const {
-        CCPGNode* n = (ccpg_ && id >= 0) ? ccpg_->getNodeByID(id) : nullptr;
-        if (!n || !n->getCPGNode()) return "node " + std::to_string(id) + " <unknown>";
-        return "node " + std::to_string(id) + ": " + oneLine(n->getCPGNode()->getCode(), 120) +
-               "  @ " + n->getNodeLoc().toString();
     }
 
     const query::ThreadAccess* accessOf(const L2Candidate& c, int node) const {
@@ -1420,63 +1551,254 @@ candidate, then finish_review. Inspect code with the read tools if needed.**
         return a ? a->thread_id : -1;
     }
 
-    // Which context a side runs in, and what protection the checker already
-    // credited for it -- without this the model cannot distinguish "nothing
-    // mediates these" from "the checker could not see the lock".
-    std::string sideStr(const L2Candidate& c, int node) const {
-        std::stringstream ss;
-        ss << "\n         ";
-        if (const query::ThreadAccess* a = accessOf(c, node)) {
-            ss << "thread " << a->thread_id << ", "
-               << (a->containing_function.empty() ? a->function_name
-                                                  : a->containing_function)
-               << "(), " << a->access_type << "; ";
+    const query::ThreadInfo* threadInfo(int tid) const {
+        if (!surface_) return nullptr;
+        for (const auto& t : surface_->threads)
+            if (t.thread_id == tid) return &t;
+        return nullptr;
+    }
+
+    // In manual-entry mode the roots are the analyst's declaration of which
+    // contexts run concurrently, not a discovery guess. Two DIFFERENT configured
+    // entries are therefore concurrent by construction, and CHECK 1 has nothing
+    // left to establish about them. (Same-entry pairs are a separate question --
+    // reentrancy is assumed rather than declared -- so CHECK 2 still applies.)
+    bool bothEntriesDeclared(const L2Candidate& c) const {
+        if (c.bNode < 0) return false;
+        const int ta = threadOf(c, c.aNode), tb = threadOf(c, c.bNode);
+        if (ta < 0 || tb < 0 || ta == tb) return false;
+        const query::ThreadInfo* ia = threadInfo(ta);
+        const query::ThreadInfo* ib = threadInfo(tb);
+        return ia && ib && ia->entry_provenance == "manual" &&
+               ib->entry_provenance == "manual";
+    }
+
+    // The trailing field path of an access expression ("msk->pm.status" out of
+    // "!(pm->status & MASK)" is not recoverable, but "pm.status" is). CHECK 3
+    // needs the model to compare what the two sides name, and the surface key
+    // above them can be coarser than the expressions.
+    static std::string fieldPath(const std::string& expr) {
+        std::string best;
+        size_t i = 0;
+        auto identChar = [](char ch) {
+            return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_';
+        };
+        while (i < expr.size()) {
+            const bool arrow = (expr[i] == '-' && i + 1 < expr.size() && expr[i + 1] == '>');
+            const bool dot = (expr[i] == '.');
+            if (!arrow && !dot) { ++i; continue; }
+            size_t nameStart = i + (arrow ? 2 : 1);
+            size_t nameEnd = nameStart;
+            while (nameEnd < expr.size() && identChar(expr[nameEnd])) ++nameEnd;
+            if (nameEnd == nameStart) { ++i; continue; }
+            // Walk back over the base expression so "msk->pm.status" is kept
+            // whole rather than reduced to ".status".
+            size_t base = i;
+            while (base > 0) {
+                char p = expr[base - 1];
+                if (identChar(p) || p == '.' || p == ']' || p == '[') { --base; continue; }
+                if (p == '>' && base >= 2 && expr[base - 2] == '-') { base -= 2; continue; }
+                break;
+            }
+            std::string cand = expr.substr(base, nameEnd - base);
+            if (cand.size() > best.size()) best = cand;
+            i = nameEnd;
         }
-        ss << "checker credited: "
-           << (ev_ ? ev_->coverageOf(node) : std::string("unavailable"));
-        return ss.str();
+        return best;
+    }
+
+    std::string exprOf(const L2Candidate& c, int node) const {
+        if (const query::ThreadAccess* a = accessOf(c, node)) {
+            if (!a->code_snippet.empty()) return oneLine(a->code_snippet, 200);
+        }
+        CCPGNode* n = (ccpg_ && node >= 0) ? ccpg_->getNodeByID(node) : nullptr;
+        if (n && n->getCPGNode()) return oneLine(n->getCPGNode()->getCode(), 200);
+        return "<unavailable>";
+    }
+
+    // One side of a candidate: which context reaches it, where it is, what it
+    // does to the object, and every protection fact we hold about it. The
+    // previous version printed only the leaf function, so the thread ENTRY --
+    // the thing CHECK 1 and CHECK 2 turn on -- never reached the model.
+    void renderSide(std::stringstream& ss, const char* tag,
+                    const L2Candidate& c, int node) const {
+        const query::ThreadAccess* a = accessOf(c, node);
+        ss << "    " << tag << "  ";
+        if (a) {
+            ss << "thread " << a->thread_id;
+            if (!a->function_name.empty()) ss << " (entry " << a->function_name << ")";
+            ss << "  " << a->access_type;
+        } else {
+            ss << "thread ?";
+        }
+        ss << "  node " << node << "\n";
+        ss << "       at   ";
+        if (a && !a->location.empty()) ss << shortLoc(a->location);
+        else if (CCPGNode* n = (ccpg_ && node >= 0) ? ccpg_->getNodeByID(node) : nullptr)
+            ss << shortLoc(n->getNodeLoc().toString());
+        else ss << "<unknown>";
+        if (a && !a->containing_function.empty())
+            ss << "  in " << a->containing_function << "()";
+        ss << "\n";
+        ss << "       expr " << exprOf(c, node) << "\n";
+        ss << "       lock seen by the surface: "
+           << (a && a->is_lock_protected
+                   ? (a->protecting_lock.empty() ? std::string("yes (unnamed)")
+                                                 : a->protecting_lock)
+                   : std::string("none"))
+           << "\n";
+        ss << "       tokens credited by any contract: "
+           << (ev_ ? ev_->coverageOf(node) : std::string("unavailable")) << "\n";
+    }
+
+    // The concurrent contexts of this session, printed once instead of per
+    // candidate. Carries how each entry was nominated (which is what says what
+    // execution context it runs in) and whether the analysis assumed it can
+    // race itself.
+    void renderRoster(std::stringstream& ss,
+                      const std::vector<L2Candidate>& cands) const {
+        std::set<int> tids;
+        // Only the threads that actually race themselves in this batch get the
+        // CHECK 2 warning. Manual-entry mode marks every configured root
+        // reentrant whether or not any same-entry candidate came out of it, and
+        // announcing the assumption for threads it does not apply to made the
+        // model cite "self-concurrency assumed" while judging pairs that sit in
+        // two different entries.
+        std::set<int> selfRacing;
+        for (const L2Candidate& c : cands) {
+            for (int node : {c.aNode, c.bNode}) {
+                if (node < 0) continue;
+                int t = threadOf(c, node);
+                if (t >= 0) tids.insert(t);
+            }
+            if (c.reqTid >= 0) tids.insert(c.reqTid);
+            if (c.bNode >= 0) {
+                const int ta = threadOf(c, c.aNode), tb = threadOf(c, c.bNode);
+                if (ta >= 0 && ta == tb) selfRacing.insert(ta);
+            }
+        }
+        ss << "THREAD ROSTER -- the concurrent execution contexts in this session\n";
+        if (tids.empty()) ss << "  (unavailable)\n";
+        for (int t : tids) {
+            const query::ThreadInfo* ti = threadInfo(t);
+            ss << "  thread " << t << "  entry "
+               << (ti && !ti->entry_function.empty() ? ti->entry_function : "<unknown>")
+               << "()\n";
+            std::string prov = ti ? ti->entry_provenance : std::string();
+            ss << "            nominated by: "
+               << (prov.empty() ? std::string("<unrecorded>")
+                   : prov == "manual" ? std::string("analyst-configured (no code "
+                                                    "evidence of the context)")
+                                      : prov)
+               << "\n";
+            if (selfRacing.count(t))
+                ss << "            self-concurrent: "
+                   << (ti && ti->reentrant_entry
+                           ? "ASSUMED, not derived from the code -- some candidate "
+                             "below races this entry against itself; CHECK 2 applies"
+                           : "yes")
+                   << "\n";
+        }
+        ss << "\n";
     }
 
     std::string renderBatch(const std::vector<L2Candidate>& cands) {
         std::stringstream ss;
-        ss << "Calibrate the following " << n_ << " candidate(s). For EACH, call "
-              "judge(candidate_id, verdict, reason) with verdict \"keep\" or \"reject\", "
-              "then finish_review.\n\n";
+        ss << "Calibrate " << n_ << " candidate(s). Work the five checks in order "
+              "for each, call judge(candidate_id, verdict, basis, reason), and "
+              "call finish_review only once all " << n_ << " are judged.\n\n";
+        renderRoster(ss, cands);
+        ss << "CANDIDATES\n\n";
         for (int i = 0; i < n_; ++i) {
             const L2Candidate& c = cands[i];
-            ss << "[" << i << "] " << c.form << (c.lifetime ? " (lifetime/UAF)" : "")
-               << (c.object ? ("  on " + (c.object->name.empty() ? std::string("<anon>")
-                                                                 : c.object->name)) : "")
+            ss << "[" << i << "] requirement " << c.form
+               << (c.lifetime ? "  (lifetime/UAF: a free is on the failing side)" : "")
                << "\n";
-            ss << "     a = " << nodeStr(c.aNode) << sideStr(c, c.aNode) << "\n";
-            if (c.bNode >= 0)
-                ss << "     b = " << nodeStr(c.bNode) << sideStr(c, c.bNode) << "\n";
-            ss << "     checker: " << oneLine(c.reason, 240) << "\n";
-            ss << "     requiring thread = " << c.reqTid << "\n";
-            if (c.bNode >= 0) {
-                int ta = threadOf(c, c.aNode), tb = threadOf(c, c.bNode);
-                if (ta >= 0 && tb >= 0)
-                    ss << "     contexts = " << (ta == tb
-                            ? "same thread entry, reentrant/concurrent activations"
-                            : "different thread entries") << "\n";
-            }
+            ss << "    surface key: "
+               << (c.object ? (c.object->name.empty() ? std::string("<anon>")
+                                                      : c.object->name)
+                            : std::string("<none>"));
+            if (c.object && !c.object->type.empty()) ss << "   type: " << c.object->type;
             ss << "\n";
+            const int ta = threadOf(c, c.aNode);
+            const int tb = c.bNode >= 0 ? threadOf(c, c.bNode) : -1;
+            if (c.bNode >= 0 && ta >= 0 && tb >= 0)
+                ss << "    contexts: " << (ta == tb
+                        ? "SAME entry racing another activation of itself -- CHECK 2"
+                        : (bothEntriesDeclared(c)
+                               ? "two DIFFERENT analyst-configured entries -- they "
+                                 "overlap by construction, CHECK 1 is closed"
+                               : "two DIFFERENT entries -- CHECK 1")) << "\n";
+            ss << "    requiring thread: " << c.reqTid << "\n";
+            renderSide(ss, "a", c, c.aNode);
+            if (c.bNode >= 0) renderSide(ss, "b", c, c.bNode);
+            if (c.bNode >= 0) {
+                const std::string fa = fieldPath(exprOf(c, c.aNode));
+                const std::string fb = fieldPath(exprOf(c, c.bNode));
+                if (!fa.empty() && !fb.empty()) {
+                    ss << "    field paths: a names `" << fa << "`, b names `" << fb
+                       << "`";
+                    if (fa != fb)
+                        ss << "  -- DIFFERENT paths under one surface key; CHECK 3 "
+                              "before anything else";
+                    ss << "\n";
+                }
+            }
+            ss << "    checker could not discharge it because: "
+               << oneLine(c.reason, 700) << "\n\n";
         }
         return ss.str();
     }
 
     std::vector<Tool> get_available_tools() const override {
-        auto tools = SharedToolKit::get_shared_tools();
-        tools.push_back({"judge", "Keep or reject ONE candidate by its [i] id.", {
+        // Generic source navigation plus the graph queries that source reading
+        // cannot answer. get_function / get_function_ops used to be here and are
+        // deliberately gone: the model spent its turns paging function bodies
+        // out of the graph one node id at a time, which read_file and
+        // grep_source do directly and in fewer calls.
+        auto tools = SharedToolKit::get_source_tools();
+        for (const Tool& t : SharedToolKit::get_shared_tools())
+            if (t.name == "get_function_by_name" || t.name == "get_callers" ||
+                t.name == "get_callees")
+                tools.push_back(t);
+        tools.push_back({"judge", "Keep or reject ONE candidate by its [i] id. "
+                                  "Several calls may be issued in one turn.", {
             {"candidate_id", "integer", "The [i] index of the candidate.", true},
             {"verdict", "string", "\"keep\" or \"reject\".", true},
+            {"basis", "string",
+             "Why, as one of: \"mediated\" (a lock, RCU, atomic or handoff "
+             "coordinates the pair), \"disjoint\" (the contexts cannot overlap "
+             "in time), \"unrelated\" (the sites do not touch the same "
+             "storage), \"advisory\" (a stale or torn value cannot change "
+             "behaviour), or \"defect\" when keeping.", true},
             {"reason", "string", "One concise justification.", true}
         }});
-        tools.push_back({"finish_review", "Call after judging all candidates.", {}});
+        tools.push_back({"finish_review",
+                         "End the review. REFUSED while any candidate is "
+                         "un-judged; the refusal lists the outstanding ids.", {}});
         return tools;
     }
 
     std::string execute_tool(const std::string& name, const nlohmann::json& args) override {
+        // Exploration is budgeted, not forbidden. Reading code is how CHECK 1-3
+        // get answered, but an unbounded read loop is exactly how a session used
+        // to end with nothing judged, so once the budget is gone the tools stop
+        // returning code and say what to do instead.
+        const bool isExplore = (name == "read_file" || name == "grep_source" ||
+                                name == "list_dir" || name == "get_function_by_name" ||
+                                name == "get_callers" || name == "get_callees");
+        if (isExplore) {
+            if (exploreCalls_ >= exploreBudget_) {
+                nlohmann::json e;
+                e["error"] = "Exploration budget exhausted (" +
+                             std::to_string(exploreBudget_) +
+                             " calls). Judge the remaining candidates from the "
+                             "packet now; keep any you cannot decide.";
+                e["outstanding"] = outstandingIds();
+                return e.dump();
+            }
+            ++exploreCalls_;
+        }
         auto shared = SharedToolKit::handle_shared_tool(name, args, ccpg_);
         if (shared) return *shared;
         if (name == "judge") {
@@ -1486,22 +1808,162 @@ candidate, then finish_review. Inspect code with the read tools if needed.**
             if (id < 0 || id >= n_)
                 return R"({"error":"candidate_id out of range."})";
             std::string v = args.value("verdict", std::string());
+            std::string basis = args.value("basis", std::string());
+            // Case and stray whitespace should not cost a turn now that a
+            // malformed verdict is rejected instead of silently counting as keep.
+            auto norm = [](std::string s) {
+                s.erase(0, s.find_first_not_of(" \t\n\""));
+                const size_t e = s.find_last_not_of(" \t\n\"");
+                if (e != std::string::npos) s.erase(e + 1);
+                for (char& ch : s)
+                    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+                return s;
+            };
+            v = norm(v);
+            basis = norm(basis);
+            // Mediation is the checker's own question, and it already searched
+            // the contracts for a lock, atomic token or ordering covering this
+            // pair -- that search failing is why the candidate exists. When no
+            // contract declared any protection on either side, a "mediated"
+            // rejection is the model asserting a whole-program fact ("the only
+            // caller holds the lock") that it cannot establish from a bounded
+            // slice, and it overrides the checker every time. Send it back: if
+            // the protection is real, Phase A should have declared it, and the
+            // model can still reject on a basis the checker cannot see.
+            // A free consumes the whole object, so it aliases every field of it.
+            // "Different fields" is therefore never a reason to drop a
+            // lifetime/UAF candidate, and letting it through would silently
+            // lose exactly the class of bug this pipeline is best at.
+            if (v == "reject" && basis == "unrelated" && cands_ &&
+                id < static_cast<int>(cands_->size()) && (*cands_)[id].lifetime) {
+                nlohmann::json e;
+                e["error"] =
+                    "Candidate " + std::to_string(id) +
+                    " is a lifetime/UAF shape: one side frees the object, which "
+                    "aliases every field of it, so the sides cannot be unrelated "
+                    "storage. Re-judge on CHECK 1 (contexts cannot overlap), "
+                    "CHECK 2 (entry is serialized) or CHECK 4 (mediated), or keep it.";
+                return e.dump();
+            }
+            // A lifetime candidate says one context frees the object while
+            // another uses it. "A drain runs before the free" (unregister,
+            // cancel_work_sync, del_timer_sync, synchronize_rcu, refcount to
+            // zero) is precisely the claim under test: teardown use-after-frees
+            // exist BECAUSE the drain has a window. Accepting it as a `disjoint`
+            // basis therefore dismisses the whole bug class on the strength of
+            // the pattern that is supposed to be audited. It zeroed four cases
+            // this pipeline used to recall, including 358 of 358 candidates in
+            // CVE-2024-58072.
+            if (v == "reject" && basis == "disjoint" && cands_ &&
+                id < static_cast<int>(cands_->size()) && (*cands_)[id].lifetime) {
+                nlohmann::json e;
+                e["error"] =
+                    "Candidate " + std::to_string(id) +
+                    " is a lifetime/UAF shape, and for these a teardown drain is "
+                    "the claim under audit rather than a reason to dismiss: the "
+                    "bug in this class IS the window between the drain and the "
+                    "free. `disjoint` is only available here if one side is "
+                    "unreachable altogether (one-time init before the other side "
+                    "exists). If your basis is a drain, instead check whether the "
+                    "drain covers THIS object on THIS path with no window, and if "
+                    "you cannot show that, keep the candidate.";
+                return e.dump();
+            }
+            // Cross-entry pairs in manual-entry mode: the two entries were
+            // declared concurrent by the analyst, so arguing they cannot overlap
+            // contradicts the input rather than the checker.
+            if (v == "reject" && basis == "disjoint" && cands_ &&
+                id < static_cast<int>(cands_->size()) &&
+                bothEntriesDeclared((*cands_)[id])) {
+                nlohmann::json e;
+                e["error"] =
+                    "Both sides of candidate " + std::to_string(id) +
+                    " sit in DIFFERENT analyst-configured entries. Those entries "
+                    "were supplied as the concurrent contexts to analyse, so they "
+                    "overlap by construction and `disjoint` is not available for "
+                    "this pair. Re-judge on CHECK 3 (different storage), CHECK 4 "
+                    "(a token covering both sides), CHECK 5 (advisory), or keep it.";
+                return e.dump();
+            }
+            if (v == "reject" && basis == "mediated" && ev_ && cands_ &&
+                id < static_cast<int>(cands_->size())) {
+                const L2Candidate& c = (*cands_)[id];
+                // Mediation needs ONE token across BOTH sides; a lock held
+                // around only `a` leaves `b` free to run unprotected.
+                std::set<std::string> ta = ev_->tokensOf(c.aNode);
+                std::set<std::string> tb = ev_->tokensOf(c.bNode);
+                std::vector<std::string> both;
+                std::set_intersection(ta.begin(), ta.end(), tb.begin(),
+                                      tb.end(), std::back_inserter(both));
+                if (both.empty()) {
+                    nlohmann::json e;
+                    e["error"] =
+                        "No single lock or atomic token covers both sides of "
+                        "candidate " + std::to_string(id) +
+                        " in any contract, so the checker could not confirm "
+                        "the mediation you describe. Re-judge: keep it, or "
+                        "reject on a basis the checker cannot see (disjoint, "
+                        "unrelated, advisory).";
+                    return e.dump();
+                }
+            }
+            if (v != "keep" && v != "reject") {
+                nlohmann::json e;
+                e["error"] = "verdict must be exactly \"keep\" or \"reject\".";
+                return e.dump();
+            }
             keep_[id] = (v == "reject") ? 0 : 1;
+            judged_[id] = 1;
             nlohmann::json r;
             r["status"] = std::string("recorded ") + (keep_[id] ? "keep" : "reject") +
                           " for candidate " + std::to_string(id);
+            r["judged"] = judgedCount();
+            r["of"] = n_;
             return r.dump();
         }
-        if (name == "finish_review") return "finish";
+        if (name == "finish_review") {
+            // A review that ends with candidates un-judged produced no filtering
+            // for them, and letting it end silently is what made "reviewed, kept
+            // everything" indistinguishable from "never judged anything". Send it
+            // back with the outstanding ids. After a few refusals we let it end
+            // anyway rather than burn the session, and the caller reports the
+            // result as incomplete.
+            if (unjudged() > 0 && finishRefusals_ < kMaxFinishRefusals) {
+                ++finishRefusals_;
+                nlohmann::json e;
+                e["error"] = "Cannot finish: " + std::to_string(unjudged()) +
+                             " of " + std::to_string(n_) +
+                             " candidates are un-judged. Call judge on each id "
+                             "below, then finish_review. You may issue several "
+                             "judge calls in one turn.";
+                e["outstanding"] = outstandingIds();
+                return e.dump();
+            }
+            return "finish";
+        }
         nlohmann::json e; e["error"] = "unknown tool " + name; return e.dump();
+    }
+
+    std::vector<int> outstandingIds() const {
+        std::vector<int> out;
+        for (int i = 0; i < n_; ++i) if (!judged_[i]) out.push_back(i);
+        return out;
     }
 
     std::string parseResult(const std::vector<ChatMessage>&) override { return "done"; }
 
+    static constexpr int kMaxFinishRefusals = 3;
+
     CCPG* ccpg_ = nullptr;
+    const query::VulnerabilitySurface* surface_ = nullptr;
     const OrderingEvidence* ev_ = nullptr;
+    const std::vector<L2Candidate>* cands_ = nullptr;
     std::vector<char> keep_;
+    std::vector<char> judged_;
     int n_ = 0;
+    int exploreCalls_ = 0;
+    int exploreBudget_ = 0;
+    int finishRefusals_ = 0;
 };
 
 }  // namespace l2
@@ -1841,9 +2303,12 @@ SessionList buildBudgetedSessions(const ClusterMap& clusters,
             tids.insert(ts.begin(), ts.end());
             objs += os.size();
         }
-        std::cout << "  [session-budget] " << chunks.size() << " -> " << sessions.size()
-                  << " sessions (objects=" << objs << ", threads_in_play=" << tids.size()
-                  << ", cap=" << cap << ")" << std::endl;
+        std::cout << "  [session-budget] *** RESULT INCOMPLETE: " << chunks.size()
+                  << " -> " << sessions.size() << " sessions (objects=" << objs
+                  << ", threads_in_play=" << tids.size() << ", cap=" << cap
+                  << "); the " << (chunks.size() - sessions.size())
+                  << " dropped session(s) were never checked, so anything in "
+                     "them cannot be found ***" << std::endl;
     }
     return sessions;
 }
@@ -1919,15 +2384,20 @@ std::set<int> budgetContractThreads(
         return a.first < b.first;
     });
 
-    // Spec §7: per-thread contracts are the legitimate O(#threads) cost denominator
-    // (Phase A is parallel and cheaper than per-pair calibration), so budget here by
-    // thread count rather than by truncating the object surface. Raised modestly;
-    // objects whose threads have no contract fall through to a low-tier raw conflict.
-    int defaultCap = hugeSurface(surface) ? 30 : (largeSurface(surface) ? 45 : 90);
-    const int cap = envInt("LACE_CONTRACT_THREAD_CAP", defaultCap);
+    // Per-thread contracts are the legitimate O(#threads) cost denominator, and
+    // Phase A is parallel, so this is the cheapest phase to run in full. It used
+    // to be capped at 30-90 threads by surface size, which is worse than merely
+    // slow: buildEvidence only credits ordering and exclusion guarantees from
+    // threads that HAVE a contract, so every thread cut here loses its
+    // protections and its conflicts resurface as undischarged candidates. The
+    // cap manufactured false positives rather than trading recall for time.
+    // Uncapped by default; a cap set for ablation is reported as incomplete.
+    const int cap = envInt("LACE_CONTRACT_THREAD_CAP", 0);
     std::set<int> out;
-    for (size_t i = 0; i < ranked.size() && static_cast<int>(i) < cap; ++i)
+    for (size_t i = 0; i < ranked.size(); ++i) {
+        if (cap > 0 && static_cast<int>(i) >= cap) break;
         out.insert(ranked[i].first);
+    }
     if (!fullMode) {
         std::cout << "  [phaseA-b0] surface_pairs=" << surfacePairs
                   << ", mhp_pairs=" << mhpPairs
@@ -1937,8 +2407,12 @@ std::set<int> budgetContractThreads(
                   << std::endl;
     }
     if (out.size() < ranked.size()) {
-        std::cout << "  [contract-thread-budget] " << ranked.size() << " -> "
-                  << out.size() << " threads (cap=" << cap << ")" << std::endl;
+        std::cout << "  [contract-thread-budget] *** RESULT INCOMPLETE: "
+                  << ranked.size() << " -> " << out.size() << " threads (cap="
+                  << cap << "); the " << (ranked.size() - out.size())
+                  << " dropped thread(s) declare no guarantees, so their "
+                     "protections cannot discharge anything and their conflicts "
+                     "will surface as candidates ***" << std::endl;
     }
     return out;
 }
@@ -2262,8 +2736,49 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
             }));
         }
         for (auto& f : futures) f.get();
+        // A self-race sibling (thread id base + 1000000) is the SAME function
+        // running on another CPU: same source, same locks, same guarantees. The
+        // surface gives it a synthetic id with no Thread object, so the loop above
+        // skips it -- and Phase B credits ordering/exclusion guarantees only to
+        // threads that own a contract. One side of every self-race pair therefore
+        // looked like it declared no protections at all, and its conflicts came
+        // out as undischarged candidates. That is the same false-positive factory
+        // the thread cap was, and it showed up as "generated 1/2 contracts" on all
+        // 18 self-race cases of the 72-case set, inflating e.g. CVE-2013-1792 from
+        // 0 reports to 3 and CVE-2017-6346 from 4 to 18. Mirror the base contract.
+        int mirrored = 0;
+        for (int tid : tidsVec) {
+            if (tid < 1000000 || contractsByTid.count(tid)) continue;
+            auto base = contractsByTid.find(tid % 1000000);
+            if (base == contractsByTid.end()) continue;
+            LLM::ConcurrencyContract sibling = base->second;
+            sibling.threadId = tid;
+            contractsByTid.emplace(tid, std::move(sibling));
+            ++mirrored;
+        }
         std::cout << "  [contract-parallel] generated " << contractsByTid.size()
-                  << "/" << tidsVec.size() << " contracts" << std::endl;
+                  << "/" << tidsVec.size() << " contracts";
+        if (mirrored)
+            std::cout << " (" << mirrored
+                      << " mirrored onto self-race sibling thread(s))";
+        std::cout << std::endl;
+        // A contract with no requirement discharges nothing, so Phase B has
+        // nothing to check and the case reports zero findings — indistinguishable
+        // in the summary from "analysed and found clean". Say so explicitly:
+        // this is an analysis failure, not a clean verdict.
+        {
+            int emptyContracts = 0;
+            for (const auto& [tid, c] : contractsByTid) {
+                if (c.nodeReqs.empty()) ++emptyContracts;
+            }
+            if (emptyContracts > 0) {
+                std::cout << "  [contract-parallel] WARNING: " << emptyContracts
+                          << "/" << contractsByTid.size()
+                          << " contract(s) carry ZERO requirements — Phase B will have"
+                             " nothing to discharge for those threads (recall loss, not"
+                             " a clean verdict)" << std::endl;
+            }
+        }
         if (evalVerbose()) {
             for (const auto& [tid, c] : contractsByTid) {
                 // L2 node-anchored dump.
@@ -2334,11 +2849,12 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                                      : "  (+ Phase C strict calibration filter)")
                       << std::endl;
             HBGraph* hb = HBGraph::getInstance();
-            l2::Calibrator calibrator(llmClient, ccpg);
+            l2::Calibrator calibrator(llmClient, ccpg, &surface);
             std::vector<query::Hypothesis> composedL2;
             int seq = 0;
             size_t sDone = 0;
-            size_t totalCands = 0, totalKept = 0;
+            size_t totalCands = 0, totalKept = 0, totalUnjudged = 0;
+            size_t incompleteSessions = 0;
             for (auto& [ts, objs] : sessions) {
                 ++sDone;
                 l2::OrderingEvidence ev;
@@ -2348,8 +2864,16 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                 if (cands.empty()) continue;
                 // Phase C: strict filter (subset of candidates; recall bounded by B).
                 std::vector<char> keep;
+                int unjudged = 0;
                 if (skipPhaseC) keep.assign(cands.size(), 1);
-                else keep = calibrator.review(cands, &ev);
+                else {
+                    keep = calibrator.review(cands, &ev);
+                    unjudged = calibrator.unjudged();
+                    if (unjudged > 0) {
+                        ++incompleteSessions;
+                        totalUnjudged += static_cast<size_t>(unjudged);
+                    }
+                }
                 size_t kept = 0;
                 for (size_t i = 0; i < cands.size(); ++i) {
                     if (evalVerbose())
@@ -2362,10 +2886,20 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
                 totalKept += kept;
                 std::cout << "  [L2 session " << sDone << "/" << sessions.size()
                           << "] undischarged=" << cands.size() << " kept=" << kept
-                          << (skipPhaseC ? "" : " (calibrated)") << std::endl;
+                          << (skipPhaseC ? "" : " (calibrated)");
+                if (unjudged > 0)
+                    std::cout << "  *** INCOMPLETE: " << unjudged
+                              << " candidate(s) never judged, kept by default ***";
+                std::cout << std::endl;
             }
             std::cout << "  [L2] undischarged_total=" << totalCands
                       << " kept_after_calibration=" << totalKept << std::endl;
+            if (incompleteSessions > 0)
+                std::cout << "  [L2] *** RESULT INCOMPLETE: " << incompleteSessions
+                          << "/" << sessions.size() << " session(s) left "
+                          << totalUnjudged
+                          << " candidate(s) un-judged; the precision of this run "
+                             "is not meaningful for them ***" << std::endl;
             if (dedupEnabled()) {
                 size_t before = composedL2.size();
                 composedL2 = dedupHypotheses(std::move(composedL2), surface, dedupLevelFromEnv());
