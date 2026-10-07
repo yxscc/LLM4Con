@@ -1,0 +1,42 @@
+# Candidate hunting targets on Linux v7.2, ordered small -> large so the scan
+# produces usable results early.
+#
+# Chosen from hunt/survey_v7.2.json on three grounds:
+#   - recent race/UAF fix history in that directory (strongest prior)
+#   - synchronisation-primitive density and mechanism diversity
+#   - size: vsock (11 kLOC) already yields 173 objects / 112 threads, and the
+#     detector's own budget tiers kick in at 500 conflicting pairs, so groups
+#     are kept roughly in the 5-30 kLOC band rather than whole subsystems.
+#
+# net/sched is the highest-value net/ directory (44 race fixes since v6.12) but
+# is 64 kLOC, so it is split. Each split keeps its *_api.c control plane, since
+# the interesting races are a datapath callback against a concurrent
+# reconfiguration through the API file.
+
+# --- dense and small: cheapest to run, highest primitives per kLOC
+net-unix            net/unix
+net-tls             net/tls
+net-can             net/can
+net-l2tp            net/l2tp
+net-9p              net/9p
+fs-jbd2             fs/jbd2
+net-qrtr            net/qrtr
+
+# --- mid-size sweet spot: good race history, no split needed
+net-nfc             net/nfc
+net-openvswitch     net/openvswitch
+net-rds             net/rds
+net-mptcp           net/mptcp
+net-smc             net/smc
+fs-fuse             fs/fuse
+net-tipc            net/tipc
+
+# --- net/sched, split by plane (control plane kept in each group)
+sched-core          net/sched/sch_api.c net/sched/sch_generic.c net/sched/cls_api.c net/sched/act_api.c
+sched-cls           net/sched/cls_api.c net/sched/cls_flower.c net/sched/cls_u32.c net/sched/cls_bpf.c net/sched/cls_flow.c
+sched-act           net/sched/act_api.c net/sched/act_ct.c net/sched/act_ife.c net/sched/act_tunnel_key.c net/sched/act_gate.c
+sched-qdisc         net/sched/sch_api.c net/sched/sch_generic.c net/sched/sch_htb.c net/sched/sch_qfq.c net/sched/sch_hfsc.c net/sched/sch_taprio.c
+
+# --- larger, kept for comparison of how the budget tiers behave
+io-uring            io_uring
+net-bridge          net/bridge

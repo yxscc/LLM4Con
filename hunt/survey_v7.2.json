@@ -1,0 +1,5898 @@
+[
+  {
+    "dir": "net/bluetooth",
+    "files": 27,
+    "loc": 63074,
+    "prims": {
+      "lock": 210,
+      "rcu": 115,
+      "atomic": 325,
+      "defer": 117,
+      "thread": 0,
+      "wait": 70,
+      "barrier": 35
+    },
+    "prim_total": 872,
+    "families": 6,
+    "per_file": {
+      "6lowpan.c": {
+        "loc": 1321,
+        "prims": 51
+      },
+      "af_bluetooth.c": {
+        "loc": 1015,
+        "prims": 22
+      },
+      "aosp.c": {
+        "loc": 210,
+        "prims": 1
+      },
+      "coredump.c": {
+        "loc": 553,
+        "prims": 11
+      },
+      "ecdh_helper.c": {
+        "loc": 200,
+        "prims": 0
+      },
+      "eir.c": {
+        "loc": 388,
+        "prims": 1
+      },
+      "hci_codec.c": {
+        "loc": 253,
+        "prims": 0
+      },
+      "hci_conn.c": {
+        "loc": 3387,
+        "prims": 37
+      },
+      "hci_core.c": {
+        "loc": 4128,
+        "prims": 92
+      },
+      "hci_debugfs.c": {
+        "loc": 1392,
+        "prims": 8
+      },
+      "hci_drv.c": {
+        "loc": 105,
+        "prims": 0
+      },
+      "hci_event.c": {
+        "loc": 7856,
+        "prims": 113
+      },
+      "hci_sock.c": {
+        "loc": 2269,
+        "prims": 30
+      },
+      "hci_sync.c": {
+        "loc": 7851,
+        "prims": 134
+      },
+      "hci_sysfs.c": {
+        "loc": 138,
+        "prims": 0
+      },
+      "iso.c": {
+        "loc": 2910,
+        "prims": 47
+      },
+      "l2cap_core.c": {
+        "loc": 7997,
+        "prims": 123
+      },
+      "l2cap_sock.c": {
+        "loc": 2094,
+        "prims": 32
+      },
+      "leds.c": {
+        "loc": 100,
+        "prims": 1
+      },
+      "lib.c": {
+        "loc": 380,
+        "prims": 0
+      },
+      "mgmt.c": {
+        "loc": 10760,
+        "prims": 71
+      },
+      "mgmt_config.c": {
+        "loc": 367,
+        "prims": 0
+      },
+      "mgmt_util.c": {
+        "loc": 438,
+        "prims": 13
+      },
+      "msft.c": {
+        "loc": 1201,
+        "prims": 12
+      },
+      "sco.c": {
+        "loc": 1677,
+        "prims": 14
+      },
+      "selftest.c": {
+        "loc": 306,
+        "prims": 0
+      },
+      "smp.c": {
+        "loc": 3778,
+        "prims": 59
+      }
+    },
+    "commits": 384,
+    "race_fixes": 47,
+    "prim_density": 13.825030916066842,
+    "race_rate": 0.12239583333333333,
+    "score": 316.5,
+    "needs_split": true
+  },
+  {
+    "dir": "net/sched",
+    "files": 80,
+    "loc": 63690,
+    "prims": {
+      "lock": 283,
+      "rcu": 420,
+      "atomic": 163,
+      "defer": 49,
+      "thread": 0,
+      "wait": 5,
+      "barrier": 692
+    },
+    "prim_total": 1612,
+    "families": 6,
+    "per_file": {
+      "act_api.c": {
+        "loc": 2304,
+        "prims": 67
+      },
+      "act_bpf.c": {
+        "loc": 438,
+        "prims": 8
+      },
+      "act_connmark.c": {
+        "loc": 284,
+        "prims": 13
+      },
+      "act_csum.c": {
+        "loc": 755,
+        "prims": 12
+      },
+      "act_ct.c": {
+        "loc": 1734,
+        "prims": 32
+      },
+      "act_ctinfo.c": {
+        "loc": 404,
+        "prims": 22
+      },
+      "act_gact.c": {
+        "loc": 346,
+        "prims": 14
+      },
+      "act_gate.c": {
+        "loc": 783,
+        "prims": 32
+      },
+      "act_ife.c": {
+        "loc": 927,
+        "prims": 14
+      },
+      "act_meta_mark.c": {
+        "loc": 73,
+        "prims": 0
+      },
+      "act_meta_skbprio.c": {
+        "loc": 71,
+        "prims": 0
+      },
+      "act_meta_skbtcindex.c": {
+        "loc": 73,
+        "prims": 0
+      },
+      "act_mirred.c": {
+        "loc": 724,
+        "prims": 22
+      },
+      "act_mpls.c": {
+        "loc": 489,
+        "prims": 11
+      },
+      "act_nat.c": {
+        "loc": 361,
+        "prims": 11
+      },
+      "act_pedit.c": {
+        "loc": 677,
+        "prims": 12
+      },
+      "act_police.c": {
+        "loc": 541,
+        "prims": 14
+      },
+      "act_sample.c": {
+        "loc": 367,
+        "prims": 12
+      },
+      "act_simple.c": {
+        "loc": 250,
+        "prims": 6
+      },
+      "act_skbedit.c": {
+        "loc": 467,
+        "prims": 11
+      },
+      "act_skbmod.c": {
+        "loc": 324,
+        "prims": 13
+      },
+      "act_tunnel_key.c": {
+        "loc": 885,
+        "prims": 10
+      },
+      "act_vlan.c": {
+        "loc": 465,
+        "prims": 11
+      },
+      "bpf_qdisc.c": {
+        "loc": 478,
+        "prims": 0
+      },
+      "cls_api.c": {
+        "loc": 4151,
+        "prims": 133
+      },
+      "cls_basic.c": {
+        "loc": 346,
+        "prims": 4
+      },
+      "cls_bpf.c": {
+        "loc": 725,
+        "prims": 4
+      },
+      "cls_cgroup.c": {
+        "loc": 227,
+        "prims": 2
+      },
+      "cls_flow.c": {
+        "loc": 737,
+        "prims": 6
+      },
+      "cls_flower.c": {
+        "loc": 3870,
+        "prims": 59
+      },
+      "cls_fw.c": {
+        "loc": 465,
+        "prims": 11
+      },
+      "cls_matchall.c": {
+        "loc": 420,
+        "prims": 2
+      },
+      "cls_route.c": {
+        "loc": 706,
+        "prims": 27
+      },
+      "cls_u32.c": {
+        "loc": 1518,
+        "prims": 47
+      },
+      "em_canid.c": {
+        "loc": 234,
+        "prims": 2
+      },
+      "em_cmp.c": {
+        "loc": 99,
+        "prims": 0
+      },
+      "em_ipset.c": {
+        "loc": 134,
+        "prims": 2
+      },
+      "em_ipt.c": {
+        "loc": 297,
+        "prims": 2
+      },
+      "em_meta.c": {
+        "loc": 1015,
+        "prims": 14
+      },
+      "em_nbyte.c": {
+        "loc": 79,
+        "prims": 0
+      },
+      "em_text.c": {
+        "loc": 163,
+        "prims": 0
+      },
+      "em_u32.c": {
+        "loc": 61,
+        "prims": 0
+      },
+      "ematch.c": {
+        "loc": 550,
+        "prims": 3
+      },
+      "sch_api.c": {
+        "loc": 2559,
+        "prims": 36
+      },
+      "sch_blackhole.c": {
+        "loc": 41,
+        "prims": 0
+      },
+      "sch_cake.c": {
+        "loc": 3392,
+        "prims": 158
+      },
+      "sch_cbs.c": {
+        "loc": 592,
+        "prims": 22
+      },
+      "sch_choke.c": {
+        "loc": 524,
+        "prims": 22
+      },
+      "sch_codel.c": {
+        "loc": 324,
+        "prims": 20
+      },
+      "sch_drr.c": {
+        "loc": 501,
+        "prims": 9
+      },
+      "sch_dualpi2.c": {
+        "loc": 1236,
+        "prims": 95
+      },
+      "sch_etf.c": {
+        "loc": 517,
+        "prims": 5
+      },
+      "sch_ets.c": {
+        "loc": 845,
+        "prims": 13
+      },
+      "sch_fifo.c": {
+        "loc": 276,
+        "prims": 7
+      },
+      "sch_fq.c": {
+        "loc": 1420,
+        "prims": 43
+      },
+      "sch_fq_codel.c": {
+        "loc": 791,
+        "prims": 41
+      },
+      "sch_fq_pie.c": {
+        "loc": 595,
+        "prims": 32
+      },
+      "sch_frag.c": {
+        "loc": 160,
+        "prims": 0
+      },
+      "sch_generic.c": {
+        "loc": 1641,
+        "prims": 82
+      },
+      "sch_gred.c": {
+        "loc": 950,
+        "prims": 0
+      },
+      "sch_hfsc.c": {
+        "loc": 1704,
+        "prims": 16
+      },
+      "sch_hhf.c": {
+        "loc": 759,
+        "prims": 24
+      },
+      "sch_htb.c": {
+        "loc": 2171,
+        "prims": 28
+      },
+      "sch_ingress.c": {
+        "loc": 376,
+        "prims": 0
+      },
+      "sch_mq.c": {
+        "loc": 314,
+        "prims": 10
+      },
+      "sch_mqprio.c": {
+        "loc": 793,
+        "prims": 14
+      },
+      "sch_mqprio_lib.c": {
+        "loc": 132,
+        "prims": 0
+      },
+      "sch_multiq.c": {
+        "loc": 414,
+        "prims": 1
+      },
+      "sch_netem.c": {
+        "loc": 1430,
+        "prims": 18
+      },
+      "sch_pie.c": {
+        "loc": 583,
+        "prims": 45
+      },
+      "sch_plug.c": {
+        "loc": 230,
+        "prims": 1
+      },
+      "sch_prio.c": {
+        "loc": 437,
+        "prims": 1
+      },
+      "sch_qfq.c": {
+        "loc": 1555,
+        "prims": 1
+      },
+      "sch_red.c": {
+        "loc": 580,
+        "prims": 19
+      },
+      "sch_sfb.c": {
+        "loc": 742,
+        "prims": 22
+      },
+      "sch_sfq.c": {
+        "loc": 983,
+        "prims": 35
+      },
+      "sch_skbprio.c": {
+        "loc": 310,
+        "prims": 3
+      },
+      "sch_taprio.c": {
+        "loc": 2582,
+        "prims": 80
+      },
+      "sch_tbf.c": {
+        "loc": 637,
+        "prims": 1
+      },
+      "sch_teql.c": {
+        "loc": 577,
+        "prims": 43
+      }
+    },
+    "commits": 321,
+    "race_fixes": 44,
+    "prim_density": 25.310095776417022,
+    "race_rate": 0.13707165109034267,
+    "score": 300.2,
+    "needs_split": true
+  },
+  {
+    "dir": "block",
+    "files": 58,
+    "loc": 61130,
+    "prims": {
+      "lock": 459,
+      "rcu": 109,
+      "atomic": 306,
+      "defer": 59,
+      "thread": 2,
+      "wait": 138,
+      "barrier": 86
+    },
+    "prim_total": 1159,
+    "families": 7,
+    "per_file": {
+      "badblocks.c": {
+        "loc": 1550,
+        "prims": 0
+      },
+      "bdev.c": {
+        "loc": 1375,
+        "prims": 64
+      },
+      "bfq-cgroup.c": {
+        "loc": 1468,
+        "prims": 19
+      },
+      "bfq-iosched.c": {
+        "loc": 7678,
+        "prims": 46
+      },
+      "bfq-wf2q.c": {
+        "loc": 1701,
+        "prims": 3
+      },
+      "bio-integrity-auto.c": {
+        "loc": 133,
+        "prims": 6
+      },
+      "bio-integrity-fs.c": {
+        "loc": 85,
+        "prims": 0
+      },
+      "bio-integrity.c": {
+        "loc": 568,
+        "prims": 1
+      },
+      "bio.c": {
+        "loc": 2027,
+        "prims": 30
+      },
+      "blk-cgroup-fc-appid.c": {
+        "loc": 57,
+        "prims": 0
+      },
+      "blk-cgroup-rwstat.c": {
+        "loc": 127,
+        "prims": 1
+      },
+      "blk-cgroup.c": {
+        "loc": 2244,
+        "prims": 96
+      },
+      "blk-core.c": {
+        "loc": 1329,
+        "prims": 34
+      },
+      "blk-crypto-fallback.c": {
+        "loc": 677,
+        "prims": 9
+      },
+      "blk-crypto-profile.c": {
+        "loc": 664,
+        "prims": 15
+      },
+      "blk-crypto-sysfs.c": {
+        "loc": 208,
+        "prims": 0
+      },
+      "blk-crypto.c": {
+        "loc": 584,
+        "prims": 0
+      },
+      "blk-flush.c": {
+        "loc": 540,
+        "prims": 24
+      },
+      "blk-ia-ranges.c": {
+        "loc": 314,
+        "prims": 2
+      },
+      "blk-integrity.c": {
+        "loc": 342,
+        "prims": 0
+      },
+      "blk-ioc.c": {
+        "loc": 442,
+        "prims": 31
+      },
+      "blk-iocost.c": {
+        "loc": 3610,
+        "prims": 100
+      },
+      "blk-iolatency.c": {
+        "loc": 1079,
+        "prims": 51
+      },
+      "blk-ioprio.c": {
+        "loc": 179,
+        "prims": 0
+      },
+      "blk-lib.c": {
+        "loc": 357,
+        "prims": 0
+      },
+      "blk-map.c": {
+        "loc": 682,
+        "prims": 1
+      },
+      "blk-merge.c": {
+        "loc": 1168,
+        "prims": 5
+      },
+      "blk-mq-cpumap.c": {
+        "loc": 132,
+        "prims": 0
+      },
+      "blk-mq-debugfs.c": {
+        "loc": 829,
+        "prims": 12
+      },
+      "blk-mq-dma.c": {
+        "loc": 438,
+        "prims": 0
+      },
+      "blk-mq-sched.c": {
+        "loc": 706,
+        "prims": 13
+      },
+      "blk-mq-sysfs.c": {
+        "loc": 298,
+        "prims": 7
+      },
+      "blk-mq-tag.c": {
+        "loc": 655,
+        "prims": 9
+      },
+      "blk-mq.c": {
+        "loc": 5301,
+        "prims": 116
+      },
+      "blk-pm.c": {
+        "loc": 191,
+        "prims": 1
+      },
+      "blk-rq-qos.c": {
+        "loc": 374,
+        "prims": 9
+      },
+      "blk-settings.c": {
+        "loc": 1055,
+        "prims": 69
+      },
+      "blk-stat.c": {
+        "loc": 228,
+        "prims": 8
+      },
+      "blk-sysfs.c": {
+        "loc": 1076,
+        "prims": 31
+      },
+      "blk-throttle.c": {
+        "loc": 1911,
+        "prims": 13
+      },
+      "blk-timeout.c": {
+        "loc": 167,
+        "prims": 3
+      },
+      "blk-wbt.c": {
+        "loc": 1045,
+        "prims": 24
+      },
+      "blk-zoned.c": {
+        "loc": 2511,
+        "prims": 69
+      },
+      "bsg-lib.c": {
+        "loc": 412,
+        "prims": 3
+      },
+      "bsg.c": {
+        "loc": 308,
+        "prims": 2
+      },
+      "disk-events.c": {
+        "loc": 490,
+        "prims": 16
+      },
+      "early-lookup.c": {
+        "loc": 316,
+        "prims": 2
+      },
+      "elevator.c": {
+        "loc": 900,
+        "prims": 29
+      },
+      "error-injection.c": {
+        "loc": 316,
+        "prims": 13
+      },
+      "fops.c": {
+        "loc": 953,
+        "prims": 11
+      },
+      "genhd.c": {
+        "loc": 1588,
+        "prims": 48
+      },
+      "holder.c": {
+        "loc": 156,
+        "prims": 8
+      },
+      "ioctl.c": {
+        "loc": 974,
+        "prims": 4
+      },
+      "ioprio.c": {
+        "loc": 249,
+        "prims": 6
+      },
+      "kyber-iosched.c": {
+        "loc": 1036,
+        "prims": 18
+      },
+      "mq-deadline.c": {
+        "loc": 1033,
+        "prims": 21
+      },
+      "sed-opal.c": {
+        "loc": 3727,
+        "prims": 56
+      },
+      "t10-pi.c": {
+        "loc": 567,
+        "prims": 0
+      }
+    },
+    "commits": 718,
+    "race_fixes": 38,
+    "prim_density": 18.959594307214132,
+    "race_rate": 0.052924791086350974,
+    "score": 280.1,
+    "needs_split": true
+  },
+  {
+    "dir": "fs/smb/client",
+    "files": 54,
+    "loc": 63051,
+    "prims": {
+      "lock": 991,
+      "rcu": 1,
+      "atomic": 239,
+      "defer": 50,
+      "thread": 1,
+      "wait": 37,
+      "barrier": 34
+    },
+    "prim_total": 1353,
+    "families": 7,
+    "per_file": {
+      "asn1.c": {
+        "loc": 65,
+        "prims": 0
+      },
+      "cached_dir.c": {
+        "loc": 875,
+        "prims": 52
+      },
+      "cifs_debug.c": {
+        "loc": 1297,
+        "prims": 59
+      },
+      "cifs_spnego.c": {
+        "loc": 252,
+        "prims": 1
+      },
+      "cifs_swn.c": {
+        "loc": 876,
+        "prims": 17
+      },
+      "cifs_unicode.c": {
+        "loc": 631,
+        "prims": 0
+      },
+      "cifsacl.c": {
+        "loc": 2002,
+        "prims": 1
+      },
+      "cifsencrypt.c": {
+        "loc": 514,
+        "prims": 0
+      },
+      "cifsfs.c": {
+        "loc": 2225,
+        "prims": 50
+      },
+      "cifsroot.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "cifssmb.c": {
+        "loc": 6411,
+        "prims": 40
+      },
+      "compress.c": {
+        "loc": 372,
+        "prims": 0
+      },
+      "connect.c": {
+        "loc": 4542,
+        "prims": 279
+      },
+      "dfs.c": {
+        "loc": 467,
+        "prims": 13
+      },
+      "dfs_cache.c": {
+        "loc": 1356,
+        "prims": 59
+      },
+      "dir.c": {
+        "loc": 1212,
+        "prims": 7
+      },
+      "dns_resolve.c": {
+        "loc": 96,
+        "prims": 0
+      },
+      "export.c": {
+        "loc": 53,
+        "prims": 0
+      },
+      "file.c": {
+        "loc": 3518,
+        "prims": 135
+      },
+      "fs_context.c": {
+        "loc": 2258,
+        "prims": 13
+      },
+      "fscache.c": {
+        "loc": 168,
+        "prims": 5
+      },
+      "inode.c": {
+        "loc": 3552,
+        "prims": 37
+      },
+      "ioctl.c": {
+        "loc": 723,
+        "prims": 8
+      },
+      "link.c": {
+        "loc": 642,
+        "prims": 3
+      },
+      "misc.c": {
+        "loc": 1112,
+        "prims": 76
+      },
+      "namespace.c": {
+        "loc": 298,
+        "prims": 11
+      },
+      "netlink.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "netmisc.c": {
+        "loc": 212,
+        "prims": 0
+      },
+      "readdir.c": {
+        "loc": 1235,
+        "prims": 16
+      },
+      "reparse.c": {
+        "loc": 1289,
+        "prims": 0
+      },
+      "sess.c": {
+        "loc": 1039,
+        "prims": 45
+      },
+      "smb1debug.c": {
+        "loc": 25,
+        "prims": 0
+      },
+      "smb1encrypt.c": {
+        "loc": 140,
+        "prims": 3
+      },
+      "smb1maperror.c": {
+        "loc": 282,
+        "prims": 0
+      },
+      "smb1maperror_test.c": {
+        "loc": 78,
+        "prims": 0
+      },
+      "smb1misc.c": {
+        "loc": 189,
+        "prims": 8
+      },
+      "smb1ops.c": {
+        "loc": 1498,
+        "prims": 59
+      },
+      "smb1session.c": {
+        "loc": 995,
+        "prims": 0
+      },
+      "smb1transport.c": {
+        "loc": 584,
+        "prims": 8
+      },
+      "smb2file.c": {
+        "loc": 467,
+        "prims": 1
+      },
+      "smb2inode.c": {
+        "loc": 1581,
+        "prims": 1
+      },
+      "smb2maperror.c": {
+        "loc": 126,
+        "prims": 0
+      },
+      "smb2maperror_test.c": {
+        "loc": 50,
+        "prims": 0
+      },
+      "smb2misc.c": {
+        "loc": 957,
+        "prims": 28
+      },
+      "smb2ops.c": {
+        "loc": 6120,
+        "prims": 142
+      },
+      "smb2pdu.c": {
+        "loc": 6465,
+        "prims": 85
+      },
+      "smb2transport.c": {
+        "loc": 816,
+        "prims": 42
+      },
+      "smbdirect.c": {
+        "loc": 561,
+        "prims": 0
+      },
+      "smbencrypt.c": {
+        "loc": 83,
+        "prims": 0
+      },
+      "trace.c": {
+        "loc": 10,
+        "prims": 0
+      },
+      "transport.c": {
+        "loc": 1291,
+        "prims": 49
+      },
+      "unc.c": {
+        "loc": 69,
+        "prims": 0
+      },
+      "winucase.c": {
+        "loc": 649,
+        "prims": 0
+      },
+      "xattr.c": {
+        "loc": 535,
+        "prims": 0
+      }
+    },
+    "commits": 867,
+    "race_fixes": 38,
+    "prim_density": 21.45881905124423,
+    "race_rate": 0.04382929642445214,
+    "score": 277.7,
+    "needs_split": true
+  },
+  {
+    "dir": "drivers/md",
+    "files": 80,
+    "loc": 121838,
+    "prims": {
+      "lock": 821,
+      "rcu": 107,
+      "atomic": 1820,
+      "defer": 217,
+      "thread": 12,
+      "wait": 429,
+      "barrier": 250
+    },
+    "prim_total": 3656,
+    "families": 7,
+    "per_file": {
+      "dm-audit.c": {
+        "loc": 84,
+        "prims": 0
+      },
+      "dm-bio-prison-v1.c": {
+        "loc": 458,
+        "prims": 3
+      },
+      "dm-bio-prison-v2.c": {
+        "loc": 364,
+        "prims": 3
+      },
+      "dm-bufio.c": {
+        "loc": 2940,
+        "prims": 84
+      },
+      "dm-builtin.c": {
+        "loc": 48,
+        "prims": 3
+      },
+      "dm-cache-background-tracker.c": {
+        "loc": 239,
+        "prims": 13
+      },
+      "dm-cache-metadata.c": {
+        "loc": 1827,
+        "prims": 20
+      },
+      "dm-cache-policy-smq.c": {
+        "loc": 1974,
+        "prims": 12
+      },
+      "dm-cache-policy.c": {
+        "loc": 174,
+        "prims": 6
+      },
+      "dm-cache-target.c": {
+        "loc": 3612,
+        "prims": 86
+      },
+      "dm-clone-metadata.c": {
+        "loc": 1020,
+        "prims": 24
+      },
+      "dm-clone-target.c": {
+        "loc": 2208,
+        "prims": 50
+      },
+      "dm-crypt.c": {
+        "loc": 3723,
+        "prims": 80
+      },
+      "dm-delay.c": {
+        "loc": 470,
+        "prims": 20
+      },
+      "dm-dust.c": {
+        "loc": 579,
+        "prims": 8
+      },
+      "dm-ebs-target.c": {
+        "loc": 467,
+        "prims": 2
+      },
+      "dm-era-target.c": {
+        "loc": 1765,
+        "prims": 28
+      },
+      "dm-exception-store.c": {
+        "loc": 291,
+        "prims": 9
+      },
+      "dm-flakey.c": {
+        "loc": 709,
+        "prims": 5
+      },
+      "dm-ima.c": {
+        "loc": 650,
+        "prims": 2
+      },
+      "dm-init.c": {
+        "loc": 328,
+        "prims": 0
+      },
+      "dm-inlinecrypt.c": {
+        "loc": 620,
+        "prims": 2
+      },
+      "dm-integrity.c": {
+        "loc": 5485,
+        "prims": 124
+      },
+      "dm-io-rewind.c": {
+        "loc": 164,
+        "prims": 1
+      },
+      "dm-io.c": {
+        "loc": 540,
+        "prims": 10
+      },
+      "dm-ioctl.c": {
+        "loc": 2494,
+        "prims": 51
+      },
+      "dm-kcopyd.c": {
+        "loc": 998,
+        "prims": 26
+      },
+      "dm-linear.c": {
+        "loc": 234,
+        "prims": 0
+      },
+      "dm-log-userspace-base.c": {
+        "loc": 931,
+        "prims": 15
+      },
+      "dm-log-userspace-transfer.c": {
+        "loc": 287,
+        "prims": 17
+      },
+      "dm-log-writes.c": {
+        "loc": 947,
+        "prims": 31
+      },
+      "dm-log.c": {
+        "loc": 919,
+        "prims": 9
+      },
+      "dm-mpath.c": {
+        "loc": 2385,
+        "prims": 106
+      },
+      "dm-path-selector.c": {
+        "loc": 138,
+        "prims": 9
+      },
+      "dm-ps-historical-service-time.c": {
+        "loc": 564,
+        "prims": 7
+      },
+      "dm-ps-io-affinity.c": {
+        "loc": 270,
+        "prims": 9
+      },
+      "dm-ps-queue-length.c": {
+        "loc": 286,
+        "prims": 12
+      },
+      "dm-ps-round-robin.c": {
+        "loc": 243,
+        "prims": 4
+      },
+      "dm-ps-service-time.c": {
+        "loc": 364,
+        "prims": 11
+      },
+      "dm-raid.c": {
+        "loc": 4182,
+        "prims": 97
+      },
+      "dm-raid1.c": {
+        "loc": 1531,
+        "prims": 37
+      },
+      "dm-region-hash.c": {
+        "loc": 727,
+        "prims": 30
+      },
+      "dm-rq.c": {
+        "loc": 608,
+        "prims": 9
+      },
+      "dm-snap-persistent.c": {
+        "loc": 980,
+        "prims": 6
+      },
+      "dm-snap-transient.c": {
+        "loc": 158,
+        "prims": 0
+      },
+      "dm-snap.c": {
+        "loc": 2857,
+        "prims": 125
+      },
+      "dm-stats.c": {
+        "loc": 1262,
+        "prims": 51
+      },
+      "dm-stripe.c": {
+        "loc": 516,
+        "prims": 10
+      },
+      "dm-switch.c": {
+        "loc": 577,
+        "prims": 3
+      },
+      "dm-sysfs.c": {
+        "loc": 145,
+        "prims": 1
+      },
+      "dm-table.c": {
+        "loc": 2231,
+        "prims": 13
+      },
+      "dm-target.c": {
+        "loc": 287,
+        "prims": 10
+      },
+      "dm-thin-metadata.c": {
+        "loc": 2135,
+        "prims": 37
+      },
+      "dm-thin.c": {
+        "loc": 4558,
+        "prims": 74
+      },
+      "dm-uevent.c": {
+        "loc": 206,
+        "prims": 0
+      },
+      "dm-unstripe.c": {
+        "loc": 200,
+        "prims": 0
+      },
+      "dm-verity-fec.c": {
+        "loc": 734,
+        "prims": 1
+      },
+      "dm-verity-loadpin.c": {
+        "loc": 86,
+        "prims": 0
+      },
+      "dm-verity-target.c": {
+        "loc": 1842,
+        "prims": 17
+      },
+      "dm-verity-verify-sig.c": {
+        "loc": 199,
+        "prims": 2
+      },
+      "dm-writecache.c": {
+        "loc": 2771,
+        "prims": 47
+      },
+      "dm-zero.c": {
+        "loc": 81,
+        "prims": 0
+      },
+      "dm-zone.c": {
+        "loc": 521,
+        "prims": 6
+      },
+      "dm-zoned-metadata.c": {
+        "loc": 3001,
+        "prims": 100
+      },
+      "dm-zoned-reclaim.c": {
+        "loc": 640,
+        "prims": 8
+      },
+      "dm-zoned-target.c": {
+        "loc": 1160,
+        "prims": 36
+      },
+      "dm.c": {
+        "loc": 3848,
+        "prims": 164
+      },
+      "md-autodetect.c": {
+        "loc": 283,
+        "prims": 1
+      },
+      "md-bitmap.c": {
+        "loc": 3146,
+        "prims": 73
+      },
+      "md-cluster.c": {
+        "loc": 1669,
+        "prims": 75
+      },
+      "md-linear.c": {
+        "loc": 350,
+        "prims": 6
+      },
+      "md-llbitmap.c": {
+        "loc": 1813,
+        "prims": 62
+      },
+      "md.c": {
+        "loc": 11019,
+        "prims": 494
+      },
+      "raid0.c": {
+        "loc": 843,
+        "prims": 1
+      },
+      "raid1-10.c": {
+        "loc": 305,
+        "prims": 5
+      },
+      "raid1.c": {
+        "loc": 3539,
+        "prims": 206
+      },
+      "raid10.c": {
+        "loc": 5112,
+        "prims": 213
+      },
+      "raid5-cache.c": {
+        "loc": 3187,
+        "prims": 164
+      },
+      "raid5-ppl.c": {
+        "loc": 1521,
+        "prims": 39
+      },
+      "raid5.c": {
+        "loc": 9209,
+        "prims": 531
+      }
+    },
+    "commits": 614,
+    "race_fixes": 24,
+    "prim_density": 30.007058553160757,
+    "race_rate": 0.03908794788273615,
+    "score": 174.6,
+    "needs_split": true
+  },
+  {
+    "dir": "net/mptcp",
+    "files": 21,
+    "loc": 17101,
+    "prims": {
+      "lock": 76,
+      "rcu": 73,
+      "atomic": 42,
+      "defer": 8,
+      "thread": 1,
+      "wait": 3,
+      "barrier": 304
+    },
+    "prim_total": 507,
+    "families": 7,
+    "per_file": {
+      "bpf.c": {
+        "loc": 36,
+        "prims": 0
+      },
+      "crypto.c": {
+        "loc": 52,
+        "prims": 0
+      },
+      "crypto_test.c": {
+        "loc": 73,
+        "prims": 0
+      },
+      "ctrl.c": {
+        "loc": 605,
+        "prims": 23
+      },
+      "diag.c": {
+        "loc": 120,
+        "prims": 5
+      },
+      "fastopen.c": {
+        "loc": 65,
+        "prims": 0
+      },
+      "mib.c": {
+        "loc": 130,
+        "prims": 1
+      },
+      "mptcp_diag.c": {
+        "loc": 243,
+        "prims": 11
+      },
+      "mptcp_pm_gen.c": {
+        "loc": 180,
+        "prims": 0
+      },
+      "options.c": {
+        "loc": 1767,
+        "prims": 33
+      },
+      "pm.c": {
+        "loc": 1273,
+        "prims": 61
+      },
+      "pm_kernel.c": {
+        "loc": 1655,
+        "prims": 68
+      },
+      "pm_netlink.c": {
+        "loc": 646,
+        "prims": 8
+      },
+      "pm_userspace.c": {
+        "loc": 707,
+        "prims": 16
+      },
+      "protocol.c": {
+        "loc": 4747,
+        "prims": 158
+      },
+      "sched.c": {
+        "loc": 215,
+        "prims": 10
+      },
+      "sockopt.c": {
+        "loc": 1669,
+        "prims": 31
+      },
+      "subflow.c": {
+        "loc": 2210,
+        "prims": 56
+      },
+      "syncookies.c": {
+        "loc": 133,
+        "prims": 2
+      },
+      "token.c": {
+        "loc": 424,
+        "prims": 20
+      },
+      "token_test.c": {
+        "loc": 151,
+        "prims": 4
+      }
+    },
+    "commits": 323,
+    "race_fixes": 16,
+    "prim_density": 29.647389041576517,
+    "race_rate": 0.04953560371517028,
+    "score": 117.5,
+    "needs_split": false
+  },
+  {
+    "dir": "io_uring",
+    "files": 43,
+    "loc": 24685,
+    "prims": {
+      "lock": 172,
+      "rcu": 75,
+      "atomic": 183,
+      "defer": 43,
+      "thread": 0,
+      "wait": 85,
+      "barrier": 351
+    },
+    "prim_total": 909,
+    "families": 6,
+    "per_file": {
+      "advise.c": {
+        "loc": 108,
+        "prims": 8
+      },
+      "alloc_cache.c": {
+        "loc": 44,
+        "prims": 0
+      },
+      "bpf-ops.c": {
+        "loc": 275,
+        "prims": 0
+      },
+      "bpf_filter.c": {
+        "loc": 457,
+        "prims": 27
+      },
+      "cancel.c": {
+        "loc": 665,
+        "prims": 26
+      },
+      "cmd_net.c": {
+        "loc": 192,
+        "prims": 12
+      },
+      "epoll.c": {
+        "loc": 103,
+        "prims": 6
+      },
+      "eventfd.c": {
+        "loc": 173,
+        "prims": 21
+      },
+      "fdinfo.c": {
+        "loc": 272,
+        "prims": 14
+      },
+      "filetable.c": {
+        "loc": 158,
+        "prims": 0
+      },
+      "fs.c": {
+        "loc": 306,
+        "prims": 19
+      },
+      "futex.c": {
+        "loc": 336,
+        "prims": 7
+      },
+      "io-wq.c": {
+        "loc": 1524,
+        "prims": 104
+      },
+      "io_uring.c": {
+        "loc": 3270,
+        "prims": 152
+      },
+      "kbuf.c": {
+        "loc": 775,
+        "prims": 22
+      },
+      "loop.c": {
+        "loc": 91,
+        "prims": 11
+      },
+      "memmap.c": {
+        "loc": 439,
+        "prims": 0
+      },
+      "mock_file.c": {
+        "loc": 351,
+        "prims": 12
+      },
+      "msg_ring.c": {
+        "loc": 358,
+        "prims": 11
+      },
+      "napi.c": {
+        "loc": 411,
+        "prims": 24
+      },
+      "net.c": {
+        "loc": 1978,
+        "prims": 43
+      },
+      "nop.c": {
+        "loc": 90,
+        "prims": 6
+      },
+      "notif.c": {
+        "loc": 141,
+        "prims": 6
+      },
+      "opdef.c": {
+        "loc": 882,
+        "prims": 0
+      },
+      "openclose.c": {
+        "loc": 448,
+        "prims": 17
+      },
+      "poll.c": {
+        "loc": 972,
+        "prims": 32
+      },
+      "query.c": {
+        "loc": 152,
+        "prims": 0
+      },
+      "register.c": {
+        "loc": 1049,
+        "prims": 51
+      },
+      "rsrc.c": {
+        "loc": 1712,
+        "prims": 16
+      },
+      "rw.c": {
+        "loc": 1405,
+        "prims": 28
+      },
+      "splice.c": {
+        "loc": 149,
+        "prims": 7
+      },
+      "sqpoll.c": {
+        "loc": 559,
+        "prims": 47
+      },
+      "statx.c": {
+        "loc": 68,
+        "prims": 5
+      },
+      "sync.c": {
+        "loc": 114,
+        "prims": 9
+      },
+      "tctx.c": {
+        "loc": 424,
+        "prims": 15
+      },
+      "timeout.c": {
+        "loc": 755,
+        "prims": 40
+      },
+      "truncate.c": {
+        "loc": 48,
+        "prims": 1
+      },
+      "tw.c": {
+        "loc": 360,
+        "prims": 20
+      },
+      "uring_cmd.c": {
+        "loc": 408,
+        "prims": 6
+      },
+      "wait.c": {
+        "loc": 324,
+        "prims": 32
+      },
+      "waitid.c": {
+        "loc": 349,
+        "prims": 17
+      },
+      "xattr.c": {
+        "loc": 197,
+        "prims": 10
+      },
+      "zcrx.c": {
+        "loc": 1793,
+        "prims": 25
+      }
+    },
+    "commits": 952,
+    "race_fixes": 17,
+    "prim_density": 36.82398217541017,
+    "race_rate": 0.017857142857142856,
+    "score": 103.8,
+    "needs_split": false
+  },
+  {
+    "dir": "fs/fuse",
+    "files": 22,
+    "loc": 19106,
+    "prims": {
+      "lock": 370,
+      "rcu": 16,
+      "atomic": 136,
+      "defer": 28,
+      "thread": 0,
+      "wait": 56,
+      "barrier": 38
+    },
+    "prim_total": 644,
+    "families": 6,
+    "per_file": {
+      "acl.c": {
+        "loc": 161,
+        "prims": 0
+      },
+      "backing.c": {
+        "loc": 180,
+        "prims": 11
+      },
+      "control.c": {
+        "loc": 366,
+        "prims": 9
+      },
+      "cuse.c": {
+        "loc": 663,
+        "prims": 8
+      },
+      "dax.c": {
+        "loc": 1354,
+        "prims": 50
+      },
+      "dev.c": {
+        "loc": 2430,
+        "prims": 151
+      },
+      "dev_uring.c": {
+        "loc": 1456,
+        "prims": 94
+      },
+      "dir.c": {
+        "loc": 2489,
+        "prims": 44
+      },
+      "file.c": {
+        "loc": 3134,
+        "prims": 60
+      },
+      "inode.c": {
+        "loc": 2189,
+        "prims": 54
+      },
+      "ioctl.c": {
+        "loc": 577,
+        "prims": 0
+      },
+      "iomode.c": {
+        "loc": 275,
+        "prims": 20
+      },
+      "notify.c": {
+        "loc": 444,
+        "prims": 12
+      },
+      "passthrough.c": {
+        "loc": 197,
+        "prims": 0
+      },
+      "poll.c": {
+        "loc": 141,
+        "prims": 8
+      },
+      "readdir.c": {
+        "loc": 656,
+        "prims": 23
+      },
+      "req.c": {
+        "loc": 99,
+        "prims": 0
+      },
+      "req_timeout.c": {
+        "loc": 148,
+        "prims": 15
+      },
+      "sysctl.c": {
+        "loc": 65,
+        "prims": 0
+      },
+      "trace.c": {
+        "loc": 13,
+        "prims": 0
+      },
+      "virtio_fs.c": {
+        "loc": 1855,
+        "prims": 85
+      },
+      "xattr.c": {
+        "loc": 214,
+        "prims": 0
+      }
+    },
+    "commits": 310,
+    "race_fixes": 16,
+    "prim_density": 33.70668899822045,
+    "race_rate": 0.05161290322580645,
+    "score": 101.0,
+    "needs_split": false
+  },
+  {
+    "dir": "net/tipc",
+    "files": 25,
+    "loc": 24506,
+    "prims": {
+      "lock": 77,
+      "rcu": 144,
+      "atomic": 67,
+      "defer": 37,
+      "thread": 0,
+      "wait": 11,
+      "barrier": 11
+    },
+    "prim_total": 347,
+    "families": 6,
+    "per_file": {
+      "addr.c": {
+        "loc": 124,
+        "prims": 0
+      },
+      "bcast.c": {
+        "loc": 870,
+        "prims": 0
+      },
+      "bearer.c": {
+        "loc": 1378,
+        "prims": 34
+      },
+      "core.c": {
+        "loc": 234,
+        "prims": 4
+      },
+      "crypto.c": {
+        "loc": 2484,
+        "prims": 108
+      },
+      "diag.c": {
+        "loc": 118,
+        "prims": 0
+      },
+      "discover.c": {
+        "loc": 430,
+        "prims": 13
+      },
+      "eth_media.c": {
+        "loc": 98,
+        "prims": 0
+      },
+      "group.c": {
+        "loc": 963,
+        "prims": 0
+      },
+      "ib_media.c": {
+        "loc": 104,
+        "prims": 0
+      },
+      "link.c": {
+        "loc": 2986,
+        "prims": 4
+      },
+      "monitor.c": {
+        "loc": 875,
+        "prims": 3
+      },
+      "msg.c": {
+        "loc": 867,
+        "prims": 3
+      },
+      "name_distr.c": {
+        "loc": 420,
+        "prims": 8
+      },
+      "name_table.c": {
+        "loc": 1206,
+        "prims": 35
+      },
+      "net.c": {
+        "loc": 347,
+        "prims": 7
+      },
+      "netlink.c": {
+        "loc": 331,
+        "prims": 0
+      },
+      "netlink_compat.c": {
+        "loc": 1377,
+        "prims": 0
+      },
+      "node.c": {
+        "loc": 3179,
+        "prims": 43
+      },
+      "socket.c": {
+        "loc": 4015,
+        "prims": 37
+      },
+      "subscr.c": {
+        "loc": 183,
+        "prims": 6
+      },
+      "sysctl.c": {
+        "loc": 107,
+        "prims": 0
+      },
+      "topsrv.c": {
+        "loc": 733,
+        "prims": 26
+      },
+      "trace.c": {
+        "loc": 206,
+        "prims": 0
+      },
+      "udp_media.c": {
+        "loc": 871,
+        "prims": 16
+      }
+    },
+    "commits": 61,
+    "race_fixes": 12,
+    "prim_density": 14.159797600587611,
+    "race_rate": 0.19672131147540983,
+    "score": 86.2,
+    "needs_split": false
+  },
+  {
+    "dir": "fs/ext4",
+    "files": 41,
+    "loc": 63358,
+    "prims": {
+      "lock": 306,
+      "rcu": 59,
+      "atomic": 183,
+      "defer": 21,
+      "thread": 4,
+      "wait": 40,
+      "barrier": 48
+    },
+    "prim_total": 661,
+    "families": 7,
+    "per_file": {
+      "acl.c": {
+        "loc": 304,
+        "prims": 0
+      },
+      "balloc.c": {
+        "loc": 1003,
+        "prims": 7
+      },
+      "bitmap.c": {
+        "loc": 99,
+        "prims": 0
+      },
+      "block_validity.c": {
+        "loc": 370,
+        "prims": 11
+      },
+      "crypto.c": {
+        "loc": 248,
+        "prims": 0
+      },
+      "dir.c": {
+        "loc": 694,
+        "prims": 0
+      },
+      "ext4_jbd2.c": {
+        "loc": 408,
+        "prims": 4
+      },
+      "extents-test.c": {
+        "loc": 1069,
+        "prims": 2
+      },
+      "extents.c": {
+        "loc": 6308,
+        "prims": 33
+      },
+      "extents_status.c": {
+        "loc": 2392,
+        "prims": 26
+      },
+      "fast_commit.c": {
+        "loc": 2777,
+        "prims": 67
+      },
+      "file.c": {
+        "loc": 1007,
+        "prims": 6
+      },
+      "fsmap.c": {
+        "loc": 792,
+        "prims": 0
+      },
+      "fsync.c": {
+        "loc": 190,
+        "prims": 0
+      },
+      "hash-test.c": {
+        "loc": 567,
+        "prims": 0
+      },
+      "hash.c": {
+        "loc": 347,
+        "prims": 0
+      },
+      "ialloc.c": {
+        "loc": 1628,
+        "prims": 13
+      },
+      "indirect.c": {
+        "loc": 1474,
+        "prims": 6
+      },
+      "inline.c": {
+        "loc": 2000,
+        "prims": 31
+      },
+      "inode-test.c": {
+        "loc": 283,
+        "prims": 0
+      },
+      "inode.c": {
+        "loc": 6878,
+        "prims": 67
+      },
+      "ioctl.c": {
+        "loc": 2028,
+        "prims": 5
+      },
+      "mballoc-test.c": {
+        "loc": 1013,
+        "prims": 1
+      },
+      "mballoc.c": {
+        "loc": 7283,
+        "prims": 200
+      },
+      "migrate.c": {
+        "loc": 684,
+        "prims": 11
+      },
+      "mmp.c": {
+        "loc": 403,
+        "prims": 2
+      },
+      "move_extent.c": {
+        "loc": 658,
+        "prims": 5
+      },
+      "namei.c": {
+        "loc": 4249,
+        "prims": 1
+      },
+      "orphan.c": {
+        "loc": 659,
+        "prims": 18
+      },
+      "page-io.c": {
+        "loc": 613,
+        "prims": 12
+      },
+      "readpage.c": {
+        "loc": 455,
+        "prims": 5
+      },
+      "resize.c": {
+        "loc": 2192,
+        "prims": 16
+      },
+      "super.c": {
+        "loc": 7613,
+        "prims": 87
+      },
+      "symlink.c": {
+        "loc": 136,
+        "prims": 0
+      },
+      "sysfs.c": {
+        "loc": 698,
+        "prims": 14
+      },
+      "verity.c": {
+        "loc": 391,
+        "prims": 0
+      },
+      "xattr.c": {
+        "loc": 3230,
+        "prims": 11
+      },
+      "xattr_hurd.c": {
+        "loc": 52,
+        "prims": 0
+      },
+      "xattr_security.c": {
+        "loc": 66,
+        "prims": 0
+      },
+      "xattr_trusted.c": {
+        "loc": 47,
+        "prims": 0
+      },
+      "xattr_user.c": {
+        "loc": 50,
+        "prims": 0
+      }
+    },
+    "commits": 468,
+    "race_fixes": 12,
+    "prim_density": 10.432778812462516,
+    "race_rate": 0.02564102564102564,
+    "score": 86.2,
+    "needs_split": true
+  },
+  {
+    "dir": "net/xfrm",
+    "files": 19,
+    "loc": 23478,
+    "prims": {
+      "lock": 115,
+      "rcu": 153,
+      "atomic": 14,
+      "defer": 56,
+      "thread": 0,
+      "wait": 4,
+      "barrier": 47
+    },
+    "prim_total": 389,
+    "families": 6,
+    "per_file": {
+      "espintcp.c": {
+        "loc": 570,
+        "prims": 10
+      },
+      "xfrm_algo.c": {
+        "loc": 841,
+        "prims": 0
+      },
+      "xfrm_compat.c": {
+        "loc": 691,
+        "prims": 0
+      },
+      "xfrm_device.c": {
+        "loc": 591,
+        "prims": 4
+      },
+      "xfrm_hash.c": {
+        "loc": 40,
+        "prims": 0
+      },
+      "xfrm_input.c": {
+        "loc": 869,
+        "prims": 24
+      },
+      "xfrm_interface_bpf.c": {
+        "loc": 110,
+        "prims": 1
+      },
+      "xfrm_interface_core.c": {
+        "loc": 1244,
+        "prims": 10
+      },
+      "xfrm_ipcomp.c": {
+        "loc": 368,
+        "prims": 0
+      },
+      "xfrm_iptfs.c": {
+        "loc": 2795,
+        "prims": 34
+      },
+      "xfrm_nat_keepalive.c": {
+        "loc": 305,
+        "prims": 3
+      },
+      "xfrm_output.c": {
+        "loc": 973,
+        "prims": 2
+      },
+      "xfrm_policy.c": {
+        "loc": 4739,
+        "prims": 129
+      },
+      "xfrm_proc.c": {
+        "loc": 80,
+        "prims": 0
+      },
+      "xfrm_replay.c": {
+        "loc": 799,
+        "prims": 3
+      },
+      "xfrm_state.c": {
+        "loc": 3571,
+        "prims": 145
+      },
+      "xfrm_state_bpf.c": {
+        "loc": 134,
+        "prims": 0
+      },
+      "xfrm_sysctl.c": {
+        "loc": 88,
+        "prims": 0
+      },
+      "xfrm_user.c": {
+        "loc": 4670,
+        "prims": 24
+      }
+    },
+    "commits": 181,
+    "race_fixes": 12,
+    "prim_density": 16.568702615214242,
+    "race_rate": 0.06629834254143646,
+    "score": 76.8,
+    "needs_split": false
+  },
+  {
+    "dir": "net/smc",
+    "files": 19,
+    "loc": 17699,
+    "prims": {
+      "lock": 210,
+      "rcu": 42,
+      "atomic": 117,
+      "defer": 70,
+      "thread": 0,
+      "wait": 61,
+      "barrier": 29
+    },
+    "prim_total": 529,
+    "families": 6,
+    "per_file": {
+      "af_smc.c": {
+        "loc": 3608,
+        "prims": 87
+      },
+      "smc_cdc.c": {
+        "loc": 530,
+        "prims": 25
+      },
+      "smc_clc.c": {
+        "loc": 1370,
+        "prims": 17
+      },
+      "smc_close.c": {
+        "loc": 506,
+        "prims": 15
+      },
+      "smc_core.c": {
+        "loc": 2786,
+        "prims": 121
+      },
+      "smc_diag.c": {
+        "loc": 278,
+        "prims": 1
+      },
+      "smc_hs_bpf.c": {
+        "loc": 140,
+        "prims": 6
+      },
+      "smc_ib.c": {
+        "loc": 1025,
+        "prims": 43
+      },
+      "smc_inet.c": {
+        "loc": 163,
+        "prims": 0
+      },
+      "smc_ism.c": {
+        "loc": 644,
+        "prims": 18
+      },
+      "smc_llc.c": {
+        "loc": 2377,
+        "prims": 57
+      },
+      "smc_netlink.c": {
+        "loc": 157,
+        "prims": 0
+      },
+      "smc_pnet.c": {
+        "loc": 1223,
+        "prims": 49
+      },
+      "smc_rx.c": {
+        "loc": 528,
+        "prims": 13
+      },
+      "smc_stats.c": {
+        "loc": 419,
+        "prims": 2
+      },
+      "smc_sysctl.c": {
+        "loc": 266,
+        "prims": 16
+      },
+      "smc_tracepoint.c": {
+        "loc": 9,
+        "prims": 0
+      },
+      "smc_tx.c": {
+        "loc": 737,
+        "prims": 27
+      },
+      "smc_wr.c": {
+        "loc": 933,
+        "prims": 32
+      }
+    },
+    "commits": 78,
+    "race_fixes": 10,
+    "prim_density": 29.888694276512794,
+    "race_rate": 0.1282051282051282,
+    "score": 67.7,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/net/wireless/mediatek/mt76",
+    "files": 43,
+    "loc": 23217,
+    "prims": {
+      "lock": 204,
+      "rcu": 84,
+      "atomic": 62,
+      "defer": 59,
+      "thread": 19,
+      "wait": 22,
+      "barrier": 17
+    },
+    "prim_total": 467,
+    "families": 7,
+    "per_file": {
+      "agg-rx.c": {
+        "loc": 303,
+        "prims": 13
+      },
+      "channel.c": {
+        "loc": 427,
+        "prims": 27
+      },
+      "debugfs.c": {
+        "loc": 126,
+        "prims": 0
+      },
+      "dma.c": {
+        "loc": 1209,
+        "prims": 27
+      },
+      "eeprom.c": {
+        "loc": 531,
+        "prims": 0
+      },
+      "mac80211.c": {
+        "loc": 2360,
+        "prims": 59
+      },
+      "mcu.c": {
+        "loc": 161,
+        "prims": 5
+      },
+      "mmio.c": {
+        "loc": 114,
+        "prims": 1
+      },
+      "mt76_connac3_mac.c": {
+        "loc": 268,
+        "prims": 0
+      },
+      "mt76_connac_mac.c": {
+        "loc": 1228,
+        "prims": 12
+      },
+      "mt76_connac_mcu.c": {
+        "loc": 3305,
+        "prims": 11
+      },
+      "mt76x02_beacon.c": {
+        "loc": 215,
+        "prims": 0
+      },
+      "mt76x02_debugfs.c": {
+        "loc": 157,
+        "prims": 2
+      },
+      "mt76x02_dfs.c": {
+        "loc": 892,
+        "prims": 6
+      },
+      "mt76x02_eeprom.c": {
+        "loc": 147,
+        "prims": 0
+      },
+      "mt76x02_mac.c": {
+        "loc": 1238,
+        "prims": 11
+      },
+      "mt76x02_mcu.c": {
+        "loc": 171,
+        "prims": 2
+      },
+      "mt76x02_mmio.c": {
+        "loc": 566,
+        "prims": 31
+      },
+      "mt76x02_phy.c": {
+        "loc": 204,
+        "prims": 0
+      },
+      "mt76x02_trace.c": {
+        "loc": 12,
+        "prims": 0
+      },
+      "mt76x02_txrx.c": {
+        "loc": 183,
+        "prims": 0
+      },
+      "mt76x02_usb_core.c": {
+        "loc": 286,
+        "prims": 11
+      },
+      "mt76x02_usb_mcu.c": {
+        "loc": 297,
+        "prims": 6
+      },
+      "mt76x02_util.c": {
+        "loc": 699,
+        "prims": 17
+      },
+      "mt792x_acpi_sar.c": {
+        "loc": 486,
+        "prims": 0
+      },
+      "mt792x_core.c": {
+        "loc": 1044,
+        "prims": 25
+      },
+      "mt792x_debugfs.c": {
+        "loc": 168,
+        "prims": 0
+      },
+      "mt792x_dma.c": {
+        "loc": 548,
+        "prims": 7
+      },
+      "mt792x_mac.c": {
+        "loc": 384,
+        "prims": 4
+      },
+      "mt792x_trace.c": {
+        "loc": 14,
+        "prims": 0
+      },
+      "mt792x_usb.c": {
+        "loc": 427,
+        "prims": 29
+      },
+      "npu.c": {
+        "loc": 528,
+        "prims": 33
+      },
+      "pci.c": {
+        "loc": 76,
+        "prims": 0
+      },
+      "scan.c": {
+        "loc": 224,
+        "prims": 11
+      },
+      "sdio.c": {
+        "loc": 681,
+        "prims": 10
+      },
+      "sdio_txrx.c": {
+        "loc": 390,
+        "prims": 5
+      },
+      "testmode.c": {
+        "loc": 676,
+        "prims": 6
+      },
+      "trace.c": {
+        "loc": 15,
+        "prims": 0
+      },
+      "tx.c": {
+        "loc": 957,
+        "prims": 47
+      },
+      "usb.c": {
+        "loc": 1141,
+        "prims": 35
+      },
+      "usb_trace.c": {
+        "loc": 12,
+        "prims": 0
+      },
+      "util.c": {
+        "loc": 138,
+        "prims": 7
+      },
+      "wed.c": {
+        "loc": 209,
+        "prims": 7
+      }
+    },
+    "commits": 618,
+    "race_fixes": 9,
+    "prim_density": 20.11457121936512,
+    "race_rate": 0.014563106796116505,
+    "score": 63.9,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/nvme/host",
+    "files": 17,
+    "loc": 29123,
+    "prims": {
+      "lock": 193,
+      "rcu": 7,
+      "atomic": 168,
+      "defer": 98,
+      "thread": 2,
+      "wait": 79,
+      "barrier": 35
+    },
+    "prim_total": 582,
+    "families": 7,
+    "per_file": {
+      "apple.c": {
+        "loc": 1720,
+        "prims": 28
+      },
+      "auth.c": {
+        "loc": 1116,
+        "prims": 14
+      },
+      "constants.c": {
+        "loc": 203,
+        "prims": 0
+      },
+      "core.c": {
+        "loc": 5535,
+        "prims": 115
+      },
+      "fabrics.c": {
+        "loc": 1557,
+        "prims": 17
+      },
+      "fault_inject.c": {
+        "loc": 83,
+        "prims": 0
+      },
+      "fc.c": {
+        "loc": 3979,
+        "prims": 120
+      },
+      "hwmon.c": {
+        "loc": 281,
+        "prims": 6
+      },
+      "ioctl.c": {
+        "loc": 874,
+        "prims": 19
+      },
+      "multipath.c": {
+        "loc": 1498,
+        "prims": 77
+      },
+      "pci.c": {
+        "loc": 4331,
+        "prims": 67
+      },
+      "pr.c": {
+        "loc": 344,
+        "prims": 0
+      },
+      "rdma.c": {
+        "loc": 2445,
+        "prims": 50
+      },
+      "sysfs.c": {
+        "loc": 1310,
+        "prims": 18
+      },
+      "tcp.c": {
+        "loc": 3099,
+        "prims": 49
+      },
+      "trace.c": {
+        "loc": 500,
+        "prims": 0
+      },
+      "zns.c": {
+        "loc": 248,
+        "prims": 2
+      }
+    },
+    "commits": 341,
+    "race_fixes": 8,
+    "prim_density": 19.984204923943274,
+    "race_rate": 0.02346041055718475,
+    "score": 57.3,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/infiniband/core",
+    "files": 62,
+    "loc": 59132,
+    "prims": {
+      "lock": 693,
+      "rcu": 111,
+      "atomic": 269,
+      "defer": 73,
+      "thread": 0,
+      "wait": 123,
+      "barrier": 48
+    },
+    "prim_total": 1317,
+    "families": 6,
+    "per_file": {
+      "addr.c": {
+        "loc": 867,
+        "prims": 21
+      },
+      "agent.c": {
+        "loc": 232,
+        "prims": 3
+      },
+      "cache.c": {
+        "loc": 1657,
+        "prims": 29
+      },
+      "cgroup.c": {
+        "loc": 53,
+        "prims": 0
+      },
+      "cm.c": {
+        "loc": 4560,
+        "prims": 80
+      },
+      "cm_trace.c": {
+        "loc": 15,
+        "prims": 0
+      },
+      "cma.c": {
+        "loc": 5675,
+        "prims": 174
+      },
+      "cma_configfs.c": {
+        "loc": 365,
+        "prims": 0
+      },
+      "cma_trace.c": {
+        "loc": 16,
+        "prims": 0
+      },
+      "counters.c": {
+        "loc": 689,
+        "prims": 20
+      },
+      "cq.c": {
+        "loc": 518,
+        "prims": 23
+      },
+      "device.c": {
+        "loc": 3163,
+        "prims": 155
+      },
+      "frmr_pools.c": {
+        "loc": 595,
+        "prims": 31
+      },
+      "ib_core_uverbs.c": {
+        "loc": 758,
+        "prims": 9
+      },
+      "iter.c": {
+        "loc": 43,
+        "prims": 0
+      },
+      "iwcm.c": {
+        "loc": 1206,
+        "prims": 52
+      },
+      "iwpm_msg.c": {
+        "loc": 846,
+        "prims": 17
+      },
+      "iwpm_util.c": {
+        "loc": 793,
+        "prims": 14
+      },
+      "lag.c": {
+        "loc": 135,
+        "prims": 5
+      },
+      "mad.c": {
+        "loc": 3448,
+        "prims": 57
+      },
+      "mad_rmpp.c": {
+        "loc": 967,
+        "prims": 22
+      },
+      "mr_pool.c": {
+        "loc": 82,
+        "prims": 5
+      },
+      "multicast.c": {
+        "loc": 905,
+        "prims": 35
+      },
+      "netlink.c": {
+        "loc": 332,
+        "prims": 11
+      },
+      "nldev.c": {
+        "loc": 3224,
+        "prims": 27
+      },
+      "packer.c": {
+        "loc": 201,
+        "prims": 0
+      },
+      "rdma_core.c": {
+        "loc": 1073,
+        "prims": 28
+      },
+      "restrack.c": {
+        "loc": 363,
+        "prims": 4
+      },
+      "roce_gid_mgmt.c": {
+        "loc": 949,
+        "prims": 27
+      },
+      "rw.c": {
+        "loc": 1191,
+        "prims": 4
+      },
+      "sa_query.c": {
+        "loc": 2552,
+        "prims": 34
+      },
+      "security.c": {
+        "loc": 750,
+        "prims": 43
+      },
+      "smi.c": {
+        "loc": 338,
+        "prims": 0
+      },
+      "sysfs.c": {
+        "loc": 1428,
+        "prims": 9
+      },
+      "trace.c": {
+        "loc": 12,
+        "prims": 0
+      },
+      "ucaps.c": {
+        "loc": 263,
+        "prims": 11
+      },
+      "ucma.c": {
+        "loc": 2007,
+        "prims": 89
+      },
+      "ud_header.c": {
+        "loc": 464,
+        "prims": 0
+      },
+      "umem.c": {
+        "loc": 684,
+        "prims": 4
+      },
+      "umem_dmabuf.c": {
+        "loc": 362,
+        "prims": 0
+      },
+      "umem_odp.c": {
+        "loc": 469,
+        "prims": 8
+      },
+      "user_mad.c": {
+        "loc": 1518,
+        "prims": 49
+      },
+      "uverbs_cmd.c": {
+        "loc": 4005,
+        "prims": 41
+      },
+      "uverbs_flow.c": {
+        "loc": 78,
+        "prims": 4
+      },
+      "uverbs_ioctl.c": {
+        "loc": 612,
+        "prims": 4
+      },
+      "uverbs_main.c": {
+        "loc": 1357,
+        "prims": 48
+      },
+      "uverbs_marshall.c": {
+        "loc": 173,
+        "prims": 0
+      },
+      "uverbs_std_types.c": {
+        "loc": 263,
+        "prims": 8
+      },
+      "uverbs_std_types_async_fd.c": {
+        "loc": 71,
+        "prims": 0
+      },
+      "uverbs_std_types_counters.c": {
+        "loc": 163,
+        "prims": 3
+      },
+      "uverbs_std_types_cq.c": {
+        "loc": 242,
+        "prims": 1
+      },
+      "uverbs_std_types_device.c": {
+        "loc": 558,
+        "prims": 4
+      },
+      "uverbs_std_types_dm.c": {
+        "loc": 116,
+        "prims": 2
+      },
+      "uverbs_std_types_dmabuf.c": {
+        "loc": 202,
+        "prims": 5
+      },
+      "uverbs_std_types_dmah.c": {
+        "loc": 150,
+        "prims": 2
+      },
+      "uverbs_std_types_flow_action.c": {
+        "loc": 66,
+        "prims": 1
+      },
+      "uverbs_std_types_mr.c": {
+        "loc": 553,
+        "prims": 5
+      },
+      "uverbs_std_types_qp.c": {
+        "loc": 385,
+        "prims": 2
+      },
+      "uverbs_std_types_srq.c": {
+        "loc": 234,
+        "prims": 3
+      },
+      "uverbs_std_types_wq.c": {
+        "loc": 194,
+        "prims": 3
+      },
+      "uverbs_uapi.c": {
+        "loc": 749,
+        "prims": 15
+      },
+      "verbs.c": {
+        "loc": 3193,
+        "prims": 66
+      }
+    },
+    "commits": 214,
+    "race_fixes": 9,
+    "prim_density": 22.27220455929108,
+    "race_rate": 0.04205607476635514,
+    "score": 56.3,
+    "needs_split": false
+  },
+  {
+    "dir": "net/bridge",
+    "files": 32,
+    "loc": 28377,
+    "prims": {
+      "lock": 130,
+      "rcu": 195,
+      "atomic": 77,
+      "defer": 104,
+      "thread": 0,
+      "wait": 3,
+      "barrier": 113
+    },
+    "prim_total": 622,
+    "families": 6,
+    "per_file": {
+      "br.c": {
+        "loc": 514,
+        "prims": 10
+      },
+      "br_arp_nd_proxy.c": {
+        "loc": 538,
+        "prims": 5
+      },
+      "br_cfm.c": {
+        "loc": 873,
+        "prims": 25
+      },
+      "br_cfm_netlink.c": {
+        "loc": 728,
+        "prims": 0
+      },
+      "br_device.c": {
+        "loc": 536,
+        "prims": 9
+      },
+      "br_fdb.c": {
+        "loc": 1640,
+        "prims": 101
+      },
+      "br_forward.c": {
+        "loc": 371,
+        "prims": 8
+      },
+      "br_if.c": {
+        "loc": 769,
+        "prims": 12
+      },
+      "br_input.c": {
+        "loc": 485,
+        "prims": 10
+      },
+      "br_ioctl.c": {
+        "loc": 470,
+        "prims": 14
+      },
+      "br_mdb.c": {
+        "loc": 1722,
+        "prims": 18
+      },
+      "br_mrp.c": {
+        "loc": 1258,
+        "prims": 52
+      },
+      "br_mrp_netlink.c": {
+        "loc": 571,
+        "prims": 7
+      },
+      "br_mrp_switchdev.c": {
+        "loc": 241,
+        "prims": 0
+      },
+      "br_mst.c": {
+        "loc": 366,
+        "prims": 2
+      },
+      "br_multicast.c": {
+        "loc": 5250,
+        "prims": 149
+      },
+      "br_multicast_eht.c": {
+        "loc": 822,
+        "prims": 12
+      },
+      "br_netfilter_hooks.c": {
+        "loc": 1338,
+        "prims": 9
+      },
+      "br_netfilter_ipv6.c": {
+        "loc": 188,
+        "prims": 0
+      },
+      "br_netlink.c": {
+        "loc": 2001,
+        "prims": 35
+      },
+      "br_netlink_tunnel.c": {
+        "loc": 343,
+        "prims": 2
+      },
+      "br_nf_core.c": {
+        "loc": 88,
+        "prims": 0
+      },
+      "br_stp.c": {
+        "loc": 725,
+        "prims": 28
+      },
+      "br_stp_bpdu.c": {
+        "loc": 247,
+        "prims": 3
+      },
+      "br_stp_if.c": {
+        "loc": 356,
+        "prims": 16
+      },
+      "br_stp_timer.c": {
+        "loc": 164,
+        "prims": 24
+      },
+      "br_switchdev.c": {
+        "loc": 890,
+        "prims": 21
+      },
+      "br_sysfs_br.c": {
+        "loc": 1087,
+        "prims": 1
+      },
+      "br_sysfs_if.c": {
+        "loc": 430,
+        "prims": 14
+      },
+      "br_vlan.c": {
+        "loc": 2357,
+        "prims": 26
+      },
+      "br_vlan_options.c": {
+        "loc": 779,
+        "prims": 3
+      },
+      "br_vlan_tunnel.c": {
+        "loc": 230,
+        "prims": 6
+      }
+    },
+    "commits": 150,
+    "race_fixes": 8,
+    "prim_density": 21.919159883003843,
+    "race_rate": 0.05333333333333334,
+    "score": 50.6,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/tty",
+    "files": 26,
+    "loc": 30256,
+    "prims": {
+      "lock": 201,
+      "rcu": 8,
+      "atomic": 138,
+      "defer": 50,
+      "thread": 21,
+      "wait": 87,
+      "barrier": 36
+    },
+    "prim_total": 541,
+    "families": 7,
+    "per_file": {
+      "amiserial.c": {
+        "loc": 1665,
+        "prims": 16
+      },
+      "ehv_bytechan.c": {
+        "loc": 820,
+        "prims": 10
+      },
+      "goldfish.c": {
+        "loc": 471,
+        "prims": 10
+      },
+      "mips_ejtag_fdc.c": {
+        "loc": 1271,
+        "prims": 37
+      },
+      "moxa.c": {
+        "loc": 2137,
+        "prims": 13
+      },
+      "mxser.c": {
+        "loc": 1881,
+        "prims": 8
+      },
+      "n_gsm.c": {
+        "loc": 4678,
+        "prims": 73
+      },
+      "n_hdlc.c": {
+        "loc": 802,
+        "prims": 14
+      },
+      "n_null.c": {
+        "loc": 50,
+        "prims": 0
+      },
+      "n_tty.c": {
+        "loc": 2535,
+        "prims": 71
+      },
+      "nozomi.c": {
+        "loc": 1856,
+        "prims": 17
+      },
+      "pty.c": {
+        "loc": 923,
+        "prims": 20
+      },
+      "rpmsg_tty.c": {
+        "loc": 288,
+        "prims": 4
+      },
+      "sysrq.c": {
+        "loc": 1259,
+        "prims": 21
+      },
+      "tty_audit.c": {
+        "loc": 251,
+        "prims": 7
+      },
+      "tty_baudrate.c": {
+        "loc": 215,
+        "prims": 0
+      },
+      "tty_buffer.c": {
+        "loc": 634,
+        "prims": 32
+      },
+      "tty_io.c": {
+        "loc": 3672,
+        "prims": 70
+      },
+      "tty_ioctl.c": {
+        "loc": 985,
+        "prims": 33
+      },
+      "tty_jobctrl.c": {
+        "loc": 593,
+        "prims": 17
+      },
+      "tty_ldisc.c": {
+        "loc": 824,
+        "prims": 19
+      },
+      "tty_ldsem.c": {
+        "loc": 413,
+        "prims": 21
+      },
+      "tty_mutex.c": {
+        "loc": 55,
+        "prims": 2
+      },
+      "tty_port.c": {
+        "loc": 777,
+        "prims": 13
+      },
+      "ttynull.c": {
+        "loc": 110,
+        "prims": 0
+      },
+      "vcc.c": {
+        "loc": 1091,
+        "prims": 13
+      }
+    },
+    "commits": 624,
+    "race_fixes": 7,
+    "prim_density": 17.880750925436278,
+    "race_rate": 0.011217948717948718,
+    "score": 49.5,
+    "needs_split": false
+  },
+  {
+    "dir": "net/can",
+    "files": 6,
+    "loc": 8232,
+    "prims": {
+      "lock": 61,
+      "rcu": 37,
+      "atomic": 36,
+      "defer": 76,
+      "thread": 0,
+      "wait": 16,
+      "barrier": 79
+    },
+    "prim_total": 305,
+    "families": 6,
+    "per_file": {
+      "af_can.c": {
+        "loc": 932,
+        "prims": 31
+      },
+      "bcm.c": {
+        "loc": 2215,
+        "prims": 83
+      },
+      "gw.c": {
+        "loc": 1368,
+        "prims": 12
+      },
+      "isotp.c": {
+        "loc": 2074,
+        "prims": 149
+      },
+      "proc.c": {
+        "loc": 507,
+        "prims": 20
+      },
+      "raw.c": {
+        "loc": 1136,
+        "prims": 10
+      }
+    },
+    "commits": 72,
+    "race_fixes": 7,
+    "prim_density": 37.05053449951409,
+    "race_rate": 0.09722222222222222,
+    "score": 46.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/sunrpc",
+    "files": 28,
+    "loc": 29865,
+    "prims": {
+      "lock": 350,
+      "rcu": 134,
+      "atomic": 247,
+      "defer": 47,
+      "thread": 0,
+      "wait": 49,
+      "barrier": 38
+    },
+    "prim_total": 865,
+    "families": 6,
+    "per_file": {
+      "addr.c": {
+        "loc": 354,
+        "prims": 0
+      },
+      "auth.c": {
+        "loc": 897,
+        "prims": 38
+      },
+      "auth_null.c": {
+        "loc": 143,
+        "prims": 2
+      },
+      "auth_tls.c": {
+        "loc": 175,
+        "prims": 2
+      },
+      "auth_unix.c": {
+        "loc": 243,
+        "prims": 3
+      },
+      "backchannel_rqst.c": {
+        "loc": 399,
+        "prims": 21
+      },
+      "cache.c": {
+        "loc": 2009,
+        "prims": 102
+      },
+      "clnt.c": {
+        "loc": 3440,
+        "prims": 113
+      },
+      "debugfs.c": {
+        "loc": 309,
+        "prims": 6
+      },
+      "netlink.c": {
+        "loc": 97,
+        "prims": 0
+      },
+      "rpc_pipe.c": {
+        "loc": 1261,
+        "prims": 42
+      },
+      "rpcb_clnt.c": {
+        "loc": 1122,
+        "prims": 9
+      },
+      "sched.c": {
+        "loc": 1359,
+        "prims": 55
+      },
+      "socklib.c": {
+        "loc": 278,
+        "prims": 0
+      },
+      "stats.c": {
+        "loc": 348,
+        "prims": 2
+      },
+      "sunrpc_syms.c": {
+        "loc": 164,
+        "prims": 2
+      },
+      "svc.c": {
+        "loc": 1846,
+        "prims": 28
+      },
+      "svc_xprt.c": {
+        "loc": 1594,
+        "prims": 73
+      },
+      "svcauth.c": {
+        "loc": 303,
+        "prims": 13
+      },
+      "svcauth_unix.c": {
+        "loc": 1574,
+        "prims": 10
+      },
+      "svcsock.c": {
+        "loc": 1697,
+        "prims": 58
+      },
+      "sysctl.c": {
+        "loc": 180,
+        "prims": 0
+      },
+      "sysfs.c": {
+        "loc": 832,
+        "prims": 9
+      },
+      "timer.c": {
+        "loc": 123,
+        "prims": 0
+      },
+      "xdr.c": {
+        "loc": 2444,
+        "prims": 0
+      },
+      "xprt.c": {
+        "loc": 2229,
+        "prims": 124
+      },
+      "xprtmultipath.c": {
+        "loc": 672,
+        "prims": 34
+      },
+      "xprtsock.c": {
+        "loc": 3773,
+        "prims": 119
+      }
+    },
+    "commits": 235,
+    "race_fixes": 7,
+    "prim_density": 28.96366984764775,
+    "race_rate": 0.029787234042553193,
+    "score": 43.3,
+    "needs_split": false
+  },
+  {
+    "dir": "net/sctp",
+    "files": 33,
+    "loc": 43928,
+    "prims": {
+      "lock": 23,
+      "rcu": 90,
+      "atomic": 58,
+      "defer": 29,
+      "thread": 0,
+      "wait": 19,
+      "barrier": 27
+    },
+    "prim_total": 246,
+    "families": 6,
+    "per_file": {
+      "associola.c": {
+        "loc": 1723,
+        "prims": 13
+      },
+      "auth.c": {
+        "loc": 1056,
+        "prims": 6
+      },
+      "bind_addr.c": {
+        "loc": 584,
+        "prims": 8
+      },
+      "chunk.c": {
+        "loc": 354,
+        "prims": 3
+      },
+      "debug.c": {
+        "loc": 170,
+        "prims": 0
+      },
+      "diag.c": {
+        "loc": 541,
+        "prims": 10
+      },
+      "endpointola.c": {
+        "loc": 423,
+        "prims": 8
+      },
+      "input.c": {
+        "loc": 1370,
+        "prims": 16
+      },
+      "inqueue.c": {
+        "loc": 245,
+        "prims": 2
+      },
+      "ipv6.c": {
+        "loc": 1199,
+        "prims": 35
+      },
+      "objcnt.c": {
+        "loc": 105,
+        "prims": 1
+      },
+      "offload.c": {
+        "loc": 120,
+        "prims": 0
+      },
+      "output.c": {
+        "loc": 865,
+        "prims": 5
+      },
+      "outqueue.c": {
+        "loc": 1925,
+        "prims": 4
+      },
+      "primitive.c": {
+        "loc": 201,
+        "prims": 0
+      },
+      "proc.c": {
+        "loc": 399,
+        "prims": 5
+      },
+      "protocol.c": {
+        "loc": 1725,
+        "prims": 31
+      },
+      "sm_make_chunk.c": {
+        "loc": 3935,
+        "prims": 5
+      },
+      "sm_sideeffect.c": {
+        "loc": 1830,
+        "prims": 9
+      },
+      "sm_statefuns.c": {
+        "loc": 6734,
+        "prims": 2
+      },
+      "sm_statetable.c": {
+        "loc": 1041,
+        "prims": 0
+      },
+      "socket.c": {
+        "loc": 9747,
+        "prims": 49
+      },
+      "stream.c": {
+        "loc": 1095,
+        "prims": 0
+      },
+      "stream_interleave.c": {
+        "loc": 1353,
+        "prims": 0
+      },
+      "stream_sched.c": {
+        "loc": 280,
+        "prims": 0
+      },
+      "stream_sched_fc.c": {
+        "loc": 225,
+        "prims": 0
+      },
+      "stream_sched_prio.c": {
+        "loc": 319,
+        "prims": 0
+      },
+      "stream_sched_rr.c": {
+        "loc": 190,
+        "prims": 0
+      },
+      "sysctl.c": {
+        "loc": 642,
+        "prims": 2
+      },
+      "transport.c": {
+        "loc": 852,
+        "prims": 19
+      },
+      "tsnmap.c": {
+        "loc": 364,
+        "prims": 2
+      },
+      "ulpevent.c": {
+        "loc": 1190,
+        "prims": 4
+      },
+      "ulpqueue.c": {
+        "loc": 1126,
+        "prims": 7
+      }
+    },
+    "commits": 105,
+    "race_fixes": 5,
+    "prim_density": 5.600072846476052,
+    "race_rate": 0.047619047619047616,
+    "score": 31.4,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/net/wireless/ath/ath11k",
+    "files": 33,
+    "loc": 61626,
+    "prims": {
+      "lock": 430,
+      "rcu": 111,
+      "atomic": 89,
+      "defer": 70,
+      "thread": 18,
+      "wait": 134,
+      "barrier": 3
+    },
+    "prim_total": 855,
+    "families": 7,
+    "per_file": {
+      "ahb.c": {
+        "loc": 1316,
+        "prims": 20
+      },
+      "ce.c": {
+        "loc": 1079,
+        "prims": 12
+      },
+      "cfr.c": {
+        "loc": 1022,
+        "prims": 15
+      },
+      "core.c": {
+        "loc": 2799,
+        "prims": 64
+      },
+      "coredump.c": {
+        "loc": 53,
+        "prims": 0
+      },
+      "dbring.c": {
+        "loc": 427,
+        "prims": 9
+      },
+      "debug.c": {
+        "loc": 112,
+        "prims": 0
+      },
+      "debugfs.c": {
+        "loc": 1800,
+        "prims": 44
+      },
+      "debugfs_htt_stats.c": {
+        "loc": 4904,
+        "prims": 14
+      },
+      "debugfs_sta.c": {
+        "loc": 1030,
+        "prims": 33
+      },
+      "dp.c": {
+        "loc": 1192,
+        "prims": 10
+      },
+      "dp_rx.c": {
+        "loc": 5804,
+        "prims": 75
+      },
+      "dp_tx.c": {
+        "loc": 1306,
+        "prims": 30
+      },
+      "fw.c": {
+        "loc": 170,
+        "prims": 0
+      },
+      "hal.c": {
+        "loc": 1462,
+        "prims": 3
+      },
+      "hal_rx.c": {
+        "loc": 1607,
+        "prims": 1
+      },
+      "hal_tx.c": {
+        "loc": 160,
+        "prims": 0
+      },
+      "htc.c": {
+        "loc": 845,
+        "prims": 18
+      },
+      "hw.c": {
+        "loc": 2875,
+        "prims": 0
+      },
+      "mac.c": {
+        "loc": 10878,
+        "prims": 229
+      },
+      "mhi.c": {
+        "loc": 504,
+        "prims": 2
+      },
+      "p2p.c": {
+        "loc": 149,
+        "prims": 1
+      },
+      "pci.c": {
+        "loc": 1334,
+        "prims": 21
+      },
+      "pcic.c": {
+        "loc": 864,
+        "prims": 17
+      },
+      "peer.c": {
+        "loc": 670,
+        "prims": 31
+      },
+      "qmi.c": {
+        "loc": 3370,
+        "prims": 30
+      },
+      "reg.c": {
+        "loc": 1068,
+        "prims": 12
+      },
+      "spectral.c": {
+        "loc": 1055,
+        "prims": 18
+      },
+      "testmode.c": {
+        "loc": 503,
+        "prims": 10
+      },
+      "thermal.c": {
+        "loc": 230,
+        "prims": 10
+      },
+      "trace.c": {
+        "loc": 12,
+        "prims": 0
+      },
+      "wmi.c": {
+        "loc": 10143,
+        "prims": 111
+      },
+      "wow.c": {
+        "loc": 883,
+        "prims": 15
+      }
+    },
+    "commits": 137,
+    "race_fixes": 4,
+    "prim_density": 13.874014214779477,
+    "race_rate": 0.029197080291970802,
+    "score": 28.8,
+    "needs_split": true
+  },
+  {
+    "dir": "drivers/usb/gadget/function",
+    "files": 33,
+    "loc": 46438,
+    "prims": {
+      "lock": 781,
+      "rcu": 0,
+      "atomic": 84,
+      "defer": 48,
+      "thread": 1,
+      "wait": 173,
+      "barrier": 10
+    },
+    "prim_total": 1097,
+    "families": 6,
+    "per_file": {
+      "f_acm.c": {
+        "loc": 902,
+        "prims": 18
+      },
+      "f_ecm.c": {
+        "loc": 981,
+        "prims": 15
+      },
+      "f_eem.c": {
+        "loc": 687,
+        "prims": 6
+      },
+      "f_fs.c": {
+        "loc": 4367,
+        "prims": 68
+      },
+      "f_hid.c": {
+        "loc": 1700,
+        "prims": 64
+      },
+      "f_loopback.c": {
+        "loc": 597,
+        "prims": 17
+      },
+      "f_mass_storage.c": {
+        "loc": 3626,
+        "prims": 65
+      },
+      "f_midi.c": {
+        "loc": 1415,
+        "prims": 32
+      },
+      "f_midi2.c": {
+        "loc": 2892,
+        "prims": 46
+      },
+      "f_ncm.c": {
+        "loc": 1812,
+        "prims": 37
+      },
+      "f_obex.c": {
+        "loc": 491,
+        "prims": 0
+      },
+      "f_phonet.c": {
+        "loc": 742,
+        "prims": 10
+      },
+      "f_printer.c": {
+        "loc": 1575,
+        "prims": 66
+      },
+      "f_rndis.c": {
+        "loc": 1014,
+        "prims": 15
+      },
+      "f_serial.c": {
+        "loc": 405,
+        "prims": 0
+      },
+      "f_sourcesink.c": {
+        "loc": 1340,
+        "prims": 43
+      },
+      "f_subset.c": {
+        "loc": 512,
+        "prims": 3
+      },
+      "f_tcm.c": {
+        "loc": 2793,
+        "prims": 76
+      },
+      "f_uac1.c": {
+        "loc": 1859,
+        "prims": 25
+      },
+      "f_uac1_legacy.c": {
+        "loc": 1046,
+        "prims": 18
+      },
+      "f_uac2.c": {
+        "loc": 2308,
+        "prims": 29
+      },
+      "f_uvc.c": {
+        "loc": 1176,
+        "prims": 13
+      },
+      "rndis.c": {
+        "loc": 1201,
+        "prims": 7
+      },
+      "storage_common.c": {
+        "loc": 541,
+        "prims": 9
+      },
+      "u_audio.c": {
+        "loc": 1463,
+        "prims": 19
+      },
+      "u_ether.c": {
+        "loc": 1275,
+        "prims": 46
+      },
+      "u_serial.c": {
+        "loc": 1607,
+        "prims": 66
+      },
+      "u_uac1_legacy.c": {
+        "loc": 307,
+        "prims": 0
+      },
+      "uvc_configfs.c": {
+        "loc": 3835,
+        "prims": 250
+      },
+      "uvc_queue.c": {
+        "loc": 368,
+        "prims": 3
+      },
+      "uvc_trace.c": {
+        "loc": 11,
+        "prims": 0
+      },
+      "uvc_v4l2.c": {
+        "loc": 747,
+        "prims": 4
+      },
+      "uvc_video.c": {
+        "loc": 843,
+        "prims": 27
+      }
+    },
+    "commits": 168,
+    "race_fixes": 4,
+    "prim_density": 23.622895042852836,
+    "race_rate": 0.023809523809523808,
+    "score": 24.6,
+    "needs_split": false
+  },
+  {
+    "dir": "net/wireless",
+    "files": 25,
+    "loc": 48458,
+    "prims": {
+      "lock": 85,
+      "rcu": 109,
+      "atomic": 9,
+      "defer": 80,
+      "thread": 0,
+      "wait": 25,
+      "barrier": 2
+    },
+    "prim_total": 310,
+    "families": 6,
+    "per_file": {
+      "ap.c": {
+        "loc": 74,
+        "prims": 1
+      },
+      "chan.c": {
+        "loc": 1879,
+        "prims": 0
+      },
+      "core.c": {
+        "loc": 2094,
+        "prims": 55
+      },
+      "debugfs.c": {
+        "loc": 304,
+        "prims": 20
+      },
+      "ethtool.c": {
+        "loc": 29,
+        "prims": 0
+      },
+      "ibss.c": {
+        "loc": 496,
+        "prims": 2
+      },
+      "mesh.c": {
+        "loc": 289,
+        "prims": 0
+      },
+      "michael-mic.c": {
+        "loc": 87,
+        "prims": 0
+      },
+      "mlme.c": {
+        "loc": 1477,
+        "prims": 20
+      },
+      "nl80211.c": {
+        "loc": 23459,
+        "prims": 35
+      },
+      "ocb.c": {
+        "loc": 65,
+        "prims": 0
+      },
+      "of.c": {
+        "loc": 127,
+        "prims": 0
+      },
+      "pmsr.c": {
+        "loc": 886,
+        "prims": 7
+      },
+      "radiotap.c": {
+        "loc": 362,
+        "prims": 0
+      },
+      "reg.c": {
+        "loc": 4388,
+        "prims": 76
+      },
+      "scan.c": {
+        "loc": 4029,
+        "prims": 56
+      },
+      "sme.c": {
+        "loc": 1621,
+        "prims": 24
+      },
+      "sysfs.c": {
+        "loc": 187,
+        "prims": 1
+      },
+      "trace.c": {
+        "loc": 8,
+        "prims": 0
+      },
+      "util.c": {
+        "loc": 3085,
+        "prims": 6
+      },
+      "wext-compat.c": {
+        "loc": 1523,
+        "prims": 1
+      },
+      "wext-core.c": {
+        "loc": 1218,
+        "prims": 4
+      },
+      "wext-priv.c": {
+        "loc": 252,
+        "prims": 0
+      },
+      "wext-proc.c": {
+        "loc": 141,
+        "prims": 0
+      },
+      "wext-sme.c": {
+        "loc": 378,
+        "prims": 2
+      }
+    },
+    "commits": 257,
+    "race_fixes": 4,
+    "prim_density": 6.397292500722275,
+    "race_rate": 0.01556420233463035,
+    "score": 24.4,
+    "needs_split": false
+  },
+  {
+    "dir": "net/mac80211",
+    "files": 57,
+    "loc": 80860,
+    "prims": {
+      "lock": 197,
+      "rcu": 765,
+      "atomic": 185,
+      "defer": 76,
+      "thread": 0,
+      "wait": 21,
+      "barrier": 7
+    },
+    "prim_total": 1251,
+    "families": 6,
+    "per_file": {
+      "aead_api.c": {
+        "loc": 113,
+        "prims": 0
+      },
+      "aes_cmac.c": {
+        "loc": 43,
+        "prims": 0
+      },
+      "aes_gmac.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "agg-rx.c": {
+        "loc": 541,
+        "prims": 25
+      },
+      "agg-tx.c": {
+        "loc": 1068,
+        "prims": 54
+      },
+      "airtime.c": {
+        "loc": 837,
+        "prims": 1
+      },
+      "ap.c": {
+        "loc": 353,
+        "prims": 0
+      },
+      "cfg.c": {
+        "loc": 6109,
+        "prims": 96
+      },
+      "chan.c": {
+        "loc": 2553,
+        "prims": 21
+      },
+      "debugfs.c": {
+        "loc": 712,
+        "prims": 7
+      },
+      "debugfs_key.c": {
+        "loc": 422,
+        "prims": 3
+      },
+      "debugfs_netdev.c": {
+        "loc": 1105,
+        "prims": 2
+      },
+      "debugfs_sta.c": {
+        "loc": 1362,
+        "prims": 5
+      },
+      "driver-ops.c": {
+        "loc": 635,
+        "prims": 6
+      },
+      "eht.c": {
+        "loc": 102,
+        "prims": 0
+      },
+      "ethtool.c": {
+        "loc": 254,
+        "prims": 3
+      },
+      "fils_aead.c": {
+        "loc": 319,
+        "prims": 0
+      },
+      "he.c": {
+        "loc": 359,
+        "prims": 0
+      },
+      "ht.c": {
+        "loc": 614,
+        "prims": 16
+      },
+      "ibss.c": {
+        "loc": 1804,
+        "prims": 44
+      },
+      "iface.c": {
+        "loc": 2568,
+        "prims": 54
+      },
+      "key.c": {
+        "loc": 1518,
+        "prims": 14
+      },
+      "led.c": {
+        "loc": 377,
+        "prims": 20
+      },
+      "link.c": {
+        "loc": 697,
+        "prims": 5
+      },
+      "main.c": {
+        "loc": 1836,
+        "prims": 20
+      },
+      "mesh.c": {
+        "loc": 1794,
+        "prims": 56
+      },
+      "mesh_hwmp.c": {
+        "loc": 1358,
+        "prims": 47
+      },
+      "mesh_pathtbl.c": {
+        "loc": 1100,
+        "prims": 54
+      },
+      "mesh_plink.c": {
+        "loc": 1260,
+        "prims": 23
+      },
+      "mesh_ps.c": {
+        "loc": 612,
+        "prims": 3
+      },
+      "mesh_sync.c": {
+        "loc": 215,
+        "prims": 6
+      },
+      "mlme.c": {
+        "loc": 11927,
+        "prims": 109
+      },
+      "nan.c": {
+        "loc": 850,
+        "prims": 1
+      },
+      "ocb.c": {
+        "loc": 248,
+        "prims": 17
+      },
+      "offchannel.c": {
+        "loc": 1098,
+        "prims": 19
+      },
+      "parse.c": {
+        "loc": 1211,
+        "prims": 0
+      },
+      "pm.c": {
+        "loc": 200,
+        "prims": 1
+      },
+      "rate.c": {
+        "loc": 1035,
+        "prims": 25
+      },
+      "rc80211_minstrel_ht.c": {
+        "loc": 2031,
+        "prims": 0
+      },
+      "rc80211_minstrel_ht_debugfs.c": {
+        "loc": 334,
+        "prims": 0
+      },
+      "rx.c": {
+        "loc": 5770,
+        "prims": 71
+      },
+      "s1g.c": {
+        "loc": 234,
+        "prims": 0
+      },
+      "scan.c": {
+        "loc": 1482,
+        "prims": 58
+      },
+      "spectmgmt.c": {
+        "loc": 445,
+        "prims": 0
+      },
+      "sta_info.c": {
+        "loc": 3827,
+        "prims": 79
+      },
+      "status.c": {
+        "loc": 1332,
+        "prims": 21
+      },
+      "tdls.c": {
+        "loc": 2082,
+        "prims": 23
+      },
+      "tkip.c": {
+        "loc": 323,
+        "prims": 3
+      },
+      "trace.c": {
+        "loc": 77,
+        "prims": 0
+      },
+      "tx.c": {
+        "loc": 6641,
+        "prims": 165
+      },
+      "uhr.c": {
+        "loc": 27,
+        "prims": 0
+      },
+      "util.c": {
+        "loc": 4736,
+        "prims": 65
+      },
+      "vht.c": {
+        "loc": 494,
+        "prims": 3
+      },
+      "wbrf.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "wep.c": {
+        "loc": 307,
+        "prims": 0
+      },
+      "wme.c": {
+        "loc": 246,
+        "prims": 1
+      },
+      "wpa.c": {
+        "loc": 1075,
+        "prims": 5
+      }
+    },
+    "commits": 489,
+    "race_fixes": 4,
+    "prim_density": 15.471184763789266,
+    "race_rate": 0.0081799591002045,
+    "score": 24.2,
+    "needs_split": true
+  },
+  {
+    "dir": "fs/jbd2",
+    "files": 6,
+    "loc": 9557,
+    "prims": {
+      "lock": 206,
+      "rcu": 2,
+      "atomic": 49,
+      "defer": 1,
+      "thread": 1,
+      "wait": 49,
+      "barrier": 46
+    },
+    "prim_total": 354,
+    "families": 7,
+    "per_file": {
+      "checkpoint.c": {
+        "loc": 729,
+        "prims": 26
+      },
+      "commit.c": {
+        "loc": 1186,
+        "prims": 69
+      },
+      "journal.c": {
+        "loc": 3065,
+        "prims": 98
+      },
+      "recovery.c": {
+        "loc": 996,
+        "prims": 1
+      },
+      "revoke.c": {
+        "loc": 745,
+        "prims": 9
+      },
+      "transaction.c": {
+        "loc": 2836,
+        "prims": 151
+      }
+    },
+    "commits": 58,
+    "race_fixes": 3,
+    "prim_density": 37.04091242021555,
+    "race_rate": 0.05172413793103448,
+    "score": 22.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/openvswitch",
+    "files": 15,
+    "loc": 15174,
+    "prims": {
+      "lock": 15,
+      "rcu": 137,
+      "atomic": 0,
+      "defer": 5,
+      "thread": 0,
+      "wait": 0,
+      "barrier": 14
+    },
+    "prim_total": 171,
+    "families": 4,
+    "per_file": {
+      "actions.c": {
+        "loc": 1601,
+        "prims": 0
+      },
+      "conntrack.c": {
+        "loc": 2029,
+        "prims": 15
+      },
+      "datapath.c": {
+        "loc": 2918,
+        "prims": 45
+      },
+      "dp_notify.c": {
+        "loc": 86,
+        "prims": 1
+      },
+      "flow.c": {
+        "loc": 1119,
+        "prims": 10
+      },
+      "flow_netlink.c": {
+        "loc": 3916,
+        "prims": 2
+      },
+      "flow_table.c": {
+        "loc": 1217,
+        "prims": 52
+      },
+      "meter.c": {
+        "loc": 771,
+        "prims": 23
+      },
+      "openvswitch_trace.c": {
+        "loc": 10,
+        "prims": 0
+      },
+      "vport-geneve.c": {
+        "loc": 143,
+        "prims": 0
+      },
+      "vport-gre.c": {
+        "loc": 106,
+        "prims": 0
+      },
+      "vport-internal_dev.c": {
+        "loc": 247,
+        "prims": 2
+      },
+      "vport-netdev.c": {
+        "loc": 254,
+        "prims": 9
+      },
+      "vport-vxlan.c": {
+        "loc": 172,
+        "prims": 0
+      },
+      "vport.c": {
+        "loc": 585,
+        "prims": 12
+      }
+    },
+    "commits": 50,
+    "race_fixes": 5,
+    "prim_density": 11.269276393831554,
+    "race_rate": 0.1,
+    "score": 22.0,
+    "needs_split": false
+  },
+  {
+    "dir": "net/9p",
+    "files": 10,
+    "loc": 7670,
+    "prims": {
+      "lock": 71,
+      "rcu": 5,
+      "atomic": 38,
+      "defer": 14,
+      "thread": 0,
+      "wait": 23,
+      "barrier": 35
+    },
+    "prim_total": 186,
+    "families": 6,
+    "per_file": {
+      "client.c": {
+        "loc": 2212,
+        "prims": 27
+      },
+      "error.c": {
+        "loc": 227,
+        "prims": 0
+      },
+      "mod.c": {
+        "loc": 212,
+        "prims": 8
+      },
+      "protocol.c": {
+        "loc": 800,
+        "prims": 0
+      },
+      "trans_common.c": {
+        "loc": 24,
+        "prims": 0
+      },
+      "trans_fd.c": {
+        "loc": 1093,
+        "prims": 64
+      },
+      "trans_rdma.c": {
+        "loc": 684,
+        "prims": 21
+      },
+      "trans_usbg.c": {
+        "loc": 969,
+        "prims": 28
+      },
+      "trans_virtio.c": {
+        "loc": 842,
+        "prims": 26
+      },
+      "trans_xen.c": {
+        "loc": 607,
+        "prims": 12
+      }
+    },
+    "commits": 32,
+    "race_fixes": 3,
+    "prim_density": 24.2503259452412,
+    "race_rate": 0.09375,
+    "score": 19.7,
+    "needs_split": false
+  },
+  {
+    "dir": "net/unix",
+    "files": 5,
+    "loc": 5228,
+    "prims": {
+      "lock": 109,
+      "rcu": 4,
+      "atomic": 21,
+      "defer": 2,
+      "thread": 0,
+      "wait": 12,
+      "barrier": 96
+    },
+    "prim_total": 244,
+    "families": 6,
+    "per_file": {
+      "af_unix.c": {
+        "loc": 3971,
+        "prims": 185
+      },
+      "diag.c": {
+        "loc": 330,
+        "prims": 15
+      },
+      "garbage.c": {
+        "loc": 660,
+        "prims": 32
+      },
+      "sysctl_net_unix.c": {
+        "loc": 62,
+        "prims": 0
+      },
+      "unix_bpf.c": {
+        "loc": 205,
+        "prims": 12
+      }
+    },
+    "commits": 96,
+    "race_fixes": 3,
+    "prim_density": 46.671767406273915,
+    "race_rate": 0.03125,
+    "score": 18.6,
+    "needs_split": false
+  },
+  {
+    "dir": "virt/kvm",
+    "files": 10,
+    "loc": 10623,
+    "prims": {
+      "lock": 111,
+      "rcu": 17,
+      "atomic": 22,
+      "defer": 11,
+      "thread": 0,
+      "wait": 7,
+      "barrier": 55
+    },
+    "prim_total": 223,
+    "families": 6,
+    "per_file": {
+      "async_pf.c": {
+        "loc": 241,
+        "prims": 17
+      },
+      "binary_stats.c": {
+        "loc": 144,
+        "prims": 0
+      },
+      "coalesced_mmio.c": {
+        "loc": 190,
+        "prims": 11
+      },
+      "dirty_ring.c": {
+        "loc": 272,
+        "prims": 7
+      },
+      "eventfd.c": {
+        "loc": 1050,
+        "prims": 25
+      },
+      "guest_memfd.c": {
+        "loc": 1032,
+        "prims": 8
+      },
+      "irqchip.c": {
+        "loc": 261,
+        "prims": 5
+      },
+      "kvm_main.c": {
+        "loc": 6590,
+        "prims": 140
+      },
+      "pfncache.c": {
+        "loc": 484,
+        "prims": 10
+      },
+      "vfio.c": {
+        "loc": 359,
+        "prims": 0
+      }
+    },
+    "commits": 163,
+    "race_fixes": 3,
+    "prim_density": 20.99218676456745,
+    "race_rate": 0.018404907975460124,
+    "score": 18.3,
+    "needs_split": false
+  },
+  {
+    "dir": "net/nfc",
+    "files": 10,
+    "loc": 11139,
+    "prims": {
+      "lock": 89,
+      "rcu": 0,
+      "atomic": 13,
+      "defer": 43,
+      "thread": 0,
+      "wait": 5,
+      "barrier": 0
+    },
+    "prim_total": 150,
+    "families": 4,
+    "per_file": {
+      "af_nfc.c": {
+        "loc": 88,
+        "prims": 3
+      },
+      "core.c": {
+        "loc": 1273,
+        "prims": 12
+      },
+      "digital_core.c": {
+        "loc": 866,
+        "prims": 32
+      },
+      "digital_dep.c": {
+        "loc": 1633,
+        "prims": 2
+      },
+      "digital_technology.c": {
+        "loc": 1306,
+        "prims": 0
+      },
+      "llcp_commands.c": {
+        "loc": 830,
+        "prims": 6
+      },
+      "llcp_core.c": {
+        "loc": 1712,
+        "prims": 69
+      },
+      "llcp_sock.c": {
+        "loc": 1068,
+        "prims": 2
+      },
+      "netlink.c": {
+        "loc": 1931,
+        "prims": 14
+      },
+      "rawsock.c": {
+        "loc": 432,
+        "prims": 10
+      }
+    },
+    "commits": 30,
+    "race_fixes": 4,
+    "prim_density": 13.466199838405602,
+    "race_rate": 0.13333333333333333,
+    "score": 18.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/l2tp",
+    "files": 7,
+    "loc": 7101,
+    "prims": {
+      "lock": 24,
+      "rcu": 35,
+      "atomic": 105,
+      "defer": 4,
+      "thread": 0,
+      "wait": 0,
+      "barrier": 13
+    },
+    "prim_total": 181,
+    "families": 5,
+    "per_file": {
+      "l2tp_core.c": {
+        "loc": 1954,
+        "prims": 71
+      },
+      "l2tp_debugfs.c": {
+        "loc": 351,
+        "prims": 15
+      },
+      "l2tp_eth.c": {
+        "loc": 352,
+        "prims": 11
+      },
+      "l2tp_ip.c": {
+        "loc": 736,
+        "prims": 5
+      },
+      "l2tp_ip6.c": {
+        "loc": 868,
+        "prims": 9
+      },
+      "l2tp_netlink.c": {
+        "loc": 1060,
+        "prims": 21
+      },
+      "l2tp_ppp.c": {
+        "loc": 1780,
+        "prims": 49
+      }
+    },
+    "commits": 28,
+    "race_fixes": 3,
+    "prim_density": 25.489367694690888,
+    "race_rate": 0.10714285714285714,
+    "score": 16.6,
+    "needs_split": false
+  },
+  {
+    "dir": "sound/core/seq",
+    "files": 19,
+    "loc": 10693,
+    "prims": {
+      "lock": 19,
+      "rcu": 0,
+      "atomic": 24,
+      "defer": 7,
+      "thread": 0,
+      "wait": 5,
+      "barrier": 7
+    },
+    "prim_total": 62,
+    "families": 5,
+    "per_file": {
+      "seq.c": {
+        "loc": 120,
+        "prims": 0
+      },
+      "seq_clientmgr.c": {
+        "loc": 2716,
+        "prims": 10
+      },
+      "seq_compat.c": {
+        "loc": 123,
+        "prims": 0
+      },
+      "seq_dummy.c": {
+        "loc": 245,
+        "prims": 0
+      },
+      "seq_fifo.c": {
+        "loc": 292,
+        "prims": 9
+      },
+      "seq_info.c": {
+        "loc": 60,
+        "prims": 0
+      },
+      "seq_lock.c": {
+        "loc": 26,
+        "prims": 4
+      },
+      "seq_memory.c": {
+        "loc": 562,
+        "prims": 13
+      },
+      "seq_midi.c": {
+        "loc": 479,
+        "prims": 0
+      },
+      "seq_midi_emul.c": {
+        "loc": 707,
+        "prims": 0
+      },
+      "seq_midi_event.c": {
+        "loc": 451,
+        "prims": 1
+      },
+      "seq_ports.c": {
+        "loc": 732,
+        "prims": 5
+      },
+      "seq_prioq.c": {
+        "loc": 402,
+        "prims": 0
+      },
+      "seq_queue.c": {
+        "loc": 710,
+        "prims": 4
+      },
+      "seq_system.c": {
+        "loc": 199,
+        "prims": 0
+      },
+      "seq_timer.c": {
+        "loc": 482,
+        "prims": 0
+      },
+      "seq_ump_client.c": {
+        "loc": 550,
+        "prims": 3
+      },
+      "seq_ump_convert.c": {
+        "loc": 1312,
+        "prims": 1
+      },
+      "seq_virmidi.c": {
+        "loc": 525,
+        "prims": 12
+      }
+    },
+    "commits": 66,
+    "race_fixes": 3,
+    "prim_density": 5.798185728981577,
+    "race_rate": 0.045454545454545456,
+    "score": 15.7,
+    "needs_split": false
+  },
+  {
+    "dir": "net/x25",
+    "files": 12,
+    "loc": 4719,
+    "prims": {
+      "lock": 0,
+      "rcu": 0,
+      "atomic": 11,
+      "defer": 3,
+      "thread": 0,
+      "wait": 2,
+      "barrier": 3
+    },
+    "prim_total": 19,
+    "families": 4,
+    "per_file": {
+      "af_x25.c": {
+        "loc": 1855,
+        "prims": 9
+      },
+      "sysctl_net_x25.c": {
+        "loc": 87,
+        "prims": 0
+      },
+      "x25_dev.c": {
+        "loc": 194,
+        "prims": 1
+      },
+      "x25_facilities.c": {
+        "loc": 350,
+        "prims": 0
+      },
+      "x25_forward.c": {
+        "loc": 156,
+        "prims": 0
+      },
+      "x25_in.c": {
+        "loc": 459,
+        "prims": 2
+      },
+      "x25_link.c": {
+        "loc": 421,
+        "prims": 3
+      },
+      "x25_out.c": {
+        "loc": 226,
+        "prims": 1
+      },
+      "x25_proc.c": {
+        "loc": 206,
+        "prims": 0
+      },
+      "x25_route.c": {
+        "loc": 204,
+        "prims": 1
+      },
+      "x25_subr.c": {
+        "loc": 385,
+        "prims": 1
+      },
+      "x25_timer.c": {
+        "loc": 176,
+        "prims": 1
+      }
+    },
+    "commits": 13,
+    "race_fixes": 3,
+    "prim_density": 4.026276753549481,
+    "race_rate": 0.23076923076923078,
+    "score": 14.8,
+    "needs_split": false
+  },
+  {
+    "dir": "net/qrtr",
+    "files": 5,
+    "loc": 2686,
+    "prims": {
+      "lock": 21,
+      "rcu": 5,
+      "atomic": 0,
+      "defer": 3,
+      "thread": 0,
+      "wait": 5,
+      "barrier": 0
+    },
+    "prim_total": 34,
+    "families": 4,
+    "per_file": {
+      "af_qrtr.c": {
+        "loc": 1333,
+        "prims": 29
+      },
+      "mhi.c": {
+        "loc": 229,
+        "prims": 0
+      },
+      "ns.c": {
+        "loc": 837,
+        "prims": 3
+      },
+      "smd.c": {
+        "loc": 111,
+        "prims": 0
+      },
+      "tun.c": {
+        "loc": 176,
+        "prims": 2
+      }
+    },
+    "commits": 19,
+    "race_fixes": 3,
+    "prim_density": 12.658227848101266,
+    "race_rate": 0.15789473684210525,
+    "score": 13.9,
+    "needs_split": false
+  },
+  {
+    "dir": "net/llc",
+    "files": 17,
+    "loc": 11802,
+    "prims": {
+      "lock": 7,
+      "rcu": 8,
+      "atomic": 12,
+      "defer": 10,
+      "thread": 0,
+      "wait": 2,
+      "barrier": 14
+    },
+    "prim_total": 53,
+    "families": 6,
+    "per_file": {
+      "af_llc.c": {
+        "loc": 1304,
+        "prims": 11
+      },
+      "llc_c_ac.c": {
+        "loc": 1448,
+        "prims": 6
+      },
+      "llc_c_ev.c": {
+        "loc": 742,
+        "prims": 0
+      },
+      "llc_c_st.c": {
+        "loc": 4940,
+        "prims": 0
+      },
+      "llc_conn.c": {
+        "loc": 1025,
+        "prims": 21
+      },
+      "llc_core.c": {
+        "loc": 153,
+        "prims": 4
+      },
+      "llc_if.c": {
+        "loc": 151,
+        "prims": 0
+      },
+      "llc_input.c": {
+        "loc": 224,
+        "prims": 7
+      },
+      "llc_output.c": {
+        "loc": 74,
+        "prims": 0
+      },
+      "llc_pdu.c": {
+        "loc": 366,
+        "prims": 0
+      },
+      "llc_proc.c": {
+        "loc": 245,
+        "prims": 2
+      },
+      "llc_s_ac.c": {
+        "loc": 216,
+        "prims": 0
+      },
+      "llc_s_ev.c": {
+        "loc": 109,
+        "prims": 0
+      },
+      "llc_s_st.c": {
+        "loc": 177,
+        "prims": 0
+      },
+      "llc_sap.c": {
+        "loc": 437,
+        "prims": 2
+      },
+      "llc_station.c": {
+        "loc": 120,
+        "prims": 0
+      },
+      "sysctl_net_llc.c": {
+        "loc": 71,
+        "prims": 0
+      }
+    },
+    "commits": 19,
+    "race_fixes": 2,
+    "prim_density": 4.490764277241146,
+    "race_rate": 0.10526315789473684,
+    "score": 13.3,
+    "needs_split": false
+  },
+  {
+    "dir": "net/atm",
+    "files": 10,
+    "loc": 3704,
+    "prims": {
+      "lock": 28,
+      "rcu": 6,
+      "atomic": 55,
+      "defer": 6,
+      "thread": 0,
+      "wait": 2,
+      "barrier": 3
+    },
+    "prim_total": 100,
+    "families": 6,
+    "per_file": {
+      "atm_misc.c": {
+        "loc": 102,
+        "prims": 7
+      },
+      "atm_sysfs.c": {
+        "loc": 158,
+        "prims": 0
+      },
+      "br2684.c": {
+        "loc": 871,
+        "prims": 11
+      },
+      "common.c": {
+        "loc": 857,
+        "prims": 28
+      },
+      "ioctl.c": {
+        "loc": 293,
+        "prims": 6
+      },
+      "pppoatm.c": {
+        "loc": 490,
+        "prims": 21
+      },
+      "proc.c": {
+        "loc": 333,
+        "prims": 8
+      },
+      "pvc.c": {
+        "loc": 162,
+        "prims": 0
+      },
+      "raw.c": {
+        "loc": 75,
+        "prims": 0
+      },
+      "resources.c": {
+        "loc": 363,
+        "prims": 19
+      }
+    },
+    "commits": 39,
+    "race_fixes": 2,
+    "prim_density": 26.997840172786177,
+    "race_rate": 0.05128205128205128,
+    "score": 12.6,
+    "needs_split": false
+  },
+  {
+    "dir": "net/tls",
+    "files": 7,
+    "loc": 6565,
+    "prims": {
+      "lock": 31,
+      "rcu": 27,
+      "atomic": 43,
+      "defer": 8,
+      "thread": 0,
+      "wait": 9,
+      "barrier": 40
+    },
+    "prim_total": 158,
+    "families": 6,
+    "per_file": {
+      "tls_device.c": {
+        "loc": 1444,
+        "prims": 59
+      },
+      "tls_device_fallback.c": {
+        "loc": 471,
+        "prims": 4
+      },
+      "tls_main.c": {
+        "loc": 1262,
+        "prims": 29
+      },
+      "tls_proc.c": {
+        "loc": 63,
+        "prims": 0
+      },
+      "tls_strp.c": {
+        "loc": 658,
+        "prims": 13
+      },
+      "tls_sw.c": {
+        "loc": 2657,
+        "prims": 53
+      },
+      "trace.c": {
+        "loc": 10,
+        "prims": 0
+      }
+    },
+    "commits": 58,
+    "race_fixes": 2,
+    "prim_density": 24.067022086824064,
+    "race_rate": 0.034482758620689655,
+    "score": 12.4,
+    "needs_split": false
+  },
+  {
+    "dir": "net/ceph",
+    "files": 24,
+    "loc": 24065,
+    "prims": {
+      "lock": 246,
+      "rcu": 1,
+      "atomic": 51,
+      "defer": 12,
+      "thread": 0,
+      "wait": 17,
+      "barrier": 5
+    },
+    "prim_total": 332,
+    "families": 6,
+    "per_file": {
+      "armor.c": {
+        "loc": 106,
+        "prims": 0
+      },
+      "auth.c": {
+        "loc": 661,
+        "prims": 30
+      },
+      "auth_none.c": {
+        "loc": 146,
+        "prims": 0
+      },
+      "auth_x.c": {
+        "loc": 1225,
+        "prims": 0
+      },
+      "buffer.c": {
+        "loc": 59,
+        "prims": 0
+      },
+      "ceph_common.c": {
+        "loc": 925,
+        "prims": 7
+      },
+      "ceph_hash.c": {
+        "loc": 131,
+        "prims": 0
+      },
+      "ceph_strings.c": {
+        "loc": 90,
+        "prims": 0
+      },
+      "cls_lock_client.c": {
+        "loc": 440,
+        "prims": 0
+      },
+      "crypto.c": {
+        "loc": 520,
+        "prims": 0
+      },
+      "debugfs.c": {
+        "loc": 484,
+        "prims": 17
+      },
+      "decode.c": {
+        "loc": 193,
+        "prims": 0
+      },
+      "messenger.c": {
+        "loc": 2221,
+        "prims": 39
+      },
+      "messenger_v1.c": {
+        "loc": 1620,
+        "prims": 2
+      },
+      "messenger_v2.c": {
+        "loc": 3814,
+        "prims": 10
+      },
+      "mon_client.c": {
+        "loc": 1597,
+        "prims": 64
+      },
+      "msgpool.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "osd_client.c": {
+        "loc": 5926,
+        "prims": 133
+      },
+      "osdmap.c": {
+        "loc": 3119,
+        "prims": 18
+      },
+      "pagelist.c": {
+        "loc": 133,
+        "prims": 2
+      },
+      "pagevec.c": {
+        "loc": 114,
+        "prims": 0
+      },
+      "snapshot.c": {
+        "loc": 63,
+        "prims": 3
+      },
+      "string_table.c": {
+        "loc": 106,
+        "prims": 7
+      },
+      "striper.c": {
+        "loc": 278,
+        "prims": 0
+      }
+    },
+    "commits": 68,
+    "race_fixes": 2,
+    "prim_density": 13.795969249948056,
+    "race_rate": 0.029411764705882353,
+    "score": 12.4,
+    "needs_split": false
+  },
+  {
+    "dir": "net/vmw_vsock",
+    "files": 12,
+    "loc": 11099,
+    "prims": {
+      "lock": 84,
+      "rcu": 26,
+      "atomic": 12,
+      "defer": 27,
+      "thread": 0,
+      "wait": 5,
+      "barrier": 25
+    },
+    "prim_total": 179,
+    "families": 6,
+    "per_file": {
+      "af_vsock.c": {
+        "loc": 3142,
+        "prims": 32
+      },
+      "af_vsock_tap.c": {
+        "loc": 110,
+        "prims": 7
+      },
+      "diag.c": {
+        "loc": 180,
+        "prims": 1
+      },
+      "hyperv_transport.c": {
+        "loc": 992,
+        "prims": 6
+      },
+      "virtio_transport.c": {
+        "loc": 989,
+        "prims": 83
+      },
+      "virtio_transport_common.c": {
+        "loc": 1979,
+        "prims": 26
+      },
+      "vmci_transport.c": {
+        "loc": 2172,
+        "prims": 14
+      },
+      "vmci_transport_notify.c": {
+        "loc": 672,
+        "prims": 0
+      },
+      "vmci_transport_notify_qstate.c": {
+        "loc": 430,
+        "prims": 2
+      },
+      "vsock_addr.c": {
+        "loc": 69,
+        "prims": 0
+      },
+      "vsock_bpf.c": {
+        "loc": 175,
+        "prims": 4
+      },
+      "vsock_loopback.c": {
+        "loc": 189,
+        "prims": 4
+      }
+    },
+    "commits": 94,
+    "race_fixes": 2,
+    "prim_density": 16.127579061176682,
+    "race_rate": 0.02127659574468085,
+    "score": 12.3,
+    "needs_split": false
+  },
+  {
+    "dir": "net/ethtool",
+    "files": 34,
+    "loc": 19231,
+    "prims": {
+      "lock": 58,
+      "rcu": 19,
+      "atomic": 2,
+      "defer": 6,
+      "thread": 0,
+      "wait": 7,
+      "barrier": 0
+    },
+    "prim_total": 92,
+    "families": 5,
+    "per_file": {
+      "bitset.c": {
+        "loc": 874,
+        "prims": 0
+      },
+      "cabletest.c": {
+        "loc": 450,
+        "prims": 0
+      },
+      "channels.c": {
+        "loc": 205,
+        "prims": 0
+      },
+      "cmis_cdb.c": {
+        "loc": 674,
+        "prims": 2
+      },
+      "cmis_fw_update.c": {
+        "loc": 497,
+        "prims": 0
+      },
+      "coalesce.c": {
+        "loc": 668,
+        "prims": 6
+      },
+      "common.c": {
+        "loc": 1402,
+        "prims": 13
+      },
+      "debug.c": {
+        "loc": 117,
+        "prims": 0
+      },
+      "eee.c": {
+        "loc": 172,
+        "prims": 0
+      },
+      "eeprom.c": {
+        "loc": 251,
+        "prims": 0
+      },
+      "features.c": {
+        "loc": 297,
+        "prims": 0
+      },
+      "fec.c": {
+        "loc": 364,
+        "prims": 0
+      },
+      "ioctl.c": {
+        "loc": 3967,
+        "prims": 18
+      },
+      "linkinfo.c": {
+        "loc": 145,
+        "prims": 0
+      },
+      "linkmodes.c": {
+        "loc": 362,
+        "prims": 2
+      },
+      "linkstate.c": {
+        "loc": 226,
+        "prims": 4
+      },
+      "mm.c": {
+        "loc": 562,
+        "prims": 11
+      },
+      "module.c": {
+        "loc": 566,
+        "prims": 9
+      },
+      "mse.c": {
+        "loc": 328,
+        "prims": 2
+      },
+      "netlink.c": {
+        "loc": 1611,
+        "prims": 12
+      },
+      "pause.c": {
+        "loc": 222,
+        "prims": 0
+      },
+      "phc_vclocks.c": {
+        "loc": 94,
+        "prims": 0
+      },
+      "phy.c": {
+        "loc": 194,
+        "prims": 0
+      },
+      "plca.c": {
+        "loc": 271,
+        "prims": 0
+      },
+      "privflags.c": {
+        "loc": 195,
+        "prims": 0
+      },
+      "pse-pd.c": {
+        "loc": 383,
+        "prims": 0
+      },
+      "rings.c": {
+        "loc": 322,
+        "prims": 0
+      },
+      "rss.c": {
+        "loc": 1212,
+        "prims": 12
+      },
+      "stats.c": {
+        "loc": 624,
+        "prims": 0
+      },
+      "strset.c": {
+        "loc": 502,
+        "prims": 0
+      },
+      "tsconfig.c": {
+        "loc": 460,
+        "prims": 1
+      },
+      "tsinfo.c": {
+        "loc": 575,
+        "prims": 0
+      },
+      "tunnels.c": {
+        "loc": 281,
+        "prims": 0
+      },
+      "wol.c": {
+        "loc": 158,
+        "prims": 0
+      }
+    },
+    "commits": 182,
+    "race_fixes": 2,
+    "prim_density": 4.783942592688887,
+    "race_rate": 0.01098901098901099,
+    "score": 10.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/kcm",
+    "files": 2,
+    "loc": 2337,
+    "prims": {
+      "lock": 31,
+      "rcu": 4,
+      "atomic": 7,
+      "defer": 7,
+      "thread": 0,
+      "wait": 2,
+      "barrier": 21
+    },
+    "prim_total": 72,
+    "families": 6,
+    "per_file": {
+      "kcmproc.c": {
+        "loc": 387,
+        "prims": 8
+      },
+      "kcmsock.c": {
+        "loc": 1950,
+        "prims": 64
+      }
+    },
+    "commits": 9,
+    "race_fixes": 1,
+    "prim_density": 30.808729139922974,
+    "race_rate": 0.1111111111111111,
+    "score": 6.7,
+    "needs_split": false
+  },
+  {
+    "dir": "net/rds",
+    "files": 31,
+    "loc": 16291,
+    "prims": {
+      "lock": 127,
+      "rcu": 58,
+      "atomic": 171,
+      "defer": 51,
+      "thread": 0,
+      "wait": 67,
+      "barrier": 12
+    },
+    "prim_total": 486,
+    "families": 6,
+    "per_file": {
+      "af_rds.c": {
+        "loc": 1013,
+        "prims": 16
+      },
+      "bind.c": {
+        "loc": 283,
+        "prims": 3
+      },
+      "cong.c": {
+        "loc": 428,
+        "prims": 19
+      },
+      "connection.c": {
+        "loc": 1003,
+        "prims": 51
+      },
+      "ib.c": {
+        "loc": 629,
+        "prims": 24
+      },
+      "ib_cm.c": {
+        "loc": 1307,
+        "prims": 32
+      },
+      "ib_frmr.c": {
+        "loc": 450,
+        "prims": 25
+      },
+      "ib_rdma.c": {
+        "loc": 703,
+        "prims": 37
+      },
+      "ib_recv.c": {
+        "loc": 1095,
+        "prims": 39
+      },
+      "ib_ring.c": {
+        "loc": 168,
+        "prims": 5
+      },
+      "ib_send.c": {
+        "loc": 1045,
+        "prims": 33
+      },
+      "ib_stats.c": {
+        "loc": 107,
+        "prims": 0
+      },
+      "ib_sysctl.c": {
+        "loc": 120,
+        "prims": 0
+      },
+      "info.c": {
+        "loc": 254,
+        "prims": 4
+      },
+      "loop.c": {
+        "loc": 254,
+        "prims": 6
+      },
+      "message.c": {
+        "loc": 570,
+        "prims": 14
+      },
+      "page.c": {
+        "loc": 170,
+        "prims": 0
+      },
+      "rdma.c": {
+        "loc": 954,
+        "prims": 9
+      },
+      "rdma_transport.c": {
+        "loc": 322,
+        "prims": 2
+      },
+      "recv.c": {
+        "loc": 889,
+        "prims": 17
+      },
+      "send.c": {
+        "loc": 1564,
+        "prims": 68
+      },
+      "stats.c": {
+        "loc": 155,
+        "prims": 0
+      },
+      "sysctl.c": {
+        "loc": 109,
+        "prims": 0
+      },
+      "tcp.c": {
+        "loc": 804,
+        "prims": 22
+      },
+      "tcp_connect.c": {
+        "loc": 298,
+        "prims": 6
+      },
+      "tcp_listen.c": {
+        "loc": 464,
+        "prims": 11
+      },
+      "tcp_recv.c": {
+        "loc": 353,
+        "prims": 4
+      },
+      "tcp_send.c": {
+        "loc": 226,
+        "prims": 7
+      },
+      "tcp_stats.c": {
+        "loc": 74,
+        "prims": 0
+      },
+      "threads.c": {
+        "loc": 311,
+        "prims": 20
+      },
+      "transport.c": {
+        "loc": 169,
+        "prims": 12
+      }
+    },
+    "commits": 64,
+    "race_fixes": 1,
+    "prim_density": 29.832422810140567,
+    "race_rate": 0.015625,
+    "score": 6.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/dsa",
+    "files": 34,
+    "loc": 15245,
+    "prims": {
+      "lock": 38,
+      "rcu": 8,
+      "atomic": 31,
+      "defer": 3,
+      "thread": 0,
+      "wait": 9,
+      "barrier": 2
+    },
+    "prim_total": 91,
+    "families": 6,
+    "per_file": {
+      "conduit.c": {
+        "loc": 535,
+        "prims": 0
+      },
+      "devlink.c": {
+        "loc": 402,
+        "prims": 0
+      },
+      "dsa.c": {
+        "loc": 1900,
+        "prims": 17
+      },
+      "netlink.c": {
+        "loc": 64,
+        "prims": 0
+      },
+      "port.c": {
+        "loc": 1955,
+        "prims": 10
+      },
+      "stubs.c": {
+        "loc": 10,
+        "prims": 0
+      },
+      "switch.c": {
+        "loc": 1134,
+        "prims": 32
+      },
+      "tag.c": {
+        "loc": 244,
+        "prims": 10
+      },
+      "tag_8021q.c": {
+        "loc": 588,
+        "prims": 6
+      },
+      "tag_ar9331.c": {
+        "loc": 101,
+        "prims": 0
+      },
+      "tag_brcm.c": {
+        "loc": 427,
+        "prims": 0
+      },
+      "tag_dsa.c": {
+        "loc": 419,
+        "prims": 0
+      },
+      "tag_gswip.c": {
+        "loc": 116,
+        "prims": 0
+      },
+      "tag_hellcreek.c": {
+        "loc": 78,
+        "prims": 0
+      },
+      "tag_ksz.c": {
+        "loc": 483,
+        "prims": 2
+      },
+      "tag_lan9303.c": {
+        "loc": 128,
+        "prims": 0
+      },
+      "tag_mtk.c": {
+        "loc": 114,
+        "prims": 0
+      },
+      "tag_mxl-gsw1xx.c": {
+        "loc": 120,
+        "prims": 0
+      },
+      "tag_mxl862xx.c": {
+        "loc": 116,
+        "prims": 0
+      },
+      "tag_netc.c": {
+        "loc": 216,
+        "prims": 0
+      },
+      "tag_none.c": {
+        "loc": 31,
+        "prims": 0
+      },
+      "tag_ocelot.c": {
+        "loc": 188,
+        "prims": 0
+      },
+      "tag_ocelot_8021q.c": {
+        "loc": 146,
+        "prims": 0
+      },
+      "tag_qca.c": {
+        "loc": 133,
+        "prims": 0
+      },
+      "tag_rtl4_a.c": {
+        "loc": 130,
+        "prims": 0
+      },
+      "tag_rtl8_4.c": {
+        "loc": 278,
+        "prims": 0
+      },
+      "tag_rzn1_a5psw.c": {
+        "loc": 119,
+        "prims": 0
+      },
+      "tag_sja1105.c": {
+        "loc": 774,
+        "prims": 6
+      },
+      "tag_trailer.c": {
+        "loc": 73,
+        "prims": 0
+      },
+      "tag_vsc73xx_8021q.c": {
+        "loc": 69,
+        "prims": 0
+      },
+      "tag_xrs700x.c": {
+        "loc": 67,
+        "prims": 0
+      },
+      "tag_yt921x.c": {
+        "loc": 173,
+        "prims": 0
+      },
+      "trace.c": {
+        "loc": 39,
+        "prims": 0
+      },
+      "user.c": {
+        "loc": 3875,
+        "prims": 8
+      }
+    },
+    "commits": 75,
+    "race_fixes": 1,
+    "prim_density": 5.9691702197441785,
+    "race_rate": 0.013333333333333334,
+    "score": 6.1,
+    "needs_split": false
+  },
+  {
+    "dir": "net/handshake",
+    "files": 7,
+    "loc": 1898,
+    "prims": {
+      "lock": 4,
+      "rcu": 0,
+      "atomic": 7,
+      "defer": 0,
+      "thread": 0,
+      "wait": 13,
+      "barrier": 1
+    },
+    "prim_total": 25,
+    "families": 4,
+    "per_file": {
+      "alert.c": {
+        "loc": 110,
+        "prims": 0
+      },
+      "genl.c": {
+        "loc": 60,
+        "prims": 0
+      },
+      "handshake-test.c": {
+        "loc": 576,
+        "prims": 2
+      },
+      "netlink.c": {
+        "loc": 287,
+        "prims": 2
+      },
+      "request.c": {
+        "loc": 386,
+        "prims": 13
+      },
+      "tlshd.c": {
+        "loc": 457,
+        "prims": 8
+      },
+      "trace.c": {
+        "loc": 22,
+        "prims": 0
+      }
+    },
+    "commits": 18,
+    "race_fixes": 1,
+    "prim_density": 13.171759747102213,
+    "race_rate": 0.05555555555555555,
+    "score": 4.2,
+    "needs_split": false
+  },
+  {
+    "dir": "net/psample",
+    "files": 1,
+    "loc": 535,
+    "prims": {
+      "lock": 4,
+      "rcu": 1,
+      "atomic": 0,
+      "defer": 0,
+      "thread": 0,
+      "wait": 0,
+      "barrier": 0
+    },
+    "prim_total": 5,
+    "families": 2,
+    "per_file": {
+      "psample.c": {
+        "loc": 535,
+        "prims": 5
+      }
+    },
+    "commits": 3,
+    "race_fixes": 0,
+    "prim_density": 9.345794392523365,
+    "race_rate": 0.0,
+    "score": 0.0,
+    "needs_split": false
+  },
+  {
+    "dir": "net/key",
+    "files": 1,
+    "loc": 3954,
+    "prims": {
+      "lock": 20,
+      "rcu": 7,
+      "atomic": 14,
+      "defer": 0,
+      "thread": 0,
+      "wait": 0,
+      "barrier": 0
+    },
+    "prim_total": 41,
+    "families": 3,
+    "per_file": {
+      "af_key.c": {
+        "loc": 3954,
+        "prims": 41
+      }
+    },
+    "commits": 14,
+    "race_fixes": 0,
+    "prim_density": 10.369246332827515,
+    "race_rate": 0.0,
+    "score": 0.0,
+    "needs_split": false
+  },
+  {
+    "dir": "net/devlink",
+    "files": 15,
+    "loc": 15200,
+    "prims": {
+      "lock": 47,
+      "rcu": 18,
+      "atomic": 23,
+      "defer": 3,
+      "thread": 0,
+      "wait": 0,
+      "barrier": 0
+    },
+    "prim_total": 91,
+    "families": 4,
+    "per_file": {
+      "core.c": {
+        "loc": 602,
+        "prims": 15
+      },
+      "dev.c": {
+        "loc": 1444,
+        "prims": 0
+      },
+      "dpipe.c": {
+        "loc": 915,
+        "prims": 3
+      },
+      "health.c": {
+        "loc": 1350,
+        "prims": 0
+      },
+      "linecard.c": {
+        "loc": 627,
+        "prims": 24
+      },
+      "netlink.c": {
+        "loc": 412,
+        "prims": 11
+      },
+      "netlink_gen.c": {
+        "loc": 1380,
+        "prims": 0
+      },
+      "param.c": {
+        "loc": 1011,
+        "prims": 0
+      },
+      "port.c": {
+        "loc": 1607,
+        "prims": 4
+      },
+      "rate.c": {
+        "loc": 854,
+        "prims": 12
+      },
+      "region.c": {
+        "loc": 1258,
+        "prims": 11
+      },
+      "resource.c": {
+        "loc": 730,
+        "prims": 0
+      },
+      "sb.c": {
+        "loc": 995,
+        "prims": 0
+      },
+      "sh_dev.c": {
+        "loc": 161,
+        "prims": 8
+      },
+      "trap.c": {
+        "loc": 1854,
+        "prims": 3
+      }
+    },
+    "commits": 70,
+    "race_fixes": 0,
+    "prim_density": 5.986842105263158,
+    "race_rate": 0.0,
+    "score": 0.0,
+    "needs_split": false
+  },
+  {
+    "dir": "drivers/vhost",
+    "files": 8,
+    "loc": 13106,
+    "prims": {
+      "lock": 226,
+      "rcu": 37,
+      "atomic": 31,
+      "defer": 6,
+      "thread": 3,
+      "wait": 25,
+      "barrier": 23
+    },
+    "prim_total": 351,
+    "families": 7,
+    "per_file": {
+      "iotlb.c": {
+        "loc": 236,
+        "prims": 0
+      },
+      "net.c": {
+        "loc": 1903,
+        "prims": 45
+      },
+      "scsi.c": {
+        "loc": 3011,
+        "prims": 90
+      },
+      "test.c": {
+        "loc": 379,
+        "prims": 25
+      },
+      "vdpa.c": {
+        "loc": 1712,
+        "prims": 24
+      },
+      "vhost.c": {
+        "loc": 3346,
+        "prims": 109
+      },
+      "vringh.c": {
+        "loc": 1499,
+        "prims": 7
+      },
+      "vsock.c": {
+        "loc": 1020,
+        "prims": 51
+      }
+    },
+    "commits": 90,
+    "race_fixes": 0,
+    "prim_density": 26.781626735846178,
+    "race_rate": 0.0,
+    "score": 0.0,
+    "needs_split": false
+  }
+]

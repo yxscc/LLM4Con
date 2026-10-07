@@ -70,3 +70,7 @@ setup_env.sh
 # Auto-entry baseline artifacts (295M of surface dumps, regenerable)
 kernel_experiment/auto_entry_dumps/
 kernel_experiment/*/auto_entry_*.log
+
+# Unknown-defect hunt: module build trees and per-run dumps
+hunt/targets/
+hunt/dumps/

@@ -1,0 +1,22 @@
+[
+  {
+    "threads": "113",
+    "pairs": "982",
+    "objs": "217",
+    "contracts": "24",
+    "undischarged": "-",
+    "kept": "-",
+    "hyps": "-",
+    "bugs": "-",
+    "reqs": "-",
+    "prompt_tok": "-",
+    "compl_tok": "-",
+    "secs": "-",
+    "api_err": "0",
+    "target": "sched-core",
+    "status": "TIMEOUT",
+    "wall": "10800",
+    "bitcode": "merged.ll",
+    "log": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/hunt/targets/sched-core/hunt_20260904_234233.log"
+  }
+]
