@@ -470,6 +470,7 @@ std::optional<LLM::ConcurrencyContract> ContractGeneratorAgent::generateContract
 
     reset();
     explore_calls_ = 0;
+    refusedReads_ = 0;
     reportRounds_ = 0;
     seededObjectIds_.clear();
     seededObjectsById_.clear();
@@ -751,6 +752,7 @@ void ContractGeneratorAgent::repairContractCoverage(
     // preloaded, so the model rarely needs to read, but resetting avoids a
     // budget-exhausted state from the main pass cutting the repair short.
     explore_calls_ = 0;
+    refusedReads_ = 0;
 
     for (int round = 0; round < kCoverageRepairRounds; ++round) {
         // HIGH-RISK objects this thread touches that the contract has NOT addressed
@@ -813,8 +815,28 @@ std::string ContractGeneratorAgent::execute_tool(const std::string& tool_name, c
     if (shared_result) {
         explore_calls_++;
         if (explore_calls_ > exploreHard_) {
-            // Deterministic stop: end the session with whatever was reported.
-            return "finish";
+            // Close the READ channel, but keep the session alive. Returning the
+            // "finish" sentinel here used to end the conversation outright, which
+            // threw away a contract the model had not emitted yet: the model
+            // batches several get_function calls per turn, so the calls that trip
+            // the cap land in the SAME turn as the soft-budget notice and it never
+            // gets a turn to comply. That silently produced empty contracts
+            // ("generated 2/2" with zero requirements), and an empty contract
+            // means zero requirements to discharge, i.e. zero findings for the
+            // whole case. Reporting tools are uncapped, so refusing the read
+            // leaves the model able to emit and finalize.
+            if (++refusedReads_ > kMaxRefusedReads) {
+                return "finish";  // the model will not stop reading; give up
+            }
+            nlohmann::json out;
+            out["error"] = "Read budget exhausted (" + std::to_string(explore_calls_ - 1) +
+                           "/" + std::to_string(exploreHard_) + " reads). Navigation tools "
+                           "are now CLOSED and this call returned no data.";
+            out["required_next_action"] =
+                "Emit what you already know: add_requirement / add_guarantee for every "
+                "shared object with a real obligation (declare_no_obligation for the rest), "
+                "then call finalize_contract. Do NOT request more reads.";
+            return out.dump();
         }
         if (explore_calls_ > exploreSoft_) {
             nlohmann::json parsed = nlohmann::json::parse(*shared_result, nullptr, false);

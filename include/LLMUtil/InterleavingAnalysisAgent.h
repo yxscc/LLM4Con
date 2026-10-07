@@ -121,6 +121,10 @@ private:
     int explore_calls_ = 0;
     int exploreSoft_ = 22;
     int exploreHard_ = 45;
+    // See ContractGeneratorAgent: reads past the hard cap are refused rather than
+    // ending the session, bounded so an uncooperative model cannot spin.
+    int refusedReads_ = 0;
+    static constexpr int kMaxRefusedReads = 12;
     static constexpr int kInlineSoftBudget = 22;
     static constexpr int kInlineHardBudget = 45;
     static constexpr int kCalibrateSoftBudget = 5;

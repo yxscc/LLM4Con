@@ -88,8 +88,17 @@ private:
     int explore_calls_ = 0;
     int exploreSoft_ = 30;
     int exploreHard_ = 60;
-    static constexpr int kSeededSoftBudget = 8;
-    static constexpr int kSeededHardBudget = 16;
+    // Reads attempted after the hard cap closed the channel. Bounded so a model
+    // that ignores the "stop reading, emit now" instruction cannot spin forever,
+    // but generous enough that it gets real turns to emit its contract.
+    int refusedReads_ = 0;
+    static constexpr int kMaxRefusedReads = 12;
+    // Contract generation is the cheapest LLM phase and the one whose output
+    // everything downstream depends on: an under-explored contract silently
+    // costs recall for the entire case. Budgets are deliberately generous here
+    // (the expensive phase is calibration).
+    static constexpr int kSeededSoftBudget = 24;
+    static constexpr int kSeededHardBudget = 48;
     static constexpr int kBlindSoftBudget = 30;
     static constexpr int kBlindHardBudget = 60;
 

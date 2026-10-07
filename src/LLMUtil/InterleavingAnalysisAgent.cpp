@@ -267,7 +267,20 @@ std::string InterleavingAnalysisAgent::execute_tool(const std::string& tool_name
     // per-session exploration budget; reporting tools below are never capped.
     auto applyBudget = [&](const std::string& result) -> std::string {
         explore_calls_++;
-        if (explore_calls_ > exploreHard_) return "finish";
+        if (explore_calls_ > exploreHard_) {
+            // Close reads without ending the session (see the matching comment in
+            // ContractGeneratorAgent): the reporting tools are uncapped, so the
+            // model must keep its turn to emit verdicts it has already formed.
+            if (++refusedReads_ > kMaxRefusedReads) return "finish";
+            nlohmann::json out;
+            out["error"] = "Read budget exhausted (" + std::to_string(explore_calls_ - 1) +
+                           "/" + std::to_string(exploreHard_) + " reads). Navigation tools "
+                           "are now CLOSED and this call returned no data.";
+            out["required_next_action"] =
+                "Judge every remaining candidate from the evidence you already have, "
+                "then call finish_review. Do NOT request more reads.";
+            return out.dump();
+        }
         if (explore_calls_ > exploreSoft_) {
             nlohmann::json parsed = nlohmann::json::parse(result, nullptr, false);
             nlohmann::json out;
@@ -416,6 +429,7 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeObject(
 
     reset();
     explore_calls_ = 0;
+    refusedReads_ = 0;
     set_system_prompt(build_system_prompt());
 
     InterleavingContext ctx;
@@ -489,6 +503,7 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeCluster(
 
     reset();
     explore_calls_ = 0;
+    refusedReads_ = 0;
     set_system_prompt(build_system_prompt());
 
     const bool calibrate = (precomputedContracts != nullptr);
@@ -735,6 +750,7 @@ std::vector<query::Hypothesis> InterleavingAnalysisAgent::analyzeThread(
 
     reset();
     explore_calls_ = 0;
+    refusedReads_ = 0;
     set_system_prompt(build_system_prompt());
 
     InterleavingContext ctx;
