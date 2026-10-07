@@ -16,7 +16,8 @@ Usage: python3 eval_recall.py [CASE ...]     (no args -> every case with a dump)
 import json, os, re, sys, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DUMP = os.path.join(os.path.dirname(HERE), "LLM_dump")
+DUMP = os.environ.get("LACE_DUMP_ROOT",
+                      os.path.join(os.path.dirname(HERE), "LLM_dump"))
 
 # Generic tokens that must never be used as the discriminating GT field.
 STOP = {

@@ -109,19 +109,31 @@ def object_present(objs, gt):
 
     Returns (found, rank) with rank 1-based, or (False, 0).
     """
+    # Reading the struct name out of the annotation's prose was missing
+    # objects that are demonstrably on the surface: it only fires when the
+    # prose happens to spell the same struct the analyzer keyed on. The two
+    # annotated sites do name their containing functions, so ask first
+    # whether some multi-thread object carries accesses from both of them --
+    # that is the condition the contract stage actually needs, and it does
+    # not depend on how the object was described.
+    want = {(gt.get(s) or {}).get("function") for s in ("access_a", "access_b")}
+    want.discard(None)
     names = {f"struct.{m}" for m in _STRUCT.findall(gt.get("object", ""))}
     chains = _deref_chains(norm_code(gt.get("object", "")))
-    if not names and not chains:
+    if not want and not names and not chains:
         return False, 0
     for i, o in enumerate(objs):
+        accesses = o.get("accesses", [])
         if len(o.get("accessing_thread_ids") or
-               {a.get("thread_id") for a in o.get("accesses", [])}) < 2:
+               {a.get("thread_id") for a in accesses}) < 2:
             continue
+        if want and want <= {a.get("containing_function") for a in accesses}:
+            return True, i + 1
         nm = o.get("name", "")
         if any(n in nm for n in names):
             return True, i + 1
         if chains and any(chains & _deref_chains(norm_code(a.get("code", "")))
-                          for a in o.get("accesses", [])):
+                          for a in accesses):
             return True, i + 1
     return False, 0
 
@@ -169,7 +181,7 @@ def main() -> int:
         gt_a, gt_b = gt.get("access_a") or {}, gt.get("access_b") or {}
         d = latest_dump(case, args.stamp)
         if d is None:
-            rows.append((case, None, "NO-RUN", 0, 0))
+            rows.append((case, None, "NO-RUN", 0, 0, False, None))
             continue
         sf = d / "vulnerability_surface.json"
         objs = []

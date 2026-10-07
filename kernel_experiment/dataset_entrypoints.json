@@ -289,7 +289,7 @@
   },
   "CVE-2024-43891": {
     "thread_roots": [
-      "event removal / eventfs release path",
+      "event_callback / event_release",
       "f_start"
     ],
     "self_race": false,
@@ -323,7 +323,7 @@
   "CVE-2024-47715": {
     "thread_roots": [
       "mt76_sta_state",
-      "mt7915_band_config"
+      "mt76_register_phy"
     ],
     "self_race": false,
     "raw_entries": [
@@ -550,7 +550,7 @@
   "CVE-2025-38242": {
     "thread_roots": [
       "move_pages",
-      "swapin and swapout fault/reclaim paths"
+      "do_swap_page / swapin_readahead"
     ],
     "self_race": false,
     "raw_entries": [
