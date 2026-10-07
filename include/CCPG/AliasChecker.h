@@ -41,6 +41,10 @@ public:
     const llvm::Value* getLLVMThreadValue(CCPGNode * node);
     bool isLockAlias(CCPGNode *node1, CCPGNode *node2);
     const llvm::Value* getLLVMLockValue(CCPGNode * node);
+    // Normalised text of the lock operand at an acquire/release, e.g.
+    // "mhi_chan->lock" for `write_lock_irq(&mhi_chan->lock)`. Empty when the
+    // node carries no usable source text.
+    static std::string lockOperandText(CCPGNode * node);
     bool isAlias(const llvm::Value* V1, const llvm::Value* V2);
 
     const llvm::Function * getLLVMFunction(ccpg::Function * function) const;

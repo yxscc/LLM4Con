@@ -10,6 +10,7 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 
+#include <cctype>
 #include <filesystem>
 #include <limits>
 #include <iostream>
@@ -85,28 +86,72 @@ const llvm::Value* AliasChecker::getLLVMThreadValue(CCPGNode* node) {
     return nullptr;
 }
 
+std::string AliasChecker::lockOperandText(CCPGNode * node) {
+    if (node == nullptr) return "";
+    Node* cpgNode = node->getCPGNode();
+    if (cpgNode == nullptr) return "";
+    std::string code = cpgNode->getCode();
+    if (code.empty()) return "";
+
+    // Take the first argument of the outermost call: `write_lock_irq(&x->lock)`
+    // -> `&x->lock`. Nested parentheses in the argument (a cast, or a helper
+    // call) have to be tracked so the split lands on the top-level comma.
+    size_t open = code.find('(');
+    if (open == std::string::npos) return "";
+    std::string arg;
+    int depth = 0;
+    for (size_t i = open + 1; i < code.size(); ++i) {
+        char c = code[i];
+        if (c == '(') { ++depth; }
+        else if (c == ')') { if (depth == 0) break; --depth; }
+        else if (c == ',' && depth == 0) { break; }
+        arg.push_back(c);
+    }
+
+    // `&x->lock`, `(spinlock_t *)&x->lock` and `x->lock` all name one lock.
+    std::string out;
+    out.reserve(arg.size());
+    depth = 0;
+    for (size_t i = 0; i < arg.size(); ++i) {
+        char c = arg[i];
+        if (c == '(') { ++depth; continue; }
+        if (c == ')') { if (depth > 0) --depth; continue; }
+        if (depth > 0) continue;              // inside a cast
+        if (std::isspace(static_cast<unsigned char>(c))) continue;
+        if (c == '&' || c == '*') continue;
+        out.push_back(c);
+    }
+    return out;
+}
+
 bool AliasChecker::isLockAlias(CCPGNode * node1, CCPGNode * node2) {
     assert(node1->getType() == ThreadAPIUtil::TYPE::ACQUIRE || node1->getType() == ThreadAPIUtil::TYPE::RELEASE);
     assert(node2->getType() == ThreadAPIUtil::TYPE::ACQUIRE || node2->getType() == ThreadAPIUtil::TYPE::RELEASE);
     const llvm::CallInst* callInst1 = node1->getLLVMCallInst();
     const llvm::CallInst* callInst2 = node2->getLLVMCallInst();
 
-    if(!callInst1 || !callInst2){
-        return false;
+    if (callInst1 && callInst2 && callInst1->arg_size() > 0 &&
+        callInst2->arg_size() > 0) {
+        const llvm::Value* lock1 = callInst1->getArgOperand(0);
+        const llvm::Value* lock2 = callInst2->getArgOperand(0);
+        if (lock1 && lock2 && isAlias(lock1, lock2)) {
+            return true;
+        }
     }
 
-    if (callInst1->arg_size() == 0 || callInst2->arg_size() == 0) {
-        return false;
-    }
-
-    const llvm::Value* lock1 = callInst1->getArgOperand(0);
-    const llvm::Value* lock2 = callInst2->getArgOperand(0);
-
-    if(!lock1 || !lock2){
-        return false;
-    }
-
-    return isAlias(lock1, lock2);
+    // Fall back to the source-level operand. Kernel lock APIs are macros
+    // (`write_lock_irq` -> `_raw_write_lock_irq`), so an acquire/release pair
+    // often has no CCPGNode->CallInst mapping at all; returning false then made
+    // every release fail to kill its acquire, and the lock leaked down the call
+    // graph into callees that plainly do not hold it. Textual identity of the
+    // operand is what a lockset analysis needs anyway: `write_unlock_irq(
+    // &mhi_chan->lock)` releases exactly what `write_lock_irq(&mhi_chan->lock)`
+    // took. Two *different instances* spelled the same way would also compare
+    // equal, but then their protected data are different objects too, so the
+    // pair never becomes a race either way.
+    const std::string t1 = lockOperandText(node1);
+    if (t1.empty()) return false;
+    return t1 == lockOperandText(node2);
 }
 
 
