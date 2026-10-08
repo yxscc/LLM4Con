@@ -1,0 +1,337 @@
+{
+  "baseline_commit": "f617b333f0c2826105e63aaf9beee4e89381be0b",
+  "implementation_stage": "P0 factorized relations on bounded activations",
+  "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+  "front_limits": {
+    "max_depth": 8,
+    "max_steps": 4000
+  },
+  "test_suite": {
+    "passed": 80,
+    "existing_tests": 63
+  },
+  "model_requests": 0,
+  "measurement_processes": 2,
+  "comparison_notes": [
+    "Legacy comparison enumerates every old context in the evaluator and verifies complete side-member inclusion plus pairing eligibility.",
+    "Relation counts are not agent-task counts or defect recall.",
+    "The old 240-second timeout was for candidate generation; front-end and serialization times are reported separately.",
+    "Duplicate access records from different provenance tags are collapsed; sequence closures and guard regions are uncapped within the bounded front end.",
+    "Three timeout cases have performance validation only, not full legacy comparison."
+  ],
+  "cases": [
+    {
+      "input": {
+        "id": "CVE-2025-23151",
+        "kind": "benchmark",
+        "ir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/CVE-2025-23151/main.ll",
+        "src": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/CVE-2025-23151/src",
+        "ir_bytes": 1902153
+      },
+      "timings_s": {
+        "front": 1.2572954595088959,
+        "relations": 0.326474167406559
+      },
+      "statistics": {
+        "activations": 29,
+        "steps": 4082,
+        "members": 4247,
+        "pools": 366,
+        "relations": 152,
+        "duplicate_access_records_collapsed": 204,
+        "relations_by_kind": {
+          "conflict": 68,
+          "atomicity": 24,
+          "guard": 25,
+          "lifetime": 35
+        },
+        "implicit_combinations": 19539,
+        "implicit_by_kind": {
+          "atomicity": 2091,
+          "conflict": 15134,
+          "guard": 1717,
+          "lifetime": 597
+        },
+        "self_combinations": 3917,
+        "boundaries": 494,
+        "static_gaps": {
+          "links_external": 170,
+          "truncated_activations": 0,
+          "unnamed_accesses": 346,
+          "unknown_base_accesses": 251,
+          "links_indirect": 126
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 19539
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+      "serialization_s": 0.31522034853696823,
+      "legacy_coverage": {
+        "legacy_items": 757,
+        "legacy_contexts": 19032,
+        "contexts_by_kind": {
+          "conflict": 15134,
+          "atomicity": 2091,
+          "guard": 1270,
+          "lifetime": 537
+        },
+        "missing": 0,
+        "missing_examples": [],
+        "seconds": 1.0077140405774117
+      },
+      "peak_rss_kib_linux": 105772
+    },
+    {
+      "input": {
+        "id": "CVE-2024-35898",
+        "kind": "benchmark",
+        "ir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/CVE-2024-35898/nf_tables_api.ll",
+        "src": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/CVE-2024-35898/src",
+        "ir_bytes": 7108506
+      },
+      "timings_s": {
+        "front": 5.813804067671299,
+        "relations": 3.5077892169356346
+      },
+      "statistics": {
+        "activations": 112,
+        "steps": 39461,
+        "members": 33172,
+        "pools": 2037,
+        "relations": 1334,
+        "duplicate_access_records_collapsed": 4210,
+        "relations_by_kind": {
+          "conflict": 516,
+          "atomicity": 179,
+          "guard": 185,
+          "lifetime": 454
+        },
+        "implicit_combinations": 2740868,
+        "implicit_by_kind": {
+          "atomicity": 94704,
+          "conflict": 2472635,
+          "guard": 109759,
+          "lifetime": 63770
+        },
+        "self_combinations": 165449,
+        "boundaries": 5106,
+        "static_gaps": {
+          "truncated_activations": 14,
+          "unnamed_accesses": 2875,
+          "unknown_base_accesses": 2684,
+          "links_indirect": 320,
+          "links_external": 2717,
+          "links_depth": 320,
+          "links_recursion": 10,
+          "links_budget": 1
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 2740868
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+      "serialization_s": 4.8773109540343285,
+      "legacy_coverage": {
+        "legacy_items": 32578,
+        "legacy_contexts": 3969341,
+        "contexts_by_kind": {
+          "conflict": 3760210,
+          "lifetime": 63067,
+          "guard": 52019,
+          "atomicity": 94045
+        },
+        "missing": 0,
+        "missing_examples": [],
+        "seconds": 43.67048605531454
+      },
+      "peak_rss_kib_linux": 294856
+    },
+    {
+      "input": {
+        "id": "SYZBOT-52e3dbded1f71729",
+        "kind": "benchmark",
+        "ir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-52e3dbded1f71729/merged.ll",
+        "src": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-52e3dbded1f71729/src",
+        "ir_bytes": 15296250
+      },
+      "timings_s": {
+        "front": 19.069781750440598,
+        "relations": 5.842867136001587
+      },
+      "statistics": {
+        "activations": 369,
+        "steps": 130512,
+        "members": 114575,
+        "pools": 2512,
+        "relations": 1500,
+        "duplicate_access_records_collapsed": 3545,
+        "relations_by_kind": {
+          "conflict": 780,
+          "atomicity": 272,
+          "guard": 180,
+          "lifetime": 268
+        },
+        "implicit_combinations": 13525886,
+        "implicit_by_kind": {
+          "atomicity": 1167507,
+          "conflict": 11728237,
+          "guard": 396704,
+          "lifetime": 233438
+        },
+        "self_combinations": 612538,
+        "boundaries": 17771,
+        "static_gaps": {
+          "links_depth": 3466,
+          "links_recursion": 197,
+          "links_indirect": 997,
+          "links_external": 3383,
+          "truncated_activations": 76,
+          "unnamed_accesses": 13224,
+          "unknown_base_accesses": 12297,
+          "links_budget": 2
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 13525886
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+      "serialization_s": 8.251452594995499,
+      "peak_rss_kib_linux": 566584
+    },
+    {
+      "input": {
+        "id": "SYZBOT-5676077ba016d741",
+        "kind": "benchmark",
+        "ir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5676077ba016d741/merged.ll",
+        "src": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5676077ba016d741/src",
+        "ir_bytes": 26413481
+      },
+      "timings_s": {
+        "front": 29.581596918404102,
+        "relations": 7.742191344499588
+      },
+      "statistics": {
+        "activations": 415,
+        "steps": 133328,
+        "members": 117568,
+        "pools": 4370,
+        "relations": 2668,
+        "duplicate_access_records_collapsed": 25029,
+        "relations_by_kind": {
+          "conflict": 1196,
+          "atomicity": 463,
+          "guard": 388,
+          "lifetime": 621
+        },
+        "implicit_combinations": 17293245,
+        "implicit_by_kind": {
+          "atomicity": 766003,
+          "conflict": 15223465,
+          "guard": 809965,
+          "lifetime": 493812
+        },
+        "self_combinations": 458861,
+        "boundaries": 17892,
+        "static_gaps": {
+          "links_external": 7012,
+          "links_indirect": 1232,
+          "truncated_activations": 62,
+          "unnamed_accesses": 13288,
+          "unknown_base_accesses": 9402,
+          "links_depth": 2422,
+          "links_recursion": 76,
+          "links_budget": 2
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 17293245
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+      "serialization_s": 9.147891841828823,
+      "peak_rss_kib_linux": 736480
+    },
+    {
+      "input": {
+        "id": "SYZBOT-5cce5938c6c2c518",
+        "kind": "benchmark",
+        "ir": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5cce5938c6c2c518/merged.ll",
+        "src": "/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment/SYZBOT-5cce5938c6c2c518/src",
+        "ir_bytes": 30346502
+      },
+      "timings_s": {
+        "front": 31.144244976341724,
+        "relations": 14.801245220005512
+      },
+      "statistics": {
+        "activations": 396,
+        "steps": 146652,
+        "members": 142309,
+        "pools": 4554,
+        "relations": 2550,
+        "duplicate_access_records_collapsed": 4170,
+        "relations_by_kind": {
+          "conflict": 1209,
+          "atomicity": 381,
+          "guard": 320,
+          "lifetime": 640
+        },
+        "implicit_combinations": 5656364,
+        "implicit_by_kind": {
+          "atomicity": 530543,
+          "conflict": 4057236,
+          "guard": 770414,
+          "lifetime": 298171
+        },
+        "self_combinations": 194384,
+        "boundaries": 24716,
+        "static_gaps": {
+          "links_external": 6473,
+          "links_indirect": 1544,
+          "truncated_activations": 73,
+          "unnamed_accesses": 12981,
+          "unknown_base_accesses": 15756,
+          "links_depth": 6862,
+          "links_budget": 10,
+          "links_recursion": 15
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 5656364
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "code_sha256": "121276c7b733e05174d50f106b403bffade3dfc57165dd8ad2d7b16f10790a01",
+      "serialization_s": 17.21108580380678,
+      "peak_rss_kib_linux": 881380
+    }
+  ]
+}

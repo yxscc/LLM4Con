@@ -15,6 +15,17 @@ from lace3.detect.runner import Limits, detect, prepare
 def _args(argv):
     ap = argparse.ArgumentParser(prog="python -m lace3")
     sub = ap.add_subparsers(dest="cmd", required=True)
+    ix = sub.add_parser("index", help="offline factorized relations; no pair enumeration or model calls")
+    ix.add_argument("--ir", action="append", required=True)
+    ix.add_argument("--src", required=True)
+    ix.add_argument("--out", required=True)
+    ix.add_argument("--max-depth", type=int, default=8)
+    ix.add_argument("--max-steps", type=int, default=4000)
+    pairs = sub.add_parser("pairs", help="inspect a page of a saved relation; never marks it reviewed")
+    pairs.add_argument("--index", required=True)
+    pairs.add_argument("--relation", required=True)
+    pairs.add_argument("--limit", type=int, default=50)
+    pairs.add_argument("--cursor", type=int, nargs=2)
     r = sub.add_parser("run", help="detect concurrency defects in kernel IR")
     r.add_argument("--ir", action="append", required=True,
                    help=".ll file or directory of .ll files (repeatable)")
@@ -43,6 +54,9 @@ def _args(argv):
 
 def main(argv=None):
     a = _args(argv)
+    if a.cmd in ("index", "pairs"):
+        from lace3.relational import main as relational_main
+        return relational_main(a)
     lim = Limits(max_depth=a.max_depth, max_steps=a.max_steps,
                  max_participants=a.max_participants, max_items_per_task=a.max_items_per_task,
                  packet_chars=a.packet_chars, max_tasks=a.max_tasks,

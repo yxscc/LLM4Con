@@ -16,6 +16,59 @@ IR must come from clang-16 with `-g` (any `-O` level).
 
 ## Run
 
+### Factorized candidate index (new, offline)
+
+```
+python -m lace3 index --ir path/to/main.ll --src path/to/src --out out/relations
+python -m lace3 pairs --index out/relations --relation R0 --limit 20
+# Continue with the returned next_cursor, e.g. --cursor 3 7.
+```
+
+`index` stores complete left/right member pools and a pairing rule, without
+enumerating the Cartesian product. The four relation kinds are conflict,
+atomicity, guard, and lifetime. Same-entry concurrent executions are retained
+unless the existing front end classifies the entry as non-reentrant. Lock
+facts, container paths and source order do not exclude pairs.
+
+This is the first replacement stage: **relations are not agent tasks**.
+There is no model call, reviewed/safe result, or conditional proof reuse on
+this path. `run` below still uses the legacy item/clique pipeline. The new
+index has no 6-context, 8-use, 12-step, 40-closure, or representative-sampling
+limit. The existing front end still has `--max-depth 8` / `--max-steps 4000`,
+and all its cuts/unknown calls remain explicit in the output. This preserves
+the bounded model, not every feasible execution of the entire program.
+
+The directory contains `index.json` (schema, counts, timings and limits),
+`relations.jsonl`, `pools.jsonl`, `members.jsonl`, and `boundaries.jsonl`.
+`operations.jsonl` stores a function's static operations once;
+`bindings.jsonl` retains every activation/step's argument origins, container
+path, locks, sections and call frames (interned in `frames.jsonl`). Sharing
+an operation does not merge its locked and unlocked callers. The complete
+entry provenance, sections and unresolved links are in `activations.jsonl`.
+No concrete pairs are written until requested through `pairs`; a page's
+`next_cursor` exposes remaining pairs and does not mark them reviewed.
+
+Counts can differ from the legacy counter: duplicate provenance records for
+the very same access are collapsed, while previously capped dependencies and
+guard regions are retained. The counting units are explicit in `index.json`;
+these are neither recall numbers nor an estimate of LLM calls. IR files in a
+single invocation must have distinct stems because the current front end
+uses the stem in its module identity; ambiguous input is rejected.
+
+Offline acceptance (never pass patches or bug labels):
+
+```
+python -m lace3.eval.relations --ir path/to/main.ll --src path/to/src \
+  --out out/acceptance.json --compare-legacy --write-index
+```
+
+`--compare-legacy` intentionally enumerates old contexts **in the evaluator**,
+checking every context against new complete side members and the pairing
+predicate. It can be expensive; `index` does not do this. This is a regression
+check against the old bounded model, not a correctness/recall oracle.
+
+### Legacy detection pipeline
+
 ```
 # static part only: entries, items, tasks, evidence packets; no model calls
 .venv-lace3/bin/python -m lace3 run --ir path/to/main.ll --src path/to/src --out out/ --offline
