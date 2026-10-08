@@ -27,6 +27,9 @@ class SourceLoc:
     # Innermost "file:line" when the instruction comes from an inlined body;
     # the kernel's __always_inline helpers are inlined even at -O0.
     via: str | None = None
+    # Function name when the instruction has no line (code the optimizer
+    # merged, line 0): the line is then that function's first line.
+    approx: str | None = None
 
     def __str__(self):
         return f"{self.file}:{self.line}"
@@ -135,6 +138,12 @@ class DebugInfo:
         if self.kind(nid) != "DILocation":
             return None
         inner = self._plain_location(nid)
+        approx = None
+        if inner.line == 0:
+            sp = self._subprogram(ref(self._field(nid, "scope")))
+            if sp is not None:
+                approx = unquote(self._field(sp, "name") or '"?"')
+                inner = SourceLoc(inner.file, int(self._field(sp, "line") or 0), 0)
         outer, seen = nid, {nid}
         while True:
             nxt = ref(self._field(outer, "inlinedAt"))
@@ -143,9 +152,18 @@ class DebugInfo:
             seen.add(nxt)
             outer = nxt
         if outer == nid:
-            return inner
+            return SourceLoc(inner.file, inner.line, inner.col, approx=approx)
         o = self._plain_location(outer)
-        return SourceLoc(o.file, o.line, o.col, via=str(inner))
+        return SourceLoc(o.file, o.line, o.col, via=str(inner), approx=approx)
+
+    def _subprogram(self, nid):
+        seen = set()
+        while nid is not None and nid not in seen:
+            seen.add(nid)
+            if self.kind(nid) == "DISubprogram":
+                return nid
+            nid = ref(self._field(nid, "scope"))
+        return None
 
     def subprogram_loc(self, nid):
         if self.kind(nid) != "DISubprogram":

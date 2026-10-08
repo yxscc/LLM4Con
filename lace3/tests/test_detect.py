@@ -321,7 +321,7 @@ def test_bug_finding_and_expansion(conc_ll, tmp_path):
     rec = json.loads((tmp_path / "tasks" / f"{st.cliques[0].id}.json").read_text())
     assert rec["status"] == "done" and rec["tools"]
     res = report.write(st, tmp_path, "scripted")
-    assert res["scope"]["not_analyzed"] == ["deadlock / lock ordering"]
+    assert res["scope"]["unsupported"] == ["deadlock / lock ordering"]
     assert (tmp_path / "report.md").read_text().count("use after free of obj.buf") == 1
 
 
@@ -401,3 +401,22 @@ def test_two_stage_evidence_failure_keeps_first_pass(conc_ll, tmp_path):
     assert any("not rechecked" in n for n in st.items[bug[0]].notes)
     assert c.status == "incomplete"
     assert len(st.findings) == 1 and any("first pass only" in n for n in st.findings[0].notes)
+
+
+def test_evidence_tool_budget(conc_ll, tmp_path):
+    """Past the budget, fact tools answer with a request to submit."""
+    seen = []
+
+    def script(packet, facts, clique):
+        life = _life(facts, clique)
+        if facts.stage == "direct":
+            return _first_pass(packet, facts, clique, life)
+        seen.extend(facts.read_source(SRC, 1, 3) for _ in range(4))
+        a = next(c.a for c in clique.task_contexts[life])
+        return {"items": [{"id": i, "verdict": "unknown", "reason": "budget",
+                           "citations": [f"{a}.s1"]} for i in facts.focus]}
+
+    st = run_state(conc_ll, max_tasks=1, evidence_tool_calls=2)
+    detect(st, ScriptedBackend(script), tmp_path, log=lambda *_: None)
+    assert seen[0].startswith(SRC) and seen[1].startswith(SRC)
+    assert seen[2].startswith("tool budget") and seen[3].startswith("tool budget")

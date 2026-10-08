@@ -36,9 +36,17 @@ class Facts:
         self.log = []
         self.stage = "evidence"
         self.focus = list(clique.items)
+        self.max_calls = None           # fact-tool budget of the current pass
 
     # --------------------------------------------------------------- helpers
     def _record(self, name, args, out):
+        used = sum(1 for e in self.log if e["tool"] != "valid_citation")
+        if self.max_calls is not None and used >= self.max_calls and name != "valid_citation":
+            out = (f"tool budget of {self.max_calls} calls spent: call submit_verdicts now; "
+                   "an item you cannot decide from what you have is unknown")
+            self.log.append({"tool": name, "args": args, "chars": 0, "sent": len(out),
+                             "refused": True})
+            return out
         sent = _cap(out)
         self.log.append({"tool": name, "args": args, "chars": len(out), "sent": len(sent)})
         return sent

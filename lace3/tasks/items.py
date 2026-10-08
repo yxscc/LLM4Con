@@ -174,7 +174,8 @@ def conflicting(m1, m2):
 def where(st):
     """Site text with the inlined body line, which -O2 code otherwise loses."""
     loc = st.op.loc
-    return f"{st.site} [inlined {loc.via}]" if loc is not None and loc.via else st.site
+    out = f"{st.site} [inlined {loc.via}]" if loc is not None and loc.via else st.site
+    return out + (f" (merged code of {loc.approx})" if loc is not None and loc.approx else "")
 
 
 def ident(st):

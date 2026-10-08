@@ -83,6 +83,8 @@ class PacketRenderer:
         if loc.via:
             f, _, ln = loc.via.rpartition(":")
             s += f" [inlined {self.short(f)}:{ln}]"
+        if loc.approx:
+            s += f" (merged code of {loc.approx}, no exact line)"
         return s
 
     def shorten(self, text):

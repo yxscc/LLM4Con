@@ -40,6 +40,7 @@ class Limits:
     max_expansions: int = 3
     review: str = "two-stage"     # two-stage | direct | evidence
     evidence_packet_chars: int = 12000
+    evidence_tool_calls: int | None = 12
 
 
 @dataclass
@@ -152,6 +153,7 @@ def detect(st, backend, out_dir, log=print):
                 pk = st.renderer.render(c, st.items, only=set(focus),
                                         max_chars=lim.evidence_packet_chars)
                 (out / "packets" / f"{c.id}.evidence.txt").write_text(pk.text)
+            facts.max_calls = lim.evidence_tool_calls if stage == "evidence" else None
             rv = backend.review(pk, facts, c, stage, focus, prior)
             for key in st.usage:
                 st.usage[key] += rv.usage.get(key, 0) or 0

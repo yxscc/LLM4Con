@@ -19,7 +19,8 @@ from lace3.index.traces import provenance
 SCHEMA = "lace3.results/1"
 SCOPE = {"analyzed": ["data race", "atomicity violation", "lifetime (use/free after "
                       "revoke, double free, publish before init)"],
-         "not_analyzed": ["deadlock / lock ordering"]}
+         "not_analyzed": ["deadlock / lock ordering"],
+         "unsupported": ["deadlock / lock ordering"]}
 
 
 def _item(it, r):
@@ -78,7 +79,7 @@ def markdown(res):
     L.append(f"- IR: {len(run['ir'])} module(s); source root `{run['src']}`")
     L.append(f"- Backend: {run['backend']}; model calls: {run['model_calls']}")
     L.append(f"- Usage: {run['usage']}")
-    L.append("- Not analyzed: deadlock / lock ordering")
+    L.append("- Unsupported (not analyzed): deadlock / lock ordering")
     L.append(f"- Complete: **{c['complete']}**"
              + ("" if c["complete"] else " (pending / incomplete / not-run items below)"))
     L.append("")

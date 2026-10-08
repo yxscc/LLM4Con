@@ -30,6 +30,8 @@ def _args(argv):
                    help="direct: one pass on the packet, no tools; evidence: one pass with the "
                         "fact tools; two-stage: direct, then evidence for bug/unknown items")
     r.add_argument("--max-turns", type=int, default=12, help="model turns per evidence pass")
+    r.add_argument("--tool-calls", type=int, default=12,
+                   help="fact-tool calls per evidence pass; later calls are refused")
     r.add_argument("--max-expansions", type=int, default=3, help="clique expansions per task")
     r.add_argument("--max-depth", type=int, default=8, help="call expansion depth")
     r.add_argument("--max-steps", type=int, default=4000, help="steps per activation")
@@ -45,7 +47,7 @@ def main(argv=None):
                  max_participants=a.max_participants, max_items_per_task=a.max_items_per_task,
                  packet_chars=a.packet_chars, max_tasks=a.max_tasks,
                  token_budget=a.token_budget, max_expansions=a.max_expansions,
-                 review=a.review)
+                 review=a.review, evidence_tool_calls=a.tool_calls)
     backend, note = None, "not made (--offline)"
     if not a.offline:
         if a.max_tasks is None and a.token_budget is None:
