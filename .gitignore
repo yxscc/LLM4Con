@@ -74,3 +74,7 @@ kernel_experiment/*/auto_entry_*.log
 # Unknown-defect hunt: module build trees and per-run dumps
 hunt/targets/
 hunt/dumps/
+
+# LACE v3 virtualenv and per-run outputs
+.venv-lace3/
+lace3_runs/
