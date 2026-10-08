@@ -3,7 +3,10 @@
 An operation is one IR access to shared state, classified as
 
   read | write | publish | rmw | free | alloc | ref_inc | ref_dec
-  | lock | unlock | wait | wake | assert_held | call | icall | ext
+  | lock | unlock | wait | wake | assert_held | call | icall | ext | branch
+
+`branch` is a conditional branch or switch; its origin is what the condition
+was computed from, so a branch on a loaded value marks that load as a guard.
 
 Each carries the field it touches (named from DWARF by byte offset), where its
 base pointer and its value came from, and its source line. `call` / `icall` /
@@ -142,6 +145,16 @@ class Op:
     mode: str | None = None     # locks: exclusive | shared | rcu | bh
     reg: str | None = None      # register the op defines (loads, calls)
     line: int = -1              # index into Function.body
+    field: str | None = None    # state cut to the innermost named record (access key)
+
+    arg_paths: tuple = ()       # calls: per argument (PathRoot or None, its root's origins)
+    path: object = None         # accesses: PathRoot from the outermost record in the GEP chain
+    path_origin: frozenset = frozenset()  # origins of the pointer `path` is relative to
+
+    @property
+    def key(self):
+        """Access key: the field cut to its innermost record, else the state."""
+        return self.field or self.state
 
     @property
     def site(self):
@@ -150,6 +163,28 @@ class Op:
     @property
     def is_write(self):
         return self.kind in WRITE_KINDS
+
+
+@dataclass(frozen=True)
+class PathRoot:
+    """An address as (container record, byte offset into it), so a callee's
+    access through a pointer parameter can be named from the caller's
+    container: `&c->ring` + `r->wp` is cmdq.ring.wp."""
+    di: object
+    rec: int
+    name: str
+    off: int
+    variable: bool = False
+
+    def extend(self, off, variable=False):
+        return PathRoot(self.di, self.rec, self.name, self.off + off, self.variable or variable)
+
+    def text(self):
+        parts = self.di.path_at(self.rec, self.off)[0]
+        if self.variable:
+            parts = [("[*]" if p.startswith("[") else p) for p in parts]
+        path = format_path(parts)
+        return f"{self.name}.{path}" if path else self.name
 
 
 @dataclass
@@ -287,12 +322,20 @@ class _Indexer:
 
     def name(self, v):
         """State name of the memory at address v, or None."""
+        return self._names(v)[0]
+
+    def field(self, v):
+        """`name` cut to the innermost named record: `ev->ring.wp` and
+        `ring->wp` are both mhi_ring.wp. The key accesses meet on."""
+        return self._names(v)[1]
+
+    def _names(self, v):
         if v in self._name:
             return self._name[v]
-        self._name[v] = None
+        self._name[v] = (None, None)
         out = self._name_uncached(v)
-        self._name[v] = out
-        return out
+        self._name[v] = out if isinstance(out, tuple) else (out, out)
+        return self._name[v]
 
     def _name_uncached(self, v):
         total, variable, cur = 0, False, v
@@ -314,14 +357,15 @@ class _Indexer:
             if cname:
                 rec = self.di.record(cname, self.mod._size(src))
                 if rec is not None:
-                    return self._format(cname, self.di.path_at(rec, total)[0], variable)
+                    return self._both(cname, rec, self.di.path_at(rec, total)[0], variable)
             cur = _operand_value(parts[1])
         if cur.startswith("@"):
             g = _sym(cur[1:])
             gt = self.mod.global_types.get(g)
             if gt is not None and self.di.is_record(gt):
-                return self._format(self.di.record_name(gt) or f"@{g}",
-                                    self.di.path_at(gt, total)[0], variable)
+                st = self._format(self.di.record_name(gt) or f"@{g}",
+                                  self.di.path_at(gt, total)[0], variable)
+                return st, st
             if gt is not None and self.di.is_array(gt):
                 return self._format(f"@{g}", self.di.path_at(gt, total)[0], True)
             return f"@{g}"
@@ -331,8 +375,69 @@ class _Indexer:
         if t is not None and self.di.is_record(t):
             name = self.di.record_name(t)
             if name:
-                return self._format(name, self.di.path_at(t, total)[0], variable)
+                return self._both(name, t, self.di.path_at(t, total)[0], variable)
         return None
+
+    def container(self, v):
+        """PathRoot of address v from the outermost record its GEP chain
+        starts in (falling back to the root pointer's type), or None."""
+        total, variable, cur, best, root = 0, False, v, None, v
+        for _ in range(MAX_GEP_CHAIN):
+            if cur in self.regs and _opcode(_rhs(self.regs[cur])) in ("bitcast", "addrspacecast"):
+                cur = _operand_value(_rhs(self.regs[cur]).split(None, 1)[1].split(" to ")[0])
+                continue
+            if cur in self.regs and _opcode(_rhs(self.regs[cur])) == "load":
+                stored = self.slot_stores().get(self._load_addr(_rhs(self.regs[cur])), [])
+                if len(stored) != 1:
+                    break
+                cur = stored[0]
+                continue
+            body = self.gep_body(cur)
+            if body is None:
+                break
+            parts = [p for p in split_top(body) if not p.startswith("!")]
+            if len(parts) < 2:
+                break
+            src = RE_GEP_FLAGS.sub("", parts[0].strip())
+            off, var, cname = self.mod._gep_offset(src, [p.split()[-1] for p in parts[2:]])
+            if off is None:
+                break
+            total, variable = total + off, variable or var
+            cur = _operand_value(parts[1])
+            if cname:
+                rec = self.di.record(cname, self.mod._size(src))
+                if rec is not None:
+                    best, root = PathRoot(self.di, rec, cname, total, variable), cur
+        if best is None and not cur.startswith("@") and cur not in self.slots:
+            t = self.ptype(cur)
+            if t is not None and self.di.is_record(t) and self.di.record_name(t):
+                best, root = PathRoot(self.di, t, self.di.record_name(t), total, variable), cur
+        return best, root
+
+    def _path(self, addr):
+        pr, root = self.container(addr)
+        if pr is not None:
+            self._path_roots.append((len(self._path_roots), pr, root))
+        return pr
+
+    def slot_stores(self):
+        """{stack slot: [values stored into it]} (whole-slot stores only)."""
+        if getattr(self, "_slot_stores", None) is None:
+            out = {}
+            for line in self.fn.body:
+                rhs = _rhs(line)
+                if _opcode(rhs) == "store":
+                    parts = split_top(_strip_words(rhs.split(None, 1)[1], ("atomic", "volatile")))
+                    if len(parts) >= 2 and _operand_value(parts[1]) in self.slots:
+                        out.setdefault(_operand_value(parts[1]), []).append(
+                            _operand_value(parts[0]))
+            self._slot_stores = out
+        return self._slot_stores
+
+    def _both(self, record, rec_id, parts, variable):
+        owner, tail = self.di.owner_tail(rec_id, parts)
+        state = self._format(record, parts, variable)
+        return state, (self._format(owner, tail, variable) if owner and tail else state)
 
     @staticmethod
     def _format(record, parts, variable):
@@ -409,6 +514,7 @@ class _Indexer:
         ops = fi.ops
         load_op, fresh_op, ret_op = {}, {}, {}
         pending = []                                     # (op, raw base, raw value, raw args)
+        self._arg_paths, self._path_roots = [], []
 
         def add(kind, state, line_no, line, **kw):
             raw = kw.pop("raw", (None, None, ()))
@@ -431,7 +537,8 @@ class _Indexer:
                     continue
                 root, _, _ = self.gep_root(addr)
                 o = add("read", self.name(addr), i, line, volatile=vol, atomic=atom, reg=reg,
-                        raw=(root, None, ()))
+                        field=self.field(addr),
+                        path=self._path(addr), raw=(root, None, ()))
                 if reg:
                     load_op[reg] = o.id
             elif op == "store":
@@ -446,7 +553,8 @@ class _Indexer:
                     continue
                 root, _, _ = self.gep_root(addr)
                 add("write", self.name(addr), i, line, volatile=vol, atomic=atom,
-                    raw=(root, val, ()))
+                    field=self.field(addr),
+                        path=self._path(addr), raw=(root, val, ()))
             elif op in ("atomicrmw", "cmpxchg"):
                 body = _strip_words(rhs.split(None, 1)[1], ("volatile", "weak"))
                 parts = split_top(body)
@@ -455,13 +563,27 @@ class _Indexer:
                     continue
                 root, _, _ = self.gep_root(addr)
                 o = add("rmw", self.name(addr), i, line, atomic=True, reg=reg,
-                        raw=(root, None, ()))
+                        field=self.field(addr),
+                        path=self._path(addr), raw=(root, None, ()))
                 if reg:
                     load_op[reg] = o.id
             elif op in ("call", "invoke", "callbr"):
                 self._call(i, line, rhs, reg, add, fresh_op, ret_op, fi)
+            elif op == "br" and rhs.startswith("br i1 "):
+                cond = _operand_value(split_top(rhs[3:])[0])
+                add("branch", None, i, line, raw=(None, cond, ()))
+            elif op == "switch":
+                cond = _operand_value(split_top(rhs.split("[", 1)[0][7:])[0])
+                add("branch", None, i, line, raw=(None, cond, ()))
 
         flow = _Flow(self, load_op, fresh_op, ret_op)
+        roots = {id(pr): root for _, pr, root in self._path_roots}
+        for op in ops:
+            if op.path is not None and id(op.path) in roots:
+                op.path_origin = frozenset(flow.origin(roots[id(op.path)]))
+        for op, paths in self._arg_paths:
+            op.arg_paths = tuple((nm, frozenset(flow.origin(r)) if r else frozenset())
+                                 for nm, r in paths)
         for op, raw_base, raw_val, raw_args in pending:
             if raw_base is not None:
                 op.base = frozenset(flow.origin(raw_base))
@@ -509,6 +631,8 @@ class _Indexer:
             for a in ptrs:
                 root, _, _ = self.gep_root(a)
                 add("rmw", self.name(a), i, line, atomic=True, callee="asm:" + callee[:40],
+                    field=self.field(a),
+                        path=self._path(a),
                     raw=(root, None, ()))
             return
         if kind == "indirect":
@@ -526,7 +650,9 @@ class _Indexer:
                     if k is None or k >= len(args) or self.is_stack(args[k]):
                         continue
                     root, _, _ = self.gep_root(args[k])
-                    add(kind2, self.name(args[k]), i, line, callee=name, raw=(root, None, ()))
+                    add(kind2, self.name(args[k]), i, line, callee=name,
+                        field=self.field(args[k]),
+                        path=self._path(args[k]), raw=(root, None, ()))
                 return
         if name.startswith("llvm."):
             return
@@ -558,6 +684,14 @@ class _Indexer:
         target = self.prog.resolve(self.mod, name)
         o = add("call" if target is not None else "ext", None, i, line, callee=name, reg=reg,
                 raw=(None, None, tuple(args)))
+        if target is not None:
+            paths = []
+            for a in args:
+                pr, root = None, None
+                if a.startswith(("%", "getelementptr")) and not self.is_stack(a):
+                    pr, root = self.container(a)
+                paths.append((pr, root))
+            self._arg_paths.append((o, paths))
         if reg:
             ret_op[reg] = o.id
 

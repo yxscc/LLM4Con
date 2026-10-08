@@ -25,7 +25,8 @@ SCOPE = {"analyzed": ["data race", "atomicity violation", "lifetime (use/free af
 def _item(it, r):
     return {"id": it.id, "kind": it.kind, "keys": list(it.keys), "summary": r.shorten(it.summary),
             "priority": it.priority, "contexts_seen": it.n_contexts,
-            "contexts": [asdict(c) for c in it.contexts], "task": it.task, "status": it.status,
+            "contexts": [asdict(c) for c in it.contexts], "boundaries": it.boundaries,
+            "task": it.task, "status": it.status,
             "verdict": it.verdict, "contexts_reviewed": it.contexts_reviewed,
             "reason": it.reason, "citations": list(it.citations),
             "notes": it.notes}
@@ -62,6 +63,7 @@ def write(st, out_dir, model_note):
            "tasks": [{"id": c.id, "status": c.status, "participants": c.participants,
                       "items": c.items, "priority": c.priority, "expansions": c.expansions,
                       "notes": c.notes} for c in st.cliques],
+           "boundaries": [asdict(b) for b in st.boundaries.values()],
            "activations": [_act(a, r) for a in st.acts.values()]}
     (out / "results.json").write_text(json.dumps(res, indent=1))
     (out / "ledger.json").write_text(json.dumps(stats, indent=1))
@@ -89,6 +91,14 @@ def markdown(res):
              f"{rv['verdicts']} (safe on part of the contexts only: "
              f"{rv['safe_on_part_of_contexts']}), incomplete {rv['items_incomplete']}, pending "
              f"{rv['items_pending']}, error {rv['items_error']}, not run {rv['items_not_run']}")
+    b = c["boundaries"]
+    L.append(f"- Boundaries (unfollowed dependencies, budget cuts): {b['total']} {b['by_kind']}; "
+             f"open {b['open']}, resolved by review {b['resolved_by_review']}; items with open "
+             f"boundaries {b['items_with_open_boundaries']}; safe items with open boundaries "
+             f"{rv['safe_with_open_boundaries']}")
+    L.append(f"- Static gaps (not tied to an item): {c['static_gaps']}")
+    L.append(f"- Safe means: {rv['safe_means']}")
+    L.append(f"- Fully resolved (complete and no open boundary): **{c['fully_resolved']}**")
     L.append(f"- Recall: {c['recall']}")
     if run["truncated_activations"]:
         L.append(f"- Truncated activations (step/depth budget): {run['truncated_activations']}")

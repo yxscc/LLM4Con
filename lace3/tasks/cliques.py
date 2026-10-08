@@ -1,31 +1,34 @@
 """Analysis cliques: the unit one model session reviews.
 
-A clique is a small set of activations (participants) plus the ledger items
-whose representative contexts they cover. The model sees each participant's
-operation sequence around those items -- not one field, not one pair -- so a
-check in one critical section and the act in the next, or a pointer taken in
-one function and used two calls down, are in front of it together.
+A clique is anchored on one activation's operation sequence: a segment of it
+(the seed steps and dependency closures of its items) plus the interfering
+activations of those items. Items are placed by their anchor -- the first
+side of their strongest representative context -- so everything one
+execution does with a value taken from shared state (the take, the unlock,
+the uses two calls down, the branch it decides) is judged in one session,
+whichever fields the individual steps touch. Keys play no part in packing.
 
-Packing is greedy in item priority order. An item joins an existing clique
-when the clique already shares its key family (`S` and `*S`) or already holds
-all its participants, and the result stays within the participant and item
-limits; otherwise it opens a new clique. Keys only steer packing: they do not
-bound what the packet shows.
-
-Every item ends up in exactly one clique (`Item.task`). Which cliques the
-model actually reviews is decided later by the run budget; the rest are
-recorded as pending, never silently dropped.
+Items whose anchor spans overlap or lie within GAP steps share a clique as
+long as the participant and item limits hold; otherwise the anchor gets
+another clique. Every item ends up in exactly one clique (`Item.task`).
+Which cliques are reviewed is decided by the run budget; the rest are
+recorded pending, never dropped.
 """
 
 from dataclasses import dataclass, field
 
-DEFAULT_MAX_PARTICIPANTS = 4
+DEFAULT_MAX_PARTICIPANTS = 6
 DEFAULT_MAX_ITEMS = 24
+GAP = 24
+RANK = {"free": 0, "write": 1, "publish": 1, "rmw": 1, "ref_dec": 1}
 
 
 @dataclass
 class Clique:
     id: str
+    anchor: str = ""
+    lo: int = 0
+    hi: int = 0
     participants: list = field(default_factory=list)
     items: list = field(default_factory=list)          # item ids
     families: set = field(default_factory=set)
@@ -40,9 +43,6 @@ def family(key):
     return key.lstrip("*")
 
 
-RANK = {"free": 0, "write": 1, "publish": 1, "rmw": 1, "ref_dec": 1}
-
-
 def strength(ctx, acts):
     """How hard the interfering side hits: frees, then writes, then the rest."""
     if acts is None:
@@ -55,7 +55,7 @@ def representative_contexts(item, acts=None):
     """The strongest cross-entry context, the strongest self-interference
     context, and for sequence items a second cross context with another
     interfering entry."""
-    limit = 3 if item.kind in ("lifetime", "atomicity") else 2
+    limit = 3 if item.kind in ("lifetime", "atomicity", "guard") else 2
     ranked = sorted(item.contexts, key=lambda c: strength(c, acts))
     out = []
     cross = [c for c in ranked if not c.self_interference]
@@ -73,45 +73,42 @@ def representative_contexts(item, acts=None):
 
 
 def build_cliques(items, max_participants=DEFAULT_MAX_PARTICIPANTS,
-                  max_items=DEFAULT_MAX_ITEMS, acts=None):
-    cliques = []
-    by_family = {}
-
-    def fits(c, parts):
-        return len(set(c.participants) | parts) <= max_participants and len(c.items) < max_items
-
+                  max_items=DEFAULT_MAX_ITEMS, acts=None, gap=GAP):
+    placed = []
     for it in items:
         reps = representative_contexts(it, acts)
+        c0 = reps[0] if reps else it.contexts[0]
         parts = set()
         for c in reps:
             parts |= set(c.participants)
-        fams = {family(k) for k in it.keys}
-        cands = {id(c): c for f in fams for c in by_family.get(f, ())}
-        for c in cliques[-8:]:
-            if parts <= set(c.participants):
-                cands[id(c)] = c
+        placed.append((c0.a, min(c0.a_steps), max(c0.a_steps), it, reps, parts))
+    placed.sort(key=lambda p: (p[0], p[1], p[3].priority))
+
+    cliques, by_anchor = [], {}
+    for aid, lo, hi, it, reps, parts in placed:
         best = None
-        for c in cands.values():
-            if not fits(c, parts):
+        for c in by_anchor.get(aid, [])[-4:]:
+            if lo > c.hi + gap:
                 continue
-            score = (len(parts & set(c.participants)), -len(c.participants), -len(c.items))
+            if len(set(c.participants) | parts) > max_participants or len(c.items) >= max_items:
+                continue
+            score = (len(parts & set(c.participants)), -len(c.items))
             if best is None or score > best[0]:
                 best = (score, c)
         if best is None:
-            target = Clique(f"T{len(cliques)}")
+            target = Clique(f"T{len(cliques)}", anchor=aid, lo=lo, hi=hi, participants=[aid])
             cliques.append(target)
+            by_anchor.setdefault(aid, []).append(target)
         else:
             target = best[1]
+        target.lo, target.hi = min(target.lo, lo), max(target.hi, hi)
         for a in sorted(parts):
             if a not in target.participants:
                 target.participants.append(a)
         target.items.append(it.id)
         target.task_contexts[it.id] = reps
         target.priority = min(target.priority, it.priority)
-        for f in fams:
-            if f not in target.families:
-                target.families.add(f)
-                by_family.setdefault(f, []).append(target)
+        target.families |= {family(k) for k in it.keys}
         it.task, it.status = target.id, "assigned"
     cliques.sort(key=lambda c: (c.priority, -len(c.items), c.id))
     return cliques

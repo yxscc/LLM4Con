@@ -15,7 +15,7 @@ import json
 import time
 from dataclasses import dataclass, field
 
-from lace3.detect.prompt import SYSTEM, USER
+from lace3.detect.prompt import SYSTEM, USER, USER_DIRECT, USER_EVIDENCE
 from lace3.detect.verdicts import submission_problems
 
 
@@ -29,9 +29,14 @@ class Review:
     attempts: int = 1
 
 
-def user_message(packet, clique):
-    return USER.format(packet=packet.text, n_items=len(clique.items),
-                       item_ids=", ".join(clique.items))
+def user_message(packet, clique, stage="evidence", focus=None, prior=""):
+    focus = list(focus or clique.items)
+    if stage == "direct":
+        return USER_DIRECT.format(packet=packet.text, n_items=len(focus),
+                                  item_ids=", ".join(focus))
+    if prior:
+        return USER_EVIDENCE.format(packet=packet.text, item_ids=", ".join(focus), prior=prior)
+    return USER.format(packet=packet.text, n_items=len(focus), item_ids=", ".join(focus))
 
 
 class ScriptedBackend:
@@ -40,8 +45,9 @@ class ScriptedBackend:
     def __init__(self, fn):
         self.fn = fn
 
-    def review(self, packet, facts, clique):
+    def review(self, packet, facts, clique, stage="evidence", focus=None, prior=""):
         t = time.time()
+        facts.stage, facts.focus = stage, list(focus or clique.items)
         try:
             sub = self.fn(packet, facts, clique)
         except Exception as e:          # a broken script is a task error, not a crash
@@ -72,7 +78,7 @@ class AgentsBackend:
                                        api_version=settings.api_version,
                                        timeout=request_timeout, max_retries=2)
 
-    def _agent(self, facts, holder):
+    def _agent(self, facts, holder, tools=True):
         from agents import (Agent, ModelSettings, OpenAIChatCompletionsModel,
                             ToolsToFinalOutputResult, function_tool)
 
@@ -131,7 +137,7 @@ class AgentsBackend:
             probs = submission_problems(sub)
             if probs:
                 return "error: " + "; ".join(probs) + "; resubmit"
-            missing = [i for i in facts.clique.items
+            missing = [i for i in facts.focus
                        if i not in {str(e.get("id")) for e in sub["items"]}]
             holder["submission"] = sub
             return "accepted" + (f" (no verdict for {', '.join(missing)}: recorded incomplete)"
@@ -148,21 +154,25 @@ class AgentsBackend:
         # Every turn must call a tool, so the session can only end through
         # submit_verdicts (or max_turns); the SDK would otherwise reset
         # tool_choice after the first call and accept a prose answer.
-        return Agent(name="lace3-detect", instructions=SYSTEM, model=model,
-                     tools=[read_source, grep_source, function_ops, callers, accesses,
-                            entry_info, steps, item_contexts, expand, submit_verdicts],
+        toolset = ([read_source, grep_source, function_ops, callers, accesses, entry_info,
+                    steps, item_contexts, expand, submit_verdicts] if tools
+                   else [submit_verdicts])
+        return Agent(name="lace3-detect", instructions=SYSTEM, model=model, tools=toolset,
                      tool_use_behavior=stop, reset_tool_choice=False,
                      model_settings=ModelSettings(tool_choice="required"))
 
-    def review(self, packet, facts, clique):
+    def review(self, packet, facts, clique, stage="evidence", focus=None, prior=""):
         from agents import MaxTurnsExceeded, Runner
-        msg = user_message(packet, clique)
+        facts.stage, facts.focus = stage, list(focus or clique.items)
+        msg = user_message(packet, clique, stage, facts.focus, prior)
+        turns = 3 if stage == "direct" else self.max_turns
         t, last = time.time(), ""
         for attempt in range(1, self.retries + 2):
             holder = {}
             try:
                 res = self.loop.run_until_complete(
-                    Runner.run(self._agent(facts, holder), msg, max_turns=self.max_turns))
+                    Runner.run(self._agent(facts, holder, tools=stage != "direct"), msg,
+                               max_turns=turns))
                 sub = holder.get("submission")
                 if sub is None and isinstance(res.final_output, str):
                     sub = _json_object(res.final_output)
@@ -177,7 +187,7 @@ class AgentsBackend:
                               seconds=time.time() - t, attempts=attempt)
             except MaxTurnsExceeded as e:
                 sub = holder.get("submission")
-                return Review(sub, "max_turns", f"max_turns {self.max_turns}: {e}",
+                return Review(sub, "max_turns", f"max_turns {turns}: {e}",
                               seconds=time.time() - t, attempts=attempt)
             except Exception as e:
                 last = f"{type(e).__name__}: {e}"

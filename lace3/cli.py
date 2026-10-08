@@ -26,11 +26,14 @@ def _args(argv):
                    help="review at most N tasks; the rest are recorded pending")
     r.add_argument("--token-budget", type=int, default=None,
                    help="stop starting tasks once this many tokens are used")
-    r.add_argument("--max-turns", type=int, default=12, help="model turns per task")
+    r.add_argument("--review", choices=["two-stage", "direct", "evidence"], default="two-stage",
+                   help="direct: one pass on the packet, no tools; evidence: one pass with the "
+                        "fact tools; two-stage: direct, then evidence for bug/unknown items")
+    r.add_argument("--max-turns", type=int, default=12, help="model turns per evidence pass")
     r.add_argument("--max-expansions", type=int, default=3, help="clique expansions per task")
     r.add_argument("--max-depth", type=int, default=8, help="call expansion depth")
     r.add_argument("--max-steps", type=int, default=4000, help="steps per activation")
-    r.add_argument("--max-participants", type=int, default=4)
+    r.add_argument("--max-participants", type=int, default=6)
     r.add_argument("--max-items-per-task", type=int, default=24)
     r.add_argument("--packet-chars", type=int, default=30000)
     return ap.parse_args(argv)
@@ -41,7 +44,8 @@ def main(argv=None):
     lim = Limits(max_depth=a.max_depth, max_steps=a.max_steps,
                  max_participants=a.max_participants, max_items_per_task=a.max_items_per_task,
                  packet_chars=a.packet_chars, max_tasks=a.max_tasks,
-                 token_budget=a.token_budget, max_expansions=a.max_expansions)
+                 token_budget=a.token_budget, max_expansions=a.max_expansions,
+                 review=a.review)
     backend, note = None, "not made (--offline)"
     if not a.offline:
         if a.max_tasks is None and a.token_budget is None:

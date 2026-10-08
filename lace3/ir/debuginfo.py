@@ -225,6 +225,31 @@ class DebugInfo:
         _, parts, owner, _ = self._path_at(self.strip(type_id), offset, 0)
         return parts, owner
 
+    def owner_tail(self, type_id, parts):
+        """(innermost named record along `parts` from `type_id`, the parts below
+        it). `chan->ring.wp` and `ring->wp` both give ("mhi_ring", ["wp"])."""
+        t, owner, cut = self.strip(type_id), self.record_name(self.strip(type_id)), 0
+        for k, p in enumerate(parts):
+            if t is None:
+                break
+            if p.startswith("["):
+                t = self.array_element(t) if self.is_array(t) else None
+                continue
+            nxt = None
+            for m in self.members(t) if self.is_record(t) else ():
+                if m.name == p:
+                    nxt = m.type if m.type != -1 else None
+                    break
+                if not m.name and m.type != -1 and self.is_record(m.type):
+                    if any(mm.name == p for mm in self.members(m.type)):
+                        nxt = next(mm.type for mm in self.members(m.type) if mm.name == p)
+                        nxt = nxt if nxt != -1 else None
+                        break
+            t = self.strip(nxt) if nxt is not None else None
+            if t is not None and self.is_record(t) and self.record_name(t) and k + 1 < len(parts):
+                owner, cut = self.record_name(t), k + 1
+        return owner, parts[cut:]
+
     def leaf_at(self, type_id, offset):
         """Type id of the scalar `path_at` selects, or None."""
         return self._path_at(self.strip(type_id), offset, 0)[3]

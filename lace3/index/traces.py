@@ -43,6 +43,7 @@ class Step:
     args: tuple = ()
     held: tuple = ()            # support: lock keys open at this step
     sections: tuple = ()        # support: ids of open critical sections
+    path: str | None = None     # accesses: member path from the outermost known container
 
     @property
     def function(self):
@@ -122,7 +123,8 @@ def tags_text(tags, steps=None):
 # (`chan->mutex` reaches `mutex.owner.counter`); the lock is the member above.
 LOCK_INTERNALS = frozenset({"owner", "counter", "rlock", "raw_lock", "raw", "val", "locked",
                             "wait_lock", "count", "lock_count", "osq", "tail", "pending",
-                            "locked_pending", "rwbase", "rtmutex", "wait_list"})
+                            "locked_pending", "rwbase", "rtmutex", "wait_list", "cnts", "wlocked",
+                            "slock", "dep_map"})
 
 
 def lock_name(state):
@@ -150,10 +152,19 @@ def build_activation(aid, entry, px, prog, max_depth=DEFAULT_MAX_DEPTH,
         act.reentrant, act.reentrant_why = "no", f"defined in {sec}: runs once"
     steps, links = act.steps, act.links
 
-    def expand(fn, argmap, frames, stack):
+    def expand(fn, argmap, frames, stack, paths=None):
         fi = px.of(fn)
         local = {}
         created = []
+        paths = paths or {}
+
+        def inherited(root):
+            """The caller's PathRoot for a pointer that is exactly parameter k."""
+            if len(root) == 1:
+                (t,) = root
+                if t[0] == "param":
+                    return paths.get(t[1])
+            return None
 
         def conv(tags):
             out = set()
@@ -169,6 +180,8 @@ def build_activation(aid, entry, px, prog, max_depth=DEFAULT_MAX_DEPTH,
             return frozenset(out)
 
         for op in fi.ops:
+            if op.kind == "branch" and not any(t[0] == "load" for t in op.origin):
+                continue
             if len(steps) >= max_steps:
                 links.append(Link("budget", None, fn.name, None, op.site,
                                   f"step budget {max_steps} reached"))
@@ -176,6 +189,12 @@ def build_activation(aid, entry, px, prog, max_depth=DEFAULT_MAX_DEPTH,
                 return False
             st = Step(len(steps), op, frames, conv(op.base), conv(op.origin),
                       tuple(conv(a) for a in op.args))
+            if op.kind in ("read", "write", "publish", "rmw") and op.state:
+                own = op.path
+                pr = inherited(op.path_origin if own is not None else op.base)
+                full = (pr.extend(own.off if own else 0, own.variable if own else False).text()
+                        if pr else own.text() if own else op.state)
+                st.path = full if full != op.key else None
             steps.append(st)
             local[op.id] = st.sid
             created.append(st)
@@ -191,7 +210,15 @@ def build_activation(aid, entry, px, prog, max_depth=DEFAULT_MAX_DEPTH,
                     act.truncated = True
                 else:
                     am = {k: a for k, a in enumerate(st.args)}
-                    if not expand(tgt, am, frames + ((tgt.name, op.site),), stack | {tgt}):
+                    pm = {}
+                    for k, (pr, root) in enumerate(op.arg_paths):
+                        up = inherited(root) if pr is not None else \
+                            inherited(op.args[k]) if k < len(op.args) else None
+                        if pr is not None:
+                            pm[k] = up.extend(pr.off, pr.variable) if up else pr
+                        elif up is not None:
+                            pm[k] = up
+                    if not expand(tgt, am, frames + ((tgt.name, op.site),), stack | {tgt}, pm):
                         return False
             elif op.kind == "icall":
                 links.append(Link("indirect", st.sid, fn.name, None, op.site,

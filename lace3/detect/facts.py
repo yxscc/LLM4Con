@@ -17,7 +17,7 @@ from lace3.evidence.source import SourceError
 from lace3.index.traces import provenance, tags_text
 from lace3.tasks.items import step_keys
 
-MAX_OUT = 8000
+MAX_OUT = 5000                  # every tool result is resent on each later turn
 _STEP_REF = re.compile(r"^(A\d+)\.s(\d+)$")
 _SITE_REF = re.compile(r"^(.+?):(\d+)(?:-(\d+))?$")
 
@@ -34,11 +34,14 @@ class Facts:
         self.clique = clique
         self.max_expansions = max_expansions
         self.log = []
+        self.stage = "evidence"
+        self.focus = list(clique.items)
 
     # --------------------------------------------------------------- helpers
     def _record(self, name, args, out):
-        self.log.append({"tool": name, "args": args, "chars": len(out)})
-        return _cap(out)
+        sent = _cap(out)
+        self.log.append({"tool": name, "args": args, "chars": len(out), "sent": len(sent)})
+        return sent
 
     def _act(self, ref):
         acts = self.run.acts
@@ -143,7 +146,7 @@ class Facts:
         a = self._act(activation)
         if a is None:
             return self._record("steps", [activation, first, last], f"no activation {activation}")
-        first, last = max(0, int(first)), min(len(a.steps) - 1, int(last), int(first) + 150)
+        first, last = max(0, int(first)), min(len(a.steps) - 1, int(last), int(first) + 80)
         out = [self.run.renderer.step_text(a, a.steps[s]) for s in range(first, last + 1)]
         return self._record("steps", [activation, first, last], "\n".join(out) or "empty range")
 

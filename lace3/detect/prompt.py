@@ -23,6 +23,11 @@ How to read the facts:
   claims to check: two accesses are serialized only if both hold the *same*
   lock instance, and a check-then-act split over two critical sections is not
   atomic even though every access is locked.
+- A lock common to two single accesses only orders those two accesses. For a
+  lifetime, atomicity or guard item the question is whether the whole
+  sequence is protected: each sequence context says whether its steps sit in
+  one critical section. Take-under-lock then use-after-unlock, or a check and
+  an act in two critical sections, is not protected by that lock.
 - Field keys (struct.field) ignore instances: two steps on obj.state may touch
   different objects. Decide from the code whether they can be the same object.
 - Steps print values as tags: arg0 (entry argument), s5(obj.buf) (the value
@@ -30,6 +35,16 @@ How to read the facts:
 - "unresolved / cut links" list calls the expansion could not follow
   (function pointers, depth or step budget, undefined callees). Behavior behind
   them is unknown, not absent.
+- "Open boundaries" (B<n>) are places where an item's dependency chain leaves
+  what the index follows: the value goes to an undefined or indirect callee, is
+  stored to memory, is accessed without a field name, or a budget cut the
+  sequence. If you follow one (read the callee, find the reload), report it as
+  resolved with a citation; otherwise leave it open. An item whose verdict
+  depends on an open boundary is unknown, not safe.
+- Item kinds: conflict (two single accesses), atomicity (read then write of
+  the same state), guard (a branch on shared state, then other state used
+  under it), lifetime (a pointer taken from shared state, then its object
+  used or freed).
 
 Use the tools to check what you need: read more source, grep, look up
 callers or every access to a field, list an activation's steps, see all
@@ -59,7 +74,9 @@ When done, call submit_verdicts once with a JSON object:
                publish-before-init|refcount|other",
                "items": ["I3"], "interleaving": "thread 1 ... then thread 2 ...",
                "consequence": "...", "citations": [...],
-               "confidence": "high|medium|low"}]}
+               "confidence": "high|medium|low"}],
+ "boundaries": [{"id": "B4", "status": "resolved|open", "how": "...",
+                 "citations": ["drivers/foo/bar.c:88"]}]}
 Give a verdict for every item of the task. One finding may cover several items.
 A defect you notice that no item describes can be a finding with "items": [].
 """
@@ -68,4 +85,29 @@ USER = """\
 {packet}
 
 Judge every item above ({n_items} items: {item_ids}) and call submit_verdicts.
+"""
+
+USER_DIRECT = """\
+{packet}
+
+First pass: judge every item above ({n_items} items: {item_ids}) from this
+task alone; the only tool is submit_verdicts. Cite steps (A<n>.s<k>) or the
+source lines shown. Where you would need code or facts that are not here,
+answer unknown -- a second pass with the fact tools will look at bug and
+unknown items.
+"""
+
+USER_EVIDENCE = """\
+{packet}
+
+Second pass, with the fact tools, for these items only: {item_ids}.
+First-pass verdicts:
+{prior}
+
+For a bug, check that the interleaving is feasible (both sides reachable
+concurrently, same instance, nothing serializing them) and cite it. For an
+unknown, find the missing evidence or leave it unknown. Resolve open
+boundaries you follow. Every tool result is resent on each later turn: ask
+only for what decides a verdict, several calls per turn where you can. Then
+call submit_verdicts with these items.
 """

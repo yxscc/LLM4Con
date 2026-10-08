@@ -46,8 +46,10 @@ class Packet:
 
 class PacketRenderer:
     def __init__(self, tree, acts, prog, max_chars=DEFAULT_MAX_CHARS,
-                 max_steps=DEFAULT_MAX_STEPS, max_fn_lines=DEFAULT_MAX_FN_LINES):
+                 max_steps=DEFAULT_MAX_STEPS, max_fn_lines=DEFAULT_MAX_FN_LINES,
+                 boundaries=None):
         self.tree = tree
+        self.boundaries = boundaries or {}
         self.acts = {a.aid: a for a in acts}
         self.prog = prog
         self.max_chars, self.max_steps, self.max_fn_lines = max_chars, max_steps, max_fn_lines
@@ -93,13 +95,44 @@ class PacketRenderer:
                 return f
         return cands[0] if cands else None
 
+    def lock_fact(self, c, key):
+        """Locks open at the two accesses (local scan; a shared lock name is
+        not a shared lock instance)."""
+        def held(aid, sids):
+            steps = self.acts[aid].steps
+            on = [steps[x] for x in sids if steps[x].op.key == key] or [steps[x] for x in sids]
+            out = set()
+            for st in on[:1]:
+                out |= {h for h in st.held}
+            return out
+        ha, hb = held(c.a, c.a_steps), held(c.b, c.b_steps)
+        names = lambda hs: {h.split("@")[0] for h in hs}
+        common = sorted(names(ha) & names(hb))
+        return (f"locks held: {c.a} [{', '.join(sorted(ha)) or 'none'}] vs {c.b} "
+                f"[{', '.join(sorted(hb)) or 'none'}]; same lock name on both sides: "
+                f"{', '.join(common) if common else 'none'} (instance not checked)")
+
+    def side_paths(self, aid, sids, key):
+        steps = self.acts[aid].steps
+        return {steps[x].path or key for x in sids if steps[x].op.key == key}
+
+    def object_paths(self, contexts, key):
+        """{member path: {aid}} of the steps on `key` in these contexts."""
+        out = {}
+        for c in contexts:
+            for aid, sids in ((c.a, c.a_steps), (c.b, c.b_steps)):
+                for p in self.side_paths(aid, sids, key):
+                    out.setdefault(p, set()).add(aid)
+        return out
+
     def step_text(self, act, st, marks=(), show_fn=True):
         op, steps = st.op, act.steps
         k = op.kind
         if k in ("lock", "unlock"):
             what = f"{lock_key(st, steps)}" + (f" ({op.mode})" if op.mode and k == "lock" else "")
         elif k in ("read", "write", "publish", "rmw", "ref_inc", "ref_dec"):
-            what = f"{op.state or '<unnamed>'} of {tags_text(st.base, steps)}"
+            what = f"{op.key or '<unnamed>'}" + (f" [as {st.path}]" if st.path else "") \
+                + f" of {tags_text(st.base, steps)}"
             if k in ("write", "publish") and st.origin:
                 what += f" := {tags_text(st.origin, steps)}"
             if op.atomic:
@@ -124,6 +157,18 @@ class PacketRenderer:
         cs = f"  [{','.join('cs%d' % c for c in st.sections)}]" if st.sections else ""
         ind = "  " * st.depth
         return f"  s{st.sid:<4} {ind}{k} {what}  @{self.site(op.loc)}{cs}{mk}"
+
+    def section_fact(self, aid, sids):
+        """Whether one critical section spans the whole sequence: a lock common
+        to the single accesses does not make the sequence atomic."""
+        act = self.acts[aid]
+        secs = [set(act.steps[s].sections) for s in sids]
+        common = set.intersection(*secs) if secs else set()
+        if common:
+            return ("sequence inside one critical section: "
+                    + ", ".join(f"cs{c} ({act.sections[c].key})" for c in sorted(common)))
+        parts = ["/".join(f"cs{c}" for c in sorted(x)) or "none" for x in secs]
+        return "sequence NOT inside one critical section (per step: " + " ".join(parts) + ")"
 
     # ---------------------------------------------------------- step windows
     def window(self, act, focus, max_steps=None, dep_levels=2):
@@ -169,23 +214,25 @@ class PacketRenderer:
         return sorted(set(must) | set(extra)), elided
 
     # ---------------------------------------------------------------- render
-    def render(self, clique, items):
+    def render(self, clique, items, only=None, max_chars=None):
         """Render within the character budget: when the sequences alone do not
         fit, the per-participant step windows are halved (at most three times)
         before anything is cut."""
         scale = 1.0
         for _ in range(4):
-            meta = self._render(clique, items, scale)
+            meta = self._render(clique, items, scale, only, max_chars or self.max_chars)
             if not meta.omitted or "packet text cut" not in meta.omitted:
                 return meta
             scale /= 2
         return meta
 
-    def _render(self, clique, items, scale):
+    def _render(self, clique, items, scale, only=None, max_chars=None):
+        max_chars = max_chars or self.max_chars
         out, meta = [], Packet(clique.id, "")
         marks = {}                         # (aid, sid) -> [item ids]
-        focus = {a: set() for a in clique.participants}
-        for iid in clique.items:
+        ids = [i for i in clique.items if only is None or i in only]
+        focus = {a: set() for a in clique.participants} if only is None else {}
+        for iid in ids:
             for c in clique.task_contexts.get(iid, ()):
                 for aid, sids in ((c.a, c.a_steps), (c.b, c.b_steps)):
                     focus.setdefault(aid, set()).update(sids)
@@ -208,18 +255,53 @@ class PacketRenderer:
             for p in provenance(act.entry)[:4]:
                 out.append(f"    {self.shorten(p)}")
         out.append("")
+        open_b = {}
         out.append("## Items to judge")
-        for iid in clique.items:
+        for iid in ids:
             it = items[iid]
             out.append(f"[{iid}] {it.kind} keys={','.join(it.keys)}")
             out.append(f"    {self.shorten(it.summary)}")
+            key = it.keys[0].lstrip("*")
+            sa, sb = it.paths
+            if sa and sb and (sa | sb) != {key}:
+                shared = "|".join(sorted(sa & sb - {key})) or "none"
+                if key in sa or key in sb:
+                    shared = f"cannot tell ({key} = container not known for some accesses)"
+                out.append(f"    {key} by container over all {it.n_contexts} contexts: "
+                           f"this side {'|'.join(sorted(sa))}; "
+                           f"other side {'|'.join(sorted(sb))}; shared: {shared} (a member "
+                           "of different containers is a different object unless the code "
+                           "aliases them)")
             for c in clique.task_contexts.get(iid, ()):
                 tag = "  (self-interference: two concurrent activations of the same entry)" \
                     if c.self_interference else ""
                 out.append(f"    context: {c.a} steps {','.join('s%d' % s for s in c.a_steps)}"
                            f"  vs  {c.b} steps {','.join('s%d' % s for s in c.b_steps)}{tag}")
+                pa, pb = self.side_paths(c.a, c.a_steps, key), self.side_paths(c.b, c.b_steps, key)
+                if pa and pb and (pa | pb) != {key}:
+                    out.append(f"      {key} as: {c.a} {'|'.join(sorted(pa))}  vs  "
+                               f"{c.b} {'|'.join(sorted(pb))}")
+                if it.kind != "conflict":
+                    out.append("      " + self.section_fact(c.a, c.core or c.a_steps))
+                else:
+                    out.append("      " + self.lock_fact(c, key))
+                ob = [b for b in c.boundaries if self.boundaries.get(b) is not None
+                      and self.boundaries[b].status == "open"]
+                if ob:
+                    out.append(f"      open boundaries: {', '.join(ob)}")
+                    for b in ob:
+                        open_b.setdefault(b, self.boundaries[b])
             if it.n_contexts > len(clique.task_contexts.get(iid, ())):
                 out.append(f"    (seen in {it.n_contexts} contexts in total; others not shown)")
+        if open_b:
+            out.append("")
+            out.append("## Open boundaries (dependencies the index could not follow; unknown, "
+                       "not absent)")
+            for b in open_b.values():
+                act = self.acts[b.aid]
+                at = (f" at {b.aid}.s{b.step} {self.site(act.steps[b.step].op.loc)}"
+                      if b.step is not None else f" in {b.aid}")
+                out.append(f"- {b.id} {b.kind}{at}: {b.detail}")
         out.append("")
         out.append("## Operation sequences (one activation each, textual program order; "
                    "held=[...] is a local lock scan, support only)")
@@ -273,12 +355,12 @@ class PacketRenderer:
                     out.append(f"    ... {len(lk) - 12} more")
             out.append("")
         body = "\n".join(out)
-        src = self.sources(src_marks, meta, self.max_chars - len(body))
+        src = self.sources(src_marks, meta, max_chars - len(body))
         meta.text = body + "\n## Source\n" + src if src else body
         if not src and src_marks:
             meta.incomplete_context = True
-        if len(meta.text) > self.max_chars:
-            meta.text = meta.text[:self.max_chars] + "\n[packet cut at the character budget]"
+        if len(meta.text) > max_chars:
+            meta.text = meta.text[:max_chars] + "\n[packet cut at the character budget]"
             meta.incomplete_context = True
             meta.omitted.append("packet text cut")
         return meta

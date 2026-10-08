@@ -10,11 +10,14 @@ extern void kfree(const void *p);
 extern void *kmalloc(unsigned long size, unsigned int flags);
 extern void refcount_inc(int *r);
 extern int refcount_dec_and_test(int *r);
+struct buf;
+extern void ext_consume(struct buf *b);
 
 struct buf {
 	int len;
 	int ref;
 	char data[16];
+	struct buf *next;
 };
 
 struct obj {
@@ -155,4 +158,56 @@ __attribute__((section(".init.text"))) int obj_setup(struct obj *o)
 {
 	o->count = 1;
 	return 0;
+}
+
+/* --- a pointer reached through the taken one is still the same sequence. */
+long obj_consume_deep(struct obj *o)
+{
+	struct buf *p, *q;
+
+	_raw_spin_lock(&o->lock);
+	p = o->buf;
+	_raw_spin_unlock(&o->lock);
+	q = p->next;
+	return q->ref;
+}
+
+/* --- the taken pointer leaves the analyzed code: an open boundary. */
+void obj_hand_off(struct obj *o)
+{
+	struct buf *p;
+
+	_raw_spin_lock(&o->lock);
+	p = o->buf;
+	_raw_spin_unlock(&o->lock);
+	ext_consume(p);
+}
+
+/* --- check on one field, act on another. */
+long obj_check_state(struct obj *o)
+{
+	if (o->state == 1)
+		return o->count;
+	return 0;
+}
+
+/* One ring type embedded in two containers: optimized code folds
+ * `e->ring.wp` into one GEP on struct evq, the helper sees struct ring. */
+struct ring { int wp; int rp; };
+struct evq { int id; struct ring ring; };
+struct cmdq { int id; struct ring ring; };
+
+static void ring_add(struct ring *r)
+{
+	r->wp = r->wp + 1;
+}
+
+void evq_recycle(struct evq *e)
+{
+	e->ring.wp = 0;
+}
+
+void cmdq_send(struct cmdq *c)
+{
+	ring_add(&c->ring);
 }
