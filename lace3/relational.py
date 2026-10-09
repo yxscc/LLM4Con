@@ -10,17 +10,17 @@ from pathlib import Path
 from types import SimpleNamespace
 import time
 
-from lace3.entries.discover import discover_entries
 from lace3.evidence.source import SourceTree
-from lace3.index.ops import ProgramIndex
-from lace3.index.traces import build_activations, provenance
-from lace3.ir.module import load_program
 from lace3.tasks.relations import Member, Pool, Relation, RelationIndex, build_relations
 
 SCHEMA = "lace3.relations/1"
 
 
 def prepare(ir, max_depth=8, max_steps=4000):
+    from lace3.entries.discover import discover_entries
+    from lace3.index.ops import ProgramIndex
+    from lace3.index.traces import build_activations
+    from lace3.ir.module import load_program
     paths = []
     for p in map(Path, ir):
         paths.extend(sorted(p.glob("*.ll")) if p.is_dir() else [p])
@@ -46,6 +46,7 @@ def _jsonl(path, records):
 
 
 def write(ix, out_dir, src, timings, limits):
+    from lace3.index.traces import provenance
     tree = SourceTree(src)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,7 @@ def write(ix, out_dir, src, timings, limits):
     return manifest
 
 
-def load(out_dir):
+def load(out_dir, with_bindings=False):
     """Read a saved index for paging; source/IR need not be loaded again."""
     out = Path(out_dir)
     manifest = json.loads((out / "index.json").read_text())
@@ -120,6 +121,25 @@ def load(out_dir):
         r["keys"] = tuple(r["keys"])
         ix.relations[r["id"]] = Relation(**r)
     ix.boundaries = {b["id"]: b for b in records("boundaries.jsonl")}
+    if with_bindings:
+        operations = {}
+        for op in records("operations.jsonl"):
+            loc = op.pop("location")
+            op["loc"] = SimpleNamespace(**loc) if loc else None
+            operations[op["id"]] = SimpleNamespace(**op)
+        frames = {f["id"]: tuple(tuple(c) for c in f["calls"]) for f in records("frames.jsonl")}
+        for act in ix.acts.values():
+            act.steps = []
+        for st in records("bindings.jsonl"):
+            act = ix.acts[st["aid"]]
+            if st["sid"] != len(act.steps):
+                raise ValueError("bindings must contain every activation step in order")
+            act.steps.append(SimpleNamespace(
+                sid=st["sid"], op=operations[st["operation"]], path=st["path"],
+                frames=frames[st["frames"]], base=frozenset(tuple(t) for t in st["base"]),
+                origin=frozenset(tuple(t) for t in st["origin"]),
+                args=tuple(frozenset(tuple(t) for t in a) for a in st["args"]),
+                held=tuple(st["held"]), sections=tuple(st["sections"])))
     return ix
 
 

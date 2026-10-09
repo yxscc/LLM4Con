@@ -1,0 +1,97 @@
+{
+  "implementation_base": "6584be77ec89f650cd56c76bdb135395fc85b16c",
+  "implementation_code_sha256": "157787ca2d5bf4e6d8a07c9ecc8bad67453fdbb99112fc0d89b29dbe6460fdef",
+  "tests_passed": 96,
+  "model_calls": 0,
+  "environment": {
+    "python": "3.11.2 (main, Apr 28 2025, 14:11:48) [GCC 12.2.0]",
+    "platform": "Linux-5.4.210.bsk.6-amd64-x86_64-with-glibc2.36",
+    "llvmlite": "0.50.0",
+    "pytest": "9.1.1",
+    "clang": "Debian clang version 16.0.6 (15~deb12u1)"
+  },
+  "remote_output": "/tmp/lace3-scenarios-20261009-v1et8_1x",
+  "all_checks_match": true,
+  "cases": [
+    {
+      "case": "CVE-2024-35898",
+      "checks": {
+        "ir_hash": true,
+        "code_hash": true,
+        "frontend": true,
+        "scenarios": true,
+        "coverage": true,
+        "source_metrics": true,
+        "scheduling": true,
+        "budget_sensitivity": true
+      },
+      "elapsed_s": 17.28154695034027,
+      "peak_rss_kib": 328900,
+      "measurement": "/tmp/lace3-scenarios-20261009-v1et8_1x/CVE-2024-35898/measurement.json"
+    },
+    {
+      "case": "CVE-2025-23151",
+      "checks": {
+        "ir_hash": true,
+        "code_hash": true,
+        "frontend": true,
+        "scenarios": true,
+        "coverage": true,
+        "source_metrics": true,
+        "scheduling": true,
+        "budget_sensitivity": true
+      },
+      "elapsed_s": 2.0855885446071625,
+      "peak_rss_kib": 109360,
+      "measurement": "/tmp/lace3-scenarios-20261009-v1et8_1x/CVE-2025-23151/measurement.json"
+    },
+    {
+      "case": "SYZBOT-52e3dbded1f71729",
+      "checks": {
+        "ir_hash": true,
+        "code_hash": true,
+        "frontend": true,
+        "scenarios": true,
+        "coverage": true,
+        "source_metrics": true,
+        "scheduling": true,
+        "budget_sensitivity": true
+      },
+      "elapsed_s": 44.59438271075487,
+      "peak_rss_kib": 717812,
+      "measurement": "/tmp/lace3-scenarios-20261009-v1et8_1x/SYZBOT-52e3dbded1f71729/measurement.json"
+    },
+    {
+      "case": "SYZBOT-5676077ba016d741",
+      "checks": {
+        "ir_hash": true,
+        "code_hash": true,
+        "frontend": true,
+        "scenarios": true,
+        "coverage": true,
+        "source_metrics": true,
+        "scheduling": true,
+        "budget_sensitivity": true
+      },
+      "elapsed_s": 77.7831325083971,
+      "peak_rss_kib": 888572,
+      "measurement": "/tmp/lace3-scenarios-20261009-v1et8_1x/SYZBOT-5676077ba016d741/measurement.json"
+    },
+    {
+      "case": "SYZBOT-5cce5938c6c2c518",
+      "checks": {
+        "ir_hash": true,
+        "code_hash": true,
+        "frontend": true,
+        "scenarios": true,
+        "coverage": true,
+        "source_metrics": true,
+        "scheduling": true,
+        "budget_sensitivity": true
+      },
+      "elapsed_s": 90.5238539725542,
+      "peak_rss_kib": 1041168,
+      "measurement": "/tmp/lace3-scenarios-20261009-v1et8_1x/SYZBOT-5cce5938c6c2c518/measurement.json"
+    }
+  ]
+}

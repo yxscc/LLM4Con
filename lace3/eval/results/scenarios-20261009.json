@@ -1,0 +1,800 @@
+{
+  "implementation_base": "6584be77ec89f650cd56c76bdb135395fc85b16c",
+  "implementation_code_sha256": "157787ca2d5bf4e6d8a07c9ecc8bad67453fdbb99112fc0d89b29dbe6460fdef",
+  "model_calls": 0,
+  "test_suite": {
+    "passed": 96,
+    "original_tests": 80,
+    "environment": "macOS arm64, Python 3.12.14, llvmlite 0.50.0, Apple clang 21 targeting x86_64-unknown-linux-gnu"
+  },
+  "measurement_environment": {
+    "platform": "darwin",
+    "worker_processes": 2,
+    "inputs": "local IR/source copies, same filenames and byte sizes as prior server measurements; IR hashes recorded"
+  },
+  "notes": [
+    "Counts concern the bounded P0 model, not all real executions or defect recall.",
+    "All original left members partition exactly once; full right pools and original pairing predicates remain.",
+    "All unknown and nullable alternatives are retained even when a known object role determines ownership.",
+    "Unrestricted one-session plans have no model-context bound and are not evidence that a model can complete the review in one call.",
+    "Source byte budgets exclude prompts, candidate metadata, tool histories and output; they are explicit sensitivity probes, not model limits.",
+    "Complete-file source granularity causes oversized individual views to remain pending rather than be truncated.",
+    "Missing source locations and prior frontend gaps remain unresolved.",
+    "Source reuse is compared with independent-scenario reading and whole-input source baselines; actual token savings and detection quality are unmeasured."
+  ],
+  "total_implicit_combinations": 39235902,
+  "cases": [
+    {
+      "case": "CVE-2024-35898",
+      "ir_sha256": "c3dae855c3aa9093d7d6d5f32b5b264c3b16955ef8a8cfa417f727df20d8939a",
+      "frontend": {
+        "activations": 112,
+        "steps": 39461,
+        "members": 33172,
+        "pools": 2037,
+        "relations": 1334,
+        "duplicate_access_records_collapsed": 4210,
+        "relations_by_kind": {
+          "conflict": 516,
+          "atomicity": 179,
+          "guard": 185,
+          "lifetime": 454
+        },
+        "implicit_combinations": 2740868,
+        "implicit_by_kind": {
+          "atomicity": 94704,
+          "conflict": 2472635,
+          "guard": 109759,
+          "lifetime": 63770
+        },
+        "self_combinations": 165449,
+        "boundaries": 5106,
+        "static_gaps": {
+          "truncated_activations": 14,
+          "unnamed_accesses": 2875,
+          "unknown_base_accesses": 2684,
+          "links_indirect": 320,
+          "links_external": 2717,
+          "links_depth": 320,
+          "links_recursion": 10,
+          "links_budget": 1
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 2740868
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "scenarios": {
+        "scenarios": 1159,
+        "views": 5867,
+        "uncertain_anchors": 1096,
+        "implicit_combinations": 2740868,
+        "cross_scenario_combinations": 2352899,
+        "members_with_owner": 24719,
+        "reviewed_combinations": 0
+      },
+      "source_metrics": {
+        "source_granularity": "complete files, including inline/caller source when resolvable",
+        "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+        "unique_relevant_source_bytes": 360035,
+        "unique_relevant_source_lines": 11596,
+        "independent_scene_source_bytes": 417280565,
+        "independent_view_source_bytes": 2112325345,
+        "planned_source_bytes": 360035,
+        "planned_views_independent_source_bytes": 2112325345,
+        "planned_scenes_independent_source_bytes": 417280565,
+        "whole_input_source_bytes": 374485,
+        "whole_input_fits_source_budget": true,
+        "max_session_source_bytes": 360035,
+        "sessions": 1,
+        "sessions_with_source_gaps": 1,
+        "unresolved_source_locations": 40
+      },
+      "coverage": {
+        "relations_checked": 1334,
+        "views_checked": 5867,
+        "partition_complete": true,
+        "pair_enumeration": false,
+        "implicit_combinations": 2740868
+      },
+      "scheduling": {
+        "scheduled_views": 5867,
+        "pending_views": 0,
+        "scheduled_combinations": 2740868,
+        "pending_combinations": 0,
+        "review_complete": false,
+        "model_calls": 0
+      },
+      "timings_s": {
+        "scenarios": 0.14509045801241882,
+        "source": 0.32928212502156384,
+        "scheduling": 0.2742914580157958
+      },
+      "elapsed_s": 4.7928293329896405,
+      "peak_rss_kib": 339824.0,
+      "cross_scenario_fraction": 0.8584503157393935,
+      "sensitivity": [
+        {
+          "fraction": 0.5,
+          "budget_bytes": 180017,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 360035,
+            "unique_relevant_source_lines": 11596,
+            "independent_scene_source_bytes": 417280565,
+            "independent_view_source_bytes": 2112325345,
+            "planned_source_bytes": 0,
+            "planned_views_independent_source_bytes": 0,
+            "planned_scenes_independent_source_bytes": 0,
+            "whole_input_source_bytes": 374485,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 0,
+            "sessions": 0,
+            "sessions_with_source_gaps": 0,
+            "unresolved_source_locations": 40
+          },
+          "scheduling": {
+            "scheduled_views": 0,
+            "pending_views": 5867,
+            "scheduled_combinations": 0,
+            "pending_combinations": 2740868,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        },
+        {
+          "fraction": 0.25,
+          "budget_bytes": 90008,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 360035,
+            "unique_relevant_source_lines": 11596,
+            "independent_scene_source_bytes": 417280565,
+            "independent_view_source_bytes": 2112325345,
+            "planned_source_bytes": 0,
+            "planned_views_independent_source_bytes": 0,
+            "planned_scenes_independent_source_bytes": 0,
+            "whole_input_source_bytes": 374485,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 0,
+            "sessions": 0,
+            "sessions_with_source_gaps": 0,
+            "unresolved_source_locations": 40
+          },
+          "scheduling": {
+            "scheduled_views": 0,
+            "pending_views": 5867,
+            "scheduled_combinations": 0,
+            "pending_combinations": 2740868,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "CVE-2025-23151",
+      "ir_sha256": "9ac980c607a7e2d2fc760f8302f46d35c8c88845fa0bbea0fe7e235bcca92789",
+      "frontend": {
+        "activations": 29,
+        "steps": 4082,
+        "members": 4247,
+        "pools": 366,
+        "relations": 152,
+        "duplicate_access_records_collapsed": 204,
+        "relations_by_kind": {
+          "conflict": 68,
+          "atomicity": 24,
+          "guard": 25,
+          "lifetime": 35
+        },
+        "implicit_combinations": 19539,
+        "implicit_by_kind": {
+          "atomicity": 2091,
+          "conflict": 15134,
+          "guard": 1717,
+          "lifetime": 597
+        },
+        "self_combinations": 3917,
+        "boundaries": 494,
+        "static_gaps": {
+          "links_external": 170,
+          "truncated_activations": 0,
+          "unnamed_accesses": 346,
+          "unknown_base_accesses": 251,
+          "links_indirect": 126
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 19539
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "scenarios": {
+        "scenarios": 40,
+        "views": 520,
+        "uncertain_anchors": 33,
+        "implicit_combinations": 19539,
+        "cross_scenario_combinations": 15787,
+        "members_with_owner": 1950,
+        "reviewed_combinations": 0
+      },
+      "source_metrics": {
+        "source_granularity": "complete files, including inline/caller source when resolvable",
+        "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+        "unique_relevant_source_bytes": 61590,
+        "unique_relevant_source_lines": 1973,
+        "independent_scene_source_bytes": 2269871,
+        "independent_view_source_bytes": 28809214,
+        "planned_source_bytes": 61590,
+        "planned_views_independent_source_bytes": 28809214,
+        "planned_scenes_independent_source_bytes": 2269871,
+        "whole_input_source_bytes": 77328,
+        "whole_input_fits_source_budget": true,
+        "max_session_source_bytes": 61590,
+        "sessions": 1,
+        "sessions_with_source_gaps": 1,
+        "unresolved_source_locations": 17
+      },
+      "coverage": {
+        "relations_checked": 152,
+        "views_checked": 520,
+        "partition_complete": true,
+        "pair_enumeration": false,
+        "implicit_combinations": 19539
+      },
+      "scheduling": {
+        "scheduled_views": 520,
+        "pending_views": 0,
+        "scheduled_combinations": 19539,
+        "pending_combinations": 0,
+        "review_complete": false,
+        "model_calls": 0
+      },
+      "timings_s": {
+        "scenarios": 0.00965612501022406,
+        "source": 0.016425875015556812,
+        "scheduling": 0.0005404169787652791
+      },
+      "elapsed_s": 0.8223831250215881,
+      "peak_rss_kib": 101456.0,
+      "cross_scenario_fraction": 0.8079737959977481,
+      "sensitivity": [
+        {
+          "fraction": 0.5,
+          "budget_bytes": 30795,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 61590,
+            "unique_relevant_source_lines": 1973,
+            "independent_scene_source_bytes": 2269871,
+            "independent_view_source_bytes": 28809214,
+            "planned_source_bytes": 0,
+            "planned_views_independent_source_bytes": 0,
+            "planned_scenes_independent_source_bytes": 0,
+            "whole_input_source_bytes": 77328,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 0,
+            "sessions": 0,
+            "sessions_with_source_gaps": 0,
+            "unresolved_source_locations": 17
+          },
+          "scheduling": {
+            "scheduled_views": 0,
+            "pending_views": 520,
+            "scheduled_combinations": 0,
+            "pending_combinations": 19539,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        },
+        {
+          "fraction": 0.25,
+          "budget_bytes": 15397,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 61590,
+            "unique_relevant_source_lines": 1973,
+            "independent_scene_source_bytes": 2269871,
+            "independent_view_source_bytes": 28809214,
+            "planned_source_bytes": 0,
+            "planned_views_independent_source_bytes": 0,
+            "planned_scenes_independent_source_bytes": 0,
+            "whole_input_source_bytes": 77328,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 0,
+            "sessions": 0,
+            "sessions_with_source_gaps": 0,
+            "unresolved_source_locations": 17
+          },
+          "scheduling": {
+            "scheduled_views": 0,
+            "pending_views": 520,
+            "scheduled_combinations": 0,
+            "pending_combinations": 19539,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "SYZBOT-52e3dbded1f71729",
+      "ir_sha256": "10b8e838ba36a4de40bb7f8097cf016f92ae94777dbf8b74380a5a883540c100",
+      "frontend": {
+        "activations": 369,
+        "steps": 130512,
+        "members": 114575,
+        "pools": 2512,
+        "relations": 1500,
+        "duplicate_access_records_collapsed": 3545,
+        "relations_by_kind": {
+          "conflict": 780,
+          "atomicity": 272,
+          "guard": 180,
+          "lifetime": 268
+        },
+        "implicit_combinations": 13525886,
+        "implicit_by_kind": {
+          "atomicity": 1167507,
+          "conflict": 11728237,
+          "guard": 396704,
+          "lifetime": 233438
+        },
+        "self_combinations": 612538,
+        "boundaries": 17771,
+        "static_gaps": {
+          "links_depth": 3466,
+          "links_recursion": 197,
+          "links_indirect": 997,
+          "links_external": 3383,
+          "truncated_activations": 76,
+          "unnamed_accesses": 13224,
+          "unknown_base_accesses": 12297,
+          "links_budget": 2
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 13525886
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "scenarios": {
+        "scenarios": 1236,
+        "views": 11787,
+        "uncertain_anchors": 1209,
+        "implicit_combinations": 13525886,
+        "cross_scenario_combinations": 12496431,
+        "members_with_owner": 96858,
+        "reviewed_combinations": 0
+      },
+      "source_metrics": {
+        "source_granularity": "complete files, including inline/caller source when resolvable",
+        "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+        "unique_relevant_source_bytes": 551390,
+        "unique_relevant_source_lines": 17798,
+        "independent_scene_source_bytes": 406660727,
+        "independent_view_source_bytes": 3956229224,
+        "planned_source_bytes": 551390,
+        "planned_views_independent_source_bytes": 3956229224,
+        "planned_scenes_independent_source_bytes": 406660727,
+        "whole_input_source_bytes": 551390,
+        "whole_input_fits_source_budget": true,
+        "max_session_source_bytes": 551390,
+        "sessions": 1,
+        "sessions_with_source_gaps": 1,
+        "unresolved_source_locations": 129
+      },
+      "coverage": {
+        "relations_checked": 1500,
+        "views_checked": 11787,
+        "partition_complete": true,
+        "pair_enumeration": false,
+        "implicit_combinations": 13525886
+      },
+      "scheduling": {
+        "scheduled_views": 11787,
+        "pending_views": 0,
+        "scheduled_combinations": 13525886,
+        "pending_combinations": 0,
+        "review_complete": false,
+        "model_calls": 0
+      },
+      "timings_s": {
+        "scenarios": 0.5596936249930877,
+        "source": 1.0048320000059903,
+        "scheduling": 0.3395932090061251
+      },
+      "elapsed_s": 13.324644208012614,
+      "peak_rss_kib": 740720.0,
+      "cross_scenario_fraction": 0.9238900135636217,
+      "sensitivity": [
+        {
+          "fraction": 0.5,
+          "budget_bytes": 275695,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 551390,
+            "unique_relevant_source_lines": 17798,
+            "independent_scene_source_bytes": 406660727,
+            "independent_view_source_bytes": 3956229224,
+            "planned_source_bytes": 1176145,
+            "planned_views_independent_source_bytes": 464398425,
+            "planned_scenes_independent_source_bytes": 158864101,
+            "whole_input_source_bytes": 551390,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 269484,
+            "sessions": 5,
+            "sessions_with_source_gaps": 5,
+            "unresolved_source_locations": 129
+          },
+          "scheduling": {
+            "scheduled_views": 3345,
+            "pending_views": 8442,
+            "scheduled_combinations": 1355171,
+            "pending_combinations": 12170715,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        },
+        {
+          "fraction": 0.25,
+          "budget_bytes": 137847,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 551390,
+            "unique_relevant_source_lines": 17798,
+            "independent_scene_source_bytes": 406660727,
+            "independent_view_source_bytes": 3956229224,
+            "planned_source_bytes": 184969,
+            "planned_views_independent_source_bytes": 82286398,
+            "planned_scenes_independent_source_bytes": 28593434,
+            "whole_input_source_bytes": 551390,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 111604,
+            "sessions": 2,
+            "sessions_with_source_gaps": 2,
+            "unresolved_source_locations": 129
+          },
+          "scheduling": {
+            "scheduled_views": 1253,
+            "pending_views": 10534,
+            "scheduled_combinations": 606920,
+            "pending_combinations": 12918966,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "SYZBOT-5676077ba016d741",
+      "ir_sha256": "599d9ae3966c454077c7baf42f1fb9f026c9f968d739e9e1c543d14be124e3e2",
+      "frontend": {
+        "activations": 415,
+        "steps": 133328,
+        "members": 117568,
+        "pools": 4370,
+        "relations": 2668,
+        "duplicate_access_records_collapsed": 25029,
+        "relations_by_kind": {
+          "conflict": 1196,
+          "atomicity": 463,
+          "guard": 388,
+          "lifetime": 621
+        },
+        "implicit_combinations": 17293245,
+        "implicit_by_kind": {
+          "atomicity": 766003,
+          "conflict": 15223465,
+          "guard": 809965,
+          "lifetime": 493812
+        },
+        "self_combinations": 458861,
+        "boundaries": 17892,
+        "static_gaps": {
+          "links_external": 7012,
+          "links_indirect": 1232,
+          "truncated_activations": 62,
+          "unnamed_accesses": 13288,
+          "unknown_base_accesses": 9402,
+          "links_depth": 2422,
+          "links_recursion": 76,
+          "links_budget": 2
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 17293245
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "scenarios": {
+        "scenarios": 2268,
+        "views": 16205,
+        "uncertain_anchors": 2144,
+        "implicit_combinations": 17293245,
+        "cross_scenario_combinations": 16328139,
+        "members_with_owner": 91818,
+        "reviewed_combinations": 0
+      },
+      "source_metrics": {
+        "source_granularity": "complete files, including inline/caller source when resolvable",
+        "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+        "unique_relevant_source_bytes": 1003950,
+        "unique_relevant_source_lines": 30998,
+        "independent_scene_source_bytes": 1363933793,
+        "independent_view_source_bytes": 8510225991,
+        "planned_source_bytes": 1003950,
+        "planned_views_independent_source_bytes": 8510225991,
+        "planned_scenes_independent_source_bytes": 1363933793,
+        "whole_input_source_bytes": 1011893,
+        "whole_input_fits_source_budget": true,
+        "max_session_source_bytes": 1003950,
+        "sessions": 1,
+        "sessions_with_source_gaps": 1,
+        "unresolved_source_locations": 166
+      },
+      "coverage": {
+        "relations_checked": 2668,
+        "views_checked": 16205,
+        "partition_complete": true,
+        "pair_enumeration": false,
+        "implicit_combinations": 17293245
+      },
+      "scheduling": {
+        "scheduled_views": 16205,
+        "pending_views": 0,
+        "scheduled_combinations": 17293245,
+        "pending_combinations": 0,
+        "review_complete": false,
+        "model_calls": 0
+      },
+      "timings_s": {
+        "scenarios": 0.6096807499998249,
+        "source": 0.8943201669899281,
+        "scheduling": 1.3673237500188407
+      },
+      "elapsed_s": 23.93129324997426,
+      "peak_rss_kib": 954416.0,
+      "cross_scenario_fraction": 0.944191734980913,
+      "sensitivity": [
+        {
+          "fraction": 0.5,
+          "budget_bytes": 501975,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 1003950,
+            "unique_relevant_source_lines": 30998,
+            "independent_scene_source_bytes": 1363933793,
+            "independent_view_source_bytes": 8510225991,
+            "planned_source_bytes": 5062608,
+            "planned_views_independent_source_bytes": 1346744536,
+            "planned_scenes_independent_source_bytes": 526191769,
+            "whole_input_source_bytes": 1011893,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 494746,
+            "sessions": 11,
+            "sessions_with_source_gaps": 11,
+            "unresolved_source_locations": 166
+          },
+          "scheduling": {
+            "scheduled_views": 7097,
+            "pending_views": 9108,
+            "scheduled_combinations": 205377,
+            "pending_combinations": 17087868,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        },
+        {
+          "fraction": 0.25,
+          "budget_bytes": 250987,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 1003950,
+            "unique_relevant_source_lines": 30998,
+            "independent_scene_source_bytes": 1363933793,
+            "independent_view_source_bytes": 8510225991,
+            "planned_source_bytes": 2885158,
+            "planned_views_independent_source_bytes": 679284991,
+            "planned_scenes_independent_source_bytes": 327629837,
+            "whole_input_source_bytes": 1011893,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 250937,
+            "sessions": 13,
+            "sessions_with_source_gaps": 13,
+            "unresolved_source_locations": 166
+          },
+          "scheduling": {
+            "scheduled_views": 5271,
+            "pending_views": 10934,
+            "scheduled_combinations": 145829,
+            "pending_combinations": 17147416,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        }
+      ]
+    },
+    {
+      "case": "SYZBOT-5cce5938c6c2c518",
+      "ir_sha256": "4743413b494dfca4dfec41a11192c42abeaacf50eb758ca83e62c0615c407878",
+      "frontend": {
+        "activations": 396,
+        "steps": 146652,
+        "members": 142309,
+        "pools": 4554,
+        "relations": 2550,
+        "duplicate_access_records_collapsed": 4170,
+        "relations_by_kind": {
+          "conflict": 1209,
+          "atomicity": 381,
+          "guard": 320,
+          "lifetime": 640
+        },
+        "implicit_combinations": 5656364,
+        "implicit_by_kind": {
+          "atomicity": 530543,
+          "conflict": 4057236,
+          "guard": 770414,
+          "lifetime": 298171
+        },
+        "self_combinations": 194384,
+        "boundaries": 24716,
+        "static_gaps": {
+          "links_external": 6473,
+          "links_indirect": 1544,
+          "truncated_activations": 73,
+          "unnamed_accesses": 12981,
+          "unknown_base_accesses": 15756,
+          "links_depth": 6862,
+          "links_budget": 10,
+          "links_recursion": 15
+        },
+        "review": {
+          "individually_reviewed": 0,
+          "conditionally_covered": 0,
+          "unreviewed": 5656364
+        },
+        "complete": false,
+        "model_calls": 0,
+        "counting_unit": "conflict: access pair; sequence: seed/region member x interfering entry",
+        "scope": "all members in bounded activations; not all program executions or defect recall"
+      },
+      "scenarios": {
+        "scenarios": 1920,
+        "views": 13264,
+        "uncertain_anchors": 1836,
+        "implicit_combinations": 5656364,
+        "cross_scenario_combinations": 4995275,
+        "members_with_owner": 101176,
+        "reviewed_combinations": 0
+      },
+      "source_metrics": {
+        "source_granularity": "complete files, including inline/caller source when resolvable",
+        "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+        "unique_relevant_source_bytes": 975046,
+        "unique_relevant_source_lines": 30271,
+        "independent_scene_source_bytes": 1065458066,
+        "independent_view_source_bytes": 6607556255,
+        "planned_source_bytes": 975046,
+        "planned_views_independent_source_bytes": 6607556255,
+        "planned_scenes_independent_source_bytes": 1065458066,
+        "whole_input_source_bytes": 1004220,
+        "whole_input_fits_source_budget": true,
+        "max_session_source_bytes": 975046,
+        "sessions": 1,
+        "sessions_with_source_gaps": 1,
+        "unresolved_source_locations": 171
+      },
+      "coverage": {
+        "relations_checked": 2550,
+        "views_checked": 13264,
+        "partition_complete": true,
+        "pair_enumeration": false,
+        "implicit_combinations": 5656364
+      },
+      "scheduling": {
+        "scheduled_views": 13264,
+        "pending_views": 0,
+        "scheduled_combinations": 5656364,
+        "pending_combinations": 0,
+        "review_complete": false,
+        "model_calls": 0
+      },
+      "timings_s": {
+        "scenarios": 0.5843361250008456,
+        "source": 1.585755167005118,
+        "scheduling": 1.0367775409831665
+      },
+      "elapsed_s": 26.780073250003625,
+      "peak_rss_kib": 1120112.0,
+      "cross_scenario_fraction": 0.8831247423256353,
+      "sensitivity": [
+        {
+          "fraction": 0.5,
+          "budget_bytes": 487523,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 975046,
+            "unique_relevant_source_lines": 30271,
+            "independent_scene_source_bytes": 1065458066,
+            "independent_view_source_bytes": 6607556255,
+            "planned_source_bytes": 9330659,
+            "planned_views_independent_source_bytes": 1863211562,
+            "planned_scenes_independent_source_bytes": 596460862,
+            "whole_input_source_bytes": 1004220,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 487126,
+            "sessions": 20,
+            "sessions_with_source_gaps": 19,
+            "unresolved_source_locations": 171
+          },
+          "scheduling": {
+            "scheduled_views": 6819,
+            "pending_views": 6445,
+            "scheduled_combinations": 1654323,
+            "pending_combinations": 4002041,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        },
+        {
+          "fraction": 0.25,
+          "budget_bytes": 243761,
+          "source_metrics": {
+            "source_granularity": "complete files, including inline/caller source when resolvable",
+            "cost_unit": "UTF-8 bytes of rendered, line-numbered source; NOT model tokens",
+            "unique_relevant_source_bytes": 975046,
+            "unique_relevant_source_lines": 30271,
+            "independent_scene_source_bytes": 1065458066,
+            "independent_view_source_bytes": 6607556255,
+            "planned_source_bytes": 3903407,
+            "planned_views_independent_source_bytes": 349798335,
+            "planned_scenes_independent_source_bytes": 276255966,
+            "whole_input_source_bytes": 1004220,
+            "whole_input_fits_source_budget": false,
+            "max_session_source_bytes": 243534,
+            "sessions": 17,
+            "sessions_with_source_gaps": 16,
+            "unresolved_source_locations": 171
+          },
+          "scheduling": {
+            "scheduled_views": 2911,
+            "pending_views": 10353,
+            "scheduled_combinations": 422579,
+            "pending_combinations": 5233785,
+            "review_complete": false,
+            "model_calls": 0
+          }
+        }
+      ]
+    }
+  ]
+}

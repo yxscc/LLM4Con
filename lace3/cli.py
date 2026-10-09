@@ -8,8 +8,6 @@ turns into a full paid scan by accident.
 import argparse
 import sys
 
-from lace3 import report
-from lace3.detect.runner import Limits, detect, prepare
 
 
 def _args(argv):
@@ -26,6 +24,12 @@ def _args(argv):
     pairs.add_argument("--relation", required=True)
     pairs.add_argument("--limit", type=int, default=50)
     pairs.add_argument("--cursor", type=int, nargs=2)
+    plan = sub.add_parser("plan", help="offline concurrency scenarios and source-reuse sessions; no model calls")
+    plan.add_argument("--index", required=True, help="saved factorized index directory")
+    plan.add_argument("--src", help="source root override (defaults to the saved index)")
+    plan.add_argument("--out", required=True)
+    plan.add_argument("--source-byte-budget", type=int, default=None,
+                      help="optional explicit source-byte planning cap, NOT a model token limit")
     r = sub.add_parser("run", help="detect concurrency defects in kernel IR")
     r.add_argument("--ir", action="append", required=True,
                    help=".ll file or directory of .ll files (repeatable)")
@@ -57,6 +61,11 @@ def main(argv=None):
     if a.cmd in ("index", "pairs"):
         from lace3.relational import main as relational_main
         return relational_main(a)
+    if a.cmd == "plan":
+        from lace3.scenario_plan import main as plan_main
+        return plan_main(a)
+    from lace3 import report
+    from lace3.detect.runner import Limits, detect, prepare
     lim = Limits(max_depth=a.max_depth, max_steps=a.max_steps,
                  max_participants=a.max_participants, max_items_per_task=a.max_items_per_task,
                  packet_chars=a.packet_chars, max_tasks=a.max_tasks,

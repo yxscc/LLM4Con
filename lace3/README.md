@@ -1,9 +1,9 @@
 # lace3
 
-Concurrency-defect detector for Linux kernel IR: static interaction index,
-sequence-preserving analysis cliques, direct LLM detection with targeted fact
-queries. Design: `../LACE_V3_DESIGN.md`. Deadlocks / lock ordering are not
-analyzed.
+Concurrency-defect detector for Linux kernel IR. The new offline path builds a
+static interaction index and orchestrates concurrency scenarios into planned
+review sessions. LLM detection still uses the legacy pipeline described below.
+Design: `../LACE_V3_DESIGN.md`. Deadlocks / lock ordering are not analyzed.
 
 ## Setup
 
@@ -66,6 +66,60 @@ python -m lace3.eval.relations --ir path/to/main.ll --src path/to/src \
 checking every context against new complete side members and the pairing
 predicate. It can be expensive; `index` does not do this. This is a regression
 check against the old bounded model, not a correctness/recall oracle.
+
+### Concurrency scenario orchestration (offline prototype)
+
+```
+python -m lace3 plan --index out/relations --src path/to/src --out out/scenarios
+# Optional sensitivity experiment; this is SOURCE BYTES, not a model token limit:
+python -m lace3 plan --index out/relations --out out/scenarios-small \
+  --source-byte-budget 200000
+```
+
+The planner gives each member an object-origin anchor. Parameter roots remain
+qualified by entry and containing member path; loads follow their originating
+pointer. Global objects and allocation/return sites have stable identities.
+An anchor is an organizational role, never a proof of object identity.
+When a known origin coexists with unknown or nullable alternatives, the known
+origin determines ownership and **all alternatives remain recorded** in
+`ownership.jsonl`. Fully unknown roots stay scoped to their static operation.
+
+For each relation, scenarios partition only its left members. Every view
+references the complete original right pool and retains the original ordering
+predicate for symmetric relations. Cross-scenario candidates, same-entry
+concurrency and distinct lock bindings survive. Structural validation checks
+that the partition preserves all implicit combinations without enumerating them.
+
+The scheduler deduplicates complete source files, including resolvable inline
+and caller locations. Scenarios sharing source can enter one planned session.
+Without a source budget, all connected source footprints can share a session;
+this **does not establish that a model can fit or review the whole session**.
+The measured bytes exclude future prompts, candidate descriptions, tool history
+and output. No LLM is invoked and nothing is marked reviewed or safe.
+
+With an explicit source-byte budget, a large scenario may split at relation
+view boundaries. An indivisible view exceeding the budget stays pending rather
+than losing members or source. The current file-granularity prototype cannot
+split a single large source file. Missing source and upstream frontend gaps are
+reported explicitly. Budgets must not be used to compare apparent cost savings
+without comparing the pending scope too.
+
+Output: `plan.json` (coverage, budgets, cost units and upstream gaps),
+`scenarios.jsonl`, `views.jsonl`, `ownership.jsonl`, `sessions.jsonl`,
+`pending.json`, and complete line-numbered `source/Q*.txt` packets. Sessions
+are plans, not model requests. `run` remains the legacy detection pipeline.
+
+Reproduce the offline measurements using only IR/source input:
+
+```
+python -m lace3.eval.scenarios --ir path/to/main.ll --src path/to/src \
+  --out out/scenario-measurement --budget-fractions 0.5,0.25
+```
+
+The fractions are explicit sensitivity probes of the unique rendered source
+size, not proposed model limits. The record includes the implementation and IR
+hashes. Compare the independent-scenario, planned-session, and whole-input
+source baselines before drawing conclusions about model cost or bug detection.
 
 ### Legacy detection pipeline
 
