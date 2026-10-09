@@ -1,0 +1,536 @@
+{
+  "schema": "lace3.scenario-ab/1",
+  "experiment": {
+    "base_commit": "ff989c491e1bac5fd75950dfa818f0c176a1a8e5",
+    "implementation_sha256": "d92386e150940355fa4618741a2c72ada918d7a446dd2a9ce47add7b9c653640",
+    "comparison": "whole source versus same whole source plus complete scenario directory and paged static queries",
+    "case": "CVE-2025-23151",
+    "order": [
+      "baseline",
+      "indexed"
+    ],
+    "repetitions": 1,
+    "max_requests_per_arm": 4,
+    "token_budget_per_arm": 150000,
+    "max_completion_tokens": 8192,
+    "reasoning_effort": "medium",
+    "tests_passed": 112,
+    "labels_in_detector_input": false,
+    "output": "/tmp/lace3-scenario-ab-20261009-f4k6a9y7"
+  },
+  "inputs": {
+    "baseline": {
+      "source_sha256": "f26b15ae98cf5805e301ef248c8e512fa63a0578b11e23f21218cd4b39f78608",
+      "source_bytes": 77328,
+      "source_files": [
+        "drivers/bus/mhi/host/internal.h",
+        "drivers/bus/mhi/host/main.c",
+        "drivers/bus/mhi/host/trace.h"
+      ],
+      "source_lines": 2396,
+      "index_sha256": "a0a3564201694a4be8afe0487305b00c965c91f43a2c34ccb74947b64d2a42ba",
+      "plan_sha256": "37eb713e30c82f2db675c76ba960e19e4fcef91161b82a0ba1dd8d1b06c2e98e"
+    },
+    "indexed": {
+      "source_sha256": "f26b15ae98cf5805e301ef248c8e512fa63a0578b11e23f21218cd4b39f78608",
+      "source_bytes": 77328,
+      "source_files": [
+        "drivers/bus/mhi/host/internal.h",
+        "drivers/bus/mhi/host/main.c",
+        "drivers/bus/mhi/host/trace.h"
+      ],
+      "source_lines": 2396,
+      "index_sha256": "a0a3564201694a4be8afe0487305b00c965c91f43a2c34ccb74947b64d2a42ba",
+      "plan_sha256": "37eb713e30c82f2db675c76ba960e19e4fcef91161b82a0ba1dd8d1b06c2e98e"
+    }
+  },
+  "provider_usage_total": 71769,
+  "total_actual_requests": 2,
+  "indexed_total_token_increase": 0.10367569468870919,
+  "static_query_calls": 0,
+  "reports": {
+    "baseline": {
+      "arm": "baseline",
+      "model": "gpt-5.5-2026-04-24",
+      "status": "submitted",
+      "report": {
+        "summary": "Found two source-supported concurrency defects in channel queueing/doorbell handling, plus one lifetime hazard that cannot be concluded without caller/framework quiescing facts. The strongest issue is a check-then-act race in mhi_queue(): ring fullness is checked before acquiring the per-channel write lock, while mhi_gen_tre() does not revalidate capacity under that lock.",
+        "findings": [
+          {
+            "title": "Concurrent queue submissions can overfill/corrupt a channel ring because the full check is outside the channel lock",
+            "kind": "atomicity violation",
+            "status": "supported_by_source",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1133
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1137
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1194
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1231
+              }
+            ],
+            "concurrent_entries": "Two client threads can call exported queue APIs such as mhi_queue_buf() or mhi_queue_skb() for the same mhi_device/channel, both reaching mhi_queue() and then mhi_gen_tre().",
+            "shared_state": "mhi_chan->tre_ring.wp/rp and mhi_chan->buf_ring.wp/rp, plus the descriptor slots addressed by those ring pointers.",
+            "interleaving": [
+              "Thread A enters mhi_queue() for a channel and calls mhi_is_ring_full() at line 1133. The ring is not full but has limited remaining capacity.",
+              "Thread B concurrently enters mhi_queue() for the same channel and also observes the ring as not full at line 1133.",
+              "Thread A enters mhi_gen_tre(), takes mhi_chan->lock at line 1194, fills the descriptor at the current write pointer, and advances tre_ring and buf_ring at lines 1231-1232.",
+              "Thread A releases mhi_chan->lock at line 1234. The ring may now be full.",
+              "Thread B then enters mhi_gen_tre(), takes the same lock, but mhi_gen_tre() does not re-run mhi_is_ring_full() or get_nr_avail_ring_elements() while holding the lock.",
+              "Thread B writes another descriptor and advances the ring pointers, potentially consuming the reserved empty slot or wrapping into unread descriptors."
+            ],
+            "impact": "The ring-buffer full/empty invariant can be broken and descriptors or buffer metadata can be overwritten or made ambiguous to later producer/consumer logic and hardware doorbell updates. This can lead to lost transfers, wrong callbacks, DMA/unmap mismatches, or memory corruption in the channel rings.",
+            "counterevidence_checked": "mhi_gen_tre() does serialize descriptor writes with write_lock_bh(&mhi_chan->lock), but the capacity decision is made earlier without that lock and is not revalidated after acquiring it. mhi_queue() does not hold mhi_chan->mutex. The exported wrappers do not serialize same-channel callers in the supplied source. pm_lock is only taken after mhi_gen_tre() and does not protect the fullness check.",
+            "unresolved": [
+              "The supplied files do not state an external API rule that all clients must serialize mhi_queue_*() calls per channel. If such a contract exists outside these files, it could prevent the interleaving, but it is not evidenced here."
+            ]
+          },
+          {
+            "title": "Channel doorbell burst-mode state is updated without a common lock between queue and DB-event paths",
+            "kind": "data race / atomicity violation",
+            "status": "supported_by_source",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 100
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 103
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 149
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 584
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 591
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 682
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 686
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1141
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1156
+              }
+            ],
+            "concurrent_entries": "A client queue submission in mhi_queue() can call mhi_ring_chan_db() while an event-processing tasklet handles MHI_EV_CC_OOB or MHI_EV_CC_DB_MODE for the same mhi_chan in parse_xfer_event().",
+            "shared_state": "mhi_chan->db_cfg.db_mode and db_cfg.db_val, and the channel doorbell write performed through db_cfg.process_db().",
+            "interleaving": [
+              "The DB-event path in parse_xfer_event() takes mhi_chan->lock as a write lock for OOB/DB_MODE events, explicitly because another thread could update the doorbell register (comment at lines 584-589).",
+              "That path sets mhi_chan->db_cfg.db_mode = 1 at line 682 and, under only a read-side pm_lock, may call mhi_ring_chan_db() at line 686.",
+              "A queueing thread in mhi_queue() finishes mhi_gen_tre(), which releases mhi_chan->lock, then takes only a read-side pm_lock at line 1141 and calls mhi_ring_chan_db() at line 1156 without holding mhi_chan->lock.",
+              "mhi_ring_chan_db() invokes db_cfg.process_db() at line 149; for mhi_db_brstmode(), that code reads db_mode, writes db_val, writes the doorbell, and clears db_mode at lines 100-103.",
+              "Because the queue path and DB-event path do not share an exclusive lock for db_cfg, reads/writes of db_mode and db_val can overlap, and one path can clear or overwrite state set by the other."
+            ],
+            "impact": "The driver can lose or mis-order burst-mode doorbell state changes, causing a required doorbell write to be skipped or state to be cleared based on a stale observation. At minimum, db_mode/db_val are plain shared fields with unsynchronized concurrent accesses; with the surrounding doorbell protocol, that can stall queued transfers or notify hardware with stale values.",
+            "counterevidence_checked": "The DB-event path uses mhi_chan->lock as a write lock, but mhi_queue() does not hold that lock while ringing the channel doorbell. Both paths may hold pm_lock only for reading, so pm_lock does not exclude them. mhi_gen_tre() briefly takes mhi_chan->lock, but it releases the lock before mhi_queue() calls mhi_ring_chan_db(). The supplied source provides no atomic/READ_ONCE/WRITE_ONCE protection for db_cfg fields.",
+            "unresolved": [
+              "The exact hardware-visible consequence depends on the burst-mode doorbell protocol implemented by controller-specific process_db choices and the device, which are not fully supplied. The unsynchronized shared-state access itself is visible in the supplied source."
+            ]
+          },
+          {
+            "title": "IRQ/event notification can dereference mhi_chan->mhi_dev while device removal may drop the last reference",
+            "kind": "object lifetime / publication",
+            "status": "needs_external_evidence",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 468
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 470
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 473
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 312
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 316
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 323
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 330
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 331
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 352
+              }
+            ],
+            "concurrent_entries": "mhi_irq_handler() for a client-managed event ring can run concurrently with mhi_destroy_device() removing the same MHI device, unless callers or the IRQ framework quiesce the IRQ/tasklet paths before destruction.",
+            "shared_state": "mhi_chan->mhi_dev and the struct mhi_device/device object referenced through it, including mhi_dev->dev.driver used by mhi_notify().",
+            "interleaving": [
+              "mhi_irq_handler() handles a client-managed event ring and loads mhi_event->mhi_chan and then mhi_chan->mhi_dev at lines 468-470.",
+              "Concurrently, mhi_destroy_device() for that device drops channel-held references with put_device() at lines 316 and/or 323, calls device_del() at line 330, and drops another reference at line 331.",
+              "If those puts release the last references and no IRQ-side reference is held, the mhi_device can be freed or detached while the IRQ handler still has the raw pointer.",
+              "The IRQ handler then calls mhi_notify() at line 473, which dereferences mhi_dev->dev.driver at line 352 and can invoke the driver's status callback."
+            ],
+            "impact": "Possible use-after-free or callback into a driver for a device that has already been removed, if destruction is not externally serialized with IRQ/event processing and if no independent reference keeps mhi_dev alive for the handler duration.",
+            "counterevidence_checked": "The supplied mhi_irq_handler() checks mhi_cntrl->mhi_ctxt but does not take a reference on mhi_dev and does not lock against mhi_destroy_device(). mhi_destroy_device() does not clear mhi_chan->mhi_dev in the shown code. No IRQ disable, tasklet kill, or event-ring quiescing is shown around device_del()/put_device() in these files.",
+            "unresolved": [
+              "Whether every caller of mhi_destroy_device() first disables/freezes the relevant IRQs/tasklets and waits for in-flight handlers.",
+              "Whether the device-core iteration/removal path or MHI bus code outside these files holds a reference that covers raw mhi_chan->mhi_dev uses in IRQ context.",
+              "Whether channel teardown outside these files clears mhi_chan->mhi_dev only after all event callbacks are quiesced."
+            ]
+          }
+        ],
+        "limitations": [
+          "Only the supplied files were reviewed; definitions and callers in other MHI host files, common headers, controller drivers, and device-core/bus glue are not present.",
+          "External API contracts for MHI client drivers, especially whether queue operations and transfer teardown must be serialized by clients, are not supplied.",
+          "Controller-specific implementations of read_reg/write_reg, runtime_get/runtime_put, wake_toggle, status_cb, and db_cfg.process_db beyond the shown generic helpers are not supplied.",
+          "IRQ/tasklet teardown ordering around mhi_destroy_device() is not shown, so the lifetime finding remains conditional on missing quiescing/reference guarantees."
+        ]
+      },
+      "tools_called": {
+        "submit_report": 1
+      },
+      "token_usage_complete": true,
+      "review_complete": false,
+      "model_calls": 1,
+      "usage": {
+        "requests": 1,
+        "input_tokens": 27671,
+        "output_tokens": 6445,
+        "total_tokens": 34116,
+        "cached_input_tokens": 0,
+        "reasoning_tokens": 4090
+      },
+      "seconds": 88.15487744659185
+    },
+    "indexed": {
+      "arm": "indexed",
+      "model": "gpt-5.5-2026-04-24",
+      "status": "submitted",
+      "report": {
+        "summary": "Reviewed drivers/bus/mhi/host/internal.h, main.c, and trace.h for races, atomicity violations, and lifetime/publication issues. The strongest source-supported issue is that mhi_queue() performs the ring-space check outside the channel write lock used by mhi_gen_tre(), allowing concurrent queue callers on the same channel to overcommit the transfer/buffer rings. I also found two lifecycle/concurrency hazards that require external caller/framework facts to confirm: queueing concurrent with unprepare/reset, and channel mhi_dev pointers remaining published while device references are dropped.",
+        "findings": [
+          {
+            "title": "Transfer ring space check is not atomic with enqueue",
+            "kind": "atomicity",
+            "status": "supported_by_source",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1133
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1137
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1194
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1231
+              }
+            ],
+            "concurrent_entries": "Two concurrent mhi_queue_buf() and/or mhi_queue_skb() calls on the same mhi_device direction, reaching mhi_queue() for the same mhi_chan.",
+            "shared_state": "mhi_chan->tre_ring and mhi_chan->buf_ring, especially ring->wp/rp and the descriptor slots addressed by buf_ring->wp and tre_ring->wp.",
+            "interleaving": [
+              "Assume the channel ring has exactly one usable free element.",
+              "Thread A enters mhi_queue() and mhi_is_ring_full() returns false at line 1133.",
+              "Thread B enters mhi_queue() on the same channel and also observes the same not-full state at line 1133.",
+              "Thread A enters mhi_gen_tre(), obtains mhi_chan->lock, writes the TRE/buffer metadata, advances tre_ring->wp and buf_ring->wp at lines 1231-1232, then unlocks.",
+              "Thread B then obtains mhi_chan->lock in mhi_gen_tre(), but there is no full check under that lock; it writes another descriptor at the now-full ring position and advances the write pointers again.",
+              "The ring invariant that one slot remains empty can be broken, causing descriptor overwrite or producer/consumer pointer ambiguity."
+            ],
+            "impact": "A concurrent producer can corrupt transfer-ring or buffer-ring state, potentially losing buffers, confusing completion processing, or causing later DMA unmap/callback handling to operate on the wrong descriptor.",
+            "counterevidence_checked": "mhi_gen_tre() serializes descriptor writes with mhi_chan->lock, but the only capacity check in mhi_queue() is before that lock is acquired. mhi_prepare_channel() uses a mutex for its pre-allocation path, but exported queue APIs do not take that mutex. No in-file comment or locking in these paths requires callers to serialize queueing per channel.",
+            "unresolved": [
+              "The supplied files do not state whether the public MHI queue API has an external contract requiring clients to serialize all queue submissions per channel. Such a contract would be needed to refute this interleaving."
+            ]
+          },
+          {
+            "title": "Queueing can race with channel unprepare/reset unless externally serialized",
+            "kind": "atomicity",
+            "status": "needs_external_evidence",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1120
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1194
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1421
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1426
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1562
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 1573
+              }
+            ],
+            "concurrent_entries": "mhi_unprepare_from_transfer()/mhi_unprepare_channel() on a channel racing with mhi_queue_buf() or mhi_queue_skb() on the same channel.",
+            "shared_state": "mhi_chan->ch_state, mhi_chan->tre_ring, mhi_chan->buf_ring, mapped buffer descriptors, and callbacks associated with queued buffers.",
+            "interleaving": [
+              "Thread A unprepares a channel and sets mhi_chan->ch_state to MHI_CH_STATE_DISABLED under mhi_chan->lock at lines 1421-1423.",
+              "Thread A continues into mhi_reset_chan() and mhi_reset_data_chan(), which walks tre_ring->rp to tre_ring->wp and unmaps/frees or callbacks pending buffers at lines 1573-1593 without holding mhi_chan->lock.",
+              "Thread B concurrently calls mhi_queue_buf()/mhi_queue_skb(). mhi_queue() checks PM state and ring fullness, but does not check ch_state or take mhi_chan->mutex.",
+              "Thread B enters mhi_gen_tre(), takes mhi_chan->lock, and publishes a new descriptor even though the channel is being reset or has been disabled.",
+              "Thread A may concurrently advance ring read pointers and unmap/free buffers, or may finish reset/deinit while Thread B has just added a descriptor."
+            ],
+            "impact": "A buffer can be queued after the channel has been disabled or while reset cleanup is consuming descriptors, leading to lost descriptors, callbacks after teardown, DMA mapping lifetime errors, or ring pointer corruption.",
+            "counterevidence_checked": "mhi_unprepare_channel() uses mhi_chan->mutex, but mhi_queue() does not. Event completion paths check ch_state before processing transfer events, but mhi_queue()/mhi_gen_tre() do not check ch_state before enqueueing. mhi_reset_data_chan() manipulates ring pointers without taking mhi_chan->lock.",
+            "unresolved": [
+              "The missing fact is whether all callers are externally required to stop and drain client queue submissions before mhi_unprepare_from_transfer() can run, and whether that serialization is guaranteed by the MHI bus/driver core outside these files."
+            ]
+          },
+          {
+            "title": "Channel mhi_dev pointer remains published while device references are dropped",
+            "kind": "lifetime",
+            "status": "needs_external_evidence",
+            "locations": [
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 397
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 412
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 316
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 323
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 330
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 331
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 470
+              },
+              {
+                "path": "drivers/bus/mhi/host/main.c",
+                "line": 473
+              }
+            ],
+            "concurrent_entries": "mhi_destroy_device() for an MHI transfer device racing with mhi_irq_handler() for a client-managed event ring, or with event processing paths that invoke mhi_chan->xfer_cb(mhi_chan->mhi_dev, ...).",
+            "shared_state": "mhi_chan->mhi_dev and the lifetime of the referenced struct mhi_device/device object.",
+            "interleaving": [
+              "mhi_create_devices() publishes a device pointer into one or two channels at lines 397 and 412 and takes per-channel device references.",
+              "Thread A runs mhi_destroy_device(), drops those per-channel references with put_device() at lines 316 and/or 323, removes the device at line 330, and drops another reference at line 331.",
+              "The function does not clear ul_chan->mhi_dev or dl_chan->mhi_dev before or after dropping these references.",
+              "Thread B concurrently handles an interrupt for a client-managed ring, reads mhi_chan->mhi_dev at line 470, and if non-NULL calls mhi_notify() at line 473, dereferencing the possibly removed/freed device. Similar uses occur in transfer completion callbacks through mhi_chan->mhi_dev."
+            ],
+            "impact": "If destruction is not serialized with interrupts/event processing and the object can be freed after the put_device() calls, stale channel pointers can lead to use-after-free or callbacks on an unregistered device. Even without immediate concurrency, leaving a non-NULL stale pointer could prevent later mhi_create_devices() from recreating the device because it skips channels with mhi_chan->mhi_dev set.",
+            "counterevidence_checked": "The supplied destroy path drops references and removes the device but does not clear channel pointers. mhi_irq_handler() checks only whether the pointer is non-NULL and takes no reference or lock before notifying. No cancellation of IRQs/tasklets or global device/channel lock is visible in these files.",
+            "unresolved": [
+              "The supplied files do not show the callers of mhi_destroy_device(); a caller might disable IRQs/tasklets and quiesce all event processing before invoking it.",
+              "The struct mhi_device release implementation is not supplied; it might clear mhi_chan->mhi_dev before the memory is freed. That fact is required to decide whether the stale publication is a real UAF.",
+              "The broader MHI device-core lifetime rules for mhi_device references are not present in these files."
+            ]
+          }
+        ],
+        "limitations": [
+          "Only the three supplied files were reviewed. Definitions and release callbacks for struct mhi_device, struct mhi_controller, and common MHI helpers are not included.",
+          "Callers of mhi_create_devices(), mhi_destroy_device(), mhi_prepare_for_transfer(), mhi_unprepare_from_transfer(), and mhi_send_cmd() are not included, so external serialization, IRQ cancellation, and lifecycle ordering guarantees could not be verified.",
+          "Indirect callbacks such as runtime_get/runtime_put, wake_toggle, status_cb, xfer_cb, map_single, unmap_single, read_reg, and write_reg are opaque here; their locking and lifetime effects were not assumed.",
+          "The static scenario checklist was treated only as organizational hints; findings above are based on source-visible interleavings and noted missing facts."
+        ]
+      },
+      "tools_called": {
+        "submit_report": 1
+      },
+      "token_usage_complete": true,
+      "review_complete": false,
+      "model_calls": 1,
+      "usage": {
+        "requests": 1,
+        "input_tokens": 31047,
+        "output_tokens": 6606,
+        "total_tokens": 37653,
+        "cached_input_tokens": 0,
+        "reasoning_tokens": 4430
+      },
+      "seconds": 91.15916426479816
+    }
+  },
+  "manual_assessment": [
+    {
+      "root": "queue versus unprepare/reset",
+      "baseline_finding": null,
+      "indexed_finding": 2,
+      "assessment": "Known-root candidate in indexed arm, conditional and incomplete; not a fully established detection by the model.",
+      "reason": "The indexed report names the same queue/unprepare pair and missing ch_state check in mhi_gen_tre as the known fix. It emphasizes reset/enqueue interference and does not fully establish the post-deinitialization dereference. The baseline report has no finding for this root.",
+      "posthoc_evidence": [
+        "main.c:1194 acquires channel lock; lines 1196-1200 use ring pointers without checking ch_state",
+        "main.c:1421-1427 disables channel, resets it, and calls mhi_deinit_chan_ctxt",
+        "init.c:625-630 frees descriptor buffers and clears ring state",
+        "fix 0686a818d77a431fc3ba2fab4b46bbb04e8c9380 adds an enabled-state check under the channel lock"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "root": "same-channel concurrent producers overfill ring",
+      "baseline_finding": 1,
+      "indexed_finding": 1,
+      "assessment": "Unconfirmed candidate; model supported_by_source label is too strong for end-to-end reachability.",
+      "reason": "Both identify a genuine separation of capacity check and enqueue locking, but both explicitly leave client serialization unresolved. Public API comments inspected do not establish a serializing contract; actual concurrent call paths were not established in this pilot.",
+      "posthoc_evidence": [
+        "main.c:1133 checks capacity before mhi_gen_tre",
+        "main.c:1194 and 1231-1234 serialize enqueue without rechecking capacity",
+        "include/linux/mhi.h:774-794 lists queue API parameters without resolving same-channel concurrent caller guarantees"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "root": "doorbell burst-mode state synchronization",
+      "baseline_finding": 2,
+      "indexed_finding": null,
+      "assessment": "Locally source-supported race candidate; configuration/reachability, hardware impact and repair history not fully audited.",
+      "reason": "The queue path rings after releasing the channel lock, while the DB event path takes a channel write lock. Their PM read locks do not mutually exclude them. The candidate is conditional on use of the relevant burst-mode path and has not been reproduced or established as novel.",
+      "posthoc_evidence": [
+        "main.c:100-103 updates db_mode/db_val",
+        "main.c:591 and 682-688 DB event path",
+        "main.c:1141-1161 queue doorbell path"
+      ],
+      "dynamic_reproduction": false
+    },
+    {
+      "root": "device-pointer lifetime during destruction",
+      "baseline_finding": 3,
+      "indexed_finding": 3,
+      "assessment": "Unresolved general concurrency claim with concrete counterevidence; permanent uncleared-pointer subclaim contradicted.",
+      "reason": "mhi_release_device clears channel mhi_dev pointers before freeing. One shutdown path disables IRQs and kills tasklets before mhi_destroy_device. Those facts weaken the reports; they do not by themselves prove every destruction path safe.",
+      "posthoc_evidence": [
+        "init.c:1222-1238 mhi_release_device clears both channel pointers then kfree",
+        "pm.c:525-542 disables IRQ and kills tasklet before device destruction",
+        "other destruction callers remain outside a complete lifecycle audit"
+      ],
+      "dynamic_reproduction": false
+    }
+  ],
+  "evaluation_protocol": {
+    "primary": "Match the known fix by shared state, concurrent operations and causal failure, not by CVE/name overlap.",
+    "additional_findings": [
+      "source-supported but not reproduced",
+      "requires external evidence",
+      "contradicted by source or duplicate"
+    ],
+    "efficiency": [
+      "provider input/completion/total tokens",
+      "cached input tokens included in input count",
+      "reasoning tokens included in completion count",
+      "actual request count",
+      "wall time per arm",
+      "static query count and types"
+    ],
+    "review_scope": "Reading source or index pages is not evidence of exhaustive candidate review.",
+    "controls": [
+      "same complete source text and common system instructions",
+      "same model, medium reasoning, request and completion limits",
+      "no baseline answer passed to indexed arm",
+      "no labels or patches available to detector",
+      "freeze both outputs before inspecting labels"
+    ],
+    "limitations": [
+      "single known-bug case",
+      "one run per arm",
+      "unequal actual reasoning/tool trajectories despite equal limits",
+      "no negative controls",
+      "no dynamic reproduction",
+      "cannot infer significance, general recall or novel-vulnerability yield"
+    ]
+  },
+  "evidence": {
+    "fix": "0686a818d77a431fc3ba2fab4b46bbb04e8c9380",
+    "fix_parent": "cba6bdfd79291b82422b6e6b4036ebc076d5625f",
+    "input_main_matches_fix_parent": true,
+    "review_source_sha256": {
+      "drivers/bus/mhi/host/main.c": "bb17c67f3b1e714d02151ca749df2779c7876f6288888e175ef30c6dae1b5e54",
+      "drivers/bus/mhi/host/init.c": "f4da5894eebc14d612c366f2260deea03f68e4796383623d486706736d76c7d0",
+      "drivers/bus/mhi/host/pm.c": "901a4eaea3d2736e2b46001d7f77e52f93430212ed4ce4cbc97bd71354a4e426",
+      "include/linux/mhi.h": "569fccd71fe3521b197540c49cbf9f0b8e085f116c65154e410631d01bb9ca4b"
+    },
+    "raw_artifact_hashes": {
+      "baseline/initial-messages.json": "fe30ae5cde2a1b0c256c3d19e389ba2571bf38384d01c2b2f11ce966dca583c5",
+      "baseline/input-manifest.json": "ef67f8db41339ff45fcfa08b42928472244cff3b8619b8118395065bcfe17bd0",
+      "baseline/progress.json": "cbb2eb6c834ff6085cfda19a64b4f58ee346ffd308e1423d324224be6fd7aecf",
+      "baseline/request-0.json": "f56833736d614c826c73fb2d33e04ae22c0c8653cc3eb2b5020cb21bfadbbfce",
+      "baseline/response-0.json": "3a9bcc50599652ce0a056f000bf45afc5fb92c95918ad1b8b61c243aeb333d14",
+      "baseline/result.json": "755787d7243b3e394d826800ad4baf2e4206893112ebc8416610116baab997dc",
+      "baseline/started.json": "3dc48b343874e65914705d5e6554875f83bce5b9eb64d9731286335ee6694369",
+      "baseline/tool-results-0.json": "74257943ec868fd2da583dda0d4450dd9222ed7435b865ec612ea5eb5ad7b6a9",
+      "baseline/tools.json": "07b04de75411cdc8f4a145a0b90bd2e8b7d74add07f12395f48d1c4b3a6e5246",
+      "baseline/transcript.json": "edeff4dcb6840bcd31e0d1dcff7ecd537d64dd4e26daff8db4783e54d096ebc6",
+      "baseline.log": "46cbeabfcb2560db308394363735c435cae6b4b6a98a3c51253d47a65d225e47",
+      "experiment.json": "43b5426ef9911b49864add953909b9f57a14fdde2bbc1d363466e5e981543a21",
+      "indexed/initial-messages.json": "fddb00093e8162311f37c4f545723d6eeffd773b3aa9c26ac8bc4bbb3ca9a4c7",
+      "indexed/input-manifest.json": "ef67f8db41339ff45fcfa08b42928472244cff3b8619b8118395065bcfe17bd0",
+      "indexed/progress.json": "9c9822956c8a1c208e2e0798c2c198ecf3b60fc943e4357950c74ef2281961fc",
+      "indexed/request-0.json": "f562c568516c6af4be0df7d4f4bedfd1fec1778f5aa4e6e873262289c28de8a7",
+      "indexed/response-0.json": "b0e7bcc37bb5b81cc05e23f668bc9daa811e3be858c9d08910afe79b03d8ac0b",
+      "indexed/result.json": "97be95765e642e276d5df28b409d6313006018df0c6b70e3cf1421bb121bfd42",
+      "indexed/started.json": "9b10c68e62da7ed78048c8911cae5cb80cd3d436b7896e8bafdea5697112eb46",
+      "indexed/tool-results-0.json": "061a0bcb3c9769e91319f9a84b5e71aad82689d7cfb96901676b50eea2a4713d",
+      "indexed/tools.json": "0c811c7dab7c63e25ef44e0d386edd52ddc98e2b0f582f02f89431a074add8fe",
+      "indexed/transcript.json": "590b63adbdb9ed224b45f01f9ed5ca3f0a233b4d0fd6c4e4e1b1f464248a9c39",
+      "indexed.log": "020cf82c679f0457d4567b42aa52757f222e70d3ac9f5be4d864a76f458a2985"
+    },
+    "model_outputs_frozen_before_label_review": true
+  },
+  "conclusions": [
+    "The indexed arm added a candidate matching the known root while the baseline did not report it; the candidate remained conditional and did not fully demonstrate the official failure chain.",
+    "Neither arm queried static facts or additional source; this observed comparison is source versus source plus scenario directory, not demonstrated benefit from index retrieval.",
+    "Both arms produced three findings. Unverified findings must not be counted as additional confirmed vulnerabilities.",
+    "The single stochastic pair does not establish causality, superiority, recall or novel-bug yield.",
+    "Next workflow hypothesis: use explicit unresolved conditions to request caller/callee/lifetime evidence across files, preserving unreviewed scope."
+  ]
+}

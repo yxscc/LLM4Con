@@ -121,6 +121,36 @@ size, not proposed model limits. The record includes the implementation and IR
 hashes. Compare the independent-scenario, planned-session, and whole-input
 source baselines before drawing conclusions about model cost or bug detection.
 
+### Bounded source / scenario pilot
+
+`lace3.eval.scenario_ab` is an experimental adapter for comparing full source
+with the same full source plus a complete scenario directory and static-query
+tools. It does not implement the production review/coverage ledger. Both arms
+use the same audit instructions, source-reading tool and report schema. Run
+each arm into a fresh directory; labels and patches are never detector inputs.
+
+```
+python -m lace3.eval.scenario_ab --src path/to/src --index out/relations \
+  --plan out/scenarios --out out/pilot-baseline --arm baseline --offline
+# Paid calls only within an authorized experiment; requires openai and tiktoken:
+python -m lace3.eval.scenario_ab --src path/to/src --index out/relations \
+  --plan out/scenarios --out out/pilot-baseline --arm baseline \
+  --max-requests 4 --token-budget 150000 --max-output-tokens 8192
+python -m lace3.eval.scenario_ab --src path/to/src --index out/relations \
+  --plan out/scenarios --out out/pilot-indexed --arm indexed \
+  --max-requests 4 --token-budget 150000 --max-output-tokens 8192
+```
+
+The request count and completion cap are explicit client limits. Token
+admission uses `o200k_base` with a 20% + 512 reserve; this remains an estimate
+for the configured model/gateway. Actual provider usage is accumulated after
+every response, including unsuccessful report submissions. Unknown usage and
+API errors stop that arm without automatic retries. Requests, responses,
+tools, final reports and limits are saved for audit. A submitted report or a
+retrieved page does not mean the indexed candidates were exhaustively reviewed.
+Freeze both outputs before consulting evaluation labels or historical fixes.
+A single pair is a feasibility probe, not a recall or statistical comparison.
+
 ### Legacy detection pipeline
 
 ```
