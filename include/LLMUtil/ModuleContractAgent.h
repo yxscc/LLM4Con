@@ -25,6 +25,8 @@ private:
     std::string sourcePacket();
     std::string execute_tool(const std::string&, const nlohmann::json&) override;
     std::vector<Tool> get_available_tools() const override;
+    // Both phases terminate through a validated finalize_* tool, not prose.
+    std::string get_tool_choice() const override { return "required"; }
     std::vector<int> validNodes(const nlohmann::json&, const char*, bool required = true) const;
     void initializeRepositoryContext();
     nlohmann::json buildCallInventory() const;

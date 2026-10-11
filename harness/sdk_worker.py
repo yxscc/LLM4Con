@@ -102,7 +102,11 @@ async def run(request):
                       model_settings=ModelSettings(parallel_tool_calls=False,
                           reasoning=Reasoning(effort=reasoning) if reasoning else None,
                           tool_choice=request.get("tool_choice", "auto") if request["tools"] else None),
-                      tools=[make_tool(t) for t in request["tools"]], tool_use_behavior=finished)
+                      tools=[make_tool(t) for t in request["tools"]], tool_use_behavior=finished,
+                      # SDK defaults reset tool_choice after the first call.
+                      # Structured workflows must retain it until their validated
+                      # finish tool succeeds (or the explicit budget is hit).
+                      reset_tool_choice=request.get("tool_choice", "auto") != "required")
         history = list(request.get("history", []))
         history.append({"role": "user", "content": request["input"]})
         # None means no turn cap; a user-selected cap raises MaxTurnsExceeded,

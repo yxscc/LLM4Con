@@ -30,6 +30,7 @@ def main():
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+            assert body.get('tool_choice') == 'required', 'Every module phase turn must use a tool, including finalization'
             state["calls"] += 1
             messages = body["messages"]
             if state["next"] == "start":

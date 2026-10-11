@@ -76,6 +76,8 @@ the SDK worker; direct C++ users set `LACE_PYTHON=/path/to/venv/bin/python`.
 exhaustion returns an error and retains the incomplete ledger. `0` disables the
 turn cap. `LACE_LLM_TIMEOUT` controls the SDK request timeout. Entry configuration
 is inherited from v2 and recorded as automatic/configured in `run.json`.
+Module phases retain SDK `tool_choice=required` across turns and terminate only
+when their validated `finalize_*` tool succeeds; a prose claim is not completion.
 
 Read `module_contracts.json` for the complete requirement/guarantee/review ledger,
 source manifest, coverage gaps and first checker witnesses. `llm_simplified_trace.log`
