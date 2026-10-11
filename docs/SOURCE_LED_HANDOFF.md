@@ -118,7 +118,43 @@ Full scripted test artifacts are separate under remote
 `/tmp/lace-source-led-validation-final-20261011`; the local summary is
 `../analysis_outputs/lace-source-led-20261011/summary.json` relative to the repo.
 Existing paper/full optimized and previous real three-case experiment archives
-were not changed. No new real-model recall result is established by this refactor.
+were not changed. These initial scripted tests establish no model recall result.
+
+## No-AST observation correction and real pilot (2026-10-11)
+
+Implementation commit `8f66600b24631700da75fe6329c7d8ef82ebe904` removes
+automatic AST/IR candidate records from source-anchor replies, exposes only
+on-demand IR instruction queries, and returns a paginated compact callsite index.
+The complete backend graph is unchanged. Source-only snapshots are passed to E;
+debug-line candidate counts never establish operation equivalence automatically.
+Three updated scripted tests passed with the default six-pattern catalog. They
+exercise a whole-source-file anchor without graph records, explicit AST query
+rejection, source-filtered IR pagination, compact callsite pagination, retained
+source-only requirements and report output. These remain synthetic tests. Both
+CTests and all 12 Python SDK/repository tests passed again.
+
+One real pilot used `gpt-5.5-2026-04-24`, official OpenAI/Agents SDK, the pinned
+source revision and no GT inputs, with 48 turns per phase. CVE-2024-26984 completed
+extraction and final review: 8 Req, 4 Gua, one final source-supported report.
+Post-run manual GT/patch comparison matches the maps/refcount publication and
+`memory.ptrs` visibility defect: the fix adds paired `smp_wmb`/`smp_rmb`.
+It was not dynamically reproduced. All eight E results are
+`requires_semantic_review` due to source operands; the report is the Agent's
+source-review conclusion, NOT a static or weak-memory proof.
+
+The preceding completed same-case run at `5d16c69` produced no reports and used
+13,489,683 cumulative input tokens, 53 API requests, 705 seconds. The new pilot
+used 4,677,155 input tokens, 76 requests, 784 seconds. Input decreased 65.33%, but
+runtime did not decrease. This is one run per implementation with differing
+prompts/trajectories and turn caps (96 vs 48), not a controlled ablation or a
+general recall result. Token totals do not establish provider billing/cache cost.
+
+Local full traces and summary: `../analysis_outputs/lace-no-ast-20261011/`.
+Remote real run: `/mlx_devbox/users/mayunlong.39/playground/lace-no-ast-real-20261011/`.
+The previous three-case batch was terminated at the user's request and preserved
+separately. Next priority is backend source-operation grounding: avoid requiring
+the Agent to enumerate/translate IR, preserve ambiguity, and provide usable E
+evidence without silently turning debug-location coincidences into proofs.
 
 ## Next evaluation
 
