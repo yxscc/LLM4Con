@@ -59,8 +59,8 @@ basis. Scope that the checker cannot represent remains conditional for review.
 The extraction task separates ordinary source facts (`record_protocol`),
 concurrency obligations (`add_requirement`) and actual synchronization effects
 (`add_guarantee`). It defines each form, requires the mechanism/domain for a
-guarantee, and gives positive/negative examples for construction, error returns,
-completion handoff, compound transactions, BH scope and RCU reclamation.
+guarantee, and gives two contrasting examples: local construction order and a
+completion handoff between producer and consumer.
 `unconditional=false` cannot turn local program order into a guarantee. `Wait`
 includes source-anchored enabling events/conditions, not only activity termination.
 The exact task text is retained as `agent_instructions` in `module_contracts.json`

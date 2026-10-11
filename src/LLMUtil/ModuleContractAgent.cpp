@@ -100,29 +100,11 @@ CLASSIFICATION EXAMPLES (illustrative operations, never usable node IDs)
    do not emit Order(initialization, assignment/return). If another activation
    reads this object, the safety requirement may be initialization-before-read.
    Investigate the actual publication/handoff before declaring its guarantee.
-2. free_packet(packet); return error;
-   Free-before-return and no later local dereference are source facts, not
-   synchronization guarantees. Concurrent packet users need a separate lifetime
-   or ownership analysis; this local fact does not establish their safety.
-3. Producer writes state and signals completion; consumer successfully waits
+2. Producer writes state and signals completion; consumer successfully waits
    for that matching completion before reading state.
    Requirement: producer writes must precede the consumer read. Guarantees:
    Wait(matching signal, wait continuation), and Order where the complete
    source-backed synchronization chain establishes the write/read handoff.
-4. A uniqueness check and insertion must not be disrupted by another insertion.
-   This may justify MustBeAtomic(check,insert). A shared lock covering the whole
-   transaction and the interfering paths can supply Exclude and AtomicOp.
-   A lock covering only the check does not establish atomicity of the sequence.
-5. An API says 'local BH must be disabled' for access to a per-CPU resource.
-   Treat the statement as protocol evidence. Identify the conflicting cache
-   activations and express their required mediation. If actual code disables BH
-   around the relevant operations, its exclusion has the applicable same-CPU
-   softirq scope; it does not imply exclusion of activity on every CPU.
-6. Removal/retirement, grace-period waiting, then reclamation.
-   Requirement: relevant uses finish before reclaim. Establish the removal and
-   acquisition protocol and which preexisting readers the grace period covers.
-   RCU readers can overlap writers; do not label the read-side section a mutex.
-   Do not infer that a grace-period wait alone prevents future acquisitions.
 
 EVIDENCE AND OUTPUT
 Use get_object/get_function_ops to bind contracts to real CCPG IDs. Source line
