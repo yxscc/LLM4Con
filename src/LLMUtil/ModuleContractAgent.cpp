@@ -31,7 +31,7 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
     data_={{"schema","lace-source-contracts-v1"},{"requirements",J::array()},{"guarantees",J::array()},
         {"source_operations",J::object()},{"protocols",J::array()},{"pattern_reviews",J::object()},
         {"reviews",J::object()},{"checks",J::object()},{"gaps",J::array()},{"source_manifest",J::array()},
-        {"harness","openai-agents"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
+        {"harness","openai-agents"},{"observation_format","source-first-no-ast-v1"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
         {"graph_coverage",model_.at("coverage")}};
     for (const auto& f:model_["functions"]) functions_.insert(f.at("name"));
     initializeRepositoryContext();
@@ -69,11 +69,13 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     auto tools=SharedToolKit::get_source_tools(); auto rt=repositoryTools(); tools.insert(tools.end(),rt.begin(),rt.end());
     tools.push_back({"get_module_functions","Query all source/IR function representations; these are not parallel entries. Pagination retains all rows.",
         {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
-    tools.push_back({"get_operations","Query actual operations by source coordinates and/or function. Debug coordinates are navigation; inspect code before selecting an IR operation. Pagination never truncates the stored model.",
+    tools.push_back({"get_operations","On-demand IR evidence only; never returns AST nodes. Filter narrowly by function/file/lines or a registered source_id. Coordinates are navigation, not proven source equivalence. Pagination retains every matching instruction.",
         {{"function_id","integer","Function representation ID, or -1 for any.",true},{"path","string","File path or suffix, or empty.",true},
          {"first_line","integer","Inclusive lower bound, or 0 for any.",true},{"last_line","integer","Upper bound, or 0 for any.",true},
-         {"origin","string","source, ir, or empty.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000.",true}}});
-    tools.push_back({"get_source_operation","Preserve a concrete operation in the supplied source snapshot, including operations absent from both source graph and IR. Returns candidate graph bindings without asserting equivalence.",
+         Parameter("origin",J{{"type","string"},{"enum",{"ir"}}},true),
+         {"source_id","string","Optional registered module source ID to restrict the query to its coordinates.",false},
+         {"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000.",true}}});
+    tools.push_back({"get_source_operation","Register source evidence with path/lines/text and unbound IR candidate count. Returns no AST or IR node records. Source-only requirements are valid; detailed IR evidence is optional via get_operations.",
         {{"path","string","Exact module-relative path.",true},{"first_line","integer","First line, 1-based.",true},{"last_line","integer","Last line, inclusive.",true}}});
     tools.push_back({"get_source_operations","Batch validated source anchors; no graph binding is silently invented.",
         {Parameter("operations",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"path",{{"type","string"}}},{"first_line",{{"type","integer"}}},{"last_line",{{"type","integer"}}}}},{"required",{"path","first_line","last_line"}},{"additionalProperties",false}}}},true)}});
@@ -123,11 +125,24 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
     if (name=="get_module_functions"||name=="get_operations") {
         int offset=args.at("offset"),limit=args.at("limit"); if (offset<0||limit<1||limit>1000) throw std::invalid_argument("Invalid page");
         const auto origin=args.at("origin").get<std::string>(); if (origin!=""&&origin!="source"&&origin!="ir") throw std::invalid_argument("Invalid origin");
+        if (name=="get_operations"&&origin!="ir") throw std::invalid_argument("Operation queries expose IR evidence only; read original source instead of AST nodes");
+        J anchor;
+        if (name=="get_operations"&&!args.value("source_id",std::string()).empty()) {
+            auto id=args.at("source_id").get<std::string>();
+            if (!data_["source_operations"].contains(id)) throw std::invalid_argument("Unknown module source operation");
+            anchor=data_["source_operations"].at(id);
+        }
         J rows=J::array();
         for (const auto& row:model_.at(name=="get_module_functions"?"functions":"nodes")) {
             if (!origin.empty()&&row.at("origin")!=origin) continue;
             if (name=="get_module_functions") { if (!args.at("name").get<std::string>().empty()&&row.at("name")!=args.at("name")) continue; }
             else {
+                if (row.at("kind")=="Method") continue;
+                if (!anchor.is_null()) {
+                    int line=row.at("line");
+                    if (!matchesSourcePath(row.at("file").get<std::string>(),anchor.at("path").get<std::string>())||
+                        line<anchor.at("first_line").get<int>()||line>anchor.at("last_line").get<int>()) continue;
+                }
                 if (args.at("function_id").get<int>()>=0&&row.at("function_id")!=args.at("function_id")) continue;
                 auto path=args.at("path").get<std::string>(),file=row.at("file").get<std::string>();
                 if (!path.empty()&&file!=path&&(file.size()<=path.size()||file.substr(file.size()-path.size()-1)!="/"+path)) continue;
@@ -249,9 +264,9 @@ void ModuleContractAgent::save(const std::string& error) const {
     for (const auto& p:data_["pattern_reviews"].items()) if (p.value().at("status")=="unknown") ++unknown;
     for (const auto& p:data_["protocols"]) if (p.at("status")=="unknown") ++unknown;
     for (const auto& r:data_["requirements"]) { std::string id=r.at("id"); if (!data_["reviews"].contains(id)||data_["reviews"].at(id).at("status")=="unknown") ++unknown; }
-    for (const auto& op:data_["source_operations"].items()) if (op.value().value("graph_candidates",J::array()).empty()) ++unmapped;
+    for (const auto& op:data_["source_operations"].items()) if (op.value().value("ir_candidate_count",size_t(0))==0) ++unmapped;
     report["coverage"]={{"requirements",data_["requirements"].size()},{"catalog_patterns",catalog_["patterns"].size()},
-        {"accounted_patterns",data_["pattern_reviews"].size()},{"unknown_positions",unknown},{"source_anchors_without_graph_candidates",unmapped},
+        {"accounted_patterns",data_["pattern_reviews"].size()},{"unknown_positions",unknown},{"source_anchors_without_ir_candidates",unmapped},
         {"generation_finished",generationFinished_},{"review_finished",reviewFinished_},
         {"workflow_complete",error.empty()&&generationFinished_&&reviewFinished_},
         {"scope","Workflow accounting and supplied-input graph coverage; no guarantee that all concurrency requirements were extracted or proved"}};

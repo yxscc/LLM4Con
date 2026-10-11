@@ -26,7 +26,7 @@ Gua + model rather than replacing it with detached local-fact checklists.
 - `src/LLMUtil/ModuleContractAgent.cpp`: source-first extraction, catalog audit
   positions, no automatic Req/objects/thread IDs, detailed paginated graph tools,
   validated contracts, same-conversation review of ALL requirements and reports.
-- `src/LLMUtil/ModuleRepository.cpp`: real snapshot anchors and graph candidates;
+- `src/LLMUtil/ModuleRepository.cpp`: compact real snapshot anchors and callsite index;
   no inferred equivalence, pinned dependency queries unchanged.
 - `src/LLMUtil/RequirementChecker.cpp`: sufficient-discharge rules over exact
   IR CFG and scoped Gua, cached intraprocedural relations and rule evidence.
@@ -45,13 +45,18 @@ The static core is shared with the direct IR construction regression test.
 
 Source packet covers every supplied C/C++ file. `get_source_operation(s)` checks
 that path/span/text actually exists and retains it under a module source ID.
-Candidate source/IR nodes are only navigation; debug coordinates do not prove
-operation equivalence. The agent inspects candidates before choosing actual IR
-operation IDs. Source-origin numeric operands have no exact CFG discharge in
-this version; source-only and ambiguous operands retain E unknown and enter
+Source registration returns path/lines/text, binding status and an IR candidate
+count, never AST/IR candidate records. Even a unique debug-line candidate is not
+automatically considered equivalent. Optional `get_operations` queries return
+only paginated IR instructions for a registered source ID or narrow coordinates;
+AST operation queries are rejected. Source-only and ambiguous operands retain E unknown and enter
 final review/reporting. Function IDs are rejected as operation operands.
 No placeholder graph operations or execution roots are created for missing code.
 IR-only functions remain available even if Joern retains no corresponding method.
+The source callsite index is paginated and contains only API/function/path/line.
+The full static model is retained on disk/backend, not injected into the Agent.
+Source snapshots are passed to E so its source-only gap records reflect actual
+snapshot presence; this does not establish executable-node correspondence.
 
 ## What E currently establishes
 

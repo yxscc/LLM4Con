@@ -48,9 +48,9 @@ def main():
                     catalog = json.loads(initial.split('\nCatalog: ', 1)[1].split('\nRepository context: ', 1)[0])
                     state['patterns'] = [p['id'] for p in catalog['patterns']]
                     blocks = re.findall(r'<source file=("[^"\n]+")>\n(.*?)</source>', initial, re.S)
-                    path, content = next((json.loads(p), c) for p, c in blocks if len([x for x in c.splitlines() if x.split(': ', 1)[-1].strip()]) >= 2)
+                    path, content = next((json.loads(p), c) for p, c in blocks if Path(json.loads(p)).suffix in {'.c','.cpp','.cc','.cxx'} and len([x for x in c.splitlines() if x.split(': ', 1)[-1].strip()]) >= 2)
                     lines = [int(x.split(':', 1)[0]) for x in content.splitlines() if ': ' in x and x.split(': ', 1)[1].strip()]
-                    state.update(path=path, lines=lines[:2], source_bytes_in_first_prompt=len(initial.encode()))
+                    state.update(path=path, lines=lines[:2], last_line=int(content.splitlines()[-1].split(':',1)[0]), source_bytes_in_first_prompt=len(initial.encode()))
                     name, arguments = 'get_module_functions', {'name': '', 'origin': 'ir', 'offset': 0, 'limit': 1}
                     state['step'] = 'function_page'
                 elif step == 'function_page':
@@ -67,12 +67,36 @@ def main():
                     state['step'] = 'anchors'
                 elif step == 'anchors':
                     assert json.loads(messages[-1]['content'])['rows']
-                    name, arguments = 'get_source_operations', {'operations': [{'path': state['path'], 'first_line': n, 'last_line': n} for n in state['lines']]}
+                    name, arguments = 'get_operations', {'function_id': -1, 'path': '', 'first_line': 0, 'last_line': 0, 'origin': 'source', 'offset': 0, 'limit': 1000}
+                    state['step'] = 'ast_rejected'
+                elif step == 'ast_rejected':
+                    assert 'IR evidence only' in messages[-1]['content'], 'AST query was not rejected'
+                    name, arguments = 'get_source_operations', {'operations': [{'path': state['path'], 'first_line': n, 'last_line': n} for n in state['lines']] + [{'path': state['path'], 'first_line': 1, 'last_line': state['last_line']}]}
+                    state['step'] = 'compact_anchors'
+                elif step == 'compact_anchors':
+                    anchors = json.loads(messages[-1]['content'])
+                    assert len(anchors) == 3 and all(a['operation_equivalence_proved'] is False for a in anchors)
+                    assert all('graph_candidates' not in a and 'nodes' not in a and 'rows' not in a for a in anchors), 'Graph dump leaked into source evidence'
+                    broad=anchors[-1]
+                    assert broad['ir_candidate_count'] > 1 and broad['binding']=='unbound'
+                    state['source_anchor_response_bytes']=len(messages[-1]['content'].encode())
+                    state['anchors'] = [a['source_id'] for a in anchors[:2]]
+                    name, arguments = 'get_operations', {'function_id': -1, 'path': '', 'first_line': 0, 'last_line': 0, 'source_id': broad['source_id'], 'origin': 'ir', 'offset': 0, 'limit': 1}
+                    state['step'] = 'ir_anchor_query'
+                elif step == 'ir_anchor_query':
+                    page=json.loads(messages[-1]['content'])
+                    assert len(page['rows'])==1 and page['next_offset'] is not None
+                    assert page['rows'][0]['origin']=='ir' and page['rows'][0]['kind']!='Method'
+                    name, arguments = 'get_module_calls', {'apis': [], 'offset': 0, 'limit': 1}
+                    state['step'] = 'compact_calls'
+                elif step == 'compact_calls':
+                    page=json.loads(messages[-1]['content'])
+                    assert len(page['rows'])<=1
+                    assert all(set(row)=={'api','path','line','containing_function'} for row in page['rows']), 'AST call records leaked'
+                    name, arguments = 'get_module_calls', {'apis': [], 'offset': page['next_offset'] or page['total'], 'limit': 1}
                     state['step'] = 'invalid_type'
                 elif step == 'invalid_type':
-                    anchors = json.loads(messages[-1]['content'])
-                    assert len(anchors) == 2 and all(a['operation_equivalence_proved'] is False for a in anchors)
-                    state['anchors'] = [a['source_id'] for a in anchors]
+                    assert len(json.loads(messages[-1]['content'])['rows'])<=1
                     state['req'] = {'form': 'CallPrecondition', 'resource': 'OFFLINE SYNTHETIC protocol resource', 'scope': 'synthetic-one-instance',
                         'actors': ['synthetic activation A', 'synthetic activation B'], 'a_nodes': [], 'b_nodes': [],
                         'a_sources': [state['anchors'][0]], 'b_sources': [state['anchors'][1]], 'interference_nodes': [],
@@ -112,6 +136,7 @@ def main():
                     assert len(rows) == 1 and rows[0]['id'] == 'req:0'
                     assert rows[0]['checker_evidence']['status'] == 'requires_semantic_review'
                     assert not rows[0]['checker_evidence']['proof'] and not rows[0]['checker_evidence']['counterexample_constructed']
+                    assert any(gap.get('snapshot_present') is True for gap in rows[0]['checker_evidence']['gaps']), 'Real source snapshot not passed to E'
                     name, arguments = 'review_obligations', {'ids': ['req:0'], 'status': 'source_supported' if args.source_anchors else 'unknown',
                         'evidence_nodes': [], 'witness_nodes': [], 'evidence_sources': state['anchors'],
                         'witness_sources': state['anchors'] if args.source_anchors else [], 'repository_evidence_ids': [],
@@ -155,6 +180,7 @@ def main():
         assert model['parallel_entries_inferred'] is False
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']
+        assert all('graph_candidates' not in op for op in report['source_operations'].values())
         assert len(report['requirements']) == len(report['reviews']) == 1 and not report['guarantees']
         assert 'owner_thread' not in report['requirements'][0] and 'object_id' not in report['requirements'][0]
         assert len(report['pattern_reviews']) == len(state['patterns'])
@@ -165,7 +191,9 @@ def main():
             assert not final[0]['reproduced'] and 'OFFLINE SYNTHETIC' in final[0]['evidence'][0]['description']
             assert len(final[0]['evidence'][0]['source_operations']) == 2
         summary = {'simulated_model': True, 'real_model_calls': 0, 'scripted_calls': state['calls'], 'graph': model['coverage'],
-            'catalog_patterns': state['patterns'], 'coverage': report['coverage'], 'synthetic_reports': len(final)}
+            'catalog_patterns': state['patterns'], 'coverage': report['coverage'], 'synthetic_reports': len(final),
+            'source_anchor_response_bytes':state['source_anchor_response_bytes'], 'ast_node_observations':0,
+            'ir_evidence_is_on_demand':True}
         (args.output/'offline-validation.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))
     finally:

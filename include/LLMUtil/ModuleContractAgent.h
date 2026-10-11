@@ -14,6 +14,7 @@ public:
     void generate();
     const nlohmann::json& requirements() const { return data_.at("requirements"); }
     const nlohmann::json& guarantees() const { return data_.at("guarantees"); }
+    const nlohmann::json& sourceOperations() const { return data_.at("source_operations"); }
     void review(const nlohmann::json& checks);
     std::vector<query::ModuleFinding> findings() const;
     void save(const std::string& error = "") const;
@@ -35,6 +36,7 @@ private:
     std::optional<std::string> executeRepositoryTool(const std::string&, const nlohmann::json&);
     void validRepositoryEvidence(const nlohmann::json&, bool required) const;
     nlohmann::json sourceOperation(const nlohmann::json&);
+    bool matchesSourcePath(const std::string& file, const std::string& path) const;
     std::vector<std::string> validSources(const nlohmann::json&, const char*) const;
     bool hasSourceFunction(const std::string&) const;
 };

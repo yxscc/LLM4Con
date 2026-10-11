@@ -63,9 +63,9 @@ that the model's synchronization interpretation or concurrency claim is true.
 Tools:
 
 - `get_module_functions`: paginated source/IR function inventory.
-- `get_operations`: paginated operation query by function/file/lines/origin.
-- `get_source_operation(s)`: source fallback with uncommitted graph candidates.
-- `get_module_calls`: call navigation and source argument spelling.
+- `get_operations`: optional, paginated **IR-only** evidence by source ID or function/file/lines. AST operation queries are rejected.
+- `get_source_operation(s)`: validates source path/lines/text and reports an unbound IR candidate count; returns no graph nodes, even for whole-function spans. A unique debug-line candidate is not automatically bound.
+- `get_module_calls`: paginated compact API/function/path/line index; read source for arguments. No AST records are returned.
 - `repository_search/read`: pinned dependency lookup when configured.
 - `record_protocol`, `record_pattern_review`, `record_gap`: source audit record.
 - `add_requirement`, `add_guarantee`, `get_obligations`: contract ledger.

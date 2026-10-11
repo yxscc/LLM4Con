@@ -11,7 +11,7 @@ void runModuleAnalysis(CCPG* ccpg, std::shared_ptr<LLMClient> client, bool stati
     if (staticOnly) return;
     ModuleContractAgent agent(std::move(client),ccpg,model);
     agent.generate();
-    auto checks = checkModuleRequirements(agent.requirements(),agent.guarantees(),model);
+    auto checks = checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations());
     agent.review(checks);
     query::writeModuleFindings(agent.findings(),ccpg,output);
 }

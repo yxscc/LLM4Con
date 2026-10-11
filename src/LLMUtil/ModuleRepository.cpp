@@ -8,6 +8,17 @@
 
 namespace llm_client {
 using J = nlohmann::json;
+bool ModuleContractAgent::matchesSourcePath(const std::string& fileName,const std::string& pathName) const {
+    auto file=fs::path(fileName).lexically_normal(),path=fs::path(pathName);
+    auto root=fs::path(TargetPath::getInstance()->getTargetAbsolutePath()).lexically_normal();
+    if (file==path||file==root/path) return true;
+    // Original build-tree debug paths are navigation only. A basename match
+    // is permitted only when it identifies one file in the input snapshot.
+    if (file.filename()!=path.filename()) return false;
+    size_t count=0;
+    for (const auto& item:sourceLines_) count+=fs::path(item.first).filename()==file.filename();
+    return count==1;
+}
 J ModuleContractAgent::sourceOperation(const J& args) {
     auto path = args.at("path").get<std::string>();
     auto it = sourceLines_.find(path);
@@ -24,23 +35,16 @@ J ModuleContractAgent::sourceOperation(const J& args) {
     std::string id = "module-op:" + path + ":" + std::to_string(first) + ":" + std::to_string(last);
     J op = {{"source_id", id}, {"path", path}, {"first_line", first}, {"last_line", last},
             {"content", content.str()}, {"static_analysis", false}};
-    J candidates = J::array();
-    const auto root = fs::path(TargetPath::getInstance()->getTargetAbsolutePath()).lexically_normal();
+    size_t irCandidates = 0;
     for (const auto& n : model_.at("nodes")) {
+        if (n.at("origin") != "ir" || n.at("kind") == "Method") continue;
         int line = n.at("line"); if (line < first || line > last) continue;
-        auto file = fs::path(n.at("file").get<std::string>()).lexically_normal();
-        bool match = file == fs::path(path) || file == (root / path);
-        // Debug paths often name the original build tree. A suffix may help
-        // navigation only when it identifies a unique file in this snapshot.
-        if (!match && file.filename() == fs::path(path).filename()) {
-            size_t matchingFiles = 0;
-            for (const auto& [p, lines] : sourceLines_) if (fs::path(p).filename() == file.filename()) ++matchingFiles;
-            match = matchingFiles == 1;
-        }
-        if (match) candidates.push_back(n);
+        if (matchesSourcePath(n.at("file").get<std::string>(),path)) ++irCandidates;
     }
-    op["graph_candidates"] = candidates;
-    op["binding"] = candidates.empty() ? "absent" : "inspect_candidates_before_binding";
+    // Register source evidence, not a dump of the matching AST/IR. Coordinates
+    // alone cannot establish an operation binding, even for a unique candidate.
+    op["ir_candidate_count"] = irCandidates;
+    op["binding"] = irCandidates == 0 ? "no_ir_candidate" : "unbound";
     op["operation_equivalence_proved"] = false;
     data_["source_operations"][id] = op; save(); return op;
 }
@@ -89,21 +93,11 @@ J ModuleContractAgent::buildCallInventory() const {
         if (api.empty() || api.front() == '<') continue; // CPG operators are not API calls.
         auto location = node->getNodeLoc();
         auto file = normalized(location.getFileName());
-        if (file != root && file.rfind(root + "/", 0) != 0) continue;
-        J arguments = J::array();
-        std::map<int, std::string> byIndex;
-        for (auto* edge : source->argumentEdges) {
-            auto* arg = edge->getToNode();
-            int index = arg->getArgumentIndex();
-            if (index > 0) byIndex[index - 1] = arg->getCode();
-        }
-        for (const auto& [index, code] : byIndex) arguments.push_back({{"index", index}, {"code", code}});
+        if (file.rfind(root + "/", 0) != 0) continue;
         auto* function = node->getFunction();
-        auto* callEdge = ccpg_->hasCallEdge(node);
-        calls.push_back({{"node_id", node->getId()}, {"api", api}, {"code", source->getCode()},
-            {"location", location.toString()}, {"arguments", arguments},
-            {"containing_function", function ? function->getFuncNode()->getCPGNode()->getName() : ""},
-            {"callee_edge_in_static_graph", callEdge != nullptr}});
+        calls.push_back({{"api", api}, {"path", file.substr(root.size()+1)},
+            {"line", location.getLineNumber()},
+            {"containing_function", function ? function->getFuncNode()->getCPGNode()->getName() : ""}});
     }
     return calls;
 }
@@ -126,8 +120,10 @@ void ModuleContractAgent::initializeRepositoryContext() {
 
 std::vector<Tool> ModuleContractAgent::repositoryTools() const {
     std::vector<Tool> tools;
-    tools.push_back({"get_module_calls", "Get module callsites and arguments, without shared-object or parallel-entry filtering. This is a navigation inventory, not a requirement to summarize every API. Empty apis returns all; nonempty filters exact API names.",
-        {listParam("apis", "string", "Exact API names, or [] for the complete inventory.")}});
+    tools.push_back({"get_module_calls", "Query a compact, paginated source callsite index (API, function, path, line); no AST nodes or argument trees. Read source for call arguments. Navigation only, not a proven call graph.",
+        {listParam("apis", "string", "Exact API names, or [] for all."),
+         {"offset", "integer", "Start at zero; follow next_offset.", true},
+         {"limit", "integer", "Page size 1..1000; all callsites remain queryable.", true}}});
     if (data_["repository_context"].is_null()) return tools;
     tools.push_back({"repository_search", "Search identifier occurrences in the pinned repository version. Results are navigation, not a proven call graph. Follow next_offset to continue; use repository_read to obtain citable evidence.",
         {{"symbol", "string", "One C/C++ identifier.", true}, {"path_prefix", "string", "Repository-relative directory, or empty to search the whole repository.", true},
@@ -150,7 +146,12 @@ std::optional<std::string> ModuleContractAgent::executeRepositoryTool(const std:
     if (name == "get_module_calls") {
         auto apis = args.at("apis").get<std::set<std::string>>(); J calls = J::array();
         for (const auto& call : data_["module_calls"]) if (apis.empty() || apis.count(call.at("api"))) calls.push_back(call);
-        return calls.dump();
+        int offset=args.at("offset"),limit=args.at("limit");
+        if (offset<0||limit<1||limit>1000) throw std::invalid_argument("Invalid callsite page");
+        J page=J::array();
+        for (size_t i=offset;i<calls.size()&&i<size_t(offset)+size_t(limit);++i) page.push_back(calls[i]);
+        return J{{"rows",page},{"total",calls.size()},
+            {"next_offset",size_t(offset)+page.size()<calls.size()?J(size_t(offset)+page.size()):J(nullptr)}}.dump();
     }
     if (name == "repository_search" || name == "repository_read") {
         if (data_["repository_context"].is_null()) throw std::invalid_argument("No repository context configured");

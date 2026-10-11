@@ -66,19 +66,21 @@ Two brief distinctions:
   the CFG must still place writes before signal and reads after successful wait.
 
 ANCHORS AND STATIC MODEL
-Use get_module_functions/get_operations to inspect all representations. Source
-and IR representations remain separate; inspect operation code, function and
-coordinates before choosing a numeric ID. In this version only IR-origin nodes
-with complete CFG support E discharge; prefer inspected IR operations when the
-source correspondence is supported. A source-origin numeric node also yields E
-unknown. Never select an ambiguous IR operation just to obtain a discharge.
-Source line numbers and function IDs
-are not operation IDs. get_source_operation(s) validates exact module text and
-returns graph candidates, including when no candidate exists. Debug-line
-coincidence is navigation, never proof of operation equivalence. When no exact
-operation is bound, retain the returned source_id in a_sources/b_sources or
-interference_sources instead of numeric nodes. Do not invent nodes, entries or
-aliases to make a checker accept a claim. Each operand uses one namespace.
+Read source to understand concurrency; do not enumerate graph representations
+before beginning the audit. AST nodes remain inside the static backend and are
+never supplied as agent observations. get_source_operation(s) registers source
+path/lines/text and returns only an unbound IR candidate count, without graph
+node records. Use narrow spans for actual operations; a whole function excerpt
+is context, not one indivisible event. Source IDs are valid Req/Gua operands.
+For a concrete contract that benefits from exact CFG checking, get_operations
+optionally provides paginated IR evidence filtered by source_id or precise
+function/file/lines. Query only the relevant operations; no quota or exhaustive
+IR mapping is required. Inspect instruction code and correspondence before
+choosing a numeric ID. Debug-line coincidence, even a unique candidate, does
+not prove equivalence. Ambiguous operands stay source-only. Source line numbers
+and function IDs are not operation IDs. Only IR operations with complete CFG
+support E discharge. Do not invent nodes, entries or aliases to make E accept
+a claim. Each operand uses one namespace.
 Source-only Req remain in the workflow and final review; E returns unknown for
 unbound operands. Missing external compilation, indirect callees or contexts
 also remain explicit gaps, never invented synchronization facts. Graph scope is
