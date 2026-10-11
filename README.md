@@ -174,6 +174,24 @@ pass `--repository` and `--revision` to exercise this integration path.
 Official API guidance: [Agents SDK quickstart](https://developers.openai.com/api/docs/guides/agents/quickstart?lang=python)
 and [models and providers](https://developers.openai.com/api/docs/guides/agents/models).
 
+**Frozen multi-case pilots.** `tests/module_batch_plan.json` selects three public
+development cases with different synchronization mechanisms and reserves two
+validation cases. Commit the implementation before running either split:
+
+```bash
+python harness/run_batch.py --plan tests/module_batch_plan.json --split development \
+  --dataset /path/to/kernel_experiment --repository /path/to/linux.git \
+  --output module_runs/diverse-batch-01 --jobs 2 --max-turns 96
+```
+
+The outer runner schedules independent `run_module.py` processes; each retains
+the existing SDK agent and isolated artifacts. It verifies all source revisions
+before making requests, records the implementation and binary hashes, and
+summarizes contracts, reviews, tool calls and completed-phase usage in `batch.json`.
+It does not load labels or fixes. Inspect complete trajectories before changing
+the prompt, and use a new output directory for each frozen batch. Public known
+cases support development diagnostics, not claims of unseen-defect detection.
+
 ## Repository layout
 
 | Path | Contents |

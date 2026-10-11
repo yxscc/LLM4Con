@@ -1,0 +1,41 @@
+{
+  "name": "module-contract-diverse-pilot-20261011",
+  "purpose": "Development diagnostics across different concurrency mechanisms; validation split remains unused during prompt refinement. Public known-defect cases, not held-out unknown-defect discovery.",
+  "cases": [
+    {
+      "case": "CVE-2024-26984",
+      "split": "development",
+      "mechanisms": "Mapping lifetime, reference counts and mutex/spinlock protocols",
+      "ir": "nv50.ll",
+      "revision": "4c08f01934ab67d1d283d5cbaa52b923abcfe4cd"
+    },
+    {
+      "case": "CVE-2022-48830",
+      "split": "development",
+      "mechanisms": "Receive callback reentrancy, protocol state and timer lifetime",
+      "ir": "isotp.ll",
+      "revision": "7db788ad627aabff2b74d4f1a3b68516d0fee0d7"
+    },
+    {
+      "case": "CVE-2024-35986",
+      "split": "development",
+      "mechanisms": "Notifier, asynchronous work and device teardown",
+      "ir": "merged.ll",
+      "revision": "4201b8c8f2c32af321fb50867e68ac6c1cbed4be"
+    },
+    {
+      "case": "CVE-2025-38429",
+      "split": "validation",
+      "mechanisms": "Ring producer/consumer protocol",
+      "ir": "ring.ll",
+      "revision": "6ba6e64dcef5193334d96c5ab14d120906d3db99"
+    },
+    {
+      "case": "CVE-2022-48931",
+      "split": "validation",
+      "mechanisms": "Filesystem object lifetime and locking",
+      "ir": "dir.ll",
+      "revision": "038101e6b2cd5c55f888f85db42ea2ad3aecb4b6"
+    }
+  ]
+}
