@@ -1,0 +1,4 @@
+# Versions verified in the remote development environment.
+openai==3.26.0
+openai-agents==0.23.1
+httpx2>=2.12.0,<3

@@ -28,6 +28,7 @@
 
 #include "LLMUtil/AgentManager.h"
 #include "LLMUtil/ThreadAPIDiscoveryAgent.h"
+#include "LLMUtil/ModuleContractAgent.h"
 #include "CPG/Node.h"
 #include "Query/LLMDataRaceDetector.h"
 #include "Query/StatefulBugDetector.h"
@@ -335,6 +336,11 @@ void runZeroShotAnalysis(const std::string& source_code_path, const fs::path& ou
 
 int main(int argc, char** argv) {
     llvm::cl::ParseCommandLineOptions(argc, argv, "LLM Concurrency Bug Detector\n");
+    if (llm_client::moduleContractsEnabled()) {
+        // Use the v2 requirement checker's synchronization semantics, even if
+        // the caller only specified the new single workflow switch.
+        setenv("LACE_CONTRACT_L2", "1", 1);
+    }
     
     // Install signal handlers for graceful shutdown
     installSignalHandlers();
@@ -389,10 +395,11 @@ int main(int argc, char** argv) {
     LLMProvider provider;
     std::string base_url;
     std::string api_key = config.llm_key;
+    if (api_key.empty() && std::getenv("LLM_API_KEY")) api_key = std::getenv("LLM_API_KEY");
     
     // API key resolution priority:
     // 1. Config/Command line --llm-key
-    // 2. DEFAULT_KEY environment variable
+    // 2. LLM_API_KEY, then DEFAULT_KEY environment variables
     // 3. Provider-specific env var (GEMINI_API_KEY or OPENAI_API_KEY)
     if (api_key.empty() && std::getenv("DEFAULT_KEY")) {
         api_key = std::getenv("DEFAULT_KEY");
@@ -405,13 +412,20 @@ int main(int argc, char** argv) {
     }
     
     std::string model = config.llm_model;
+    if (model.empty() && std::getenv("LLM_MODEL")) model = std::getenv("LLM_MODEL");
+    if (model.empty()) {
+        std::cerr << "Set --llm-model or LLM_MODEL explicitly." << std::endl;
+        return 1;
+    }
+    if (config.llm_url.empty() && std::getenv("LLM_BASE_URL")) config.llm_url = std::getenv("LLM_BASE_URL");
+    if (config.llm_url.empty() && std::getenv("OPENAI_BASE_URL")) config.llm_url = std::getenv("OPENAI_BASE_URL");
 
     if (config.llm_provider == "gemini") {
         provider = LLMProvider::GEMINI;
         base_url = config.llm_url.empty() ? "https://generativelenlanguage.googleapis.com/v1beta/models/" + model + ":generateContent" : config.llm_url;
     } else {
         provider = LLMProvider::OPENAI;
-        base_url = config.llm_url.empty() ? "https://jeniya.cn/v1/chat/completions" : config.llm_url;
+        base_url = config.llm_url.empty() ? "https://api.openai.com/v1/chat/completions" : config.llm_url;
     }
 
     if (api_key.empty()) {
@@ -421,6 +435,7 @@ int main(int argc, char** argv) {
 
     LLMClient::initialize_shared_instance(provider, base_url, api_key);
     LLMClient::get_instance()->set_model(model);
+    if (const char* seconds = std::getenv("LACE_LLM_TIMEOUT")) LLMClient::get_instance()->set_timeout(std::stol(seconds));
 
     std::string projectDir = config.input_src;
     TargetPath * targetPath = TargetPath::getInstance();
@@ -474,7 +489,9 @@ int main(int argc, char** argv) {
     writeCheckpoint("Phase0_ThreadAPIDiscovery", "IN_PROGRESS");
     ExecutionTimer::getInstance()->start("Thread API Discovery");
     auto apiDiscoveryAgent = std::make_unique<llm_client::ThreadAPIDiscoveryAgent>(LLMClient::get_instance());
-    int discoveredCount = apiDiscoveryAgent->discoverAndRegister(projectDir);
+    // Module understanding replaces the old keyword-selected, truncated wrapper
+    // prompt. Entry discovery in this first version remains the static v2 model.
+    int discoveredCount = llm_client::moduleContractsEnabled() ? 0 : apiDiscoveryAgent->discoverAndRegister(projectDir);
     ExecutionTimer::getInstance()->stop("Thread API Discovery");
     std::cout << "[Phase 0] Discovered and registered " << discoveredCount << " custom API wrapper(s).\n" << std::endl;
     writeCheckpoint("Phase0_ThreadAPIDiscovery", "COMPLETED", "Found " + std::to_string(discoveredCount) + " wrappers");
@@ -513,19 +530,24 @@ int main(int argc, char** argv) {
     // query::Hypothesis objects consumed by StatefulBugDetector::detectFromHypotheses:
     //   - Agent mode      : surface + mechanism-rule DetectorAgent (new story).
     //   - Thread-contract : per-thread contracts + per-object interleaving (old story).
-    bool useAgentMode = config.agent_mode && !config.legacy_workflow;
+    bool useAgentMode = config.agent_mode && !config.legacy_workflow && !llm_client::moduleContractsEnabled();
     std::cout << "\n[Analysis Mode] "
-              << (useAgentMode ? "Agent (mechanism rules / surface)"
+              << (llm_client::moduleContractsEnabled() ? "Complete-module contracts (official Agents SDK)"
+                  : useAgentMode ? "Agent (mechanism rules / surface)"
                                : "Thread-contract (per-object interleaving)")
               << std::endl;
 
-    if (useAgentMode) {
-        agentManager.runAnalysisAgentMode();
-    } else {
-        agentManager.runAnalysisContractMode(config.abl_contract);
+    try {
+        if (useAgentMode) agentManager.runAnalysisAgentMode();
+        else agentManager.runAnalysisContractMode(config.abl_contract);
+    } catch (const std::exception& e) {
+        writeCheckpoint("LLM_Analysis", "FAILED", "Analysis incomplete");
+        std::cerr << "Analysis incomplete: " << e.what() << std::endl;
+        return 2;
     }
 
-    writeCheckpoint("LLM_Analysis", "COMPLETED", "Hypotheses verified");
+    writeCheckpoint("LLM_Analysis", "COMPLETED", llm_client::moduleContractsEnabled()
+        ? "Source assessment finished; see module_contracts.json for coverage and unknowns" : "Hypotheses verified");
 
     {
         writeCheckpoint("Bug_Detection", "IN_PROGRESS");

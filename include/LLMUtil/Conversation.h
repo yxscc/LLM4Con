@@ -84,6 +84,7 @@ private:
     std::shared_ptr<LLMClient> client_;
     std::string base_system_prompt_;
     std::vector<ChatMessage> history_;
+    nlohmann::json sdk_history_ = nlohmann::json::array();
     void* context_for_tools_ = nullptr;
     size_t max_history_messages_;
     std::ofstream simplified_log_file_;

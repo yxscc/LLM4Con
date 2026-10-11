@@ -7,6 +7,7 @@
 #include "CCPG/CCPGNode.h"
 #include "CPG/Node.h"
 #include "LLMUtil/ConcurrencyContract.h"
+#include "LLMUtil/ModuleContractAgent.h"
 #include "CCPG/ThreadCreationTree.h"
 #include "CCPG/ManualEntryConfig.h"
 #include "LLMUtil/ThreadPair.h"
@@ -1207,6 +1208,7 @@ OrderingEvidence buildEvidence(const std::set<int>& threadSet,
 
 // One undischarged requirement.
 struct L2Candidate {
+    std::string requirementId; // Stable module-ledger ID (legacy notes also allowed).
     int objectId = -1;
     const query::SharedObject* object = nullptr;
     std::string form;
@@ -1272,6 +1274,7 @@ std::vector<L2Candidate> checkRequirements(
                     for (int b : r.b) {
                         if (ev.ordReach(a, b)) continue;
                         L2Candidate c;
+                        c.requirementId = r.note;
                         c.objectId = r.objectId; c.object = O; c.form = r.form;
                         c.reqTid = tid; c.aNode = a; c.bNode = b;
                         c.lifetime = (accTypeOfNode(O, b) == "Free");
@@ -1290,6 +1293,7 @@ std::vector<L2Candidate> checkRequirements(
                                         sameLockCovers(O, a, b);
                         if (mediated) continue;
                         L2Candidate c;
+                        c.requirementId = r.note;
                         c.objectId = r.objectId; c.object = O; c.form = r.form;
                         c.reqTid = tid; c.aNode = a; c.bNode = b;
                         c.lifetime = (accTypeOfNode(O, a) == "Free" || accTypeOfNode(O, b) == "Free");
@@ -1325,6 +1329,7 @@ std::vector<L2Candidate> checkRequirements(
                             sameLockCovers(O, s, cnode)) { excluded = true; break; }
                     if (outside || excluded) continue;
                     L2Candidate c;
+                    c.requirementId = r.note;
                     c.objectId = r.objectId; c.object = O; c.form = r.form;
                     c.reqTid = tid; c.aNode = first; c.bNode = cnode;
                     c.lifetime = (accTypeOfNode(O, cnode) == "Free");
@@ -2559,7 +2564,7 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
               << ", Conflicting pairs: " << surface.conflicting_pair_count
               << ", Shared objects: " << surface.shared_objects.size() << std::endl;
 
-    if (surface.shared_objects.empty()) {
+    if (surface.shared_objects.empty() && !moduleContractsEnabled()) {
         std::cout << "No shared objects found. Skipping LLM analysis." << std::endl;
         confirmedHypotheses_.clear();
         return;
@@ -2573,6 +2578,39 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
     }
 
     // Grounding substrate shared by every per-object session.
+    // Module mode branches BEFORE object triage, thread/session budgets and
+    // per-thread top-20 seeding. One SDK conversation owns the complete module.
+    if (moduleContractsEnabled()) {
+        ModuleContractAgent agent(llmClient, ccpg, surface);
+        agent.generate();
+        auto contracts = agent.contracts();
+        std::set<int> tids;
+        for (const auto& t : surface.threads) tids.insert(t.thread_id);
+        for (const auto& [tid, c] : contracts) tids.insert(tid);
+        std::vector<const query::SharedObject*> objects;
+        std::map<const query::SharedObject*, int> indices;
+        for (size_t i = 0; i < surface.shared_objects.size(); ++i) {
+            objects.push_back(&surface.shared_objects[i]); indices[objects.back()] = static_cast<int>(i);
+        }
+        // Evaluate the factorized requirements in one pass, sharing evidence.
+        // No apparent discharge removes an obligation from semantic review.
+        nlohmann::json checks = nlohmann::json::object();
+        for (const auto& r : agent.requirements()) {
+            std::string id = r.at("id");
+            bool external = r.at("form") == "CallPrecondition" || r.at("object_id").get<int>() < 0;
+            checks[id] = {{"status", external ? "requires_semantic_review" : "checker_suggests_satisfied"}, {"proof", false}};
+        }
+        auto cands = l2::checkRequirements(objects, tids, contracts, indices, ccpg, HBGraph::getInstance());
+        for (const auto& c : cands) checks[c.requirementId] = {{"status", "undischarged"}, {"proof", false},
+            {"first_witness", {{"a", c.aNode}, {"b", c.bNode}, {"reason", c.reason}}}};
+        agent.review(checks);
+        confirmedHypotheses_ = agent.findings();
+        std::cout << "[Module contracts] " << agent.requirements().size()
+                  << " quantified groups; " << confirmedHypotheses_.size()
+                  << " source-supported candidates. Coverage and unknowns: module_contracts.json\n";
+        return;
+    }
+
     query::HypothesisVerifier verifier(ccpg, tct, HBGraph::getInstance());
     verifier.setSurface(&surface);
     FlowPrior flowPrior = loadFlowPrior();

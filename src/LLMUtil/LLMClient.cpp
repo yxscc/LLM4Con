@@ -322,7 +322,6 @@ public:
 
         nlohmann::json request_body;
         request_body["model"] = model;
-        request_body["temperature"] = 1.0;
 
         nlohmann::json messages_array = nlohmann::json::array();
         for (const auto& msg : messages) {
@@ -622,6 +621,20 @@ LLMClient::LLMResponse LLMClient::chat(
     nlohmann::json request_body = api_handler_->build_request_body(default_model_, messages, available_tools, tool_choice);
     // Sanitize all strings in JSON to ensure valid UTF-8 before serialization
     sanitize_json_utf8(request_body);
+    if (usesOfficialSDK()) {
+        auto result = runSDKWorker({{"action", "chat"}, {"base_url", base_url_},
+            {"api_key", api_key_}, {"timeout", timeout_seconds_}, {"body", request_body}});
+        const auto& response = result.at("response");
+        {
+            std::lock_guard<std::mutex> lock(stats_mutex_);
+            ++token_stats_.total_requests;
+            if (response.contains("usage") && response["usage"].is_object()) {
+                token_stats_.total_prompt_tokens += response["usage"].value("prompt_tokens", size_t(0));
+                token_stats_.total_completion_tokens += response["usage"].value("completion_tokens", size_t(0));
+            }
+        }
+        return api_handler_->parse_response(response);
+    }
     std::string request_body_str = request_body.dump();
     std::string provider_name = (provider_ == LLMProvider::GEMINI) ? "Gemini" : "OpenAI";
     Logger::getInstance()->log("--> Request (" + provider_name + "):\n" + request_body.dump(4));
@@ -740,9 +753,36 @@ void LLMClient::set_timeout(long seconds) {
     timeout_seconds_ = seconds;
 }
 
+bool LLMClient::usesOfficialSDK() const {
+    const char* harness = std::getenv("LACE_AGENT_HARNESS");
+    return provider_ == LLMProvider::OPENAI && (!harness || std::string(harness) != "legacy");
+}
+
+nlohmann::json LLMClient::runAgent(const std::string& instructions, const std::string& input,
+    const nlohmann::json& history, const std::vector<Tool>& tools,
+    const std::string& toolChoice, int maxTurns, const SDKToolExecutor& execute) {
+    nlohmann::json schemas = nlohmann::json::array();
+    for (const auto& tool : tools) {
+        auto j = tool.to_json();
+        if (!j["parameters"].contains("properties")) j["parameters"]["properties"] = nlohmann::json::object();
+        schemas.push_back(std::move(j));
+    }
+    auto result = runSDKWorker({{"action", "agent"}, {"base_url", base_url_},
+        {"api_key", api_key_}, {"timeout", timeout_seconds_}, {"model", default_model_},
+        {"instructions", instructions}, {"input", input}, {"history", history},
+        {"tools", schemas}, {"tool_choice", toolChoice}, {"max_turns", maxTurns}}, execute);
+    {
+        std::lock_guard<std::mutex> lock(stats_mutex_);
+        const auto& usage = result.at("usage");
+        token_stats_.total_requests += usage.value("requests", size_t(0));
+        token_stats_.total_prompt_tokens += usage.value("input_tokens", size_t(0));
+        token_stats_.total_completion_tokens += usage.value("output_tokens", size_t(0));
+    }
+    return result;
+}
+
 void LLMClient::set_model(const std::string& model) {
     default_model_ = model;
 }
 
 } // namespace llm_client
-

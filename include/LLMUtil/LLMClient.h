@@ -5,6 +5,7 @@
 #include <memory>
 #include <fstream>
 #include <optional>
+#include "LLMUtil/SDKBridge.h"
 
 #include "nlohmann/json.hpp"
 
@@ -212,6 +213,11 @@ public:
     void set_timeout(long seconds);
     void set_model(const std::string& model);
     LLMProvider get_provider() const { return provider_; }
+    bool usesOfficialSDK() const;
+    nlohmann::json runAgent(const std::string& instructions, const std::string& input,
+                           const nlohmann::json& history, const std::vector<Tool>& tools,
+                           const std::string& toolChoice, int maxTurns,
+                           const SDKToolExecutor& execute);
 
     // Token usage statistics
     struct TokenStats {
@@ -253,4 +259,3 @@ private:
 };
 
 } // namespace llm_client
-

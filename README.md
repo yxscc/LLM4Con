@@ -4,6 +4,150 @@
 
 This repository is the **paper artifact**: source code, the 72-case dataset (sources + labels), and the frozen main evaluation results.
 
+## V2 module-contract prototype (2026-10-11)
+
+This branch starts at `lace-v2` commit `3ff95ba`. It adds an official SDK harness
+and an opt-in complete-module workflow; the frozen paper results below do not
+evaluate these changes.
+
+**Harness.** OpenAI-compatible calls now use `openai==3.26.0` and conversations
+use `openai-agents==0.23.1` (`Agent`, `Runner`, function tools). C++ remains the
+static tool service. A local JSON-lines bridge connects it to the Python SDK;
+the SDK owns model/tool turns and preserves the complete conversation across
+contract generation and review. There is no legacy 16k pruning on this route.
+Chat Completions is the default for existing gateways; `LACE_MODEL_API=responses`
+selects the SDK Responses adapter. No temperature is forced. Optional
+gateway query authentication is passed as SDK `default_query`, not appended to
+the API root. Standard version roots and `/chat/completions` URLs are supported;
+an arbitrary full gateway endpoint is preserved with an HTTP-client request hook.
+`LACE_ENDPOINT_MODE=root|exact` overrides automatic URL classification. Optional
+`LACE_REASONING_EFFORT` is forwarded to the configured model. Traces remain local;
+SDK remote trace export is disabled. Credentials travel through local IPC, never
+through process arguments or temporary request files. Native Gemini and the
+explicit `LACE_AGENT_HARNESS=legacy` ablation retain the old implementation.
+
+**Module workflow.** Set `LACE_MODULE_CONTRACTS=1`, or use the runner below:
+
+1. Reuse v2's CPG/LLVM/Phasar entry and shared-access extraction.
+2. Generate conditional, quantified use-before-free and read/write mediation
+   obligations from **all extracted objects and accesses**. Keep missing node
+   anchors as coverage gaps. Operand sets represent groups without materializing
+   an access-pair list; they are not sampled representatives.
+3. Give one SDK conversation the complete supplied C/C++ module and an entry/
+   function navigation inventory. It describes protocols across functions,
+   supplements semantic requirements, and records node-anchored synchronization
+   guarantees with applicability conditions. Static obligations are immutable.
+4. Run v2's deterministic checker once over the module. Its first failing witness
+   and apparent discharges are **hints**, not proofs: every requirement remains
+   in the subsequent semantic review inventory. Conditional guarantees do not
+   enter automatic discharge.
+5. Continue the same SDK conversation to review complete obligation groups;
+   batch groups sharing a justification. Persist source-supported candidates,
+   satisfied/not-applicable judgments, and explicit unknowns separately.
+
+This path branches before object triage, top-20 thread seeding, object/thread/
+session cost budgets and cluster splitting. It does not call the old truncated
+Phase-0 wrapper prompt. It never creates one agent session per thread/object/pair.
+It does **not** claim completeness of the inherited static front-end, all possible
+semantic requirements, or verified program safety. Missing dependencies/anchors,
+unreviewed groups and unknowns make `coverage.complete` false. Protocol accounting
+over access-containing functions is an audit checklist, not proof that every
+developer intention was inferred. The current source loader handles regular
+`.c/.h/.cc/.cpp/.cxx/.hh/.hpp` files; symlinks are explicit gaps. The supplied
+source directory determines module scope. Oversized contexts fail visibly rather
+than silently dropping code; large-repository decomposition remains future work.
+
+Install into a Python 3.10+ environment, build C++ as below, and use your existing
+approved endpoint and model configuration:
+
+```bash
+python -m pip install -r requirements-harness.txt
+export LLM_API_KEY='...'
+export LLM_BASE_URL='https://your-approved-endpoint/v1'
+export LLM_MODEL='your-model'
+# Joern/Java must also be configured as for v2.
+python harness/run_module.py --source /path/to/src --bitcode /path/to/merged.ll \
+  --output module_runs/example --max-turns 32
+```
+
+The output directory must be new. The runner uses its own Python executable for
+the SDK worker; direct C++ users set `LACE_PYTHON=/path/to/venv/bin/python`.
+`--max-turns` is an explicit per-phase execution budget, not an object cap;
+exhaustion returns an error and retains the incomplete ledger. `0` disables the
+turn cap. `LACE_LLM_TIMEOUT` controls the SDK request timeout. Entry configuration
+is inherited from v2 and recorded as automatic/configured in `run.json`.
+
+Read `module_contracts.json` for the complete requirement/guarantee/review ledger,
+source manifest, coverage gaps and first checker witnesses. `llm_simplified_trace.log`
+records full SDK input items, tools and usage locally. `run.json` records model,
+entry mode, paths, execution budget and final coverage. A source-supported report
+is a candidate; it has not been reproduced or formally proved.
+
+**Repository context.** To make omitted dependencies available without injecting
+or compiling the entire repository, add a read-only Git repository and a full
+commit SHA. The source directory must mirror repository-relative paths; every
+supplied source file is checked byte-for-byte against that commit before analysis.
+
+```bash
+python harness/run_module.py --source /path/to/src --bitcode /path/to/merged.ll \
+  --repository /path/to/linux.git --revision FULL_40_CHARACTER_COMMIT_SHA \
+  --output module_runs/with-context --max-turns 96
+```
+
+The same conversation receives the complete target source, static object/node
+inventory and module callsites/arguments. `repository_search` navigates textual
+symbol occurrences; `repository_read` returns source at the pinned version with
+path, line numbers, content hash and a citable source ID. Paging limits a single
+response, not the reachable files or number of dependencies. No checkout, patch,
+commit messages, labels or future revisions are exposed through these tools.
+Existing bitcode provenance is recorded as **unverified**; matching source bytes
+does not prove the bitcode's build configuration or revision.
+
+`record_api_summary` stores evidence-backed argument-relative effects, required
+preconditions, provided guarantees and applicability assumptions. Each effect is
+bound to **all extracted module callsites** of that API. It can introduce a
+resource absent from the old shared-object inventory. Preconditions become
+`CallPrecondition` obligations over those callsites, independent of a legacy
+object ID. Source citations must refer to excerpts actually read. Neither an API
+name match nor a textual argument match proves object identity or aliasing.
+
+The legacy checker skips these new obligations and labels them
+`requires_semantic_review`; it cannot discharge them from local program order.
+Phase C must inspect caller-established protection and a feasible harmful
+concurrent execution, not merely quote the API's requirement. Findings are still
+source-supported candidates. API summaries are model judgments, not verified
+contracts. External dependencies currently receive source inspection only; they
+are not compiled into the module IR. Unknown effects, unresolved contexts and
+unanchored accesses remain explicit coverage limitations. This is a pilot of
+dependency access and callsite binding, not whole-kernel analysis.
+
+Offline validation (no external model requests):
+
+```bash
+python -m pytest -q tests/test_sdk_worker.py tests/test_repository_context.py
+clang++-16 -std=c++17 -Iinclude tests/module_requirements_test.cpp -o /tmp/module-req-test
+/tmp/module-req-test
+clang++-16 -std=c++17 -Iinclude tests/module_api_summary_test.cpp -o /tmp/module-api-test
+/tmp/module-api-test
+python tests/offline_module_pilot.py --source /path/to/src --bitcode /path/to/merged.ll \
+  --output module_runs/offline-example
+```
+
+The scripted local API tests actual SDK function calling, >70k-character context
+retention, cross-phase continuation, explicit finish and turn-limit errors.
+The C++ regression tests cover 35 objects, 120 uses grouped under one lifetime
+obligation, reentrancy, read/read exclusion and visible missing anchors. The
+offline end-to-end pilot deliberately marks all semantics unknown; its report
+must remain incomplete and must not be interpreted as a detection experiment.
+Repository tests cover isolation from later fixes, source/version mismatch,
+pagination, rejected forged citations, omitted-resource binding, and preservation
+of semantic-review status through the C++/SDK workflow. The repository-enabled
+offline pilot uses the public ILA fixture and a deliberately artificial predicate;
+pass `--repository` and `--revision` to exercise this integration path.
+
+Official API guidance: [Agents SDK quickstart](https://developers.openai.com/api/docs/guides/agents/quickstart?lang=python)
+and [models and providers](https://developers.openai.com/api/docs/guides/agents/models).
+
 ## Repository layout
 
 | Path | Contents |

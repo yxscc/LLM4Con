@@ -36,6 +36,27 @@ Conversation::Conversation(
 std::string Conversation::send_message(const std::string& user_message, void* context_for_tools) {
     this->context_for_tools_ = context_for_tools; // Store context for tool execution
 
+    if (client_->usesOfficialSDK()) {
+        history_.push_back({MessageRole::USER, user_message});
+        simplified_log_file_ << "[sdk] User: " << user_message << std::endl;
+        auto result = client_->runAgent(build_effective_system_prompt(), user_message,
+            sdk_history_, get_available_tools(), get_tool_choice(), max_turns_,
+            [&](const std::string& name, const nlohmann::json& arguments) {
+                simplified_log_file_ << "[sdk] Tool: " << name << " " << arguments.dump() << std::endl;
+                auto output = execute_tool(name, arguments);
+                simplified_log_file_ << "[sdk] Result: " << output << std::endl;
+                return output;
+            });
+        sdk_history_ = result.at("history");
+        std::string output = result["output"].is_string() ? result["output"].get<std::string>()
+                                                         : result["output"].dump();
+        history_.push_back({MessageRole::ASSISTANT, output});
+        // Keep complete SDK items (including model reasoning items and all
+        // paired tool calls/results). Never pass these through legacy pruning.
+        simplified_log_file_ << "[sdk] Completed: " << result.dump() << std::endl;
+        return result.value("tool_finished", false) ? parseResult(history_) : output;
+    }
+
     std::string effective_sys_prompt = build_effective_system_prompt();
     if (history_.empty() || history_[0].role != MessageRole::SYSTEM) {
         history_.insert(history_.begin(), {MessageRole::SYSTEM, effective_sys_prompt});
@@ -147,6 +168,7 @@ void Conversation::set_system_prompt(const std::string& prompt) {
 
 void Conversation::reset() {
     history_.clear();
+    sdk_history_ = nlohmann::json::array();
 }
 
 }
