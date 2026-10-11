@@ -1,8 +1,7 @@
 #pragma once
 #include "LLMUtil/Conversation.h"
-#include "LLMUtil/ConcurrencyContract.h"
 #include "Query/VulnerabilitySurfaceGenerator.h"
-#include "Query/HypothesisVerifier.h"
+#include "Query/ModuleFinding.h"
 #include <optional>
 
 namespace llm_client {
@@ -11,10 +10,10 @@ public:
     ModuleContractAgent(std::shared_ptr<LLMClient> client, CCPG* ccpg,
                         const query::VulnerabilitySurface& surface);
     void generate();
-    std::map<int, LLM::ConcurrencyContract> contracts() const;
     const nlohmann::json& requirements() const { return data_.at("requirements"); }
+    const nlohmann::json& guarantees() const { return data_.at("guarantees"); }
     void review(const nlohmann::json& checks);
-    std::vector<query::Hypothesis> findings() const;
+    std::vector<query::ModuleFinding> findings() const;
     void save(const std::string& error = "") const;
 private:
     CCPG* ccpg_;
@@ -38,5 +37,4 @@ private:
     std::vector<std::string> validSources(const nlohmann::json&, const char*) const;
     bool hasSourceFunction(const std::string&) const;
 };
-bool moduleContractsEnabled();
 }

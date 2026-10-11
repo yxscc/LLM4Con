@@ -818,9 +818,8 @@ void handleContext(CCPGNode * caller, ccpg::Function * f){
 //   LACE_CONTEXT_MAX_PER_FUNC  contexts kept per function (0 = unbounded)
 //   LACE_CONTEXT_MAX_DEPTH     longest call stack retained
 //
-// Dropping contexts past the cap is safe for the consumers: a lockset query
-// reports "protected" only when EVERY context holds a lock, so a missing
-// context can only make an access look less protected, never more.
+// Budget exhaustion is an explicit coverage gap. Missing paths cannot be
+// treated as protected merely because the retained paths hold locks.
 void CCPG::propagateContexts() {
     auto envSize = [](const char* name, size_t def) -> size_t {
         const char* v = std::getenv(name);
@@ -888,9 +887,10 @@ void CCPG::propagateContexts() {
             bool grew = false;
             for (Context* ctx : callerCtxs) {
                 if (ctx == nullptr) continue;
-                if (ctx->contains(site)) continue;          // recursion guard
-                if (static_cast<size_t>(ctx->size()) >= maxDepth) continue;
+                if (ctx->contains(site)) { contextsIncomplete_ = true; continue; }
+                if (static_cast<size_t>(ctx->size()) >= maxDepth) { contextsIncomplete_ = true; continue; }
                 if (maxPerFunc != 0 && callee->contextCount() >= maxPerFunc) {
+                    contextsIncomplete_ = true;
                     ++capped;
                     break;
                 }
@@ -919,6 +919,7 @@ void CCPG::propagateContexts() {
                              : std::string())
               << std::endl;
     if (rounds >= maxRounds) {
+        contextsIncomplete_ = true;
         std::cout << "[Context] Warning: propagation stopped at the "
                   << maxRounds << "-round guard; contexts may be incomplete"
                   << std::endl;

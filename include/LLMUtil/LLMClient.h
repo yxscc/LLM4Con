@@ -1,22 +1,10 @@
 #pragma once
 #include <string>
-#include <deque>
-#include <mutex>
-#include <memory>
-#include <fstream>
+#include <vector>
 #include <optional>
+#include <memory>
 #include "LLMUtil/SDKBridge.h"
-
-#include "nlohmann/json.hpp"
-
 namespace llm_client {
-
-// --- LLM Provider Enum ---
-enum class LLMProvider {
-    OPENAI,
-    GEMINI
-};
-
 struct Parameter {
     std::string name;
     std::string type;
@@ -134,128 +122,21 @@ struct Tool {
     }
 };
 
-struct ToolCallRequest {
-    std::string id;
-    std::string toolname;
-    nlohmann::json arguments;
-};
-
-enum class MessageRole {
-    SYSTEM,
-    USER,
-    ASSISTANT,
-    TOOL
-};
-
-struct ChatMessage {
-    MessageRole role;
-    std::string content;
-    std::optional<std::vector<ToolCallRequest>> tool_calls;
-    std::optional<std::string> tool_call_id;
-    std::optional<std::string> tool_name; 
-    // Client-side only: when true, Conversation::prune_history must never drop
-    // this message (used to keep task setup / contracts alive under a token
-    // budget). Not serialized into the API request.
-    bool pinned = false;
-
-    std::string role_to_string() const {
-        switch (role) {
-            case MessageRole::SYSTEM: return "system";
-            case MessageRole::USER: return "user";
-            case MessageRole::ASSISTANT: return "assistant";
-            case MessageRole::TOOL: return "tool";
-            default: return "unknown";
-        }
-    }
-};
-
-struct LLMResponse {
-    std::string assistant_content;
-    std::optional<std::vector<ToolCallRequest>> tool_requests;
-    bool is_error = false; 
-};
-
-class APIHandler {
-public:
-    virtual ~APIHandler() = default;
-    virtual nlohmann::json build_request_body(
-        const std::string& model,
-        const std::vector<ChatMessage>& messages,
-        const std::vector<Tool>& tools,
-        const std::string& tool_choice
-    ) = 0;
-    virtual LLMResponse parse_response(const nlohmann::json& response_body) = 0;
-};
-
-
+// One explicit client owned by the module pipeline. The official SDK handles
+// API transport, retries and tool rounds; C++ only supplies validated tools.
 class LLMClient {
 public:
-    using LLMResponse = llm_client::LLMResponse;
-
-    static void initialize_shared_instance(
-        LLMProvider provider,
-        const std::string& base_url,
-        const std::string& api_key);
-
-    static void reset_instance();
-
-    static std::shared_ptr<LLMClient> get_instance();
-
-    LLMResponse chat(
-        const std::vector<ChatMessage>& messages,
-        const std::vector<Tool>& available_tools = {},
-        const std::string& tool_choice = "auto"
-    );
-
-    LLMClient(const LLMClient&) = delete;
-    LLMClient& operator=(const LLMClient&) = delete;
-
-    void set_timeout(long seconds);
-    void set_model(const std::string& model);
-    LLMProvider get_provider() const { return provider_; }
-    bool usesOfficialSDK() const;
+    LLMClient(std::string baseUrl, std::string apiKey, std::string model, long timeout = 300);
     nlohmann::json runAgent(const std::string& instructions, const std::string& input,
-                           const nlohmann::json& history, const std::vector<Tool>& tools,
-                           const std::string& toolChoice, int maxTurns,
-                           const SDKToolExecutor& execute);
-
-    // Token usage statistics
+        const nlohmann::json& history, const std::vector<Tool>& tools,
+        const std::string& toolChoice, int maxTurns, const SDKToolExecutor& execute);
     struct TokenStats {
-        size_t total_prompt_tokens = 0;
-        size_t total_completion_tokens = 0;
-        size_t total_requests = 0;
+        size_t total_prompt_tokens = 0, total_completion_tokens = 0, total_requests = 0;
     };
-    
-    TokenStats get_token_stats() const {
-        std::lock_guard<std::mutex> lock(stats_mutex_);
-        return token_stats_;
-    }
-    void reset_token_stats() {
-        std::lock_guard<std::mutex> lock(stats_mutex_);
-        token_stats_ = TokenStats{};
-    }
-
+    TokenStats get_token_stats() const { return token_stats_; }
 private:
-    LLMProvider provider_;
-    std::unique_ptr<APIHandler> api_handler_;
-    std::string base_url_;
-    std::string api_key_;
-    std::string default_model_;
-    size_t max_context_length_;
+    std::string base_url_, api_key_, default_model_;
     long timeout_seconds_;
     TokenStats token_stats_;
-    mutable std::mutex stats_mutex_;
-
-    static std::shared_ptr<LLMClient> instance;
-    static std::mutex mutex;
-
-    explicit LLMClient(
-        LLMProvider provider,
-        const std::string& base_url,
-        const std::string& api_key,
-        const std::string& default_model = "",
-        size_t max_context_length = 10
-    );
 };
-
-} // namespace llm_client
+}

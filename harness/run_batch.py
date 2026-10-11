@@ -43,8 +43,10 @@ def summarize(output):
     if bug_reports:
         final_path = bug_reports[0]
         content = final_path.read_text()
-        summary["final_bug_report"] = {"path": str(final_path), "sha256": sha256(final_path),
-                                       "count": len(re.findall(r"^count  \d+ -+$", content, re.MULTILINE))}
+        structured = final_path.parent / "reports.json"
+        count = len(json.loads(structured.read_text())) if structured.exists() else len(re.findall(r"^count  \d+ -+$", content, re.MULTILINE))
+        summary["final_bug_report"] = {"path": str(final_path), "sha256": sha256(final_path), "count": count,
+                                       "structured_path": str(structured) if structured.exists() else None}
     else:
         log_path = output / "run.log"
         explicit_zero = manifest.get("exit_code") == 0 and log_path.exists() and "No bugs detected." in log_path.read_text()

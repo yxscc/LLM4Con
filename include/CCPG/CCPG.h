@@ -26,8 +26,10 @@ typedef std::unordered_set<CCPGNode *> CCPGNodeSet;
 typedef std::unordered_set<ccpg::Function *> FunctionSet;
 
 class CCPG {
+    bool contextsIncomplete_ = false;
 
 public:
+    bool contextsIncomplete() const { return contextsIncomplete_; }
     enum SpecialCallType
     {
         Alloc,

@@ -18,9 +18,6 @@ int main() {
     check(all["requirements"][0]["b_nodes"] == J::array({999}), "use/free ordering reversed");
     surface["shared_objects"] = J::array({{{"accesses", {access(1, 1, "Read"), access(1, 2, "Free")}}}});
     check(llm_client::buildModuleRequirements(surface)["requirements"].empty(), "invented cross-context concurrency");
-    surface["shared_objects"][0]["is_self_race"] = true;
-    check(llm_client::buildModuleRequirements(surface)["requirements"].size() == 1, "lost reentrant lifetime obligation");
-    surface["shared_objects"][0]["is_self_race"] = false;
     surface["threads"] = J::array({{{"thread_id", 1}, {"reentrant_entry", true}}});
     check(llm_client::buildModuleRequirements(surface)["requirements"].size() == 1, "per-entry reentrancy lost behind object self-race flag");
     // Two activations of one callback remain relevant even when another entry

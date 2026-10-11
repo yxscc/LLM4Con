@@ -1,3 +1,4 @@
+#include <optional>
 // Thread Creation Tree
 
 #ifndef CCPG_THREAD_CREATION_TREE_H
@@ -73,6 +74,7 @@ private:
     std::unordered_set<Thread*> threads; // 存储线程指针
     CCPG* ccpg; // CCPG指针
     const CPG* cpg; // CPG指针
+    std::vector<std::string> unresolvedEntries;
     std::unordered_map<std::pair<Thread*, Thread*>, std::string, pair_hash> parallelThreadPairs;
     ParallelLocCache parallelLocCache;
     std::unordered_map<std::pair<Thread*, Thread*>, bool, pair_hash> concurrencyCache;
@@ -112,7 +114,6 @@ public:
 
     Node * findThreadEntryInCPG(CCPGNode* forknode); // 在CPG中查找入口节点
     Node * findThreadEntryByArg(Node * arg);
-    Node * findThreadEntryByLLM(CCPGNode* forknode);
 
     std::unordered_set<Thread *> getThreads() const {return threads;}
 
@@ -131,6 +132,7 @@ public:
     bool isIndirectSibling(Thread * thread1, Thread * thread2);
 
     void countParallelThreadPairs();
+    const std::vector<std::string>& getUnresolvedEntries() const { return unresolvedEntries; }
     std::set<const llvm::Value*> collectCandidateSharedObjects() const;
 
     void handleJoins();

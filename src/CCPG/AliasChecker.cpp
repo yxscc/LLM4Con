@@ -289,34 +289,7 @@ std::vector<const llvm::Value*> AliasChecker::getPointerOperandsFromLocation(con
     return operands;
 }
 
-bool AliasChecker::isAliasOfContractVariable(const llvm::Value* V, const LLM::ConcurrencyContract::SharedVariable& contractVar, int functionId) {
-    if (!V) return false;
 
-    auto* analyzer = AnalysisManager::getInstance()->getPointerAnalyzer();
-    if (!analyzer) return false;
-
-    // 1. 根据 functionId 获取函数名
-    CCPG* ccpg = ThreadCreationTree::getInstance()->getCCPG();
-    if (!ccpg) return false;
-    ccpg::Function* func = ccpg->getFunctionById(functionId);
-    if (!func) return false; // 如果找不到函数，则无法继续
-    std::string funcName = func->getFuncNode()->getCPGNode()->getName();
-
-    // 2. 根据函数名和变量名获取合约变量的 llvm::Value
-    const llvm::Value* contractValue = analyzer->getValueByName(funcName, contractVar.variableName);
-
-    // 2.1 如果在函数内找不到，尝试将其作为全局变量查找
-    if (!contractValue) {
-        contractValue = analyzer->getValueByName("", contractVar.variableName);
-        if (!contractValue) {
-            // 如果全局也找不到，说明这个变量可能在IR中被优化掉了，或者名字不匹配
-            return false;
-        }
-    }
-
-    // 3. 比较别名
-    return isAlias(V, contractValue);
-}
 
 std::vector<MemoryAccess> AliasChecker::getMemoryAccessesFromLocation(const NodeLoc& loc, const Context& ctx) {
     std::vector<MemoryAccess> accesses;

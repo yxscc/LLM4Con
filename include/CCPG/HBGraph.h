@@ -41,6 +41,7 @@ public:
   // from different threads. Used by the concurrency / no-hb (UAF) predicates
   // so shared kernel helpers no longer spuriously "order" a real cross-thread
   // race out of existence.
+  // max_depth <= 0 uses the complete finite graph, without a depth cap.
   bool hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth = 16,
                    bool requireSyncEdge = false,
                    SyncPolicy policy = SyncPolicy::AllMechanisms) const;

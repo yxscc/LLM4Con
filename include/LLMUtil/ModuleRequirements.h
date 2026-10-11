@@ -6,8 +6,9 @@
 #include <string>
 
 namespace llm_client {
-// Factorized obligations: O(thread/object/access buckets), not a list of access
-// pairs. Every operand set is retained; no top-K or representative sampling.
+// Factorized obligations retain complete operation sets, not every access pair.
+// Counterpart sets are copied per entry; total size is not claimed to be linear.
+// There is no top-K or representative sampling.
 // These are conditional safety obligations over MAY-alias surface objects.
 // Applicability (same allocation/lifetime, feasible execution) remains explicit.
 inline nlohmann::json buildModuleRequirements(const nlohmann::json& surface) {
@@ -42,7 +43,7 @@ inline nlohmann::json buildModuleRequirements(const nlohmann::json& surface) {
                 if (type == "Write" || type == "ReadWrite") writes.insert(nodes.begin(), nodes.end());
             }
             for (const auto& [otherTid, other] : buckets) {
-                if (otherTid == tid && !object.value("is_self_race", false) && !reentrant.count(tid)) continue;
+                if (otherTid == tid && !reentrant.count(tid)) continue;
                 for (const auto& [type, nodes] : other) {
                     if (type == "Free") frees.insert(nodes.begin(), nodes.end());
                     else otherUses.insert(nodes.begin(), nodes.end());

@@ -16,7 +16,7 @@
 export LLM4CON_HOME="/path/to/LLM4Con"
 
 # Root of the per-case experiment directories that prepare_cve.sh,
-# batch_detect.sh and the single-case runners operate on.
+# dataset preparation scripts operate on.
 export EXPERIMENT_BASE="${LLM4CON_HOME}/kernel_experiment"
 
 # Linux kernel git clone, used to extract the vulnerable slices.
@@ -52,7 +52,7 @@ if [ -z "${API_KEY:-}" ]; then
 fi
 export LLM_API_KEY="$API_KEY"
 export LLM_BASE_URL="https://your-endpoint.example.com/v1/chat/completions"
-export LLM_MODEL="gpt-5.5-2026-04-24"
+export LLM_MODEL="<explicit model name>"
 
 # ------------------------------------------------------------ cve_survey.csv
 # batch_prepare.sh reads this index (CVE,HAS_PATCH,FILES,FIX_COMMIT). It is not

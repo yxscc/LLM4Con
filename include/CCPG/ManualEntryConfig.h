@@ -77,7 +77,6 @@ inline std::string normalizeCore(std::string n) {
 
 struct Config {
     bool enabled = false;
-    bool selfRace = false;           // analyst declared this case self-racing
     std::vector<std::string> roots;  // raw configured names (deduped, in order)
     std::set<std::string> cores;     // normalized cores for matching
 };
@@ -136,10 +135,6 @@ inline Config load() {
             c.cores.insert(normalizeCore(t));
         }
     }
-    if (const char* sr = std::getenv("LACE_SELF_RACE")) {
-        std::string v = trim(sr);
-        c.selfRace = (v == "1" || v == "true" || v == "TRUE" || v == "yes");
-    }
     return c;
 }
 
@@ -151,12 +146,6 @@ inline const Config& get() {
 }
 
 inline bool enabled() { return get().enabled; }
-
-// True when the analyst declared this manual-entry case as self-racing
-// (dataset self_race=true). Gates self-race modeling that goes beyond the
-// conservative default (run-once entries racing themselves, and a configured
-// root racing itself while a child thread also touches the object).
-inline bool selfRaceDeclared() { return get().enabled && get().selfRace; }
 
 // True if a (possibly decorated) function name corresponds to one of the
 // configured thread roots.

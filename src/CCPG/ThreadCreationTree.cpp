@@ -3,7 +3,6 @@
 #include "phasar.h"
 #include "PhasarUtil/LLVMAnalyzer.h"
 #include "CCPG/AliasChecker.h"
-#include "LLMUtil/FindingThreadEntryAgent.h"
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 #include "PhasarUtil/AnalysisManager.h"
 
@@ -82,10 +81,8 @@ void ThreadCreationTree::build(){
         }
     }
 
-    int i = 0;
+    // Each callback entry is deduplicated by createThread; no arbitrary thread cap.
     while(!forkQueue.empty()){
-
-        if(i == 100) break;      //support only 100 abstract threads
 
         std::pair<CCPGNode *, Thread *> pair = forkQueue.front();
         forkQueue.pop();
@@ -100,26 +97,10 @@ void ThreadCreationTree::build(){
             }
         }
 
-        i++;
     } 
 
-    // NEW: In kernel module mode, keep all entry threads even if they have no children
-    // In normal mode, remove threads that have no parent and no children (invalid threads)
-    if (!isKernelModuleMode) {
-        std::unordered_set<Thread * > wrongThread;
-        for(Thread * thread : threads){
-            if(thread->getParent() == nullptr && thread->getChildren().size() == 0)
-            {
-                wrongThread.insert(thread);
-            }
-        }
-        for(Thread * thread : wrongThread){
-            threads.erase(thread);
-        }
-    } else {
-        std::cout << "[Kernel Module Mode] Keeping all " << threads.size() 
-                  << " threads for parallel analysis" << std::endl;
-    }
+    // Retain every discovered entry even if it has no spawned children.
+    // A single reentrant callback can still contain a real concurrency bug.
 
     // NOTE: Main thread is now kept for analysis to detect races between main and worker threads.
     // Previously removed main thread here, but this caused missing race detection.
@@ -218,10 +199,6 @@ void ThreadCreationTree::handleJoins(){
 Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
     CCPG * ccpg = this->getCCPG();
 
-    if(forkNode->getType() == ThreadAPIUtil::TYPE::FORK){
-        int here = 1;
-    }
-
     // Deduplication: Check GLOBALLY if a thread for this exact fork node already exists.
     // This prevents creating duplicate threads when the same fork site is discovered
     // through different call paths (e.g., recursive thread creation where BGWork calls
@@ -254,7 +231,8 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
         }
     }
 
-    Thread* thread = new Thread();
+    auto ownedThread = std::make_unique<Thread>();
+    Thread* thread = ownedThread.get();
     thread->setParent(parent);
     thread->setId(threads.size());
     thread->setForkNode(forkNode);
@@ -368,7 +346,7 @@ Thread * ThreadCreationTree::createThread(CCPGNode* forkNode, Thread* parent){
         }
     }
     addThread(thread);
-    return thread;
+    return ownedThread.release();
 }
 
 Thread* ThreadCreationTree::getThreadById(int thread_id){
@@ -414,96 +392,12 @@ Node* ThreadCreationTree::findThreadEntryInCPG(CCPGNode* forkNode){
         }
     }
 
-    if(method == nullptr){
-        // Static-only mode (LACE_EARLY_EXIT_AFTER_SURFACE) has no live LLM
-        // endpoint. The LLM fallback below would then spend the whole
-        // surface-generation budget on curl connect-retries with backoff
-        // (curl exit=7) for every unresolved fork site (schedule_work,
-        // queue_work, …), which is the dominant cause of "no surface"
-        // timeouts in static validation runs. Skip it: any work/timer
-        // callback is already discovered as an independent thread root by
-        // the structural entry scan, so dropping this fork->child edge does
-        // not lose the concurrent context.
-        static const bool kStaticOnly =
-            std::getenv("LACE_EARLY_EXIT_AFTER_SURFACE") != nullptr ||
-            std::getenv("LACE_NO_LLM_THREAD_ENTRY") != nullptr ||
-            std::getenv("LACE_ENABLE_LLM_THREAD_ENTRY") == nullptr;
-        if (kStaticOnly) {
-            std::cerr << "[Thread Entry] " << apiName
-                      << " - direct arg lookup failed; LLM fallback skipped "
-                         "(disabled by default; set LACE_ENABLE_LLM_THREAD_ENTRY=1 to enable)."
-                      << std::endl;
-            return nullptr;
-        }
-        std::cerr << "[Thread Entry] " << apiName << " - direct arg lookup failed, trying LLM..." << std::endl;
-        // The LLM helper can throw (timeout, quota exhaustion, malformed
-        // response etc.). A thrown exception inside this early pipeline
-        // stage crashes the whole detector (SIGABRT), which wipes out
-        // all the vulnerability-surface work we had already done. Treat
-        // any LLM-side failure as "unable to resolve entry" and keep
-        // going — downstream code already handles a null return here.
-        try {
-            method = findThreadEntryByLLM(forkNode);
-        } catch (const std::exception& e) {
-            std::cerr << "[Thread Entry] LLM fallback for " << apiName
-                      << " threw: " << e.what()
-                      << " — treating as unresolved and continuing."
-                      << std::endl;
-            method = nullptr;
-        } catch (...) {
-            std::cerr << "[Thread Entry] LLM fallback for " << apiName
-                      << " threw an unknown exception — treating as "
-                         "unresolved and continuing." << std::endl;
-            method = nullptr;
-        }
-    }    
+    if (method == nullptr) {
+        unresolvedEntries.push_back("Unresolved callback at " + apiName + " node " + std::to_string(forkNode->getId()));
+        std::cerr << "[Thread Entry] " << unresolvedEntries.back() << std::endl;
+    }
 
     return method;
-}
-
-Node * ThreadCreationTree::findThreadEntryByLLM(CCPGNode* forkNode){
-    const CPG * cpg = getCPG();
-
-    llm_client::FindingThreadEntryAgent agent(this->ccpg, llm_client::LLMClient::get_instance());
-    long long result = agent.find_thread_entry(forkNode);
-    if (result < 0) {
-        return nullptr;
-    }
-
-    // The agent is instructed to return a "node ID", but in practice it may return:
-    // - a CPG node ID (Method node id)
-    // - a CCPG Function ID (ccpg::Function::getId())
-    // - (less likely) a CCPG node ID
-    //
-    // Be robust and accept any of the above to avoid dropping threads.
-    const std::string result_str = std::to_string(result);
-
-    // 1) Try interpreting as a CPG node id.
-    if (Node* node = cpg->findNode(result_str.c_str())) {
-        return node;
-    }
-
-    // 2) Try interpreting as a CCPG function id.
-    if (this->ccpg && result <= std::numeric_limits<int>::max()) {
-        int rid = static_cast<int>(result);
-        if (ccpg::Function* fn = this->ccpg->getFunctionById(rid)) {
-            if (fn->getFuncNode() && fn->getFuncNode()->getCPGNode()) {
-                return fn->getFuncNode()->getCPGNode();
-            }
-        }
-    }
-
-    // 3) Try interpreting as a CCPG node id pointing to a CPG method node.
-    if (this->ccpg && result <= std::numeric_limits<int>::max()) {
-        int rid = static_cast<int>(result);
-        if (CCPGNode* ccpgNode = this->ccpg->getNodeByID(rid)) {
-            if (ccpgNode->getCPGNode()) {
-                return ccpgNode->getCPGNode();
-            }
-        }
-    }
-
-    return nullptr;
 }
 
 Node* ThreadCreationTree::findThreadEntryByArg(Node * methodArgument){

@@ -411,7 +411,7 @@ CPG * CPGGenerator::buildCPGByDot(std::string dir) {
     // 遍历图中的所有节点
     for (Agnode_t *node = agfstnode(g); node; node = agnxtnode(g, node)) {
         const char* id = agnameof(node);
-        const char *label = agget(node, "label");
+        const char *label = agget(node, const_cast<char*>("label"));
 
         // 获取节点属性
         std::unordered_map<std::string, std::string> properties;
@@ -442,7 +442,7 @@ CPG * CPGGenerator::buildCPGByDot(std::string dir) {
             // 利用map直接获取指针，无需findNode
             Node* toNode = nodeMap[agnameof(g_head)];
             
-            const char* label = agget(g_edge, "label");
+            const char* label = agget(g_edge, const_cast<char*>("label"));
 
             auto edge_ptr = std::make_unique<Edge>(fromNode->getId(), toNode->getId(), label);
             Edge* raw_edge_ptr = edge_ptr.get();

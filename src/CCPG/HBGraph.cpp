@@ -618,7 +618,8 @@ bool HBGraph::hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth,
                           bool requireSyncEdge, SyncPolicy policy) const {
   if (!n1 || !n2) return false;
   if (n1 == n2) return !requireSyncEdge;
-  int cap = envInt("HB_MAX_DEPTH", max_depth);
+  // A nonpositive depth requests complete reachability using the visited set.
+  int cap = max_depth > 0 ? envInt("HB_MAX_DEPTH", max_depth) : 0;
 
   // BFS state carries whether the path so far crossed a synchronization edge.
   // With requireSyncEdge, n2 only counts as reached once such an edge is on
@@ -642,7 +643,7 @@ bool HBGraph::hbReachable(CCPGNode* n1, CCPGNode* n2, int max_depth,
     bool sawSync = qSync.front();
     q.pop();
     qSync.pop();
-    if (d >= cap) continue;
+    if (cap > 0 && d >= cap) continue;
 
     auto it = outEdges_.find(u);
     if (it == outEdges_.end()) continue;

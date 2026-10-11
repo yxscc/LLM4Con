@@ -3,7 +3,6 @@
 #define ALIASCHECKER_H
 
 #include "CCPGNode.h"
-#include "LLMUtil/ConcurrencyContract.h"
 
 namespace llvm {
 class Value;
@@ -11,9 +10,6 @@ class Function;
 class Instruction;
 }
 
-namespace LLM{
-class ConcurrencyContract;
-}
 
 struct MemoryAccess {
     const llvm::Value* pointerOperand; // 指向被访问内存的指针
@@ -51,7 +47,6 @@ public:
     bool areCallsSame(const llvm::Instruction* llvmInst, Node* cpgNode) const;
 
     std::vector<const llvm::Value*> getPointerOperandsFromLocation(const NodeLoc& loc);
-    bool isAliasOfContractVariable(const llvm::Value* V, const LLM::ConcurrencyContract::SharedVariable& contractVar, int functionId);
     std::vector<MemoryAccess> getMemoryAccessesFromLocation(const NodeLoc& loc, const Context& ctx);
     bool isThreadSafeStaticInitializationVariable(const llvm::Value* val) const;
     bool isCompilerGeneratedSafeInit(const MemoryAccess& access) const;

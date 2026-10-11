@@ -217,8 +217,10 @@ def main():
             assert len(report['requirements']) == state['static_obligations'] + 2
             bug = Path(manifest['report']).parent / 'stateful_bugs/bugs.txt'
             text = bug.read_text();assert 'OFFLINE SYNTHETIC' in text and state['source_one'] in text and state['source_two'] in text
-            assert 'Source Operations (no static proof)' in text and '[node not found]' not in text
-            assert text.count('========== Mechanism-Rule Violation Detected ==========') == 2, 'Independent source witnesses merged incorrectly'
+            assert '[node not found]' not in text
+            final = json.loads((bug.parent / 'reports.json').read_text())
+            assert len(final) == 2 and all(r['status'] == 'source_supported' and not r['reproduced'] for r in final)
+            assert text.count('========== Concurrency Defect Candidate ==========') == 2, 'Independent source witnesses merged incorrectly'
         elif args.repository:
             assert 'api_summaries' not in report and 'api_resources' not in report
             assert 'unsummarized_calls_without_callee_edge' not in report['coverage']

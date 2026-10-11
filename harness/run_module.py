@@ -35,7 +35,7 @@ def main():
         context = RepositoryContext(args.repository, args.revision)
         source_check = context.verify_source(args.source)
     env = os.environ.copy()
-    env.update(LACE_MODULE_CONTRACTS="1", LACE_PYTHON=sys.executable, LLM_MODEL=args.model,
+    env.update(LACE_PYTHON=sys.executable, LLM_MODEL=args.model,
                LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns))
     env.pop('LACE_CPG_AUTOCONF', None)
     if args.autoconf:
@@ -67,6 +67,20 @@ def main():
     revision = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True, capture_output=True)
     if revision.returncode == 0:
         manifest["revision"] = revision.stdout.strip()
+        dirty = subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=no"], text=True, capture_output=True, check=True)
+        manifest["implementation_dirty"] = bool(dirty.stdout.strip())
+    implementation = hashlib.sha256()
+    code_files = sorted(f for folder in ('src', 'include', 'harness') for f in (repo / folder).rglob('*')
+                        if f.is_file() and '__pycache__' not in f.parts)
+    code_files += [repo / name for name in ('CMakeLists.txt', 'requirements-harness.txt')]
+    for path in code_files:
+        implementation.update(path.relative_to(repo).as_posix().encode() + b'\0' + path.read_bytes() + b'\0')
+    manifest['implementation_sha256'] = implementation.hexdigest()
+    manifest['bitcode_sha256'] = hashlib.sha256(args.bitcode.read_bytes()).hexdigest()
+    manifest['source_snapshot'] = [
+        {'path': f.relative_to(args.source).as_posix(), 'sha256': hashlib.sha256(f.read_bytes()).hexdigest()}
+        for f in sorted(args.source.rglob('*')) if f.is_file() and not f.is_symlink()
+        and f.suffix in {'.c', '.h', '.cpp', '.hpp', '.hh', '.cc', '.cxx'}]
     (args.output / "run.json").write_text(json.dumps(manifest, indent=2))
     with (args.output / "run.log").open("w") as log:
         code = subprocess.call(command, env=env, cwd=args.output, stdout=log, stderr=subprocess.STDOUT)
