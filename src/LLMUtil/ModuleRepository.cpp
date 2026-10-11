@@ -4,9 +4,50 @@
 #include "Util/TargetPath.h"
 #include <algorithm>
 #include <cstdlib>
+#include <regex>
+#include <sstream>
 
 namespace llm_client {
 using J = nlohmann::json;
+J ModuleContractAgent::sourceOperation(const J& args) {
+    auto path = args.at("path").get<std::string>();
+    auto it = sourceLines_.find(path);
+    if (it == sourceLines_.end()) throw std::invalid_argument("Unknown module snapshot path");
+    int first = args.at("first_line"), last = args.at("last_line");
+    if (first < 1 || last < first || size_t(last) > it->second.size()) throw std::invalid_argument("Source operation span outside module snapshot");
+    std::ostringstream content; bool nonempty = false;
+    for (int i = first; i <= last; ++i) {
+        const auto& line = it->second[i - 1];
+        nonempty |= line.find_first_not_of(" \t\r") != std::string::npos;
+        content << i << ": " << line << '\n';
+    }
+    if (!nonempty) throw std::invalid_argument("Empty source operation");
+    std::string id = "module-op:" + path + ":" + std::to_string(first) + ":" + std::to_string(last);
+    J op = {{"source_id", id}, {"path", path}, {"first_line", first}, {"last_line", last},
+            {"content", content.str()}, {"static_analysis", false}};
+    data_["source_operations"][id] = op; save(); return op;
+}
+std::vector<std::string> ModuleContractAgent::validSources(const J& args, const char* key) const {
+    auto value = args.value(key, J::array());
+    if (!value.is_array()) throw std::invalid_argument(std::string(key) + " must be an array");
+    std::vector<std::string> out; std::set<std::string> seen;
+    for (const auto& item : value) {
+        if (!item.is_string() || !data_["source_operations"].contains(item.get<std::string>()))
+            throw std::invalid_argument("Unknown module source operation; call get_source_operation first");
+        auto id = item.get<std::string>();
+        if (!seen.insert(id).second) throw std::invalid_argument("Duplicate source operand");
+        out.push_back(id);
+    }
+    return out;
+}
+bool ModuleContractAgent::hasSourceFunction(const std::string& name) const {
+    // Protocol accounting is navigation, not proof of a definition or execution.
+    if (!std::regex_match(name, std::regex("[A-Za-z_][A-Za-z0-9_]*"))) return false;
+    std::regex occurrence("\\b" + name + "\\s*\\(");
+    for (const auto& [path, lines] : sourceLines_) for (const auto& line : lines)
+        if (std::regex_search(line, occurrence)) return true;
+    return false;
+}
 namespace {
 Parameter listParam(const char* name, const char* type, const char* help, bool required = true) {
     return Parameter(name, J{{"type", "array"}, {"items", {{"type", type}}}, {"description", help}}, required);

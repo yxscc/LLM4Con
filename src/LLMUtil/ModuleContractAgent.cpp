@@ -3,6 +3,10 @@
 #include "LLMUtil/SharedToolKit.h"
 #include "Util/TargetPath.h"
 #include "CCPG/ThreadCreationTree.h"
+#include "PhasarUtil/AnalysisManager.h"
+#include "PhasarUtil/PhasarPointerAnalysis.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/Module.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -111,6 +115,17 @@ Use get_object/get_function_ops to bind contracts to real CCPG IDs. Source line
 numbers, function IDs and repository citation IDs are different namespaces;
 never use a repository line number as a CCPG operation ID. The module call
 inventory retains arguments even for resources omitted from shared objects.
+When an operation has no CCPG mapping, call get_source_operation with its module
+path and exact line span. Use the returned module-op source_id in a_sources,
+b_sources, evidence_sources or witness_sources. Each operand uses either node
+IDs or source IDs (not both lists); atomicity preserves the chosen list's order.
+Set owner_thread=-1 when operand A is source-only and its activation is absent
+from the static thread inventory; explain the activation evidence/assumptions.
+Such requirements bypass the deterministic checker, stay explicit static gaps,
+and still enter the same review and final report. Source-only guarantees must
+use unconditional=false. Source coordinates prove text exists, not aliasing,
+compilation, feasible concurrency or synchronization. Inspect conditional
+compilation and dispatch/lifecycle evidence instead of assuming them.
 When a pinned repository is available, repository_search/read can inspect
 definitions, callers, registration, teardown and documentation at that version.
 Follow evidence relevant to a protocol instead of summarizing every call.
@@ -119,8 +134,8 @@ Attach repository_evidence_ids when a claim uses queried source. If an object
 is absent from the static inventory, object_ids=[] plus its concrete resource
 expression and real module operation nodes records the same concurrency form,
 with an explicit missing mapping. Do not invent aliases or unrelated object IDs.
-If exact operations cannot be anchored, preserve the relation in the protocol
-explanation and record the anchor gap rather than inventing a contract operand.
+Try module source anchors before giving up on an operation missing from CCPG.
+If neither source nor static evidence anchors it, preserve the relation and gap.
 
 Account for each listed access-containing function with record_protocol;
 batch related functions and mark unresolved ones unknown. This is an audit
@@ -139,16 +154,24 @@ based only on local order, or a guarantee whose mechanism/domain is unsupported;
 explain the defect in that evidence and record any unresolved gap.
 Use review_obligations:
 - source_supported: source supports a feasible harmful interleaving; provide
-  concrete witness operations and the interleaving.
+  concrete witness operations and the interleaving. This is existential: ONE
+  applicable unsafe combination suffices; do not require all combinations in
+  the group to be unsafe. Other combinations can remain unresolved. Discover
+  interference between two activations of the same reentrant entry as well.
 - satisfied: the established protocol covers EVERY applicable operation in
   the group; identify actual synchronization/lifetime/ownership evidence.
 - not_applicable: the conflict cannot arise (different instances/lifetimes or
   infeasible concurrent activations); explain why this covers the whole group.
 - unknown: required evidence is missing, including unresolved caller contexts.
-Batch groups only when the same justification covers all represented operations.
+Batch source_supported groups only when the concrete witness applies to each
+reported group. Batch satisfied/not_applicable groups only when the same
+justification covers all applicable operations in every group.
 One rejected pair does not close an entire group. API conditions and function
 names alone cannot establish a bug or satisfaction. Use repository citations
 when the judgment depends on queried source. Missing static mappings stay gaps.
+If a judgment depends on missing external dispatch/lifetime/synchronization
+evidence, use the available pinned repository tools to investigate it before
+settling on unknown. Do not force an answer when that investigation is inconclusive.
 These judgments are source assessments, not reproduction or formal proof.
 Account for every group and end with finalize_review. Unknowns remain incomplete.
 )PROMPT";
@@ -157,7 +180,11 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client, CCPG
     const query::VulnerabilitySurface& surface)
     : Conversation(client, modulePrompt), ccpg_(ccpg), surface_(surface), surfaceJson_(surface.toJson()) {
     if (!client->usesOfficialSDK()) throw std::runtime_error("Module contracts require the official SDK harness");
+    // Reentrancy is per entry, independent of legacy per-object self-race gates.
+    for (size_t i = 0; i < surface_.threads.size(); ++i)
+        surfaceJson_["threads"][i]["reentrant_entry"] = surface_.threads[i].reentrant_entry;
     data_ = buildModuleRequirements(surfaceJson_);
+    data_["source_operations"] = J::object();
     data_["guarantees"] = J::array(); data_["protocols"] = J::array(); data_["reviews"] = J::object();
     data_["harness"] = "openai-agents";
     data_["agent_instructions"] = modulePrompt; // Preserve the exact task used in this run for trajectory review.
@@ -196,7 +223,10 @@ std::string ModuleContractAgent::sourcePacket() {
         std::string name = fs::is_directory(root) ? fs::relative(path, root).string() : path.filename().string();
         out << "\n<source file=" << J(name).dump() << ">\n";
         std::string line; size_t lines = 0, bytes = 0;
-        while (std::getline(in, line)) { bytes += line.size() + 1; out << ++lines << ": " << line << '\n'; }
+        while (std::getline(in, line)) {
+            sourceLines_[name].push_back(line);
+            bytes += line.size() + 1; out << ++lines << ": " << line << '\n';
+        }
         out << "</source>\n";
         data_["source_manifest"].push_back({{"path", name}, {"lines", lines}, {"bytes", bytes}, {"complete", true}});
     }
@@ -209,6 +239,21 @@ void ModuleContractAgent::generate() {
         auto source = sourcePacket();
         J overview = {{"objects", surface_.shared_objects.size()}, {"static_obligations", data_["requirements"].size()},
                       {"access_functions", functions_}, {"threads", surfaceJson_["threads"]}};
+        J definitions = J::array();
+        auto graphFunctions = ccpg_->getFunctions();
+        auto* pointer = dynamic_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
+        if (pointer && pointer->getModule()) for (const auto& fn : *pointer->getModule()) {
+            if (fn.isDeclaration()) continue;
+            auto* debug = fn.getSubprogram();
+            if (!debug) continue;
+            std::string file = fs::path(debug->getFilename().str()).filename().string();
+            bool target = false;
+            for (const auto& [path, lines] : sourceLines_) if (fs::path(path).filename().string() == file) target = true;
+            if (!target) continue;
+            definitions.push_back({{"function", fn.getName().str()}, {"file", debug->getFilename().str()},
+                {"line", debug->getLine()}, {"ccpg_mapped", graphFunctions.end() != std::find_if(graphFunctions.begin(), graphFunctions.end(), [&](auto* f) { return f->getFuncNode()->getCPGNode()->getName() == fn.getName().str(); })}});
+        }
+        overview["ir_defined_functions"] = definitions;
         // Entry provenance is not currently serialized by the legacy surface.
         for (size_t i = 0; i < surface_.threads.size(); ++i) {
             overview["threads"][i]["entry_provenance"] = surface_.threads[i].entry_provenance;
@@ -240,9 +285,20 @@ static Parameter repositoryEvidenceParam() {
     return Parameter("repository_evidence_ids", J{{"type", "array"}, {"items", {{"type", "string"}}},
         {"description", "Optional source_id values from repository_read supporting this claim. Cite queried source when used; IDs are validated."}}, false);
 }
+static Parameter sourceParam(const char* name, const char* description) {
+    return Parameter(name, J{{"type", "array"}, {"items", {{"type", "string"}}}, {"description", description}}, false);
+}
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     auto tools = SharedToolKit::get_shared_tools();
     auto repoTools = repositoryTools(); tools.insert(tools.end(), repoTools.begin(), repoTools.end());
+    tools.push_back({"get_source_operation", "Anchor an operation in the complete module snapshot when CCPG mapping is absent. Returns a validated source_id and exact text; this is source evidence, not a static concurrency/alias proof.",
+        {{"path", "string", "Module-relative source path as shown in the source packet.", true},
+         {"first_line", "integer", "First line of the concrete operation, 1-based.", true},
+         {"last_line", "integer", "Last line of that operation (inclusive).", true}}});
+    tools.push_back({"get_source_operations", "Anchor several related module operations in one call. Prefer batching protocol operands to repeated single-operation calls. Returned IDs are source evidence, not static proofs.",
+        {Parameter("operations", J{{"type", "array"}, {"items", {{"type", "object"},
+            {"properties", {{"path", {{"type", "string"}}}, {"first_line", {{"type", "integer"}}}, {"last_line", {{"type", "integer"}}}}},
+            {"required", {"path", "first_line", "last_line"}}, {"additionalProperties", false}}}}, true)}});
     tools.push_back({"record_gap", "Record a missing dependency, resource, operation anchor or execution context. Gaps keep the analysis incomplete.",
         {{"description", "string", "What is missing and which source behavior needs it.", true}}});
     tools.push_back({"get_object", "Get a static object and ALL its access contexts. -1 lists all object IDs/names.",
@@ -256,10 +312,12 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
              {"status", "string", "reviewed or unknown. Unknown keeps coverage incomplete.", true}}});
         tools.push_back({"add_requirement", "Add a concurrency safety relation between anchored operations, expanded across all listed affected objects. Common obligations already exist; API call preconditions are evidence, not a fourth requirement kind.",
             {Parameter("form", J{{"type", "string"}, {"enum", {"MustPrecede", "MustBeAtomic", "MustBeMediated"}}}, true),
-             {"owner_thread", "integer", "Thread context in which operand A executes.", true},
+             {"owner_thread", "integer", "Thread context for operand A; -1 only for source-only A with an unresolved static activation context.", true},
              arrayParam("object_ids", "integer", "All affected object IDs, including related fields."),
              arrayParam("a_nodes", "integer", "Real CCPG IDs; ordered sequence for atomicity."),
              arrayParam("b_nodes", "integer", "Second operand; empty for atomicity."),
+             sourceParam("a_sources", "Ordered source_id operands from get_source_operation, instead of a_nodes when its CCPG mapping is missing."),
+             sourceParam("b_sources", "Second operand source_ids, instead of b_nodes; empty for atomicity."),
              {"resource", "string", "Concrete source resource expression when object_ids=[]; missing static mapping remains a coverage gap.", false},
              repositoryEvidenceParam(),
              {"note", "string", "Resource/property, concurrent invalidator or interference, source intent, operand meaning and applicability/unknowns. Do not add ordinary local sequencing requirements.", true}}});
@@ -268,22 +326,27 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
                 {"description", "Order: synchronization handoff beyond local program order. Wait: enabling event/condition before continuation. Exclude: incompatible regions sharing a scoped token cannot overlap. AtomicOp: atomic operation or protected sequence relative to conflicting operations."}}, true),
              arrayParam("a_nodes", "integer", "Real CCPG IDs: ordered predecessors for Order, enabling event/condition anchors for Wait, protected operations for Exclude, atomic sequence for AtomicOp."),
              arrayParam("b_nodes", "integer", "Real CCPG IDs: successors for Order, continuation after Wait; empty for Exclude/AtomicOp."),
+             sourceParam("a_sources", "Source operands instead of a_nodes when mappings are missing; semantic review only."),
+             sourceParam("b_sources", "Source operands instead of b_nodes when mappings are missing."),
              {"token", "string", "Source spelling of lock/atomic identity, or empty.", true},
              {"mode", "string", "exclusive/shared for Exclude; otherwise empty.", true},
              {"conditions", "string", "Instance/domain/path/matching/return assumptions supporting this synchronization effect; distinguish established and unresolved assumptions.", true},
              {"unconditional", "boolean", "True only if applicability is established for these nodes and the checker represents the scope. False retains a genuine conditional synchronization effect; it does not admit local order or unsupported claims.", true},
              arrayParam("evidence_nodes", "integer", "Source nodes proving the synchronization."),
+             sourceParam("evidence_sources", "Validated source_ids supporting the synchronization effect, when no CCPG evidence nodes exist."),
              repositoryEvidenceParam(),
              {"note", "string", "Which actual synchronization mechanism establishes this effect on these operations, with source evidence and scope. Desired order or local program order is insufficient.", true}}});
         tools.push_back({"finalize_contract", "Finish only after all access functions have an explicit semantic review position.", {}});
     } else {
-        tools.push_back({"review_obligations", "Judge whole quantified groups, not only one example pair. Batch only identical justifications.",
+        tools.push_back({"review_obligations", "Report a group with one feasible harmful witness; satisfaction or non-applicability must cover the whole group. Batch only identical justifications.",
             {arrayParam("ids", "string", "Requirement IDs covered by this judgment."),
              {"status", "string", "source_supported, satisfied, not_applicable, or unknown", true},
              arrayParam("evidence_nodes", "integer", "Source nodes supporting this judgment; may be empty for unknown."),
              arrayParam("witness_nodes", "integer", "Concrete involved operations for source_supported; otherwise empty."),
+             sourceParam("evidence_sources", "Validated module source_ids supporting this judgment."),
+             sourceParam("witness_sources", "Concrete source operation IDs involved in a source_supported interleaving."),
              repositoryEvidenceParam(),
-             {"reason", "string", "Explain applicability and why the judgment covers all operations in the group.", true},
+             {"reason", "string", "For source_supported, justify the concrete witness's applicability and harm. For satisfied/not_applicable, justify coverage of all applicable operations.", true},
              {"interleaving", "string", "Feasible harmful interleaving for source_supported; otherwise empty.", true}}});
         tools.push_back({"finalize_review", "Finish only after every requirement has an explicit judgment. Unknowns remain incomplete.", {}});
     }
@@ -305,6 +368,13 @@ std::vector<int> ModuleContractAgent::validNodes(const J& args, const char* key,
 }
 
 std::string ModuleContractAgent::execute_tool(const std::string& name, const J& args) {
+    if (name == "get_source_operation") return sourceOperation(args).dump();
+    if (name == "get_source_operations") {
+        if (!args.at("operations").is_array() || args.at("operations").empty()) throw std::invalid_argument("Nonempty operation list required");
+        J result = J::array();
+        for (const auto& op : args.at("operations")) result.push_back(sourceOperation(op));
+        return result.dump();
+    }
     if (auto result = executeRepositoryTool(name, args)) return *result;
     if (name == "record_gap") {
         if (args.at("description").get<std::string>().empty()) throw std::invalid_argument("Gap description required");
@@ -323,7 +393,8 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
             std::string id = r.at("id");
             if (!ids.empty() && !ids.count(id)) continue;
             J row = ids.empty() ? J{{"id", id}, {"form", r["form"]}, {"object_id", r["object_id"]},
-                {"owner_thread", r["owner_thread"]}, {"a_count", r["a_nodes"].size()}, {"b_count", r["b_nodes"].size()}} : r;
+                {"owner_thread", r["owner_thread"]}, {"a_count", r["a_nodes"].size() + r.value("a_sources", J::array()).size()},
+                {"b_count", r["b_nodes"].size() + r.value("b_sources", J::array()).size()}} : r;
             if (data_["checks"].is_object() && data_["checks"].contains(id)) row["checker_hint"] = data_["checks"][id];
             if (data_["reviews"].contains(id)) row["review"] = data_["reviews"][id];
             if (r.contains("resource")) row["resource"] = r["resource"];
@@ -340,7 +411,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
         for (const auto& f : fns) if (!functions_.count(f)) {
             bool known = false;
             for (auto* fn : ccpg_->getFunctions()) if (fn->getFuncNode()->getCPGNode()->getName() == f) known = true;
-            if (!known) throw std::invalid_argument("Unknown module function: " + f);
+            if (!known && !hasSourceFunction(f)) throw std::invalid_argument("Unknown module function: " + f);
         }
         for (const auto& f : fns) if (functions_.count(f)) coveredFunctions_.insert(f);
         data_["protocols"].push_back(args); save(); return "Protocol recorded";
@@ -348,14 +419,18 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
     if (name == "add_requirement" && generating_) {
         std::string form = args.at("form");
         if (form != "MustPrecede" && form != "MustBeAtomic" && form != "MustBeMediated") throw std::invalid_argument("Invalid requirement form");
-        auto a = validNodes(args, "a_nodes"); auto b = validNodes(args, "b_nodes", form != "MustBeAtomic");
-        if (form == "MustBeAtomic" && (a.size() < 2 || !b.empty())) throw std::invalid_argument("Atomicity requires an ordered sequence of >=2 nodes and empty b");
+        auto a = validNodes(args, "a_nodes", false); auto b = validNodes(args, "b_nodes", false);
+        auto sa = validSources(args, "a_sources"), sb = validSources(args, "b_sources");
+        if ((!a.empty() && !sa.empty()) || (!b.empty() && !sb.empty())) throw std::invalid_argument("Each operand must use either CCPG nodes or source operations, not both");
+        if (a.empty() && sa.empty()) throw std::invalid_argument("Operand A required");
+        if (form != "MustBeAtomic" && b.empty() && sb.empty()) throw std::invalid_argument("Operand B required");
+        if (form == "MustBeAtomic" && (a.size() + sa.size() < 2 || !b.empty() || !sb.empty())) throw std::invalid_argument("Atomicity requires an ordered sequence of >=2 operations and empty b");
         int tid = args.at("owner_thread"); bool known = false;
         for (auto* t : ThreadCreationTree::getInstance()->getThreads()) if (t->getId() == tid) {
             auto nodes = t->getNodes(); known = true;
             for (int n : a) if (!nodes.count(ccpg_->getNodeByID(n))) throw std::invalid_argument("Operand A is not reachable in owner_thread");
         }
-        if (!known) throw std::invalid_argument("Unknown owner_thread");
+        if (!known && !(tid == -1 && a.empty() && !sa.empty())) throw std::invalid_argument("Unknown owner_thread; -1 requires source-only operand A and explicit activation assumptions");
         auto objects = args.at("object_ids").get<std::set<int>>();
         const auto resource = args.value("resource", std::string{});
         const auto repoEvidence = args.value("repository_evidence_ids", J::array());
@@ -365,16 +440,25 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
         for (int oid : objects) if (oid < 0 || size_t(oid) >= surface_.shared_objects.size()) throw std::invalid_argument("Unknown object_id");
         if (objects.empty()) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
             {"origin", "llm_unmodeled_resource"}, {"form", form}, {"owner_thread", tid}, {"object_id", -1},
-            {"resource", resource}, {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
+            {"resource", resource}, {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b},
+            {"a_sources", sa}, {"b_sources", sb}, {"requires_semantic_review", !sa.empty() || !sb.empty() || tid == -1}, {"note", args.at("note")}});
         for (int oid : objects) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
             {"origin", "llm"}, {"form", form}, {"owner_thread", tid}, {"object_id", oid},
-            {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
+            {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b},
+            {"a_sources", sa}, {"b_sources", sb}, {"requires_semantic_review", !sa.empty() || !sb.empty() || tid == -1}, {"note", args.at("note")}});
         save(); return "Semantic requirements recorded";
     }
     if (name == "add_guarantee" && generating_) {
         std::string form = args.at("form");
         if (form != "Order" && form != "Wait" && form != "Exclude" && form != "AtomicOp") throw std::invalid_argument("Invalid guarantee form");
-        validNodes(args, "a_nodes"); validNodes(args, "b_nodes", form == "Order" || form == "Wait"); validNodes(args, "evidence_nodes");
+        auto a = validNodes(args, "a_nodes", false), b = validNodes(args, "b_nodes", false);
+        auto sa = validSources(args, "a_sources"), sb = validSources(args, "b_sources");
+        auto ev = validNodes(args, "evidence_nodes", false); auto se = validSources(args, "evidence_sources");
+        if ((!a.empty() && !sa.empty()) || (!b.empty() && !sb.empty())) throw std::invalid_argument("Each operand must use either CCPG nodes or source operations, not both");
+        if (a.empty() && sa.empty()) throw std::invalid_argument("Operand A required");
+        if ((form == "Order" || form == "Wait") && b.empty() && sb.empty()) throw std::invalid_argument("Operand B required");
+        if (ev.empty() && se.empty()) throw std::invalid_argument("Synchronization evidence required");
+        if ((!sa.empty() || !sb.empty() || !se.empty()) && args.at("unconditional").get<bool>()) throw std::invalid_argument("Source-only synchronization scope is not representable by the static checker; use unconditional=false");
         if ((form == "Exclude" || form == "AtomicOp") && args.at("token").get<std::string>().empty()) throw std::invalid_argument("Token required");
         if (form == "Exclude" && args.at("mode") != "exclusive" && args.at("mode") != "shared") throw std::invalid_argument("Invalid exclusion mode");
         if (args.at("conditions").get<std::string>().empty() || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Conditions and evidence explanation required");
@@ -390,8 +474,11 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
     if (name == "review_obligations" && !generating_) {
         std::string status = args.at("status");
         if (status != "source_supported" && status != "satisfied" && status != "not_applicable" && status != "unknown") throw std::invalid_argument("Invalid review status");
-        auto ev = validNodes(args, "evidence_nodes", status != "unknown");
-        auto witness = validNodes(args, "witness_nodes", status == "source_supported");
+        auto ev = validNodes(args, "evidence_nodes", false);
+        auto witness = validNodes(args, "witness_nodes", false);
+        auto se = validSources(args, "evidence_sources"), sw = validSources(args, "witness_sources");
+        if (status != "unknown" && ev.empty() && se.empty()) throw std::invalid_argument("Source or CCPG evidence required");
+        if (status == "source_supported" && witness.empty() && sw.empty()) throw std::invalid_argument("Concrete witness operations required");
         if (args.at("reason").get<std::string>().empty()) throw std::invalid_argument("Review reason required");
         if (status == "source_supported" && args.at("interleaving").get<std::string>().empty()) throw std::invalid_argument("Concrete interleaving required");
         auto ids = args.at("ids").get<std::set<std::string>>();
@@ -403,13 +490,19 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
             if (status == "source_supported") {
                 int oid = r.at("object_id");
                 bool selfRace = oid >= 0 && surface_.shared_objects.at(oid).is_self_race;
-                if (oid < 0) for (const auto& t : surface_.threads)
+                for (const auto& t : surface_.threads)
                     if (t.thread_id == r.at("owner_thread") && t.reentrant_entry) selfRace = true;
-                if (witness.size() < 2 && !selfRace)
+                if (r.contains("a_sources") && r.contains("b_sources")) for (const auto& s : r["a_sources"])
+                    if (std::find(r["b_sources"].begin(), r["b_sources"].end(), s) != r["b_sources"].end()) selfRace = true;
+                if (witness.size() + sw.size() < 2 && !selfRace)
                     throw std::invalid_argument("Two witness operations required unless two activations of a reentrant operation share one node ID");
                 std::set<int> a = r["a_nodes"].get<std::set<int>>(), b = r["b_nodes"].get<std::set<int>>();
                 bool hasA = false, hasB = r["form"] == "MustBeAtomic";
                 for (int n : witness) { hasA |= a.count(n); hasB |= b.count(n); }
+                for (const auto& s : sw) {
+                    if (r.contains("a_sources")) hasA |= std::find(r["a_sources"].begin(), r["a_sources"].end(), s) != r["a_sources"].end();
+                    if (r.contains("b_sources")) hasB |= std::find(r["b_sources"].begin(), r["b_sources"].end(), s) != r["b_sources"].end();
+                }
                 if (!hasA || !hasB) throw std::invalid_argument("Witness must involve both operands of each reported requirement");
             }
             checked.insert(r.at("id"));
@@ -431,7 +524,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
 std::map<int, LLM::ConcurrencyContract> ModuleContractAgent::contracts() const {
     std::map<int, LLM::ConcurrencyContract> out;
     for (const auto& r : data_["requirements"]) {
-        if (r.at("object_id").get<int>() < 0) continue; // Missing static object mapping, not a different requirement type.
+        if (r.at("object_id").get<int>() < 0 || r.value("requires_semantic_review", false)) continue;
         int tid = r.at("owner_thread");
         if (!out.count(tid)) out.emplace(tid, LLM::ConcurrencyContract(tid, -1));
         LLM::ConcurrencyContract::NodeReq req;
@@ -474,6 +567,8 @@ std::vector<query::Hypothesis> ModuleContractAgent::findings() const {
         h.description = "[module/source-supported; not reproduced] " + review.at("reason").get<std::string>() + "\n" + review.at("interleaving").get<std::string>();
         auto witness = review.at("witness_nodes").get<std::vector<int>>();
         for (size_t i = 0; i < witness.size(); ++i) h.nodes["witness_" + std::to_string(i)] = witness[i];
+        for (const auto& s : review.value("witness_sources", J::array()))
+            h.source_operations.push_back(data_["source_operations"].at(s.get<std::string>()));
         out.push_back(h);
     }
     return out;
@@ -482,19 +577,22 @@ std::vector<query::Hypothesis> ModuleContractAgent::findings() const {
 void ModuleContractAgent::save(const std::string& error) const {
     J report = data_; size_t unknown = 0;
     size_t unmodeledResources = 0;
+    size_t sourceRequirements = 0;
     for (const auto& p : data_["protocols"]) if (p.at("status") == "unknown") ++unknown;
     for (const auto& r : data_["requirements"]) {
         if (r.at("object_id").get<int>() < 0) ++unmodeledResources;
+        if (r.value("requires_semantic_review", false)) ++sourceRequirements;
         std::string id = r.at("id");
         if (!data_["reviews"].contains(id) || data_["reviews"].at(id).at("status") == "unknown") ++unknown;
     }
     report["coverage"] = {{"static_objects", surface_.shared_objects.size()}, {"obligation_groups", data_["requirements"].size()},
         {"access_functions", functions_.size()}, {"accounted_functions", coveredFunctions_.size()},
         {"module_call_sites", data_["module_calls"].size()}, {"requirements_outside_static_objects", unmodeledResources},
+        {"requirements_with_source_operands", sourceRequirements},
         {"repository_source_excerpts", data_["repository_evidence"].size()},
         {"unresolved_groups_or_functions", unknown}, {"unanchored_accesses", data_["unanchored_accesses"].size()},
         {"generation_finished", generationFinished_}, {"review_finished", reviewFinished_},
-        {"complete", error.empty() && generationFinished_ && reviewFinished_ && !unknown && !unmodeledResources && data_["unanchored_accesses"].empty() && data_["gaps"].empty()},
+        {"complete", error.empty() && generationFinished_ && reviewFinished_ && !unknown && !unmodeledResources && !sourceRequirements && data_["unanchored_accesses"].empty() && data_["gaps"].empty()},
         {"scope", "coverage relative to the v2 extracted static surface; no semantic completeness or program-safety claim"}};
     if (!error.empty()) report["error"] = error;
     auto path = TargetPath::getInstance()->getOutputDir() / "module_contracts.json";

@@ -151,6 +151,14 @@ std::unordered_map<std::string, std::string> collectCompileConfigDefines(
     fs::path caseDir = absSourceDir.filename() == "src"
         ? absSourceDir.parent_path()
         : absSourceDir;
+    // Explicit build artifact shared with the IR build. Do not guess enabled
+    // CONFIGs from a case label or enable every source branch.
+    if (const char* configured = std::getenv("LACE_CPG_AUTOCONF")) {
+        fs::path autoconf(configured);
+        if (!fs::is_regular_file(autoconf)) throw std::runtime_error("Missing explicit CPG autoconf header");
+        loadAutoconfDefines(autoconf, refs, defines);
+        return defines; // An explicit header is authoritative over old compile logs.
+    }
     if (!fs::exists(caseDir)) return defines;
 
     static const std::regex dFlagRe(R"(-D(CONFIG_[A-Za-z0-9_]+)(?:=([^\s'"]+))?)");

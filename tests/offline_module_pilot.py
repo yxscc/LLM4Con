@@ -6,6 +6,7 @@ checks continuation and accounting, and makes no bug-detection quality claim.
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -20,6 +21,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--repository", type=Path)
     parser.add_argument("--revision")
+    parser.add_argument("--source-anchors", action="store_true", help="Exercise source-only contracts and final report output with explicitly synthetic model judgments")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     state = {"calls": 0, "phase": "A", "next": "start", "source_bytes_in_first_prompt": 0}
@@ -43,13 +45,55 @@ def main():
                 overview = json.JSONDecoder().raw_decode(content.split("Static navigation overview:\n", 1)[1])[0]
                 state["source_bytes_in_first_prompt"] = len(content)
                 state['static_obligations'] = overview['static_obligations']
+                state['source_path'] = json.loads(re.search(r'<source file=("[^\n]+")>', content).group(1))
                 assert "<source file=" in content
                 if overview["access_functions"]:
                     name, arguments = "record_protocol", {"functions": overview["access_functions"], "summary": "Offline plumbing test: no semantic judgment attempted.", "status": "unknown"}
-                    state["next"] = "calls" if args.repository else "finish_a"
+                    state["next"] = "source_bad_path" if args.source_anchors else "calls" if args.repository else "finish_a"
                 else:
-                    name, arguments = "finalize_contract", {}
-                    state["next"] = "phase_c"
+                    if args.source_anchors:
+                        name, arguments = 'get_source_operation', {'path': '../outside.c', 'first_line': 1, 'last_line': 1}
+                        state['next'] = 'source_one'
+                    else:
+                        name, arguments = "finalize_contract", {}
+                        state["next"] = "phase_c"
+            elif state['next'] == 'source_bad_path':
+                name, arguments = 'get_source_operation', {'path': '../outside.c', 'first_line': 1, 'last_line': 1}
+                state['next'] = 'source_one'
+            elif state['next'] == 'source_one':
+                assert 'Unknown module snapshot path' in messages[-1]['content']
+                name, arguments = 'get_source_operations', {'operations': [
+                    {'path': state['source_path'], 'first_line': i, 'last_line': i+1} for i in (1,3,5)]}
+                state['next'] = 'source_forged'
+            elif state['next'] == 'source_forged':
+                spans = json.loads(messages[-1]['content'])
+                state['source_one'], state['source_two'], state['source_three'] = [s['source_id'] for s in spans]
+                state['source_req'] = {'form': 'MustPrecede', 'owner_thread': -1, 'object_ids': [],
+                    'resource': 'OFFLINE SYNTHETIC resource; not a defect assessment', 'a_nodes': [], 'b_nodes': [],
+                    'a_sources': ['module-op:forged'], 'b_sources': [state['source_two']],
+                    'note': 'Offline plumbing only: deliberately synthetic requirement. No concurrency or safety claim.'}
+                name, arguments = 'add_requirement', dict(state['source_req'])
+                state['next'] = 'source_valid'
+            elif state['next'] == 'source_valid':
+                assert 'Unknown module source operation' in messages[-1]['content']
+                state['source_req']['a_sources'] = [state['source_one']]
+                name, arguments = 'add_requirement', dict(state['source_req'])
+                state['next'] = 'source_second_requirement'
+            elif state['next'] == 'source_second_requirement':
+                other = dict(state['source_req']); other['b_sources'] = [state['source_three']]
+                other['resource'] += ' (independent witness)'
+                name, arguments = 'add_requirement', other
+                state['next'] = 'source_guarantee_rejected'
+            elif state['next'] == 'source_guarantee_rejected':
+                name, arguments = 'add_guarantee', {'form': 'Wait', 'a_nodes': [], 'b_nodes': [],
+                    'a_sources': [state['source_one']], 'b_sources': [state['source_two']],
+                    'evidence_nodes': [], 'evidence_sources': [state['source_one']], 'token': '', 'mode': '',
+                    'conditions': 'Offline synthetic only', 'unconditional': True, 'note': 'Offline scope rejection test, not real synchronization.'}
+                state['next'] = 'source_finish_a'
+            elif state['next'] == 'source_finish_a':
+                assert 'not representable by the static checker' in messages[-1]['content']
+                name, arguments = 'finalize_contract', {}
+                state['next'] = 'phase_c'
             elif state["next"] == "calls":
                 name, arguments = "get_module_calls", {"apis": ["dst_cache_get"]}
                 state["next"] = "search"
@@ -94,7 +138,7 @@ def main():
                     'evidence_nodes': [state['test_node']], 'note': 'General API behavior is not a synchronization guarantee.'}
                 state["next"] = "finish_a"
             elif state["next"] == "finish_a":
-                if args.repository:
+                if args.repository and not args.source_anchors:
                     assert 'Invalid guarantee form' in messages[-1]['content'], messages[-1]
                 name, arguments = "finalize_contract", {}
                 state["next"] = "phase_c"
@@ -104,7 +148,7 @@ def main():
                 state["next"] = "review"
             elif state["next"] == "review":
                 rows = json.loads(messages[-1]["content"])
-                if args.repository:
+                if args.repository and not args.source_anchors:
                     unmodeled = [r for r in rows if r['object_id'] == -1]
                     assert len(unmodeled) == 1
                     assert unmodeled[0]['form'] == 'MustBeMediated'
@@ -112,15 +156,32 @@ def main():
                     assert unmodeled[0]['checker_hint']['status'] == 'requires_semantic_review'
                     assert 'static object mapping' in unmodeled[0]['checker_hint']['reason']
                 if rows:
+                    state['source_requirements'] = [r['id'] for r in rows if r.get('resource', '').startswith('OFFLINE SYNTHETIC')]
                     name, arguments = "review_obligations", {"ids": [r["id"] for r in rows], "status": "unknown",
                         "evidence_nodes": [], "witness_nodes": [], "reason": "Offline test; real model assessment intentionally not performed.", "interleaving": ""}
-                    state["next"] = "finish_c"
+                    state["next"] = "source_witness" if args.source_anchors else "finish_c"
                 else:
                     name, arguments = "finalize_review", {}
                     state["next"] = "done"
             elif state["next"] == "finish_c":
                 name, arguments = "finalize_review", {}
                 state["next"] = "done"
+            elif state['next'] == 'source_witness':
+                name, arguments = 'review_obligations', {'ids': [state['source_requirements'][0]], 'status': 'source_supported',
+                    'evidence_nodes': [], 'witness_nodes': [],
+                    'evidence_sources': [state['source_one'], state['source_two']],
+                    'witness_sources': [state['source_one'], state['source_two']],
+                    'reason': 'OFFLINE SYNTHETIC model judgment tests report plumbing, NOT evidence of any real bug.',
+                    'interleaving': 'OFFLINE SYNTHETIC: activation A and B interleave; no actual semantic assessment.'}
+                state['next'] = 'source_second_witness'
+            elif state['next'] == 'source_second_witness':
+                name, arguments = 'review_obligations', {'ids': [state['source_requirements'][1]], 'status': 'source_supported',
+                    'evidence_nodes': [], 'witness_nodes': [],
+                    'evidence_sources': [state['source_one'], state['source_three']],
+                    'witness_sources': [state['source_one'], state['source_three']],
+                    'reason': 'OFFLINE SYNTHETIC independent witness tests conservative report deduplication.',
+                    'interleaving': 'OFFLINE SYNTHETIC: no actual semantic assessment.'}
+                state['next'] = 'finish_c'
             else:
                 raise AssertionError("Unexpected model request after finalization")
             payload = json.dumps({"id": "offline", "object": "chat.completion", "created": 1, "model": "offline-scripted",
@@ -148,7 +209,17 @@ def main():
         assert report["coverage"]["generation_finished"] and report["coverage"]["review_finished"]
         assert not report["coverage"]["complete"], "Unreviewed semantics must never become a clean result"
         assert len(report["requirements"]) == len(report["reviews"]), "Silent obligation loss"
-        if args.repository:
+        if args.source_anchors:
+            req = next(r for r in report['requirements'] if r.get('resource','').startswith('OFFLINE SYNTHETIC'))
+            assert req['owner_thread'] == -1 and not req['a_nodes'] and not req['b_nodes']
+            assert req['requires_semantic_review'] and report['checks'][req['id']]['status'] == 'requires_semantic_review'
+            assert len(report['source_operations']) == 3 and not report['guarantees']
+            assert len(report['requirements']) == state['static_obligations'] + 2
+            bug = Path(manifest['report']).parent / 'stateful_bugs/bugs.txt'
+            text = bug.read_text();assert 'OFFLINE SYNTHETIC' in text and state['source_one'] in text and state['source_two'] in text
+            assert 'Source Operations (no static proof)' in text and '[node not found]' not in text
+            assert text.count('========== Mechanism-Rule Violation Detected ==========') == 2, 'Independent source witnesses merged incorrectly'
+        elif args.repository:
             assert 'api_summaries' not in report and 'api_resources' not in report
             assert 'unsummarized_calls_without_callee_edge' not in report['coverage']
             assert len(report['requirements']) == state['static_obligations'] + 1, 'Invalid claims mutated the ledger'

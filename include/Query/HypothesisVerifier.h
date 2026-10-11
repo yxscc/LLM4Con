@@ -27,6 +27,8 @@ struct Hypothesis {
     std::string bug_category;
     std::string severity;
     std::map<std::string, int> nodes;  // role_name -> CCPG node_id
+    // Validated module source spans. Never interpreted as CCPG node IDs.
+    nlohmann::json source_operations = nlohmann::json::array();
     std::vector<VerificationConstraint> constraints;
 
     nlohmann::json toJson() const;

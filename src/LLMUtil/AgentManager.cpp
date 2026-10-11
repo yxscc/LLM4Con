@@ -2597,9 +2597,10 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
         nlohmann::json checks = nlohmann::json::object();
         for (const auto& r : agent.requirements()) {
             std::string id = r.at("id");
-            bool unmodeledResource = r.at("object_id").get<int>() < 0;
+            bool unmodeledResource = r.at("object_id").get<int>() < 0 || r.value("requires_semantic_review", false);
             checks[id] = {{"status", unmodeledResource ? "requires_semantic_review" : "checker_suggests_satisfied"}, {"proof", false}};
             if (unmodeledResource) checks[id]["reason"] = "No static object mapping for this concurrency requirement";
+            if (r.value("requires_semantic_review", false)) checks[id]["reason"] = "Source operation operands or activation context lack static mapping; semantic review required";
         }
         auto cands = l2::checkRequirements(objects, tids, contracts, indices, ccpg, HBGraph::getInstance());
         for (const auto& c : cands) checks[c.requirementId] = {{"status", "undischarged"}, {"proof", false},

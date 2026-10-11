@@ -91,10 +91,12 @@ struct HypoSig {
     std::vector<std::string> fields;  // sorted, deduplicated
     std::vector<std::string> fns;     // sorted, deduplicated
     std::vector<int>         node_ids_fallback;  // sorted, used only if fields is empty
+    std::vector<std::string> source_locations;
 
     bool operator<(const HypoSig& o) const {
         if (fields != o.fields) return fields < o.fields;
         if (fns != o.fns) return fns < o.fns;
+        if (source_locations != o.source_locations) return source_locations < o.source_locations;
         return node_ids_fallback < o.node_ids_fallback;
     }
 };
@@ -116,6 +118,10 @@ HypoSig computeSignature(const Hypothesis& h, CCPG* ccpg) {
     }
     sig.fields.assign(field_set.begin(), field_set.end());
     sig.fns.assign(fn_set.begin(), fn_set.end());
+    for (const auto& op : h.source_operations)
+        sig.source_locations.push_back(op.at("path").get<std::string>() + ":" +
+            std::to_string(op.at("first_line").get<int>()) + ":" + std::to_string(op.at("last_line").get<int>()));
+    std::sort(sig.source_locations.begin(), sig.source_locations.end());
     if (sig.fields.empty()) {
         // Fall back to per-node grouping so we never accidentally merge
         // hypotheses whose access targets we cannot canonicalize.

@@ -143,9 +143,40 @@ the legacy checker labels it `requires_semantic_review`, and it is reviewed in
 the same Phase C inventory. Neither the expression nor its citations prove
 aliasing or feasible concurrency. `requirements_outside_static_objects` keeps
 this static coverage gap visible even after review. External source receives
-inspection only; it is not compiled into module IR. Missing operation anchors
-still require a gap instead of an invented node. This is a dependency-access
+inspection only; it is not compiled into module IR. This is a dependency-access
 prototype, not whole-kernel analysis.
+
+**Recall fixes.** Module requirements retain per-entry reentrancy independently
+of the legacy object's self-race flag, including objects also accessed by other
+entries. The overview lists module definitions present in the supplied IR and
+whether they entered CCPG. Presence in IR is not proof of concurrent activation
+or of matching build provenance.
+
+For operations absent from CCPG, `get_source_operation(path, first_line,
+last_line)` returns exact text from the immutable module snapshot and a distinct
+`module-op:` source ID. Requirements and guarantees accept `a_sources` and
+`b_sources` in place of the corresponding node operand; each operand uses one
+namespace. Source-only operand A may use `owner_thread=-1` with explicit
+activation evidence/assumptions. These requirements bypass static discharge and
+remain in the same semantic review. Source-only guarantees must be conditional.
+Reviews accept `evidence_sources` and `witness_sources`; final bug reports retain
+the actual source locations and text. No source ID is turned into a CCPG node,
+and absent static mappings remain coverage gaps. A source span verifies the
+text, not its meaning, aliasing, configuration or concurrency. Protocol notes
+may mention functions visible in complete source even if they have no CCPG body.
+
+One feasible harmful witness is enough to report a quantified requirement;
+`satisfied` and `not_applicable` still require coverage of every applicable
+operation combination. Reviewing only existing Req groups does not establish
+semantic completeness.
+
+Pass `--autoconf /path/to/include/generated/autoconf.h` from the actual IR build
+to `run_module.py` to share CONFIG definitions with CPG. Batch plan rows can
+specify an `autoconf` file relative to their case directory. The header path/hash
+are recorded, and CONFIG values participate in the CPG cache key. Explicit
+headers override legacy compile-log discovery. The existing dataset lacks some
+build artifacts; the runner does not guess CONFIGs from labels or force all
+branches on, and cannot certify existing IR provenance from a supplied header.
 
 Offline validation (no external model requests):
 
@@ -186,9 +217,14 @@ python harness/run_batch.py --plan tests/module_batch_plan.json --split developm
 
 The outer runner schedules independent `run_module.py` processes; each retains
 the existing SDK agent and isolated artifacts. It verifies all source revisions
-before making requests, records the implementation and binary hashes, and
-summarizes contracts, reviews, tool calls and completed-phase usage in `batch.json`.
-It does not load labels or fixes. Inspect complete trajectories before changing
+before making requests and records the implementation and binary hashes.
+`batch.json` records the final deduplicated `stateful_bugs/bugs.txt` report count
+and hash; contracts, reviews, tool calls and usage are auxiliary diagnostics.
+Evaluate final reports against ground truth after the run, matching the resource,
+conflicting operations, failure mechanism and harmful outcome rather than merely
+the file name. Unmatched reports require separate validity review; ground truth
+does not enumerate every possible defect. The runner does not load labels or
+fixes. Inspect complete trajectories before changing
 the prompt, and use a new output directory for each frozen batch. Public known
 cases support development diagnostics, not claims of unseen-defect detection.
 

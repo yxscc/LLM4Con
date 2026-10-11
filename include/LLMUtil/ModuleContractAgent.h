@@ -21,6 +21,7 @@ private:
     const query::VulnerabilitySurface& surface_;
     nlohmann::json data_, surfaceJson_;
     std::set<std::string> functions_, coveredFunctions_;
+    std::map<std::string, std::vector<std::string>> sourceLines_;
     bool generating_ = true, generationFinished_ = false, reviewFinished_ = false;
     std::string sourcePacket();
     std::string execute_tool(const std::string&, const nlohmann::json&) override;
@@ -33,6 +34,9 @@ private:
     std::vector<Tool> repositoryTools() const;
     std::optional<std::string> executeRepositoryTool(const std::string&, const nlohmann::json&);
     void validRepositoryEvidence(const nlohmann::json&, bool required) const;
+    nlohmann::json sourceOperation(const nlohmann::json&);
+    std::vector<std::string> validSources(const nlohmann::json&, const char*) const;
+    bool hasSourceFunction(const std::string&) const;
 };
 bool moduleContractsEnabled();
 }

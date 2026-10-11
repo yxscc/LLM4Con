@@ -2,6 +2,7 @@
 import argparse
 import importlib.metadata
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -17,6 +18,7 @@ def main():
     parser.add_argument("--model", default=os.getenv("LLM_MODEL"))
     parser.add_argument("--repository", type=Path, help="Read-only Git repository for source context; no checkout or full-repository compilation")
     parser.add_argument("--revision", help="Full commit SHA for all repository queries; must match the target source")
+    parser.add_argument("--autoconf", type=Path, help="Generated kernel autoconf.h from the IR build; forwarded to CPG preprocessing. Its hash is recorded, but existing IR provenance is not inferred.")
     parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parents[1] / "Release-build/llm_detector")
     parser.add_argument("--max-turns", type=int, default=32, help="Per-phase execution budget; exhaustion is an incomplete error, never truncation of obligations.")
     args = parser.parse_args()
@@ -26,6 +28,8 @@ def main():
         parser.error("--max-turns must be nonnegative (0 disables the cap)")
     if bool(args.repository) != bool(args.revision):
         parser.error("--repository and --revision must be provided together")
+    if args.autoconf and not args.autoconf.is_file():
+        parser.error("--autoconf must be an existing build header")
     context = None
     if args.repository:
         context = RepositoryContext(args.repository, args.revision)
@@ -33,6 +37,9 @@ def main():
     env = os.environ.copy()
     env.update(LACE_MODULE_CONTRACTS="1", LACE_PYTHON=sys.executable, LLM_MODEL=args.model,
                LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns))
+    env.pop('LACE_CPG_AUTOCONF', None)
+    if args.autoconf:
+        env['LACE_CPG_AUTOCONF'] = str(args.autoconf.resolve())
     for key in ('LACE_CONTEXT_REPOSITORY', 'LACE_CONTEXT_REVISION'):
         env.pop(key, None)
     if context:
@@ -49,6 +56,11 @@ def main():
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
                 "entry_mode": "configured" if env.get("LACE_ENTRYPOINTS") or env.get("LACE_ENTRYPOINTS_FILE") else "automatic",
                 "ground_truth_files_loaded": False}
+    manifest['cpg_build_config'] = {'mode': 'explicit_autoconf' if args.autoconf else 'legacy_compile_log_discovery',
+        'path': str(args.autoconf.resolve()) if args.autoconf else None,
+        'sha256': hashlib.sha256(args.autoconf.read_bytes()).hexdigest() if args.autoconf else None,
+        'matches_existing_ir_build': 'unverified',
+        'note': 'Supply the actual header saved from the IR build; no case-based CONFIG guesses. Missing config/source mappings remain explicit gaps.'}
     if context:
         manifest['repository_context'] = {'path': context.repository, **source_check}
     repo = Path(__file__).resolve().parents[1]

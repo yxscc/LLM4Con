@@ -62,6 +62,7 @@ nlohmann::json Hypothesis::toJson() const {
     j["bug_category"] = bug_category;
     j["severity"] = severity;
     j["nodes"] = nodes;
+    if (!source_operations.empty()) j["source_operations"] = source_operations;
 
     j["constraints"] = nlohmann::json::array();
     for (const auto& c : constraints) {
@@ -90,6 +91,13 @@ std::string Hypothesis::toReportString(CCPG* ccpg) const {
         ss << "\n";
     }
 
+    if (!source_operations.empty()) {
+        ss << "\n--- Source Operations (no static proof) ---\n";
+        for (const auto& op : source_operations)
+            ss << "  " << op.at("source_id").get<std::string>() << " ["
+               << op.at("path").get<std::string>() << ":" << op.at("first_line")
+               << "-" << op.at("last_line") << "]\n" << op.at("content").get<std::string>() << "\n";
+    }
     ss << "\n--- Verified Constraints ---\n";
     for (size_t i = 0; i < constraints.size(); ++i) {
         ss << "  [" << i << "] " << constraints[i].predicate

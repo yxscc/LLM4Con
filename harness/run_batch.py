@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import time
@@ -34,6 +35,21 @@ def summarize(output):
     summary = {"exit_code": manifest.get("exit_code"), "coverage": manifest.get("coverage"),
                "model": manifest["model"], "implementation_commit": manifest.get("revision"),
                "sdk_versions": manifest["sdk_versions"], "usage_complete": False}
+    # Primary detection output is the final, deduplicated bug report. Contract
+    # counts below are diagnostics and must not be interpreted as bug counts.
+    bug_reports = sorted((output / "artifacts").glob("**/stateful_bugs/bugs.txt"))
+    if len(bug_reports) > 1:
+        raise ValueError("Multiple final reports in an isolated module run")
+    if bug_reports:
+        final_path = bug_reports[0]
+        content = final_path.read_text()
+        summary["final_bug_report"] = {"path": str(final_path), "sha256": sha256(final_path),
+                                       "count": len(re.findall(r"^count  \d+ -+$", content, re.MULTILINE))}
+    else:
+        log_path = output / "run.log"
+        explicit_zero = manifest.get("exit_code") == 0 and log_path.exists() and "No bugs detected." in log_path.read_text()
+        summary["final_bug_report"] = {"path": None, "count": 0 if explicit_zero else None,
+                                       "explicit_zero_in_native_log": explicit_zero}
     if not manifest.get("report"):
         return summary
     report_path = Path(manifest["report"])
@@ -105,9 +121,13 @@ def main():
         if not bitcode.is_file():
             parser.error("Missing IR: " + str(bitcode))
         checked = RepositoryContext(args.repository, row["revision"]).verify_source(source)
+        config = case / row["autoconf"] if row.get("autoconf") else None
+        if config and not config.is_file():
+            parser.error("Missing build configuration: " + str(config))
         source_lines = sum(len((source / f["path"]).read_bytes().splitlines()) for f in checked["verified_files"])
         prepared.append({**row, "source": str(source), "bitcode": str(bitcode),
-                         "source_lines": source_lines, "source_check": checked, "bitcode_sha256": sha256(bitcode)})
+                         "source_lines": source_lines, "source_check": checked, "bitcode_sha256": sha256(bitcode),
+                         "autoconf_path": str(config) if config else None, "autoconf_sha256": sha256(config) if config else None})
     args.output.mkdir(parents=True, exist_ok=False)
     snapshot = {"plan": plan, "selected_split": args.split, "cases": prepared,
                 "implementation_commit": git(project, "rev-parse", "HEAD"),
@@ -125,6 +145,8 @@ def main():
                    "--source", row["source"], "--bitcode", row["bitcode"], "--output", str(output),
                    "--repository", str(args.repository.resolve()), "--revision", row["revision"],
                    "--max-turns", str(args.max_turns)]
+        if row.get("autoconf_path"):
+            command += ["--autoconf", row["autoconf_path"]]
         print(json.dumps({"started": row["case"], "lines": row["source_lines"]}), flush=True)
         start = time.monotonic()
         # run_module isolates cwd, CPG artifacts, native tools and SDK history.
@@ -149,6 +171,7 @@ def main():
             snapshot["results"][name] = result
             (args.output / "batch.json").write_text(json.dumps(snapshot, indent=2))
             print(json.dumps({"finished": name, "exit_code": result.get("process_exit_code"),
+                              "final_reports": result.get("final_bug_report", {}).get("count"),
                               "coverage": result.get("coverage"), "error": result.get("error", result.get("runner_error"))}), flush=True)
     snapshot["finished_at_utc"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     (args.output / "batch.json").write_text(json.dumps(snapshot, indent=2))

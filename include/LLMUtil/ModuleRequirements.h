@@ -1,5 +1,6 @@
 #pragma once
 #include "nlohmann/json.hpp"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <string>
@@ -13,6 +14,9 @@ inline nlohmann::json buildModuleRequirements(const nlohmann::json& surface) {
     using J = nlohmann::json;
     J result = {{"requirements", J::array()}, {"unanchored_accesses", J::array()}};
     size_t oid = 0;
+    std::set<int> reentrant;
+    if (surface.contains("threads")) for (const auto& thread : surface.at("threads"))
+        if (thread.value("reentrant_entry", false)) reentrant.insert(thread.at("thread_id").get<int>());
     for (const auto& object : surface.at("shared_objects")) {
         std::map<int, std::map<std::string, std::set<int>>> buckets;
         size_t ai = 0;
@@ -38,7 +42,7 @@ inline nlohmann::json buildModuleRequirements(const nlohmann::json& surface) {
                 if (type == "Write" || type == "ReadWrite") writes.insert(nodes.begin(), nodes.end());
             }
             for (const auto& [otherTid, other] : buckets) {
-                if (otherTid == tid && !object.value("is_self_race", false)) continue;
+                if (otherTid == tid && !object.value("is_self_race", false) && !reentrant.count(tid)) continue;
                 for (const auto& [type, nodes] : other) {
                     if (type == "Free") frees.insert(nodes.begin(), nodes.end());
                     else otherUses.insert(nodes.begin(), nodes.end());
