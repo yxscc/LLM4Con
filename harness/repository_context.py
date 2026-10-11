@@ -118,10 +118,35 @@ class RepositoryContext:
             if not file.is_file() or file.suffix not in SOURCE_SUFFIXES:
                 continue
             relative = file.name if root.is_file() else file.relative_to(root).as_posix()
-            _, content = self.blob(relative)
+            repository_path = relative
+            try:
+                _, content = self.blob(relative)
+            except ValueError:
+                # Some input snapshots retain a flat build copy alongside the
+                # canonical repository file. Accept only a unique byte-identical
+                # canonical copy that itself verifies at the pinned revision.
+                aliases = []
+                if root.is_dir() and len(Path(relative).parts) == 1:
+                    for candidate in files:
+                        if candidate.is_file() and not candidate.is_symlink() and candidate != file and candidate.name == file.name and candidate.read_bytes() == file.read_bytes():
+                            canonical = candidate.relative_to(root).as_posix()
+                            if len(Path(canonical).parts) < 2:
+                                continue
+                            try:
+                                _, blob = self.blob(canonical)
+                            except ValueError:
+                                continue
+                            if blob == file.read_bytes():
+                                aliases.append((canonical, blob))
+                if len(aliases) != 1:
+                    raise
+                repository_path, content = aliases[0]
             if content != file.read_bytes():
                 raise ValueError('Target source differs from pinned revision: ' + relative)
-            verified.append({'path': relative, 'sha256': hashlib.sha256(content).hexdigest()})
+            row = {'path': relative, 'sha256': hashlib.sha256(content).hexdigest()}
+            if repository_path != relative:
+                row.update(repository_path=repository_path, alias_of=repository_path)
+            verified.append(row)
         if not verified:
             raise ValueError('No target source files to verify')
         return {'revision': self.revision, 'verified_files': verified,

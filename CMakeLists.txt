@@ -19,13 +19,14 @@ add_executable(llm_detector
     src/Query/ModuleFinding.cpp
     src/LLMUtil/SDKBridge.cpp src/LLMUtil/LLMClient.cpp src/LLMUtil/Conversation.cpp
     src/LLMUtil/SharedToolKit.cpp src/LLMUtil/ModuleContractAgent.cpp src/LLMUtil/ModuleRepository.cpp
-    src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
+    src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
 target_link_libraries(llm_detector PRIVATE lace_static_core)
+add_executable(contract_replay src/contract_replay.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp)
 include(CTest)
 if(BUILD_TESTING)
     add_executable(module_graph_test tests/module_graph_test.cpp)
     target_link_libraries(module_graph_test PRIVATE lace_static_core)
     add_test(NAME complete_module_graph COMMAND module_graph_test)
-    add_executable(requirement_checker_test tests/requirement_checker_test.cpp src/LLMUtil/RequirementChecker.cpp)
+    add_executable(requirement_checker_test tests/requirement_checker_test.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp)
     add_test(NAME requirement_checker COMMAND requirement_checker_test)
 endif()

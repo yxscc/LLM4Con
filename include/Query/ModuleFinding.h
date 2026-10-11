@@ -8,6 +8,7 @@ class CCPG;
 namespace query {
 struct ModuleFinding {
     std::string id, resource, description, bug_category, severity;
+    std::string status = "source_supported", origin = "agent_review";
     std::map<std::string,int> nodes;
     nlohmann::json source_operations = nlohmann::json::array();
 };

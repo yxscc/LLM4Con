@@ -1,4 +1,5 @@
 #include "LLMUtil/RequirementChecker.h"
+#include "LLMUtil/OperationBinding.h"
 #include <map>
 #include <set>
 #include <queue>
@@ -105,32 +106,66 @@ std::vector<int> operand(const J& claim,const char* key) {
     return claim.value(key,J::array()).get<std::vector<int>>();
 }
 }
-J checkModuleRequirements(const J& requirements,const J& guarantees,const J& model,const J& sourceOperations) {
+J checkModuleRequirements(const J& requirements,const J& inputGuarantees,const J& model,const J& sourceOperations,const J& sourceManifest) {
     Graph graph(model); J result=J::object();
-    for (const auto& r:requirements) {
+    auto resolve=[&](const J& claim,bool req) {
+        J resolved=claim,bindings=J::array();
+        for (const char* prefix:req?std::vector<const char*>{"a","b","interference"}:std::vector<const char*>{"a","b","evidence"}) {
+            auto sources=std::string(prefix)+"_sources",nodes=std::string(prefix)+"_nodes";
+            if (!resolved.contains(nodes)) resolved[nodes]=J::array();
+            for (const auto& id:claim.value(sources,J::array())) {
+                J binding={{"status","source_snapshot_missing"},{"node_id",nullptr}};
+                if (sourceOperations.contains(id.get<std::string>())) binding=bindSourceOperation(sourceOperations.at(id.get<std::string>()),model,sourceManifest);
+                binding["source_id"]=id; binding["operand"]=prefix; bindings.push_back(binding);
+                if (binding.at("status")=="bound") resolved[nodes].push_back(binding.at("node_id"));
+            }
+        }
+        if (!req) for (const auto& region:claim.value("source_regions",J::array())) {
+            J numeric;
+            for (const char* side:{"start","end"}) {
+                auto source=region.at(std::string(side)+"_source").get<std::string>();
+                J binding={{"status","source_snapshot_missing"},{"node_id",nullptr}};
+                if (sourceOperations.contains(source)) binding=bindSourceOperation(sourceOperations.at(source),model,sourceManifest);
+                binding["source_id"]=source;binding["operand"]=std::string("region_")+side;bindings.push_back(binding);
+                if (binding.at("status")=="bound") numeric[std::string(side)+"_node"]=binding.at("node_id");
+            }
+            if (numeric.size()==2) {if (!resolved.contains("regions")) resolved["regions"]=J::array();resolved["regions"].push_back(numeric);}
+        }
+        resolved["bindings"]=bindings; return resolved;
+    };
+    J guarantees=J::array(); for (const auto& g:inputGuarantees) guarantees.push_back(resolve(g,false));
+    for (const auto& inputRequirement:requirements) {
+        const auto r=resolve(inputRequirement,true);
         const auto id=r.at("id").get<std::string>(); J facts=J::array(), premises=J::array(), gaps=J::array(), failures=J::array();
         std::set<std::string> seenFailures;
         auto failure=[&](const J& f) { if (seenFailures.insert(f.dump()).second) failures.push_back(f); };
         std::set<size_t> used;
         auto a=operand(r,"a_nodes"),b=operand(r,"b_nodes"),interference=operand(r,"interference_nodes");
-        bool missing=!r.value("assumptions",J::array()).empty();
-        if (missing) gaps.push_back({{"kind","unresolved_requirement_premises"},{"assumptions",r.at("assumptions")}});
-        for (const char* key:{"a_sources","b_sources","interference_sources"}) for (const auto& s:r.value(key,J::array())) {
-            // Valid source operands are retained. Debug line coincidence is not
-            // promoted into operation equivalence; agent can inspect candidates.
-            missing=true; gaps.push_back({{"kind","source_operand_not_bound_to_ir"},{"source_id",s},
-                {"snapshot_present",sourceOperations.contains(s.get<std::string>())}});
+        const bool conditional=!r.value("assumptions",J::array()).empty();
+        bool missing=false;
+        if (conditional) gaps.push_back({{"kind","unresolved_requirement_premises"},{"assumptions",r.at("assumptions")}});
+        for (const auto& binding:r.at("bindings")) if (binding.at("status")!="bound") {
+            missing=true; gaps.push_back({{"kind","source_operand_not_bound_to_ir"},{"snapshot_present",sourceOperations.contains(binding.at("source_id").get<std::string>())},{"binding",binding}});
         }
         for (int n:a) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
         for (int n:b) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
         for (int n:interference) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
+        J guaranteeDiagnostics=J::array();
+        for (size_t i=0;i<guarantees.size();++i) {
+            const auto& g=guarantees[i]; J reasons=J::array();
+            if (!g.value("unconditional",false)) reasons.push_back("unresolved_guarantee_conditions");
+            if (g.value("resource","")!=r.value("resource","")) reasons.push_back("resource_mismatch");
+            if (g.value("scope","")!=r.value("scope","")||r.value("scope","").empty()) reasons.push_back("scope_mismatch");
+            for (const auto& binding:g.at("bindings")) if (binding.at("status")!="bound") reasons.push_back("source_operand_not_bound_to_ir");
+            const auto evidence=operand(g,"evidence_nodes");
+            if (evidence.empty()) reasons.push_back("synchronization_evidence_missing");
+            for (int n:evidence) if (!graph.available(n)) reasons.push_back("exact_cfg_unavailable");
+            guaranteeDiagnostics.push_back({{"guarantee_index",i},{"guarantee_id",g.value("id","gua:"+std::to_string(i))},
+                {"eligible",reasons.empty()},{"rejection_reasons",reasons},{"bindings",g.at("bindings")},{"semantics_verified",false}});
+        }
         auto credited=[&](const J& g) {
-            if (!g.value("unconditional",false)||g.value("resource","")!=r.value("resource","")||
-                g.value("scope","")!=r.value("scope","")||r.value("scope","").empty()) return false;
-            for (const char* key:{"a_sources","b_sources","evidence_sources"}) if (!g.value(key,J::array()).empty()) return false;
-            const auto evidence=operand(g,"evidence_nodes"); if (evidence.empty()) return false;
-            for (int n:evidence) if (!graph.available(n)) return false;
-            return true;
+            for (size_t i=0;i<guarantees.size();++i) if (&guarantees[i]==&g) return guaranteeDiagnostics[i].at("eligible").get<bool>();
+            return false;
         };
         // A successful cross-activation chain must contain at least one Gua.
         // Same-function/local order and a==b alone cannot discharge any Req.
@@ -175,6 +210,7 @@ J checkModuleRequirements(const J& requirements,const J& guarantees,const J& mod
                     }
                 }
             }
+            failure({{"rule","no_synchronization_chain"},{"from",from},{"to",to}});
             return false;
         };
         auto excluded=[&](const std::vector<int>& sequence,int other) {
@@ -182,8 +218,10 @@ J checkModuleRequirements(const J& requirements,const J& guarantees,const J& mod
                 const auto& g=guarantees[i];
                 if (!credited(g)||g.at("form")!="Exclude"||g.value("mode","")!="exclusive"||g.value("token","").empty()) continue;
                 const auto protectedOps=operand(g,"a_nodes");
-                if (std::find(protectedOps.begin(),protectedOps.end(),other)==protectedOps.end()) continue;
-                if (!std::all_of(sequence.begin(),sequence.end(),[&](int n){return std::find(protectedOps.begin(),protectedOps.end(),n)!=protectedOps.end();})) continue;
+                if (std::find(protectedOps.begin(),protectedOps.end(),other)==protectedOps.end()||
+                    !std::all_of(sequence.begin(),sequence.end(),[&](int n){return std::find(protectedOps.begin(),protectedOps.end(),n)!=protectedOps.end();})) {
+                    failure({{"rule","exclusion_operand_coverage"},{"guarantee_index",i},{"sequence",sequence},{"other",other}});continue;
+                }
                 const auto regions=g.value("regions",J::array()); bool transaction=false, contender=false;
                 for (const auto& region:regions) {
                     if (std::all_of(sequence.begin(),sequence.end(),[&](int n){return graph.region(n,region);})) transaction=true;
@@ -192,6 +230,8 @@ J checkModuleRequirements(const J& requirements,const J& guarantees,const J& mod
                 if (transaction&&contender) {
                     used.insert(i); facts.push_back({{"kind","continuous_exclusion"},{"sequence",sequence},{"other",other},{"guarantee_index",i},{"regions",regions}}); return true;
                 }
+                failure({{"rule","continuous_exclusion"},{"guarantee_index",i},{"sequence",sequence},{"other",other},
+                    {"transaction_region_established",transaction},{"contender_region_established",contender},{"regions",regions}});
             }
             return false;
         };
@@ -211,11 +251,11 @@ J checkModuleRequirements(const J& requirements,const J& guarantees,const J& mod
             if (a.size()<2||interference.empty()) { success=false; missing=true; gaps.push_back({{"kind","atomic_sequence_or_interference_domain_missing"}}); }
             // Local sequence order is a premise, not synchronization.
             for (size_t i=1;i<a.size();++i) if (!graph.before(a[i-1],a[i])) { success=false; gaps.push_back({{"kind","sequence_order_not_established"},{"a",a[i-1]},{"b",a[i]}}); }
-            if (!missing) for (int n:interference)
+            if (!a.empty()) for (int n:interference) if (graph.available(n)&&std::all_of(a.begin(),a.end(),[&](int x){return graph.available(x);}))
                 if (!ordered(a.back(),n)&&!ordered(n,a.front())&&!excluded(a,n)) { success=false; failed.push_back({{"sequence",a},{"interference",n}}); }
         } else {
             if (b.empty()) { missing=true; success=false; gaps.push_back({{"kind","second_operand_missing"}}); }
-            if (!missing) for (int x:a) for (int y:b) {
+            for (int x:a) for (int y:b) if (graph.available(x)&&graph.available(y)) {
                 bool ok=ordered(x,y);
                 if (form=="MustBeMediated") ok=ok||ordered(y,x)||excluded({x},y)||atomicPair(x,y);
                 if (!ok) { success=false; failed.push_back({{"a",x},{"b",y}}); }
@@ -223,7 +263,12 @@ J checkModuleRequirements(const J& requirements,const J& guarantees,const J& mod
         }
         for (size_t i:used) premises.push_back({{"guarantee_index",i},{"resource",guarantees[i].at("resource")},
             {"scope",guarantees[i].at("scope")},{"conditions",guarantees[i].at("conditions")},{"note",guarantees[i].at("note")}});
-        result[id]={{"status",missing?"requires_semantic_review":success?"discharged":"undischarged"},
+        for (size_t i=0;i<guaranteeDiagnostics.size();++i) guaranteeDiagnostics[i]["used_in_discharge"]=used.count(i)>0;
+        result[id]={{"status",missing||conditional?"requires_semantic_review":success?"discharged":"undischarged"},
+            {"bindings",r.at("bindings")},{"resolved_operands",{{"a_nodes",a},{"b_nodes",b},{"interference_nodes",interference}}},
+            {"guarantee_diagnostics",guaranteeDiagnostics},{"evaluated_combinations",facts.size()+failed.size()},
+            {"e_candidate",!failed.empty()},{"candidate_origin","deterministic_E"},{"applicability_unresolved",conditional},
+            {"requirement_semantics_verified",false},
             {"proof",false},{"model_relative",true},{"facts",facts},{"guarantee_premises",premises},{"gaps",gaps},
             {"unresolved_combinations",failed},{"rule_failures",failures},{"counterexample_constructed",false},
             {"meaning",success?"Sufficient rule holds under the declared Gua semantics and instance/activation scope; mandatory source review remains":"No sufficient discharge established; failure is not a feasible interleaving or proof of a defect"}};

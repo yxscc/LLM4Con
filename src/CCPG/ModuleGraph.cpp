@@ -1,4 +1,5 @@
 #include "CCPG/CCPG.h"
+#include "CCPG/IRSourceFacts.h"
 #include "PhasarUtil/AnalysisManager.h"
 #include "PhasarUtil/PhasarPointerAnalysis.h"
 #include "llvm/IR/CFG.h"
@@ -72,6 +73,7 @@ void CCPG::build() {
     auto* pa = dynamic_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
     const llvm::Module* ir = pa ? pa->getModule() : nullptr;
     if (!ir) throw std::runtime_error("Complete module graph requires matching LLVM IR");
+    ccpg::IRSourceFacts sourceFacts(*ir);
     std::map<const llvm::Function*, ccpg::Function*> irFunctions;
     std::map<const llvm::Instruction*, CCPGNode*> instructions;
     size_t irCount = 0, irNodes = 0, withoutDebug = 0;
@@ -113,6 +115,7 @@ void CCPG::build() {
             moduleModel_["nodes"].push_back({{"atomic",atomic}, {"node_id",node->getId()}, {"function_id",fn->getId()},
                 {"origin","ir"}, {"kind",inst.getOpcodeName()}, {"code",text}, {"api",api},
                 {"file",instFile}, {"line",instLine}, {"ordinal",ordinal-1}});
+            moduleModel_["nodes"].back().update(sourceFacts.describe(inst));
             if (llvm::isa<llvm::ReturnInst>(inst) || llvm::isa<llvm::ResumeInst>(inst) || llvm::isa<llvm::UnreachableInst>(inst)) exits.push_back(node->getId());
             ++irNodes;
         }

@@ -6,5 +6,6 @@ namespace llm_client {
 // All results, including discharges, undergo source review in the same agent.
 nlohmann::json checkModuleRequirements(const nlohmann::json& requirements,
     const nlohmann::json& guarantees, const nlohmann::json& model,
-    const nlohmann::json& sourceOperations = nlohmann::json::object());
+    const nlohmann::json& sourceOperations = nlohmann::json::object(),
+    const nlohmann::json& sourceManifest = nlohmann::json::array());
 }

@@ -40,10 +40,14 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
 }
 std::string ModuleContractAgent::sourcePacket() {
     const auto root=TargetPath::getInstance()->getTargetAbsolutePath(); std::vector<fs::path> files;
+    std::set<std::string> aliases;
+    if (!data_["repository_context"].is_null()) for (const auto& f:data_["repository_context"]["source_verification"]["verified_files"])
+        if (f.contains("alias_of")) aliases.insert(f.at("path"));
+    data_["deduplicated_source_aliases"]=aliases;
     for (const auto& e:fs::recursive_directory_iterator(root)) {
         if (e.is_symlink()) { data_["gaps"].push_back("Source symlink not included: "+fs::relative(e.path(),root).string()); continue; }
         const auto ext=e.path().extension().string();
-        if (e.is_regular_file()&&(ext==".c"||ext==".h"||ext==".cpp"||ext==".hpp"||ext==".hh"||ext==".cc"||ext==".cxx")) files.push_back(e.path());
+        if (e.is_regular_file()&&!aliases.count(fs::relative(e.path(),root).string())&&(ext==".c"||ext==".h"||ext==".cpp"||ext==".hpp"||ext==".hh"||ext==".cc"||ext==".cxx")) files.push_back(e.path());
     }
     std::sort(files.begin(),files.end()); std::ostringstream out;
     for (const auto& path:files) {
@@ -75,10 +79,11 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
          Parameter("origin",J{{"type","string"},{"enum",{"ir"}}},true),
          {"source_id","string","Optional registered module source ID to restrict the query to its coordinates.",false},
          {"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000.",true}}});
-    tools.push_back({"get_source_operation","Register source evidence with path/lines/text and unbound IR candidate count. Returns no AST or IR node records. Source-only requirements are valid; detailed IR evidence is optional via get_operations.",
-        {{"path","string","Exact module-relative path.",true},{"first_line","integer","First line, 1-based.",true},{"last_line","integer","Last line, inclusive.",true}}});
+    tools.push_back({"get_source_operation","Register a concrete source operation. Optional kind/symbol/function selectors bind it against compiler access/callee facts. Returns binding status and count, no AST/IR records.",
+        {{"path","string","Exact module-relative path.",true},{"first_line","integer","First line, 1-based.",true},{"last_line","integer","Last line, inclusive.",true},
+         {"operation_kind","string","read, write, call, atomic, fence or unspecified.",false},{"symbol","string","Exact source lvalue (e.g. p->field) or callee name, copied from the cited statement.",false},{"function","string","Containing source function name.",false}}});
     tools.push_back({"get_source_operations","Batch validated source anchors; no graph binding is silently invented.",
-        {Parameter("operations",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"path",{{"type","string"}}},{"first_line",{{"type","integer"}}},{"last_line",{{"type","integer"}}}}},{"required",{"path","first_line","last_line"}},{"additionalProperties",false}}}},true)}});
+        {Parameter("operations",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"path",{{"type","string"}}},{"first_line",{{"type","integer"}}},{"last_line",{{"type","integer"}}},{"operation_kind",{{"type","string"}}},{"symbol",{{"type","string"}}},{"function",{{"type","string"}}}}},{"required",{"path","first_line","last_line"}},{"additionalProperties",false}}}},true)}});
     tools.push_back({"record_gap","Record missing source/context, unresolved mapping or unsupported semantics.",{{"description","string","Missing evidence and affected protocol.",true}}});
     tools.push_back({"get_obligations","Query all requirements (empty IDs) or full selected records with E evidence and reviews.",{list("ids","string","IDs, or [] for all.")}});
     if (generating_) {
@@ -100,6 +105,7 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
              {"conditions","string","Established and unresolved instance/domain/matching/return/requeue premises.",true},{"unconditional","boolean","Applicability and scope established for these operands. Still subject to source review.",true},
              list("evidence_nodes","integer","Actual synchronization operation IDs."),source("evidence_sources"),
              Parameter("regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_node",{{"type","integer"}}},{"end_node",{{"type","integer"}}}}},{"required",{"start_node","end_node"}},{"additionalProperties",false}}},{"description","Exclude: matching acquisition/release boundaries for each protected interval. E requires whole sequence continuously protected; opaque interior calls remain unsupported. [] for other Gua."}},true),
+             Parameter("source_regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_source",{{"type","string"}}},{"end_source",{{"type","string"}}}}},{"required",{"start_source","end_source"}},{"additionalProperties",false}}}},false),
              repo(),{"note","string","Actual mechanism and why it supplies the claimed synchronization effect on this domain.",true}}});
         tools.push_back({"finalize_contract","Finish after explicitly considering every catalog pattern; unknown positions are retained. No per-object/function quota.",{}});
     } else {
@@ -202,6 +208,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             if (form=="Exclude"&&args.at("mode")!="exclusive"&&args.at("mode")!="shared") throw std::invalid_argument("Invalid exclusion mode");
             if (!args.at("unconditional").is_boolean()) throw std::invalid_argument("unconditional must be boolean");
             for (const auto& region:args.at("regions")) { validNodes(J{{"boundary",{region.at("start_node"),region.at("end_node")}}},"boundary"); }
+            for (const auto& region:args.value("source_regions",J::array())) validSources(J{{"bounds",{region.at("start_source"),region.at("end_source")}}},"bounds");
             record["id"]="gua:"+std::to_string(data_["guarantees"].size()); data_["guarantees"].push_back(record);
         }
         save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false}}.dump();
@@ -248,10 +255,26 @@ void ModuleContractAgent::review(const J& checks) {
         if (!reviewFinished_) throw std::runtime_error("Agent did not finalize review"); save();
     } catch (const std::exception& e) { save(e.what()); throw; }
 }
+void ModuleContractAgent::finishWithoutReview(const J& checks) {
+    data_["checks"]=checks; data_["review_disabled"]=true; save();
+}
 std::vector<query::ModuleFinding> ModuleContractAgent::findings() const {
     std::vector<query::ModuleFinding> out;
     for (const auto& r:data_.at("requirements")) {
-        std::string id=r.at("id"); if (!data_["reviews"].contains(id)) continue; const auto& v=data_["reviews"].at(id);
+        std::string id=r.at("id");
+        if (data_.value("review_disabled",false)) {
+            const auto& e=data_.at("checks").at(id); if (!e.value("e_candidate",false)) continue;
+            query::ModuleFinding f; f.id=id;f.resource=r.at("resource");f.severity="unverified";
+            f.origin="deterministic_E";f.status="static_contract_candidate";
+            f.bug_category=r.at("form")=="MustPrecede"?"order_violation":r.at("form")=="MustBeAtomic"?"atomicity_violation":"data_race";
+            f.description="[E candidate; not a proved feasible interleaving] "+r.at("note").get<std::string>()+"\n"+e.dump();
+            for (const char* operand:{"a_nodes","b_nodes","interference_nodes"}) {
+                size_t i=0; for (int n:e.at("resolved_operands").at(operand)) f.nodes[std::string(operand)+std::to_string(i++)]=n;
+            }
+            for (const char* operand:{"a_sources","b_sources","interference_sources"}) for (const auto& s:r.value(operand,J::array())) f.source_operations.push_back(data_["source_operations"].at(s.get<std::string>()));
+            out.push_back(f);continue;
+        }
+        if (!data_["reviews"].contains(id)) continue; const auto& v=data_["reviews"].at(id);
         if (v.at("status")!="source_supported") continue; query::ModuleFinding f; f.id=id; f.resource=r.at("resource"); f.severity="medium";
         f.bug_category=r.at("form")=="MustPrecede"?"order_violation":r.at("form")=="MustBeAtomic"?"atomicity_violation":"data_race";
         f.description="[source-supported; not reproduced] "+v.at("reason").get<std::string>()+"\n"+v.at("interleaving").get<std::string>();
@@ -268,7 +291,9 @@ void ModuleContractAgent::save(const std::string& error) const {
     report["coverage"]={{"requirements",data_["requirements"].size()},{"catalog_patterns",catalog_["patterns"].size()},
         {"accounted_patterns",data_["pattern_reviews"].size()},{"unknown_positions",unknown},{"source_anchors_without_ir_candidates",unmapped},
         {"generation_finished",generationFinished_},{"review_finished",reviewFinished_},
-        {"workflow_complete",error.empty()&&generationFinished_&&reviewFinished_},
+        {"review_disabled",data_.value("review_disabled",false)},
+        {"e_finished",data_["checks"].size()==data_["requirements"].size()&&generationFinished_},
+        {"workflow_complete",error.empty()&&generationFinished_&&(reviewFinished_||data_.value("review_disabled",false))},
         {"scope","Workflow accounting and supplied-input graph coverage; no guarantee that all concurrency requirements were extracted or proved"}};
     if (!error.empty()) report["error"]=error;
     auto path=TargetPath::getInstance()->getOutputDir()/"module_contracts.json";

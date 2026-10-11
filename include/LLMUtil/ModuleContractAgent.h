@@ -15,6 +15,8 @@ public:
     const nlohmann::json& requirements() const { return data_.at("requirements"); }
     const nlohmann::json& guarantees() const { return data_.at("guarantees"); }
     const nlohmann::json& sourceOperations() const { return data_.at("source_operations"); }
+    const nlohmann::json& sourceManifest() const { return data_.at("source_manifest"); }
+    void finishWithoutReview(const nlohmann::json& checks);
     void review(const nlohmann::json& checks);
     std::vector<query::ModuleFinding> findings() const;
     void save(const std::string& error = "") const;

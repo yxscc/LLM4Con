@@ -47,7 +47,8 @@ Guarantees state the actual synchronization effect supplied by existing code:
   outstanding users and whether admission or racing requeue remains possible.
 * Exclude(ops,token,mode): matching scoped protection excludes incompatible
   activation regions. Describe instance/context domain, and provide regions
-  with matching acquisition/release operation boundaries. One transaction needs
+  with matching acquisition/release operation boundaries. Use source_regions
+  (start_source/end_source IDs) when citing source operands. One transaction needs
   one continuously protected interval, not a lock on each step separately.
 * AtomicOp(ops,token): compatible individual atomic effects. A set of atomic
   loads/stores DOES NOT make a multi-step transaction atomic. For a protected
@@ -69,8 +70,11 @@ ANCHORS AND STATIC MODEL
 Read source to understand concurrency; do not enumerate graph representations
 before beginning the audit. AST nodes remain inside the static backend and are
 never supplied as agent observations. get_source_operation(s) registers source
-path/lines/text and returns only an unbound IR candidate count, without graph
-node records. Use narrow spans for actual operations; a whole function excerpt
+path/lines/text with operation_kind, symbol and function selectors copied from
+source, and returns a backend binding status/count without graph node records.
+Use read/write with the exact lvalue (p->field), or call with the callee name.
+Backend binding combines coordinates with compiler-derived access/callee facts;
+missing or ambiguous matches stay unknown. Bindings are not instance/alias proof. Use narrow spans for actual operations; a whole function excerpt
 is context, not one indivisible event. Source IDs are valid Req/Gua operands.
 For a concrete contract that benefits from exact CFG checking, get_operations
 optionally provides paginated IR evidence filtered by source_id or precise

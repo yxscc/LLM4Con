@@ -17,6 +17,7 @@ cl::opt<std::string> source("input-src",cl::desc("Complete module source directo
 cl::opt<std::string> bitcode("input-bc",cl::desc("Matching LLVM .ll/.bc file"),cl::init(""));
 cl::opt<std::string> modelOpt("llm-model",cl::desc("Explicit model name (or LLM_MODEL)"),cl::init(""));
 cl::opt<bool> staticOnly("static-only",cl::desc("Build complete input-module graph only; no model calls"),cl::init(false));
+cl::opt<bool> noReview("no-review",cl::desc("Extract contracts and run E; disable final Agent review"),cl::init(false));
 std::string env(const char* a,const char* b = nullptr) {
     const char* v = std::getenv(a);
     if ((!v || !*v) && b) v = std::getenv(b);
@@ -56,7 +57,7 @@ int main(int argc,char** argv) {
             client = std::make_shared<llm_client::LLMClient>(url,key,model,timeout.empty() ? 300 : std::stol(timeout));
         }
         phase = staticOnly ? "module_graph" : "module_agent"; checkpoint(phase,"IN_PROGRESS");
-        llm_client::runModuleAnalysis(ccpg.get(),client,staticOnly);
+        llm_client::runModuleAnalysis(ccpg.get(),client,staticOnly,noReview);
         checkpoint(phase,"COMPLETED");
         const auto stats = client ? client->get_token_stats() : llm_client::LLMClient::TokenStats{};
         const auto seconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now()-started).count();

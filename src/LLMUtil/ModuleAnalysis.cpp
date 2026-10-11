@@ -4,15 +4,16 @@
 #include "Util/TargetPath.h"
 #include <fstream>
 namespace llm_client {
-void runModuleAnalysis(CCPG* ccpg, std::shared_ptr<LLMClient> client, bool staticOnly) {
+void runModuleAnalysis(CCPG* ccpg, std::shared_ptr<LLMClient> client, bool staticOnly, bool noReview) {
     const auto model = ccpg->moduleModel();
     const auto output = TargetPath::getInstance()->getOutputDir();
     std::ofstream(output/"module_model.json") << model.dump(2);
     if (staticOnly) return;
     ModuleContractAgent agent(std::move(client),ccpg,model);
     agent.generate();
-    auto checks = checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations());
-    agent.review(checks);
+    auto checks = checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations(),agent.sourceManifest());
+    if (noReview) agent.finishWithoutReview(checks);
+    else agent.review(checks);
     query::writeModuleFindings(agent.findings(),ccpg,output);
 }
 }

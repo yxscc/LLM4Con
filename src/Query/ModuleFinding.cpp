@@ -19,12 +19,12 @@ void writeModuleFindings(const std::vector<ModuleFinding>& findings, CCPG* ccpg,
             nodes.push_back(row);
         }
         for (const auto& s : f.source_operations) locations.insert(s.at("path").get<std::string>() + ":" + s.at("first_line").dump() + ":" + s.at("last_line").dump());
-        const auto sig = J({{"resource",f.resource},{"category",f.bug_category},{"locations",locations}}).dump();
+        const auto sig = J({{"resource",f.resource},{"category",f.bug_category},{"locations",locations},{"origin",f.origin}}).dump();
         J angle = {{"requirement_id",f.id},{"description",f.description},{"nodes",nodes},{"source_operations",f.source_operations}};
         if (signatures.count(sig)) reports[signatures.at(sig)]["evidence"].push_back(angle);
         else {
             signatures[sig] = reports.size();
-            reports.push_back({{"report_id","finding:" + std::to_string(reports.size())},{"status","source_supported"},
+            reports.push_back({{"report_id","finding:" + std::to_string(reports.size())},{"status",f.status},{"origin",f.origin},
                 {"reproduced",false},{"resource",f.resource},{"bug_category",f.bug_category},{"severity",f.severity},{"evidence",J::array({angle})}});
         }
     }
@@ -33,7 +33,7 @@ void writeModuleFindings(const std::vector<ModuleFinding>& findings, CCPG* ccpg,
     std::ofstream text(dir/"bugs.txt");
     for (const auto& r : reports) {
         text << "========== Concurrency Defect Candidate ==========\nReport: " << r.at("report_id").get<std::string>()
-             << "\nCategory: " << r.at("bug_category").get<std::string>() << "\nStatus: source_supported (not reproduced)\n";
+             << "\nCategory: " << r.at("bug_category").get<std::string>() << "\nStatus: " << r.at("status").get<std::string>() << " (not reproduced)\n";
         for (const auto& e : r.at("evidence")) {
             text << "Requirement: " << e.at("requirement_id").get<std::string>() << "\nDescription: " << e.at("description").get<std::string>() << '\n';
             for (const auto& n : e.at("nodes")) text << "  " << n.dump() << '\n';
@@ -42,6 +42,6 @@ void writeModuleFindings(const std::vector<ModuleFinding>& findings, CCPG* ccpg,
         text << "========================================================\n\n";
     }
     if (reports.empty()) std::cout << "No bugs detected. Check module_contracts.json for unresolved obligations.\n";
-    std::cout << "Final source-supported reports: " << reports.size() << std::endl;
+    std::cout << "Final candidate reports: " << reports.size() << std::endl;
 }
 }

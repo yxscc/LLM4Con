@@ -12,6 +12,7 @@ from repository_context import RepositoryContext
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--no-review", action="store_true", help="Run extraction plus E only; final Agent review disabled")
     parser.add_argument("--static-only", action="store_true", help="Build complete input graph without model calls")
     parser.add_argument("--catalog", type=Path, help="Versioned protocol catalog; default config/protocol_catalog.json")
     parser.add_argument("--source", type=Path, required=True)
@@ -57,6 +58,8 @@ def main():
                "--input-bc", str(args.bitcode.resolve())]
     if args.static_only:
         command.append("--static-only")
+    if args.no_review:
+        command.append("--no-review")
     # Paths/model/budget are safe metadata. Credentials and gateway URL are not
     # copied into the manifest or process arguments.
     manifest = {"model": args.model, "harness": "openai-agents", "max_turns_per_phase": args.max_turns,
@@ -66,7 +69,7 @@ def main():
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
                 "entry_mode": "not_inferred", "graph_scope": "complete_input_module",
                 "agent_observation_policy": "source_first_ir_on_demand_no_ast",
-                "ground_truth_files_loaded": False}
+                "ground_truth_files_loaded": False, "review_disabled": args.no_review}
     manifest['cpg_build_config'] = {'mode': 'explicit_autoconf' if args.autoconf else 'legacy_compile_log_discovery',
         'path': str(args.autoconf.resolve()) if args.autoconf else None,
         'sha256': hashlib.sha256(args.autoconf.read_bytes()).hexdigest() if args.autoconf else None,

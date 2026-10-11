@@ -78,3 +78,17 @@ def test_matching_source_and_worker_without_credentials(context):
         ctx.verify_source(target)
     with pytest.raises(ValueError, match='immutable'):
         RepositoryContext(ctx.repository, 'HEAD')
+
+
+def test_flat_build_alias_requires_identical_verified_canonical_copy(context):
+    ctx, target = context
+    (target / 'include').mkdir()
+    source = ctx.blob('include/api.h')[1]
+    (target / 'include/api.h').write_bytes(source)
+    (target / 'api.h').write_bytes(source)
+    checked = ctx.verify_source(target)
+    alias = next(f for f in checked['verified_files'] if f['path'] == 'api.h')
+    assert alias['alias_of'] == 'include/api.h'
+    (target / 'api.h').write_text('void unrelated(void);\n')
+    with pytest.raises(ValueError):
+        ctx.verify_source(target)

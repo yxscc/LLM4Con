@@ -159,3 +159,13 @@ model recall and must not be counted as discovered bugs.
 `coverage.workflow_complete` means the two agent phases accounted for their
 records. Unknown judgments, mapping gaps and graph coverage remain separate;
 workflow completion never means all program requirements were found or proved.
+
+### E-only stage diagnostics (2026-10-12)
+
+`harness/run_module.py --no-review` runs source-led contract extraction followed by deterministic E and disables Phase C. `harness/run_batch.py --no-review --plan tests/e_stage_batch_plan.json ...` applies the same policy to seven development cases, including four legacy reports manually matched to GT. Their selection is for failure diagnosis, not an unbiased recall estimate.
+
+Source anchors optionally supply `operation_kind`, `symbol` and `function`. Binding combines debug coordinates (including inline chains) with compiler-derived callee/access facts. Missing, ambiguous, or unverifiable selectors remain explicit gaps. Binding does not prove alias, object instance or overlapping activations. No AST is injected. Byte-identical flat build copies are omitted from the Agent packet only when their canonical copy verifies at the pinned revision; all aliases remain in provenance.
+
+Each E record saves operand bindings, resolved IR operations, every Gua's eligibility/rejection reasons, rules attempted, CFG bypasses, and discharge facts. Requirement applicability assumptions no longer prevent checking independently grounded graph relations. Failed combinations produce `static_contract_candidate` reports with `origin: deterministic_E`; they are candidates, not proved feasible interleavings. A partially resolved requirement cannot be discharged.
+
+`Release-build/contract_replay model.json contracts.json checks.json` reruns binding/E without any model request. Preserve original ledgers; save replay results separately. `harness/diagnose_case.py` is an offline evaluator that combines runtime facts with GT sites and explicit semantic annotations. It separates (1) graph coordinate coverage and actual binding, (2) Gua correctness, (3) Req correctness, (4) E composition. Semantic correctness defaults to `not_assessed`, never inferred from schema acceptance. An absent Gua can correctly reflect missing synchronization in buggy code. Multiple failures may coexist. GT expectations/annotations are never passed to the detector.

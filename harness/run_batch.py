@@ -83,7 +83,7 @@ def summarize(output):
         review_statuses=dict(Counter(r["status"] for r in report["reviews"].values())),
         source_supported_ids=[i for i, r in report["reviews"].items() if r["status"] == "source_supported"],
         completed_phase_usage=[r["usage"] for r in completed],
-        usage_complete=bool(manifest.get("exit_code") == 0 and len(completed) == 2),
+        usage_complete=bool(manifest.get("exit_code") == 0 and len(completed) == (1 if manifest.get("review_disabled") else 2)),
         tool_calls=dict(tools), rejected_calls_in_completed_history=rejected,
         repository_files_read=sorted({e["path"] for e in report["repository_evidence"].values()}),
         gaps=report["gaps"], error=report.get("error"),
@@ -103,6 +103,7 @@ def main():
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--repository", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--no-review", action="store_true", help="Disable final Agent review in every case")
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--max-turns", type=int, default=96)
     args = parser.parse_args()
@@ -138,7 +139,7 @@ def main():
                 "jobs": args.jobs, "model_api": os.environ.get("LACE_MODEL_API", "chat_completions"),
                 "reasoning_effort": os.environ.get("LACE_REASONING_EFFORT", "provider default"),
                 "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                "ground_truth_files_loaded": False, "results": {}}
+                "ground_truth_files_loaded": False, "review_disabled": args.no_review, "results": {}}
     (args.output / "batch.json").write_text(json.dumps(snapshot, indent=2))
 
     def run(row):
@@ -147,6 +148,8 @@ def main():
                    "--source", row["source"], "--bitcode", row["bitcode"], "--output", str(output),
                    "--repository", str(args.repository.resolve()), "--revision", row["revision"],
                    "--max-turns", str(args.max_turns)]
+        if args.no_review:
+            command.append("--no-review")
         if row.get("autoconf_path"):
             command += ["--autoconf", row["autoconf_path"]]
         print(json.dumps({"started": row["case"], "lines": row["source_lines"]}), flush=True)

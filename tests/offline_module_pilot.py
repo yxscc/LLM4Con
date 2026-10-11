@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--source', type=Path, required=True)
     parser.add_argument('--bitcode', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--no-review', action='store_true')
     parser.add_argument('--catalog', type=Path)
     parser.add_argument('--source-anchors', action='store_true', help='Exercise synthetic source-only report output')
     args = parser.parse_args()
@@ -78,7 +79,7 @@ def main():
                     assert len(anchors) == 3 and all(a['operation_equivalence_proved'] is False for a in anchors)
                     assert all('graph_candidates' not in a and 'nodes' not in a and 'rows' not in a for a in anchors), 'Graph dump leaked into source evidence'
                     broad=anchors[-1]
-                    assert broad['ir_candidate_count'] > 1 and broad['binding']=='unbound'
+                    assert broad['ir_candidate_count'] > 1 and broad['binding'] in {'operation_not_resolved','ambiguous'}
                     state['source_anchor_response_bytes']=len(messages[-1]['content'].encode())
                     state['anchors'] = [a['source_id'] for a in anchors[:2]]
                     name, arguments = 'get_operations', {'function_id': -1, 'path': '', 'first_line': 0, 'last_line': 0, 'source_id': broad['source_id'], 'origin': 'ir', 'offset': 0, 'limit': 1}
@@ -170,7 +171,7 @@ def main():
                NO_PROXY='127.0.0.1,localhost', no_proxy='127.0.0.1,localhost', LACE_PROTOCOL_CATALOG=str(args.catalog.resolve()) if args.catalog else str(repo/'config/protocol_catalog.json'))
     env.pop('LACE_MODEL_API', None)
     try:
-        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)], env=env,
+        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
         assert code == 0, f'Native workflow failed; see {args.output}/run.log'
@@ -181,12 +182,14 @@ def main():
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']
         assert all('graph_candidates' not in op for op in report['source_operations'].values())
-        assert len(report['requirements']) == len(report['reviews']) == 1 and not report['guarantees']
+        assert len(report['requirements']) == 1 and len(report['reviews']) == (0 if args.no_review else 1) and not report['guarantees']
+        if args.no_review:
+            assert state['phase'] == 'A' and report['review_disabled'] and report['coverage']['e_finished']
         assert 'owner_thread' not in report['requirements'][0] and 'object_id' not in report['requirements'][0]
         assert len(report['pattern_reviews']) == len(state['patterns'])
         assert not (report_path.parent/'vulnerability_surface.json').exists()
         final = json.loads((report_path.parent/'stateful_bugs/reports.json').read_text())
-        assert len(final) == int(args.source_anchors)
+        assert len(final) == (0 if args.no_review else int(args.source_anchors))
         if final:
             assert not final[0]['reproduced'] and 'OFFLINE SYNTHETIC' in final[0]['evidence'][0]['description']
             assert len(final[0]['evidence'][0]['source_operations']) == 2

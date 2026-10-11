@@ -1,4 +1,5 @@
 #include "LLMUtil/RequirementChecker.h"
+#include "LLMUtil/OperationBinding.h"
 #include <stdexcept>
 #include <iostream>
 using J=nlohmann::json;
@@ -28,10 +29,12 @@ int main() {
     check(result(J::array({g}))["status"]=="undischarged","Loop iterations treated as unique occurrences");
     model=baseModel(); J conditional=g; conditional["unconditional"]=false;
     check(result(J::array({conditional}))["status"]=="undischarged","Conditional Gua auto-credited");
+    check(result(J::array({conditional}))["guarantee_diagnostics"][0]["rejection_reasons"][0]=="unresolved_guarantee_conditions","Gua rejection reason lost");
     J wrongScope=g; wrongScope["scope"]="another-object-instance";
     check(result(J::array({wrongScope}))["status"]=="undischarged","Different Gua scope mixed");
     r["assumptions"]={"May be a different object generation"};
-    check(result(J::array({g}))["status"]=="requires_semantic_review","Unknown applicability silently proved"); r.erase("assumptions");
+    check(result(J::array({g}))["status"]=="requires_semantic_review","Unknown applicability silently proved");
+    check(!result(J::array({g}))["facts"].empty(),"Assumptions prevented independent graph relation check");r.erase("assumptions");
     r["b_nodes"]={2}; r["form"]="MustBeMediated";
     check(result()["status"]=="undischarged","Same node means distinct invocations synchronized");
     r["b_nodes"]={12}; r["a_nodes"]={999};
@@ -56,5 +59,17 @@ int main() {
     ex["regions"]={{{"start_node",1},{"end_node",4}},{{"start_node",11},{"end_node",13}}}; model["nodes"][2]["kind"]="call"; model["nodes"][2]["api"]="opaque_helper";
     check(result(J::array({ex}))["status"]=="undischarged","Opaque call assumed to preserve lock");
     check(result()["counterexample_constructed"]==false&&result()["proof"]==false,"Failure described as proved bug");
+    model=baseModel();r["form"]="MustBeMediated";r["a_nodes"]=J::array();r["b_nodes"]={12};r["interference_nodes"]=J::array();r["a_sources"]={"s"};
+    model["nodes"][1].update({{"file","/build/foo.c"},{"line",7},{"memory_role","read"},{"source_function","reader"},{"access_paths",{"p.field"}}});
+    J sources={{"s",{{"source_id","s"},{"path","foo.c"},{"first_line",7},{"last_line",7},{"content","7: x = p->field;"},{"operation_kind","read"},{"symbol","p->field"},{"function","reader"}}}};
+    J manifest={{{"path","foo.c"}}};
+    auto bound=llm_client::checkModuleRequirements(J::array({r}),J::array(),model,sources,manifest).at("r");
+    check(bound["bindings"][0]["status"]=="bound"&&bound["e_candidate"]==true,"Source access did not reach deterministic E");
+    sources["s"]["symbol"]="p->missing";
+    check(llm_client::bindSourceOperation(sources["s"],model,manifest)["status"]=="selector_not_in_source","Invented source selector accepted");
+    sources["s"]["symbol"]="p->field";model["nodes"][2].update(model["nodes"][1]);model["nodes"][2]["node_id"]=3;
+    check(llm_client::bindSourceOperation(sources["s"],model,manifest)["status"]=="ambiguous","Ambiguous access selected arbitrarily");
+    manifest.push_back({{"path","nested/foo.c"}});
+    check(llm_client::bindSourceOperation(sources["s"],model,manifest)["status"]=="no_ir_candidate","Duplicate basename conflated");
     std::cout<<"Complete-model requirement checker regressions passed\n";
 }

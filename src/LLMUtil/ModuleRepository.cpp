@@ -1,4 +1,5 @@
 #include "LLMUtil/ModuleContractAgent.h"
+#include "LLMUtil/OperationBinding.h"
 #include "LLMUtil/SDKBridge.h"
 #include "Util/TargetPath.h"
 #include <algorithm>
@@ -33,18 +34,17 @@ J ModuleContractAgent::sourceOperation(const J& args) {
     }
     if (!nonempty) throw std::invalid_argument("Empty source operation");
     std::string id = "module-op:" + path + ":" + std::to_string(first) + ":" + std::to_string(last);
+    for (const char* key:{"operation_kind","symbol","function"}) if (args.contains(key)) id += ":" + args.at(key).get<std::string>();
     J op = {{"source_id", id}, {"path", path}, {"first_line", first}, {"last_line", last},
             {"content", content.str()}, {"static_analysis", false}};
-    size_t irCandidates = 0;
-    for (const auto& n : model_.at("nodes")) {
-        if (n.at("origin") != "ir" || n.at("kind") == "Method") continue;
-        int line = n.at("line"); if (line < first || line > last) continue;
-        if (matchesSourcePath(n.at("file").get<std::string>(),path)) ++irCandidates;
+    for (const char* key:{"operation_kind","symbol","function"}) if (args.contains(key)) op[key]=args.at(key);
+    if (op.contains("operation_kind")) {
+        const auto kind=op.at("operation_kind").get<std::string>();
+        if (kind!="read"&&kind!="write"&&kind!="call"&&kind!="atomic"&&kind!="fence"&&kind!="unspecified") throw std::invalid_argument("Invalid operation selector kind");
     }
-    // Register source evidence, not a dump of the matching AST/IR. Coordinates
-    // alone cannot establish an operation binding, even for a unique candidate.
-    op["ir_candidate_count"] = irCandidates;
-    op["binding"] = irCandidates == 0 ? "no_ir_candidate" : "unbound";
+    auto binding=bindSourceOperation(op,model_,data_["source_manifest"]);
+    op["ir_candidate_count"] = binding.at("coordinate_candidates").size();
+    op["binding"] = binding.at("status");
     op["operation_equivalence_proved"] = false;
     data_["source_operations"][id] = op; save(); return op;
 }
