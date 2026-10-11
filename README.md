@@ -56,6 +56,17 @@ kind. Ordinary local order does not create a synchronization guarantee. Each
 claim must identify its operations, resource/domain, applicability and source
 basis. Scope that the checker cannot represent remains conditional for review.
 
+The extraction task separates ordinary source facts (`record_protocol`),
+concurrency obligations (`add_requirement`) and actual synchronization effects
+(`add_guarantee`). It defines each form, requires the mechanism/domain for a
+guarantee, and gives positive/negative examples for construction, error returns,
+completion handoff, compound transactions, BH scope and RCU reclamation.
+`unconditional=false` cannot turn local program order into a guarantee. `Wait`
+includes source-anchored enabling events/conditions, not only activity termination.
+The exact task text is retained as `agent_instructions` in `module_contracts.json`
+for review alongside the trajectory. Type/node/citation validation remains
+structural; semantic correctness still needs source review and model evaluation.
+
 This path branches before object triage, top-20 thread seeding, object/thread/
 session cost budgets and cluster splitting. It does not call the old truncated
 Phase-0 wrapper prompt. It never creates one agent session per thread/object/pair.
