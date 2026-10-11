@@ -1,14 +1,16 @@
 #pragma once
 #include "LLMUtil/Conversation.h"
-#include "Query/VulnerabilitySurfaceGenerator.h"
+#include "CCPG/CCPG.h"
 #include "Query/ModuleFinding.h"
 #include <optional>
+#include <set>
+#include <map>
 
 namespace llm_client {
 class ModuleContractAgent : public Conversation {
 public:
     ModuleContractAgent(std::shared_ptr<LLMClient> client, CCPG* ccpg,
-                        const query::VulnerabilitySurface& surface);
+                        const nlohmann::json& model);
     void generate();
     const nlohmann::json& requirements() const { return data_.at("requirements"); }
     const nlohmann::json& guarantees() const { return data_.at("guarantees"); }
@@ -17,9 +19,8 @@ public:
     void save(const std::string& error = "") const;
 private:
     CCPG* ccpg_;
-    const query::VulnerabilitySurface& surface_;
-    nlohmann::json data_, surfaceJson_;
-    std::set<std::string> functions_, coveredFunctions_;
+    nlohmann::json data_, model_, catalog_;
+    std::set<std::string> functions_;
     std::map<std::string, std::vector<std::string>> sourceLines_;
     bool generating_ = true, generationFinished_ = false, reviewFinished_ = false;
     std::string sourcePacket();

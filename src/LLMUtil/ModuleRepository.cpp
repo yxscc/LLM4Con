@@ -1,6 +1,5 @@
 #include "LLMUtil/ModuleContractAgent.h"
 #include "LLMUtil/SDKBridge.h"
-#include "CCPG/ThreadCreationTree.h"
 #include "Util/TargetPath.h"
 #include <algorithm>
 #include <cstdlib>
@@ -25,6 +24,24 @@ J ModuleContractAgent::sourceOperation(const J& args) {
     std::string id = "module-op:" + path + ":" + std::to_string(first) + ":" + std::to_string(last);
     J op = {{"source_id", id}, {"path", path}, {"first_line", first}, {"last_line", last},
             {"content", content.str()}, {"static_analysis", false}};
+    J candidates = J::array();
+    const auto root = fs::path(TargetPath::getInstance()->getTargetAbsolutePath()).lexically_normal();
+    for (const auto& n : model_.at("nodes")) {
+        int line = n.at("line"); if (line < first || line > last) continue;
+        auto file = fs::path(n.at("file").get<std::string>()).lexically_normal();
+        bool match = file == fs::path(path) || file == (root / path);
+        // Debug paths often name the original build tree. A suffix may help
+        // navigation only when it identifies a unique file in this snapshot.
+        if (!match && file.filename() == fs::path(path).filename()) {
+            size_t matchingFiles = 0;
+            for (const auto& [p, lines] : sourceLines_) if (fs::path(p).filename() == file.filename()) ++matchingFiles;
+            match = matchingFiles == 1;
+        }
+        if (match) candidates.push_back(n);
+    }
+    op["graph_candidates"] = candidates;
+    op["binding"] = candidates.empty() ? "absent" : "inspect_candidates_before_binding";
+    op["operation_equivalence_proved"] = false;
     data_["source_operations"][id] = op; save(); return op;
 }
 std::vector<std::string> ModuleContractAgent::validSources(const J& args, const char* key) const {
@@ -81,14 +98,10 @@ J ModuleContractAgent::buildCallInventory() const {
             if (index > 0) byIndex[index - 1] = arg->getCode();
         }
         for (const auto& [index, code] : byIndex) arguments.push_back({{"index", index}, {"code", code}});
-        J contexts = J::array();
-        for (auto* thread : ThreadCreationTree::getInstance()->getThreads()) {
-            if (thread->getNodes().count(node)) contexts.push_back(thread->getId());
-        }
         auto* function = node->getFunction();
         auto* callEdge = ccpg_->hasCallEdge(node);
         calls.push_back({{"node_id", node->getId()}, {"api", api}, {"code", source->getCode()},
-            {"location", location.toString()}, {"arguments", arguments}, {"thread_contexts", contexts},
+            {"location", location.toString()}, {"arguments", arguments},
             {"containing_function", function ? function->getFuncNode()->getCPGNode()->getName() : ""},
             {"callee_edge_in_static_graph", callEdge != nullptr}});
     }
@@ -113,7 +126,7 @@ void ModuleContractAgent::initializeRepositoryContext() {
 
 std::vector<Tool> ModuleContractAgent::repositoryTools() const {
     std::vector<Tool> tools;
-    tools.push_back({"get_module_calls", "Get module callsites and arguments, including resources absent from the shared-object surface. This is a navigation inventory, not a requirement to summarize every API. Empty apis returns all; nonempty filters exact API names.",
+    tools.push_back({"get_module_calls", "Get module callsites and arguments, without shared-object or parallel-entry filtering. This is a navigation inventory, not a requirement to summarize every API. Empty apis returns all; nonempty filters exact API names.",
         {listParam("apis", "string", "Exact API names, or [] for the complete inventory.")}});
     if (data_["repository_context"].is_null()) return tools;
     tools.push_back({"repository_search", "Search identifier occurrences in the pinned repository version. Results are navigation, not a proven call graph. Follow next_offset to continue; use repository_read to obtain citable evidence.",

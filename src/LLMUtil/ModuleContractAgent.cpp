@@ -1,420 +1,262 @@
 #include "LLMUtil/ModuleContractAgent.h"
-#include "LLMUtil/ModuleRequirements.h"
 #include "LLMUtil/ModulePrompt.h"
 #include "LLMUtil/SharedToolKit.h"
 #include "Util/TargetPath.h"
-#include "CCPG/ThreadCreationTree.h"
-#include "PhasarUtil/AnalysisManager.h"
-#include "PhasarUtil/PhasarPointerAnalysis.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Module.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cstdlib>
-
 namespace llm_client {
 using J = nlohmann::json;
-
-
-ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client, CCPG* ccpg,
-    const query::VulnerabilitySurface& surface)
-    : Conversation(client, modulePrompt), ccpg_(ccpg), surface_(surface), surfaceJson_(surface.toJson()) {
-    data_ = buildModuleRequirements(surfaceJson_);
-    data_["source_operations"] = J::object();
-    data_["guarantees"] = J::array(); data_["protocols"] = J::array(); data_["reviews"] = J::object();
-    data_["harness"] = "openai-agents";
-    data_["agent_instructions"] = modulePrompt; // Preserve the exact task used in this run for trajectory review.
-    data_["gaps"] = J::array();
-    if (ccpg_->contextsIncomplete()) data_["gaps"].push_back("Static calling contexts were truncated or recursive: automatic lock/order hints are disabled; coverage is incomplete.");
-    for (const auto& gap : ThreadCreationTree::getInstance()->getUnresolvedEntries()) data_["gaps"].push_back(gap);
-    if (surface.shared_objects.empty()) data_["gaps"].push_back("The v2 static surface contains no shared objects; semantic coverage cannot be established.");
-    data_["source_manifest"] = J::array();
-    for (const auto& o : surface.shared_objects) for (const auto& a : o.accesses) {
-        const auto& f = a.containing_function.empty() ? a.function_name : a.containing_function;
-        if (!f.empty()) functions_.insert(f);
+namespace {
+Parameter list(const char* name,const char* type,const char* description,bool required=true) {
+    return Parameter(name,J{{"type","array"},{"items",{{"type",type}}},{"description",description}},required);
+}
+Parameter choice(const char* name,J values) { return Parameter(name,J{{"type","string"},{"enum",values}},true); }
+Parameter source(const char* name) { return list(name,"string","Validated module source-operation IDs; use instead of numeric operands when no exact operation is bound.",false); }
+Parameter repo() { return list("repository_evidence_ids","string","Cited IDs returned by repository_read; separate from module operation IDs.",false); }
+void nonempty(const J& a,const char* key) { if (a.at(key).get<std::string>().empty()) throw std::invalid_argument(std::string(key)+" must not be empty"); }
+}
+ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG* ccpg,const J& model)
+    : Conversation(client,modulePrompt),ccpg_(ccpg),model_(model) {
+    const char* configured=std::getenv("LACE_PROTOCOL_CATALOG");
+    fs::path path=configured&&*configured?fs::path(configured):fs::path(PROJECT_PATH)/"config/protocol_catalog.json";
+    std::ifstream in(path); if (!in) throw std::runtime_error("Cannot read protocol catalog: "+path.string()); in>>catalog_;
+    if (catalog_.at("schema")!="lace-protocol-catalog-v1"||!catalog_.at("patterns").is_array()||catalog_["patterns"].empty()) throw std::invalid_argument("Invalid protocol catalog");
+    std::set<std::string> patterns;
+    for (const auto& p:catalog_["patterns"]) {
+        if (p.at("id").get<std::string>().empty()||!patterns.insert(p.at("id")).second||!p.at("questions").is_array()||p.at("questions").empty()) throw std::invalid_argument("Invalid/duplicate catalog pattern");
+        for (const auto& q:p.at("questions")) if (!q.is_string()||q.get<std::string>().empty()) throw std::invalid_argument("Catalog question must be nonempty text");
     }
+    data_={{"schema","lace-source-contracts-v1"},{"requirements",J::array()},{"guarantees",J::array()},
+        {"source_operations",J::object()},{"protocols",J::array()},{"pattern_reviews",J::object()},
+        {"reviews",J::object()},{"checks",J::object()},{"gaps",J::array()},{"source_manifest",J::array()},
+        {"harness","openai-agents"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
+        {"graph_coverage",model_.at("coverage")}};
+    for (const auto& f:model_["functions"]) functions_.insert(f.at("name"));
     initializeRepositoryContext();
-    if (const char* turns = std::getenv("LACE_MODULE_MAX_TURNS")) set_max_turns(std::stoi(turns));
+    if (const char* turns=std::getenv("LACE_MODULE_MAX_TURNS")) set_max_turns(std::stoi(turns));
     save();
 }
-
 std::string ModuleContractAgent::sourcePacket() {
-    const auto root = TargetPath::getInstance()->getTargetAbsolutePath();
-    std::vector<fs::path> files;
-    auto add = [&](const fs::path& p) {
-        const auto ext = p.extension().string();
-        if (ext == ".c" || ext == ".h" || ext == ".cpp" || ext == ".hpp" || ext == ".hh" || ext == ".cc" || ext == ".cxx") files.push_back(p);
-    };
-    if (fs::is_regular_file(root)) add(root);
-    else for (const auto& entry : fs::recursive_directory_iterator(root)) {
-        if (entry.is_symlink()) {
-            data_["gaps"].push_back("Source-tree symlink not loaded; resolve or explicitly include dependency: " + fs::relative(entry.path().parent_path(), root).string() + "/" + entry.path().filename().string());
-            continue;
-        }
-        if (entry.is_regular_file()) add(entry.path());
+    const auto root=TargetPath::getInstance()->getTargetAbsolutePath(); std::vector<fs::path> files;
+    for (const auto& e:fs::recursive_directory_iterator(root)) {
+        if (e.is_symlink()) { data_["gaps"].push_back("Source symlink not included: "+fs::relative(e.path(),root).string()); continue; }
+        const auto ext=e.path().extension().string();
+        if (e.is_regular_file()&&(ext==".c"||ext==".h"||ext==".cpp"||ext==".hpp"||ext==".hh"||ext==".cc"||ext==".cxx")) files.push_back(e.path());
     }
-    std::sort(files.begin(), files.end());
-    std::ostringstream out;
-    for (const auto& path : files) {
-        std::ifstream in(path);
-        if (!in) throw std::runtime_error("Cannot read module source: " + path.string());
-        std::string name = fs::is_directory(root) ? fs::relative(path, root).string() : path.filename().string();
-        out << "\n<source file=" << J(name).dump() << ">\n";
-        std::string line; size_t lines = 0, bytes = 0;
-        while (std::getline(in, line)) {
-            sourceLines_[name].push_back(line);
-            bytes += line.size() + 1; out << ++lines << ": " << line << '\n';
-        }
-        out << "</source>\n";
-        data_["source_manifest"].push_back({{"path", name}, {"lines", lines}, {"bytes", bytes}, {"complete", true}});
+    std::sort(files.begin(),files.end()); std::ostringstream out;
+    for (const auto& path:files) {
+        std::ifstream in(path); if (!in) throw std::runtime_error("Cannot read source: "+path.string());
+        std::string name=fs::relative(path,root).string(),line; size_t lines=0,bytes=0;
+        out<<"\n<source file="<<J(name).dump()<<">\n";
+        while (std::getline(in,line)) { sourceLines_[name].push_back(line); bytes+=line.size()+1; out<<++lines<<": "<<line<<'\n'; }
+        out<<"</source>\n"; data_["source_manifest"].push_back({{"path",name},{"lines",lines},{"bytes",bytes},{"complete",true}});
     }
-    if (files.empty()) throw std::runtime_error("No C/C++ module sources found");
-    return out.str();
+    if (files.empty()) throw std::runtime_error("No C/C++ module sources found"); return out.str();
 }
-
 void ModuleContractAgent::generate() {
     try {
-        auto source = sourcePacket();
-        J overview = {{"objects", surface_.shared_objects.size()}, {"static_obligations", data_["requirements"].size()},
-                      {"access_functions", functions_}, {"threads", surfaceJson_["threads"]}};
-        J definitions = J::array();
-        auto graphFunctions = ccpg_->getFunctions();
-        auto* pointer = dynamic_cast<PhasarPointerAnalysis*>(AnalysisManager::getInstance()->getPointerAnalyzer());
-        if (pointer && pointer->getModule()) for (const auto& fn : *pointer->getModule()) {
-            if (fn.isDeclaration()) continue;
-            auto* debug = fn.getSubprogram();
-            if (!debug) continue;
-            std::string file = fs::path(debug->getFilename().str()).filename().string();
-            bool target = false;
-            for (const auto& [path, lines] : sourceLines_) if (fs::path(path).filename().string() == file) target = true;
-            if (!target) continue;
-            definitions.push_back({{"function", fn.getName().str()}, {"file", debug->getFilename().str()},
-                {"line", debug->getLine()}, {"ccpg_mapped", graphFunctions.end() != std::find_if(graphFunctions.begin(), graphFunctions.end(), [&](auto* f) { return f->getFuncNode()->getCPGNode()->getName() == fn.getName().str(); })}});
-        }
-        overview["ir_defined_functions"] = definitions;
-        // Entry provenance is not currently serialized by the legacy surface.
-        for (size_t i = 0; i < surface_.threads.size(); ++i) {
-            overview["threads"][i]["entry_provenance"] = surface_.threads[i].entry_provenance;
-            overview["threads"][i]["reentrant_entry"] = surface_.threads[i].reentrant_entry;
-        }
-        data_["overview"] = overview; save();
-        J objectIndex = J::array(), obligationIndex = J::array();
-        for (size_t i = 0; i < surface_.shared_objects.size(); ++i) {
-            const auto& object = surface_.shared_objects[i]; J accesses = J::array();
-            for (const auto& a : object.accesses) accesses.push_back({{"node", a.node_id}, {"thread", a.thread_id}, {"type", a.access_type}});
-            objectIndex.push_back({{"object_id", i}, {"name", object.name}, {"accesses", accesses}});
-        }
-        for (const auto& r : data_["requirements"]) obligationIndex.push_back({{"id", r["id"]}, {"form", r["form"]},
-            {"object_id", r["object_id"]}, {"a_count", r["a_nodes"].size()}, {"b_count", r["b_nodes"].size()}});
-        send_message("Phase A. Read this complete module; no object or source truncation has been applied.\n"
-                     "Static navigation overview:\n" + overview.dump() + "\nObject/node index:\n" + objectIndex.dump() +
-                     "\nInitial requirement inventory:\n" + obligationIndex.dump() + "\nModule callsites and arguments:\n" + data_["module_calls"].dump() +
-                     "\nRepository context: " + (data_["repository_context"].is_null() ? std::string("not configured") :
-                         "source queries pinned to " + data_["repository_context"]["revision"].get<std::string>()) + "\n" + source);
-        if (!generationFinished_) throw std::runtime_error("Agent returned without completing the contract checklist");
-        save();
+        auto packet=sourcePacket(); save();
+        send_message("Phase A. Read the complete module below. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
+            "Use the extensible catalog as an auditing guide, pursue other source-supported protocols too, and declare actual concurrency Req/Gua. "
+            "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalog_.dump()+
+            "\nRepository context: "+(data_["repository_context"].is_null()?std::string("not configured"):data_["repository_context"]["revision"].get<std::string>())+"\n"+packet);
+        if (!generationFinished_) throw std::runtime_error("Agent did not finalize contract extraction"); save();
     } catch (const std::exception& e) { save(e.what()); throw; }
-}
-
-static Parameter arrayParam(const char* name, const char* type, const char* description) {
-    return Parameter(name, J{{"type", "array"}, {"items", {{"type", type}}}, {"description", description}}, true);
-}
-static Parameter repositoryEvidenceParam() {
-    return Parameter("repository_evidence_ids", J{{"type", "array"}, {"items", {{"type", "string"}}},
-        {"description", "Optional source_id values from repository_read supporting this claim. Cite queried source when used; IDs are validated."}}, false);
-}
-static Parameter sourceParam(const char* name, const char* description) {
-    return Parameter(name, J{{"type", "array"}, {"items", {{"type", "string"}}}, {"description", description}}, false);
 }
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
-    auto tools = SharedToolKit::get_shared_tools();
-    auto repoTools = repositoryTools(); tools.insert(tools.end(), repoTools.begin(), repoTools.end());
-    tools.push_back({"get_source_operation", "Anchor an operation in the complete module snapshot when CCPG mapping is absent. Returns a validated source_id and exact text; this is source evidence, not a static concurrency/alias proof.",
-        {{"path", "string", "Module-relative source path as shown in the source packet.", true},
-         {"first_line", "integer", "First line of the concrete operation, 1-based.", true},
-         {"last_line", "integer", "Last line of that operation (inclusive).", true}}});
-    tools.push_back({"get_source_operations", "Anchor several related module operations in one call. Prefer batching protocol operands to repeated single-operation calls. Returned IDs are source evidence, not static proofs.",
-        {Parameter("operations", J{{"type", "array"}, {"items", {{"type", "object"},
-            {"properties", {{"path", {{"type", "string"}}}, {"first_line", {{"type", "integer"}}}, {"last_line", {{"type", "integer"}}}}},
-            {"required", {"path", "first_line", "last_line"}}, {"additionalProperties", false}}}}, true)}});
-    tools.push_back({"record_gap", "Record a missing dependency, resource, operation anchor or execution context. Gaps keep the analysis incomplete.",
-        {{"description", "string", "What is missing and which source behavior needs it.", true}}});
-    tools.push_back({"get_object", "Get a static object and ALL its access contexts. -1 lists all object IDs/names.",
-        {{"object_id", "integer", "Object index, or -1 for inventory.", true}}});
-    tools.push_back({"get_obligations", "Get quantified requirements. Empty ids lists ALL groups with counts; nonempty returns FULL operands and reviews.",
-        {arrayParam("ids", "string", "Requirement IDs; empty array returns complete summary inventory.")}});
+    auto tools=SharedToolKit::get_source_tools(); auto rt=repositoryTools(); tools.insert(tools.end(),rt.begin(),rt.end());
+    tools.push_back({"get_module_functions","Query all source/IR function representations; these are not parallel entries. Pagination retains all rows.",
+        {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
+    tools.push_back({"get_operations","Query actual operations by source coordinates and/or function. Debug coordinates are navigation; inspect code before selecting an IR operation. Pagination never truncates the stored model.",
+        {{"function_id","integer","Function representation ID, or -1 for any.",true},{"path","string","File path or suffix, or empty.",true},
+         {"first_line","integer","Inclusive lower bound, or 0 for any.",true},{"last_line","integer","Upper bound, or 0 for any.",true},
+         {"origin","string","source, ir, or empty.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000.",true}}});
+    tools.push_back({"get_source_operation","Preserve a concrete operation in the supplied source snapshot, including operations absent from both source graph and IR. Returns candidate graph bindings without asserting equivalence.",
+        {{"path","string","Exact module-relative path.",true},{"first_line","integer","First line, 1-based.",true},{"last_line","integer","Last line, inclusive.",true}}});
+    tools.push_back({"get_source_operations","Batch validated source anchors; no graph binding is silently invented.",
+        {Parameter("operations",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"path",{{"type","string"}}},{"first_line",{{"type","integer"}}},{"last_line",{{"type","integer"}}}}},{"required",{"path","first_line","last_line"}},{"additionalProperties",false}}}},true)}});
+    tools.push_back({"record_gap","Record missing source/context, unresolved mapping or unsupported semantics.",{{"description","string","Missing evidence and affected protocol.",true}}});
+    tools.push_back({"get_obligations","Query all requirements (empty IDs) or full selected records with E evidence and reviews.",{list("ids","string","IDs, or [] for all.")}});
     if (generating_) {
-        tools.push_back({"record_protocol", "Explain a resource protocol across related functions, including ordinary source facts and local program order. These facts are not synchronization guarantees. Batch functions belonging to the same protocol.",
-            {arrayParam("functions", "string", "Access-containing functions reviewed together."),
-             {"summary", "string", "Protocol, invariants, synchronization, or reason no extra semantic requirement is needed.", true},
-             {"status", "string", "reviewed or unknown. Unknown keeps coverage incomplete.", true}}});
-        tools.push_back({"add_requirement", "Add a concurrency safety relation between anchored operations, expanded across all listed affected objects. Common obligations already exist; API call preconditions are evidence, not a fourth requirement kind.",
-            {Parameter("form", J{{"type", "string"}, {"enum", {"MustPrecede", "MustBeAtomic", "MustBeMediated"}}}, true),
-             {"owner_thread", "integer", "Thread context for operand A; -1 only for source-only A with an unresolved static activation context.", true},
-             arrayParam("object_ids", "integer", "All affected object IDs, including related fields."),
-             arrayParam("a_nodes", "integer", "Real CCPG IDs; ordered sequence for atomicity."),
-             arrayParam("b_nodes", "integer", "Second operand; empty for atomicity."),
-             sourceParam("a_sources", "Ordered source_id operands from get_source_operation, instead of a_nodes when its CCPG mapping is missing."),
-             sourceParam("b_sources", "Second operand source_ids, instead of b_nodes; empty for atomicity."),
-             {"resource", "string", "Concrete source resource expression when object_ids=[]; missing static mapping remains a coverage gap.", false},
-             repositoryEvidenceParam(),
-             {"note", "string", "Resource/property, concurrent invalidator or interference, source intent, operand meaning and applicability/unknowns. Do not add ordinary local sequencing requirements.", true}}});
-        tools.push_back({"add_guarantee", "Extract an actual synchronization effect. Identify its mechanism and scope. Ordinary program order, general API behavior and desired safety belong in record_protocol, even if unconditional=false.",
-            {Parameter("form", J{{"type", "string"}, {"enum", {"Order", "Wait", "Exclude", "AtomicOp"}},
-                {"description", "Order: synchronization handoff beyond local program order. Wait: enabling event/condition before continuation. Exclude: incompatible regions sharing a scoped token cannot overlap. AtomicOp: atomic operation or protected sequence relative to conflicting operations."}}, true),
-             arrayParam("a_nodes", "integer", "Real CCPG IDs: ordered predecessors for Order, enabling event/condition anchors for Wait, protected operations for Exclude, atomic sequence for AtomicOp."),
-             arrayParam("b_nodes", "integer", "Real CCPG IDs: successors for Order, continuation after Wait; empty for Exclude/AtomicOp."),
-             sourceParam("a_sources", "Source operands instead of a_nodes when mappings are missing; semantic review only."),
-             sourceParam("b_sources", "Source operands instead of b_nodes when mappings are missing."),
-             {"token", "string", "Source spelling of lock/atomic identity, or empty.", true},
-             {"mode", "string", "exclusive/shared for Exclude; otherwise empty.", true},
-             {"conditions", "string", "Instance/domain/path/matching/return assumptions supporting this synchronization effect; distinguish established and unresolved assumptions.", true},
-             {"unconditional", "boolean", "True only if applicability is established for these nodes and the checker represents the scope. False retains a genuine conditional synchronization effect; it does not admit local order or unsupported claims.", true},
-             arrayParam("evidence_nodes", "integer", "Source nodes proving the synchronization."),
-             sourceParam("evidence_sources", "Validated source_ids supporting the synchronization effect, when no CCPG evidence nodes exist."),
-             repositoryEvidenceParam(),
-             {"note", "string", "Which actual synchronization mechanism establishes this effect on these operations, with source evidence and scope. Desired order or local program order is insufficient.", true}}});
-        tools.push_back({"finalize_contract", "Finish only after all access functions have an explicit semantic review position.", {}});
+        tools.push_back({"record_protocol","Describe ordinary source facts, resource protocol and local control flow; these are not synchronization Gua.",
+            {list("functions","string","Related module functions; not a coverage quota."),{"summary","string","Protocol, source evidence, assumptions and gaps.",true},choice("status",{"reviewed","unknown"})}});
+        tools.push_back({"record_pattern_review","Record how a catalog question was investigated. This accounts for the checklist, not semantic completeness.",
+            {{"pattern_id","string","Catalog pattern ID.",true},choice("status",{"reviewed","not_applicable","unknown"}),{"reason","string","Source-based audit position; describe unresolved evidence.",true}}});
+        tools.push_back({"add_requirement","Record one concurrency safety relation; preserve all operands. No static object or entry IDs required.",
+            {choice("form",{"MustPrecede","MustBeAtomic","MustBeMediated"}),{"resource","string","Concrete source resource expression.",true},
+             {"scope","string","Stable domain label for same instance, lifetime/generation and activation pairing; use exactly this label on matching Gua.",true},
+             list("actors","string","At least two potential execution activations; two invocations of one function are distinct actors."),
+             list("a_nodes","integer","Exact inspected operation IDs; ordered sequence for atomicity."),list("b_nodes","integer","Second operand; [] for atomicity."),
+             source("a_sources"),source("b_sources"),list("interference_nodes","integer","All identified interfering operations for atomicity; [] otherwise."),source("interference_sources"),
+             list("assumptions","string","Unresolved applicability/coverage premises; [] if source-established."),repo(),{"note","string","Concurrent conflict, actors' source evidence, intended invariant and scope. Ordinary local order/API prerequisites are not Req.",true}}});
+        tools.push_back({"add_guarantee","Record synchronization supplied by actual code, including scoped non-lock protocols. Pure local order is not an Order Gua.",
+            {choice("form",{"Order","Wait","Exclude","AtomicOp"}),{"resource","string","Resource matching Req.",true},{"scope","string","Exact Req instance/activation domain label.",true},
+             list("a_nodes","integer","Predecessor completion events, or protected/atomic operations."),list("b_nodes","integer","Post-handoff continuation operations for Order/Wait; [] otherwise."),
+             source("a_sources"),source("b_sources"),{"token","string","Scoped protection/atomic token; empty for Order/Wait.",true},{"mode","string","exclusive/shared for Exclude; empty otherwise.",true},
+             {"conditions","string","Established and unresolved instance/domain/matching/return/requeue premises.",true},{"unconditional","boolean","Applicability and scope established for these operands. Still subject to source review.",true},
+             list("evidence_nodes","integer","Actual synchronization operation IDs."),source("evidence_sources"),
+             Parameter("regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_node",{{"type","integer"}}},{"end_node",{{"type","integer"}}}}},{"required",{"start_node","end_node"}},{"additionalProperties",false}}},{"description","Exclude: matching acquisition/release boundaries for each protected interval. E requires whole sequence continuously protected; opaque interior calls remain unsupported. [] for other Gua."}},true),
+             repo(),{"note","string","Actual mechanism and why it supplies the claimed synchronization effect on this domain.",true}}});
+        tools.push_back({"finalize_contract","Finish after explicitly considering every catalog pattern; unknown positions are retained. No per-object/function quota.",{}});
     } else {
-        tools.push_back({"review_obligations", "Report a group with one feasible harmful witness; satisfaction or non-applicability must cover the whole group. Batch only identical justifications.",
-            {arrayParam("ids", "string", "Requirement IDs covered by this judgment."),
-             {"status", "string", "source_supported, satisfied, not_applicable, or unknown", true},
-             arrayParam("evidence_nodes", "integer", "Source nodes supporting this judgment; may be empty for unknown."),
-             arrayParam("witness_nodes", "integer", "Concrete involved operations for source_supported; otherwise empty."),
-             sourceParam("evidence_sources", "Validated module source_ids supporting this judgment."),
-             sourceParam("witness_sources", "Concrete source operation IDs involved in a source_supported interleaving."),
-             repositoryEvidenceParam(),
-             {"reason", "string", "For source_supported, justify the concrete witness's applicability and harm. For satisfied/not_applicable, justify coverage of all applicable operations.", true},
-             {"interleaving", "string", "Feasible harmful interleaving for source_supported; otherwise empty.", true}}});
-        tools.push_back({"finalize_review", "Finish only after every requirement has an explicit judgment. Unknowns remain incomplete.", {}});
-    }
-    return tools;
+        tools.push_back({"review_obligations","Review every Req, including E discharges. Source-supported reports need a concrete applicable harmful interleaving.",
+            {list("ids","string","Req IDs sharing this judgment."),choice("status",{"source_supported","satisfied","not_applicable","unknown"}),
+             list("evidence_nodes","integer","Evidence IDs; [] permitted for unknown."),list("witness_nodes","integer","Concrete involved operations, [] except reports."),
+             source("evidence_sources"),source("witness_sources"),repo(),{"reason","string","Justify applicable actors, instance/lifetime and harm, or coverage of all operands for exclusion.",true},
+             {"interleaving","string","Concrete harmful execution for reports, empty otherwise.",true}}});
+        tools.push_back({"finalize_review","Finish once every Req has an explicit source judgment, preserving unknowns.",{}});
+    } return tools;
 }
-
-std::vector<int> ModuleContractAgent::validNodes(const J& args, const char* key, bool required) const {
-    if (!args.at(key).is_array()) throw std::invalid_argument(std::string(key) + " must be an array");
-    for (const auto& node : args.at(key))
-        if (!node.is_number_integer()) throw std::invalid_argument(std::string(key) + " must contain integer node IDs");
-    auto nodes = args.at(key).get<std::vector<int>>();
-    if (required && nodes.empty()) throw std::invalid_argument(std::string(key) + " must not be empty");
-    std::set<int> seen;
-    for (int n : nodes) {
-        if (!ccpg_->getNodeByID(n)) throw std::invalid_argument("Unknown CCPG node " + std::to_string(n));
-        if (!seen.insert(n).second) throw std::invalid_argument("Duplicate node operand");
+std::vector<int> ModuleContractAgent::validNodes(const J& args,const char* key,bool required) const {
+    const auto& value=args.at(key); if (!value.is_array()) throw std::invalid_argument(std::string(key)+" must be an array");
+    std::vector<int> out; std::set<int> seen;
+    for (const auto& n:value) {
+        if (!n.is_number_integer()||!ccpg_->getNodeByID(n.get<int>())) throw std::invalid_argument("Unknown operation ID");
+        if (ccpg_->getNodeByID(n.get<int>())->getCPGNode()->getType()=="Method") throw std::invalid_argument("Function ID is not an operation operand");
+        if (!seen.insert(n.get<int>()).second) throw std::invalid_argument("Duplicate operation ID"); out.push_back(n.get<int>());
     }
-    return nodes;
+    if (required&&out.empty()) throw std::invalid_argument(std::string(key)+" must not be empty"); return out;
 }
-
-std::string ModuleContractAgent::execute_tool(const std::string& name, const J& args) {
-    if (name == "get_source_operation") return sourceOperation(args).dump();
-    if (name == "get_source_operations") {
-        if (!args.at("operations").is_array() || args.at("operations").empty()) throw std::invalid_argument("Nonempty operation list required");
-        J result = J::array();
-        for (const auto& op : args.at("operations")) result.push_back(sourceOperation(op));
-        return result.dump();
-    }
-    if (auto result = executeRepositoryTool(name, args)) return *result;
-    if (name == "record_gap") {
-        if (args.at("description").get<std::string>().empty()) throw std::invalid_argument("Gap description required");
-        data_["gaps"].push_back(args.at("description")); save(); return "Gap recorded; analysis remains incomplete";
-    }
-    if (name == "get_object") {
-        int oid = args.at("object_id");
-        if (oid >= 0) return surfaceJson_.at("shared_objects").at(oid).dump();
-        J all = J::array(); size_t i = 0;
-        for (const auto& o : surface_.shared_objects) all.push_back({{"object_id", i++}, {"name", o.name}, {"accesses", o.accesses.size()}});
-        return all.dump();
-    }
-    if (name == "get_obligations") {
-        auto ids = args.at("ids").get<std::set<std::string>>(); J out = J::array();
-        for (const auto& r : data_["requirements"]) {
-            std::string id = r.at("id");
-            if (!ids.empty() && !ids.count(id)) continue;
-            J row = ids.empty() ? J{{"id", id}, {"form", r["form"]}, {"object_id", r["object_id"]},
-                {"owner_thread", r["owner_thread"]}, {"a_count", r["a_nodes"].size() + r.value("a_sources", J::array()).size()},
-                {"b_count", r["b_nodes"].size() + r.value("b_sources", J::array()).size()}} : r;
-            if (data_["checks"].is_object() && data_["checks"].contains(id)) row["checker_hint"] = data_["checks"][id];
-            if (data_["reviews"].contains(id)) row["review"] = data_["reviews"][id];
-            if (r.contains("resource")) row["resource"] = r["resource"];
-            out.push_back(row);
+std::string ModuleContractAgent::execute_tool(const std::string& name,const J& args) {
+    if (name=="get_module_functions"||name=="get_operations") {
+        int offset=args.at("offset"),limit=args.at("limit"); if (offset<0||limit<1||limit>1000) throw std::invalid_argument("Invalid page");
+        const auto origin=args.at("origin").get<std::string>(); if (origin!=""&&origin!="source"&&origin!="ir") throw std::invalid_argument("Invalid origin");
+        J rows=J::array();
+        for (const auto& row:model_.at(name=="get_module_functions"?"functions":"nodes")) {
+            if (!origin.empty()&&row.at("origin")!=origin) continue;
+            if (name=="get_module_functions") { if (!args.at("name").get<std::string>().empty()&&row.at("name")!=args.at("name")) continue; }
+            else {
+                if (args.at("function_id").get<int>()>=0&&row.at("function_id")!=args.at("function_id")) continue;
+                auto path=args.at("path").get<std::string>(),file=row.at("file").get<std::string>();
+                if (!path.empty()&&file!=path&&(file.size()<=path.size()||file.substr(file.size()-path.size()-1)!="/"+path)) continue;
+                int first=args.at("first_line"),last=args.at("last_line"),line=row.at("line");
+                if ((first>0&&line<first)||(last>0&&line>last)) continue;
+            } rows.push_back(row);
         }
-        if (!ids.empty() && out.size() != ids.size()) throw std::invalid_argument("Unknown requirement id");
-        return out.dump();
+        J page=J::array(); for (size_t i=offset;i<rows.size()&&i<size_t(offset+limit);++i) page.push_back(rows[i]);
+        return J{{"rows",page},{"total",rows.size()},{"next_offset",size_t(offset)+page.size()<rows.size()?J(size_t(offset)+page.size()):J(nullptr)}}.dump();
     }
-    if (name == "record_protocol" && generating_) {
-        auto fns = args.at("functions").get<std::set<std::string>>();
-        std::string status = args.at("status");
-        if (status != "reviewed" && status != "unknown") throw std::invalid_argument("Invalid protocol status");
-        if (fns.empty() || args.at("summary").get<std::string>().empty()) throw std::invalid_argument("Functions and explanation required");
-        for (const auto& f : fns) if (!functions_.count(f)) {
-            bool known = false;
-            for (auto* fn : ccpg_->getFunctions()) if (fn->getFuncNode()->getCPGNode()->getName() == f) known = true;
-            if (!known && !hasSourceFunction(f)) throw std::invalid_argument("Unknown module function: " + f);
+    if (name=="get_source_operation") return sourceOperation(args).dump();
+    if (name=="get_source_operations") { J result=J::array(); if (args.at("operations").empty()) throw std::invalid_argument("No operations"); for (const auto& op:args.at("operations")) result.push_back(sourceOperation(op)); return result.dump(); }
+    if (auto result=executeRepositoryTool(name,args)) return *result;
+    if (name=="record_gap") { nonempty(args,"description"); data_["gaps"].push_back(args.at("description")); save(); return "Gap recorded"; }
+    if (name=="get_obligations") {
+        auto ids=args.at("ids").get<std::set<std::string>>(); J out=J::array();
+        for (const auto& r:data_["requirements"]) {
+            std::string id=r.at("id"); if (!ids.empty()&&!ids.count(id)) continue;
+            J row=r; if (data_["checks"].contains(id)) row["checker_evidence"]=data_["checks"].at(id);
+            if (data_["reviews"].contains(id)) row["review"]=data_["reviews"].at(id); out.push_back(row);
         }
-        for (const auto& f : fns) if (functions_.count(f)) coveredFunctions_.insert(f);
+        if (!ids.empty()&&out.size()!=ids.size()) throw std::invalid_argument("Unknown Req ID"); return out.dump();
+    }
+    if (name=="record_protocol"&&generating_) {
+        nonempty(args,"summary"); if (args.at("status")!="reviewed"&&args.at("status")!="unknown") throw std::invalid_argument("Invalid protocol status");
+        for (const auto& f:args.at("functions")) if (!functions_.count(f.get<std::string>())&&!hasSourceFunction(f)) throw std::invalid_argument("Unknown module function");
         data_["protocols"].push_back(args); save(); return "Protocol recorded";
     }
-    if (name == "add_requirement" && generating_) {
-        std::string form = args.at("form");
-        if (form != "MustPrecede" && form != "MustBeAtomic" && form != "MustBeMediated") throw std::invalid_argument("Invalid requirement form");
-        auto a = validNodes(args, "a_nodes", false); auto b = validNodes(args, "b_nodes", false);
-        auto sa = validSources(args, "a_sources"), sb = validSources(args, "b_sources");
-        if ((!a.empty() && !sa.empty()) || (!b.empty() && !sb.empty())) throw std::invalid_argument("Each operand must use either CCPG nodes or source operations, not both");
-        if (a.empty() && sa.empty()) throw std::invalid_argument("Operand A required");
-        if (form != "MustBeAtomic" && b.empty() && sb.empty()) throw std::invalid_argument("Operand B required");
-        if (form == "MustBeAtomic" && (a.size() + sa.size() < 2 || !b.empty() || !sb.empty())) throw std::invalid_argument("Atomicity requires an ordered sequence of >=2 operations and empty b");
-        int tid = args.at("owner_thread"); bool known = false;
-        for (auto* t : ThreadCreationTree::getInstance()->getThreads()) if (t->getId() == tid) {
-            auto nodes = t->getNodes(); known = true;
-            for (int n : a) if (!nodes.count(ccpg_->getNodeByID(n))) throw std::invalid_argument("Operand A is not reachable in owner_thread");
+    if (name=="record_pattern_review"&&generating_) {
+        nonempty(args,"reason"); std::string id=args.at("pattern_id"),status=args.at("status");
+        if (status!="reviewed"&&status!="not_applicable"&&status!="unknown") throw std::invalid_argument("Invalid pattern status");
+        bool known=false; for (const auto& p:catalog_["patterns"]) known|=p.at("id")==id;
+        if (!known) throw std::invalid_argument("Unknown catalog pattern"); data_["pattern_reviews"][id]=args; save(); return "Audit position recorded";
+    }
+    if ((name=="add_requirement"||name=="add_guarantee")&&generating_) {
+        bool req=name=="add_requirement"; const std::string form=args.at("form");
+        if (req?(form!="MustPrecede"&&form!="MustBeAtomic"&&form!="MustBeMediated"):(form!="Order"&&form!="Wait"&&form!="Exclude"&&form!="AtomicOp")) throw std::invalid_argument("Invalid contract form");
+        nonempty(args,"resource"); nonempty(args,"scope"); nonempty(args,"note");
+        auto a=validNodes(args,"a_nodes",false),b=validNodes(args,"b_nodes",false); auto sa=validSources(args,"a_sources"),sb=validSources(args,"b_sources");
+        if ((!a.empty()&&!sa.empty())||(!b.empty()&&!sb.empty())) throw std::invalid_argument("Use one namespace per operand");
+        if (a.empty()&&sa.empty()) throw std::invalid_argument("Operand A required");
+        if (((req&&form!="MustBeAtomic")||form=="Order"||form=="Wait")&&b.empty()&&sb.empty()) throw std::invalid_argument("Operand B required");
+        if (form=="MustBeAtomic"&&(a.size()+sa.size()<2||!b.empty()||!sb.empty())) throw std::invalid_argument("Atomic Req needs ordered multi-operation sequence and empty B");
+        validRepositoryEvidence(args.value("repository_evidence_ids",J::array()),false);
+        J record=args;
+        if (req) {
+            auto actors=args.at("actors").get<std::set<std::string>>(); if (actors.size()<2||actors.count("")) throw std::invalid_argument("At least two distinct execution activations required");
+            auto ni=validNodes(args,"interference_nodes",false); auto si=validSources(args,"interference_sources");
+            if (!ni.empty()&&!si.empty()) throw std::invalid_argument("Use one interference namespace");
+            for (const auto& premise:args.at("assumptions")) if (!premise.is_string()) throw std::invalid_argument("Assumptions must be text");
+            record["id"]="req:"+std::to_string(data_["requirements"].size()); record["origin"]="source_agent";
+            data_["requirements"].push_back(record);
+        } else {
+            auto ev=validNodes(args,"evidence_nodes",false); auto se=validSources(args,"evidence_sources");
+            if (ev.empty()&&se.empty()) throw std::invalid_argument("Synchronization evidence required"); nonempty(args,"conditions");
+            if (form=="Exclude"||form=="AtomicOp") nonempty(args,"token");
+            if (form=="Exclude"&&args.at("mode")!="exclusive"&&args.at("mode")!="shared") throw std::invalid_argument("Invalid exclusion mode");
+            if (!args.at("unconditional").is_boolean()) throw std::invalid_argument("unconditional must be boolean");
+            for (const auto& region:args.at("regions")) { validNodes(J{{"boundary",{region.at("start_node"),region.at("end_node")}}},"boundary"); }
+            record["id"]="gua:"+std::to_string(data_["guarantees"].size()); data_["guarantees"].push_back(record);
         }
-        if (!known && !(tid == -1 && a.empty() && !sa.empty())) throw std::invalid_argument("Unknown owner_thread; -1 requires source-only operand A and explicit activation assumptions");
-        auto objects = args.at("object_ids").get<std::set<int>>();
-        const auto resource = args.value("resource", std::string{});
-        const auto repoEvidence = args.value("repository_evidence_ids", J::array());
-        validRepositoryEvidence(repoEvidence, false);
-        if ((objects.empty() && resource.empty()) || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Object scope or concrete unmodeled resource and rationale required");
-        if (!objects.empty() && !resource.empty()) throw std::invalid_argument("Use object_ids=[] for an unmodeled resource; do not conflate it with static objects");
-        for (int oid : objects) if (oid < 0 || size_t(oid) >= surface_.shared_objects.size()) throw std::invalid_argument("Unknown object_id");
-        if (objects.empty()) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
-            {"origin", "llm_unmodeled_resource"}, {"form", form}, {"owner_thread", tid}, {"object_id", -1},
-            {"resource", resource}, {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b},
-            {"a_sources", sa}, {"b_sources", sb}, {"requires_semantic_review", !sa.empty() || !sb.empty() || tid == -1}, {"note", args.at("note")}});
-        for (int oid : objects) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
-            {"origin", "llm"}, {"form", form}, {"owner_thread", tid}, {"object_id", oid},
-            {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b},
-            {"a_sources", sa}, {"b_sources", sb}, {"requires_semantic_review", !sa.empty() || !sb.empty() || tid == -1}, {"note", args.at("note")}});
-        save(); return "Semantic requirements recorded";
+        save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false}}.dump();
     }
-    if (name == "add_guarantee" && generating_) {
-        std::string form = args.at("form");
-        if (form != "Order" && form != "Wait" && form != "Exclude" && form != "AtomicOp") throw std::invalid_argument("Invalid guarantee form");
-        auto a = validNodes(args, "a_nodes", false), b = validNodes(args, "b_nodes", false);
-        auto sa = validSources(args, "a_sources"), sb = validSources(args, "b_sources");
-        auto ev = validNodes(args, "evidence_nodes", false); auto se = validSources(args, "evidence_sources");
-        if ((!a.empty() && !sa.empty()) || (!b.empty() && !sb.empty())) throw std::invalid_argument("Each operand must use either CCPG nodes or source operations, not both");
-        if (a.empty() && sa.empty()) throw std::invalid_argument("Operand A required");
-        if ((form == "Order" || form == "Wait") && b.empty() && sb.empty()) throw std::invalid_argument("Operand B required");
-        if (ev.empty() && se.empty()) throw std::invalid_argument("Synchronization evidence required");
-        if ((!sa.empty() || !sb.empty() || !se.empty()) && args.at("unconditional").get<bool>()) throw std::invalid_argument("Source-only synchronization scope is not representable by the static checker; use unconditional=false");
-        if ((form == "Exclude" || form == "AtomicOp") && args.at("token").get<std::string>().empty()) throw std::invalid_argument("Token required");
-        if (form == "Exclude" && args.at("mode") != "exclusive" && args.at("mode") != "shared") throw std::invalid_argument("Invalid exclusion mode");
-        if (args.at("conditions").get<std::string>().empty() || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Conditions and evidence explanation required");
-        validRepositoryEvidence(args.value("repository_evidence_ids", J::array()), false);
-        data_["guarantees"].push_back(args); save(); return "Guarantee recorded; conditions retained for review";
+    if (name=="finalize_contract"&&generating_) {
+        J missing=J::array(); for (const auto& p:catalog_["patterns"]) if (!data_["pattern_reviews"].contains(p.at("id"))) missing.push_back(p.at("id"));
+        if (!missing.empty()) return J{{"error","Unaccounted catalog patterns"},{"missing",missing}}.dump();
+        generationFinished_=true; save(); return "finish";
     }
-    if (name == "finalize_contract" && generating_) {
-        J missing = J::array();
-        for (const auto& f : functions_) if (!coveredFunctions_.count(f)) missing.push_back(f);
-        if (!missing.empty()) return J{{"error", "Access functions still need a semantic review position"}, {"missing", missing}}.dump();
-        generationFinished_ = true; save(); return "finish";
-    }
-    if (name == "review_obligations" && !generating_) {
-        std::string status = args.at("status");
-        if (status != "source_supported" && status != "satisfied" && status != "not_applicable" && status != "unknown") throw std::invalid_argument("Invalid review status");
-        auto ev = validNodes(args, "evidence_nodes", false);
-        auto witness = validNodes(args, "witness_nodes", false);
-        auto se = validSources(args, "evidence_sources"), sw = validSources(args, "witness_sources");
-        if (status != "unknown" && ev.empty() && se.empty()) throw std::invalid_argument("Source or CCPG evidence required");
-        if (status == "source_supported" && witness.empty() && sw.empty()) throw std::invalid_argument("Concrete witness operations required");
-        if (args.at("reason").get<std::string>().empty()) throw std::invalid_argument("Review reason required");
-        if (status == "source_supported" && args.at("interleaving").get<std::string>().empty()) throw std::invalid_argument("Concrete interleaving required");
-        auto ids = args.at("ids").get<std::set<std::string>>();
-        if (ids.empty()) throw std::invalid_argument("No requirement IDs");
-        std::set<std::string> checked;
-        auto repoEvidence = args.value("repository_evidence_ids", J::array());
-        validRepositoryEvidence(repoEvidence, false);
-        for (const auto& r : data_["requirements"]) if (ids.count(r.at("id"))) {
-            if (status == "source_supported") {
-                bool selfRace = false;
-                for (const auto& t : surface_.threads)
-                    if (t.thread_id == r.at("owner_thread") && t.reentrant_entry) selfRace = true;
-                if (r.contains("a_sources") && r.contains("b_sources")) for (const auto& s : r["a_sources"])
-                    if (std::find(r["b_sources"].begin(), r["b_sources"].end(), s) != r["b_sources"].end()) selfRace = true;
-                if (witness.size() + sw.size() < 2 && !selfRace)
-                    throw std::invalid_argument("Two witness operations required unless two activations of a reentrant operation share one node ID");
-                std::set<int> a = r["a_nodes"].get<std::set<int>>(), b = r["b_nodes"].get<std::set<int>>();
-                bool hasA = false, hasB = r["form"] == "MustBeAtomic";
-                for (int n : witness) { hasA |= a.count(n); hasB |= b.count(n); }
-                for (const auto& s : sw) {
-                    if (r.contains("a_sources")) hasA |= std::find(r["a_sources"].begin(), r["a_sources"].end(), s) != r["a_sources"].end();
-                    if (r.contains("b_sources")) hasB |= std::find(r["b_sources"].begin(), r["b_sources"].end(), s) != r["b_sources"].end();
-                }
-                if (!hasA || !hasB) throw std::invalid_argument("Witness must involve both operands of each reported requirement");
-            }
-            checked.insert(r.at("id"));
+    if (name=="review_obligations"&&!generating_) {
+        std::string status=args.at("status"); if (status!="source_supported"&&status!="satisfied"&&status!="not_applicable"&&status!="unknown") throw std::invalid_argument("Invalid judgment");
+        auto ev=validNodes(args,"evidence_nodes",false),w=validNodes(args,"witness_nodes",false); auto se=validSources(args,"evidence_sources"),sw=validSources(args,"witness_sources");
+        if (status!="unknown"&&ev.empty()&&se.empty()) throw std::invalid_argument("Evidence required"); nonempty(args,"reason");
+        if (status=="source_supported") { nonempty(args,"interleaving"); if (w.empty()&&sw.empty()) throw std::invalid_argument("Concrete witness required"); }
+        auto ids=args.at("ids").get<std::set<std::string>>(); if (ids.empty()) throw std::invalid_argument("No Req IDs"); std::set<std::string> found;
+        validRepositoryEvidence(args.value("repository_evidence_ids",J::array()),false);
+        for (const auto& r:data_["requirements"]) if (ids.count(r.at("id"))) {
+            if (status=="source_supported") {
+                auto touched=[&](const char* numeric,const char* sources) {
+                    for (int n:w) for (const auto& a:r.value(numeric,J::array())) if (a==n) return true;
+                    for (const auto& s:sw) for (const auto& a:r.value(sources,J::array())) if (a==s) return true; return false;
+                };
+                if (!touched("a_nodes","a_sources")||
+                    (r.at("form")=="MustBeAtomic"?!touched("interference_nodes","interference_sources"):!touched("b_nodes","b_sources")))
+                    throw std::invalid_argument("Witness must include Req operations and opposing/interfering operations");
+            } found.insert(r.at("id"));
         }
-        if (checked != ids) throw std::invalid_argument("Unknown requirement ID");
-        for (const auto& id : ids) data_["reviews"][id] = args;
-        save(); return "Judgment recorded (source assessment, not formal proof)";
+        if (found!=ids) throw std::invalid_argument("Unknown Req ID"); for (const auto& id:ids) data_["reviews"][id]=args; save(); return "Source judgment recorded; not reproduced";
     }
-    if (name == "finalize_review" && !generating_) {
-        J missing = J::array();
-        for (const auto& r : data_["requirements"]) if (!data_["reviews"].contains(r.at("id"))) missing.push_back(r.at("id"));
-        if (!missing.empty()) return J{{"error", "Unreviewed obligation groups remain"}, {"missing", missing}}.dump();
-        reviewFinished_ = true; save(); return "finish";
+    if (name=="finalize_review"&&!generating_) {
+        J missing=J::array(); for (const auto& r:data_["requirements"]) if (!data_["reviews"].contains(r.at("id"))) missing.push_back(r.at("id"));
+        if (!missing.empty()) return J{{"error","Unreviewed requirements"},{"missing",missing}}.dump(); reviewFinished_=true; save(); return "finish";
     }
-    if (auto result = SharedToolKit::handle_shared_tool(name, args, ccpg_)) return *result;
-    throw std::invalid_argument("Unknown tool or wrong workflow phase");
+    if (name=="read_file"||name=="grep_source"||name=="list_dir") if (auto result=SharedToolKit::handle_shared_tool(name,args,ccpg_)) return *result;
+    throw std::invalid_argument("Unknown tool or wrong phase");
 }
-
 void ModuleContractAgent::review(const J& checks) {
-    generating_ = false; data_["checks"] = checks; save();
+    generating_=false; data_["checks"]=checks; save();
     try {
-        send_message("Phase C. Continue using the complete module and protocol understanding already in this conversation. "
-            "Review all quantified obligation groups using get_obligations. The static checker result is only a hint: "
-            "a first counterexample does not enumerate all pairs, and apparent discharge is not proof. "
-            "Account for every group, batch common justifications, and call finalize_review. Unknowns remain explicit. "
-            "Total groups: " + std::to_string(data_["requirements"].size()));
-        if (!reviewFinished_) throw std::runtime_error("Agent returned without completing obligation review");
-        save();
+        send_message("Phase C. Continue in this SAME conversation. Review ALL Req using get_obligations, including E discharges. "
+            "E implements sufficient deterministic rules under declared Gua premises. Undischarged does not mean a feasible counterexample; "
+            "source-only operands remain explicit unknowns in E and must still be reviewed. Verify actual mechanisms, scope, same instance/generation, "
+            "admission/requeue and whole-transaction coverage. Report concrete harmful interleavings or preserve unknowns. End with finalize_review. Requirements: "+std::to_string(data_["requirements"].size()));
+        if (!reviewFinished_) throw std::runtime_error("Agent did not finalize review"); save();
     } catch (const std::exception& e) { save(e.what()); throw; }
 }
-
 std::vector<query::ModuleFinding> ModuleContractAgent::findings() const {
     std::vector<query::ModuleFinding> out;
-    for (const auto& r : data_.at("requirements")) {
-        std::string id = r.at("id");
-        if (!data_["reviews"].contains(id)) continue;
-        const auto& review = data_["reviews"].at(id);
-        if (review.at("status") != "source_supported") continue;
-        query::ModuleFinding h; h.id = id; h.resource = r.value("resource", std::string());
-        if (h.resource.empty() && r.at("object_id").get<int>() >= 0) h.resource = surface_.shared_objects.at(r.at("object_id").get<size_t>()).name; h.severity = "medium";
-        h.bug_category = r.at("form") == "MustPrecede" ? "order_violation" : r.at("form") == "MustBeAtomic" ? "atomicity_violation" : "data_race";
-        h.description = "[module/source-supported; not reproduced] " + review.at("reason").get<std::string>() + "\n" + review.at("interleaving").get<std::string>();
-        auto witness = review.at("witness_nodes").get<std::vector<int>>();
-        for (size_t i = 0; i < witness.size(); ++i) h.nodes["witness_" + std::to_string(i)] = witness[i];
-        for (const auto& s : review.value("witness_sources", J::array()))
-            h.source_operations.push_back(data_["source_operations"].at(s.get<std::string>()));
-        out.push_back(h);
-    }
-    return out;
+    for (const auto& r:data_.at("requirements")) {
+        std::string id=r.at("id"); if (!data_["reviews"].contains(id)) continue; const auto& v=data_["reviews"].at(id);
+        if (v.at("status")!="source_supported") continue; query::ModuleFinding f; f.id=id; f.resource=r.at("resource"); f.severity="medium";
+        f.bug_category=r.at("form")=="MustPrecede"?"order_violation":r.at("form")=="MustBeAtomic"?"atomicity_violation":"data_race";
+        f.description="[source-supported; not reproduced] "+v.at("reason").get<std::string>()+"\n"+v.at("interleaving").get<std::string>();
+        size_t i=0; for (int n:v.at("witness_nodes")) f.nodes["witness_"+std::to_string(i++)]=n;
+        for (const auto& s:v.value("witness_sources",J::array())) f.source_operations.push_back(data_["source_operations"].at(s.get<std::string>())); out.push_back(f);
+    } return out;
 }
-
 void ModuleContractAgent::save(const std::string& error) const {
-    J report = data_; size_t unknown = 0;
-    size_t unmodeledResources = 0;
-    size_t sourceRequirements = 0;
-    for (const auto& p : data_["protocols"]) if (p.at("status") == "unknown") ++unknown;
-    for (const auto& r : data_["requirements"]) {
-        if (r.at("object_id").get<int>() < 0) ++unmodeledResources;
-        if (r.value("requires_semantic_review", false)) ++sourceRequirements;
-        std::string id = r.at("id");
-        if (!data_["reviews"].contains(id) || data_["reviews"].at(id).at("status") == "unknown") ++unknown;
-    }
-    report["coverage"] = {{"static_objects", surface_.shared_objects.size()}, {"obligation_groups", data_["requirements"].size()},
-        {"access_functions", functions_.size()}, {"accounted_functions", coveredFunctions_.size()},
-        {"module_call_sites", data_["module_calls"].size()}, {"requirements_outside_static_objects", unmodeledResources},
-        {"requirements_with_source_operands", sourceRequirements},
-        {"repository_source_excerpts", data_["repository_evidence"].size()},
-        {"unresolved_groups_or_functions", unknown}, {"unanchored_accesses", data_["unanchored_accesses"].size()},
-        {"generation_finished", generationFinished_}, {"review_finished", reviewFinished_},
-        {"complete", error.empty() && generationFinished_ && reviewFinished_ && !unknown && !unmodeledResources && !sourceRequirements && data_["unanchored_accesses"].empty() && data_["gaps"].empty()},
-        {"scope", "coverage relative to the v2 extracted static surface; no semantic completeness or program-safety claim"}};
-    if (!error.empty()) report["error"] = error;
-    auto path = TargetPath::getInstance()->getOutputDir() / "module_contracts.json";
-    std::ofstream out(path.string() + ".tmp"); out << report.dump(2); out.close();
-    fs::rename(path.string() + ".tmp", path);
+    J report=data_; size_t unknown=0,unmapped=0;
+    for (const auto& p:data_["pattern_reviews"].items()) if (p.value().at("status")=="unknown") ++unknown;
+    for (const auto& p:data_["protocols"]) if (p.at("status")=="unknown") ++unknown;
+    for (const auto& r:data_["requirements"]) { std::string id=r.at("id"); if (!data_["reviews"].contains(id)||data_["reviews"].at(id).at("status")=="unknown") ++unknown; }
+    for (const auto& op:data_["source_operations"].items()) if (op.value().value("graph_candidates",J::array()).empty()) ++unmapped;
+    report["coverage"]={{"requirements",data_["requirements"].size()},{"catalog_patterns",catalog_["patterns"].size()},
+        {"accounted_patterns",data_["pattern_reviews"].size()},{"unknown_positions",unknown},{"source_anchors_without_graph_candidates",unmapped},
+        {"generation_finished",generationFinished_},{"review_finished",reviewFinished_},
+        {"workflow_complete",error.empty()&&generationFinished_&&reviewFinished_},
+        {"scope","Workflow accounting and supplied-input graph coverage; no guarantee that all concurrency requirements were extracted or proved"}};
+    if (!error.empty()) report["error"]=error;
+    auto path=TargetPath::getInstance()->getOutputDir()/"module_contracts.json";
+    std::ofstream out(path.string()+".tmp"); out<<report.dump(2); out.close(); fs::rename(path.string()+".tmp",path);
 }
 }

@@ -1,4 +1,4 @@
-"""Run the v2 static front-end and the complete-module Agents SDK workflow."""
+"""Run the complete input graph and source-led module Agents SDK workflow."""
 import argparse
 import importlib.metadata
 import json
@@ -12,6 +12,8 @@ from repository_context import RepositoryContext
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--static-only", action="store_true", help="Build complete input graph without model calls")
+    parser.add_argument("--catalog", type=Path, help="Versioned protocol catalog; default config/protocol_catalog.json")
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--bitcode", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -22,7 +24,9 @@ def main():
     parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parents[1] / "Release-build/llm_detector")
     parser.add_argument("--max-turns", type=int, default=32, help="Per-phase execution budget; exhaustion is an incomplete error, never truncation of obligations.")
     args = parser.parse_args()
-    if not args.model:
+    if not args.source.is_dir() or not args.bitcode.is_file():
+        parser.error("--source must be an existing directory and --bitcode an existing matching IR file")
+    if not args.model and not args.static_only:
         parser.error("Set --model or LLM_MODEL")
     if args.max_turns < 0:
         parser.error("--max-turns must be nonnegative (0 disables the cap)")
@@ -30,13 +34,17 @@ def main():
         parser.error("--repository and --revision must be provided together")
     if args.autoconf and not args.autoconf.is_file():
         parser.error("--autoconf must be an existing build header")
+    if args.catalog and not args.catalog.is_file():
+        parser.error("--catalog must be an existing JSON catalog")
     context = None
     if args.repository:
         context = RepositoryContext(args.repository, args.revision)
         source_check = context.verify_source(args.source)
     env = os.environ.copy()
-    env.update(LACE_PYTHON=sys.executable, LLM_MODEL=args.model,
+    env.update(LACE_PYTHON=sys.executable, LLM_MODEL=args.model or "",
                LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns))
+    if args.catalog:
+        env["LACE_PROTOCOL_CATALOG"] = str(args.catalog.resolve())
     env.pop('LACE_CPG_AUTOCONF', None)
     if args.autoconf:
         env['LACE_CPG_AUTOCONF'] = str(args.autoconf.resolve())
@@ -47,6 +55,8 @@ def main():
     args.output.mkdir(parents=True, exist_ok=False)
     command = [str(args.binary.resolve()), "--input-src", str(args.source.resolve()),
                "--input-bc", str(args.bitcode.resolve())]
+    if args.static_only:
+        command.append("--static-only")
     # Paths/model/budget are safe metadata. Credentials and gateway URL are not
     # copied into the manifest or process arguments.
     manifest = {"model": args.model, "harness": "openai-agents", "max_turns_per_phase": args.max_turns,
@@ -54,7 +64,7 @@ def main():
                 "model_api": env.get("LACE_MODEL_API", "chat_completions"),
                 "reasoning_effort": env.get("LACE_REASONING_EFFORT", "provider default"),
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
-                "entry_mode": "configured" if env.get("LACE_ENTRYPOINTS") or env.get("LACE_ENTRYPOINTS_FILE") else "automatic",
+                "entry_mode": "not_inferred", "graph_scope": "complete_input_module",
                 "ground_truth_files_loaded": False}
     manifest['cpg_build_config'] = {'mode': 'explicit_autoconf' if args.autoconf else 'legacy_compile_log_discovery',
         'path': str(args.autoconf.resolve()) if args.autoconf else None,
@@ -69,8 +79,10 @@ def main():
         manifest["revision"] = revision.stdout.strip()
         dirty = subprocess.run(["git", "-C", str(repo), "status", "--porcelain", "--untracked-files=no"], text=True, capture_output=True, check=True)
         manifest["implementation_dirty"] = bool(dirty.stdout.strip())
+    catalog_path = Path(env.get("LACE_PROTOCOL_CATALOG", repo / "config/protocol_catalog.json")).resolve()
+    manifest["protocol_catalog"] = {"path": str(catalog_path), "sha256": hashlib.sha256(catalog_path.read_bytes()).hexdigest(), "content": json.loads(catalog_path.read_text())}
     implementation = hashlib.sha256()
-    code_files = sorted(f for folder in ('src', 'include', 'harness') for f in (repo / folder).rglob('*')
+    code_files = sorted(f for folder in ('src', 'include', 'harness', 'config') for f in (repo / folder).rglob('*')
                         if f.is_file() and '__pycache__' not in f.parts)
     code_files += [repo / name for name in ('CMakeLists.txt', 'requirements-harness.txt')]
     for path in code_files:

@@ -1,14 +1,10 @@
 #pragma once
 #include "nlohmann/json.hpp"
-#include <functional>
 namespace llm_client {
-// Static adapters are injected, so the checking policy can be tested without
-// LLVM/Joern or a model. Every result remains a hint for mandatory agent review.
-struct CheckerRelations {
-    std::function<bool(int,int)> control_reachable;
-    std::function<bool(int,int)> synchronized_order;
-};
+// Pure, deterministic sufficient-discharge rules over the complete input model.
+// Gua semantics/instance scope are explicit premises, not independently proved.
+// All results, including discharges, undergo source review in the same agent.
 nlohmann::json checkModuleRequirements(const nlohmann::json& requirements,
-    const nlohmann::json& guarantees, const nlohmann::json& surface,
-    const CheckerRelations& relations);
+    const nlohmann::json& guarantees, const nlohmann::json& model,
+    const nlohmann::json& sourceOperations = nlohmann::json::object());
 }

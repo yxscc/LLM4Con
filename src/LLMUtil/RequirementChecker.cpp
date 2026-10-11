@@ -1,136 +1,232 @@
 #include "LLMUtil/RequirementChecker.h"
-#include <algorithm>
-#include <cctype>
 #include <map>
 #include <set>
-#include <vector>
+#include <queue>
+#include <algorithm>
+#include <functional>
 namespace llm_client {
-namespace {
 using J = nlohmann::json;
-using Nodes = std::vector<int>;
-// C identifiers are case sensitive; dereferencing and annotations must not
-// silently identify different synchronization objects.
-std::string token(std::string s) {
-    s.erase(std::remove_if(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); }), s.end());
-    if (!s.empty() && s.front() == '&') s.erase(s.begin());
-    return s;
-}
-bool contains(const Nodes& nodes, int n) { return std::find(nodes.begin(), nodes.end(), n) != nodes.end(); }
-struct Evidence {
-    const CheckerRelations& relations;
-    std::vector<std::pair<int,int>> edges;
-    std::map<std::string, Nodes> exclusive, shared, atomic;
-    Evidence(const CheckerRelations& r, const J& guarantees) : relations(r) {
-        for (const auto& g : guarantees) {
-            if (!g.value("unconditional", false)) continue;
-            const auto form = g.at("form").get<std::string>();
-            const auto a = g.at("a_nodes").get<Nodes>(), b = g.at("b_nodes").get<Nodes>();
-            if (form == "Order" || form == "Wait") {
-                for (int x : a) for (int y : b) edges.emplace_back(x,y);
-            } else {
-                const auto t = token(g.value("token", std::string()));
-                if (t.empty()) continue;
-                auto& dst = form == "AtomicOp" ? atomic[t] : g.value("mode", std::string()) == "shared" ? shared[t] : exclusive[t];
-                dst.insert(dst.end(), a.begin(), a.end());
+namespace {
+// Call edges are navigation only. No caller/return pairing or parallel-entry
+// inference is hidden in these intraprocedural control-flow predicates.
+class Graph {
+public:
+    std::map<int,J> nodes, functions;
+    std::map<int,std::vector<int>> next, functionNodes;
+    mutable std::map<std::tuple<int,int,int>,std::vector<int>> paths;
+    mutable std::map<std::pair<int,int>,bool> beforeFacts, afterFacts;
+    explicit Graph(const J& m) {
+        for (const auto& n:m.at("nodes")) { nodes.emplace(n.at("node_id"),n); functionNodes[n.at("function_id")].push_back(n.at("node_id")); }
+        for (const auto& f:m.at("functions")) functions.emplace(f.at("function_id"),f);
+        for (const auto& e:m.at("cfg_edges")) {
+            int a=e.at(0),b=e.at(1);
+            if (nodes.count(a)&&nodes.count(b)&&nodes.at(a).at("function_id")==nodes.at(b).at("function_id")) next[a].push_back(b);
+        }
+    }
+    bool available(int n) const {
+        if (!nodes.count(n)) return false;
+        const auto& row=nodes.at(n);
+        return row.at("origin")=="ir" && functions.at(row.at("function_id")).value("cfg_complete",false);
+    }
+    bool same(int a,int b) const { return available(a)&&available(b)&&nodes.at(a).at("function_id")==nodes.at(b).at("function_id"); }
+    int entry(int n) const { return functions.at(nodes.at(n).at("function_id")).at("entry"); }
+    std::vector<int> path(int a,int b,int avoid=-1) const {
+        auto key=std::make_tuple(a,b,avoid);
+        if (paths.count(key)) return paths.at(key);
+        std::vector<int> result;
+        if (!same(a,b)||a==avoid||b==avoid) return paths[key]=result;
+        std::queue<int> todo; std::map<int,int> pred; todo.push(a); pred[a]=-1;
+        while (!todo.empty()) {
+            int n=todo.front(); todo.pop();
+            if (n==b) { for (int x=b;x!=-1;x=pred.at(x)) result.push_back(x); std::reverse(result.begin(),result.end()); break; }
+            auto it=next.find(n); if (it==next.end()) continue;
+            for (int x:it->second) if (x!=avoid&&!pred.count(x)) { pred[x]=n; todo.push(x); }
+        }
+        return paths[key]=result;
+    }
+    bool dominates(int a,int b) const {
+        return same(a,b)&&!path(entry(b),b).empty()&&path(entry(b),b,a).empty();
+    }
+    bool cycleFrom(int a,int avoid) const {
+        std::map<int,int> color;
+        std::function<bool(int)> visit=[&](int n) {
+            if (n==avoid) return false;
+            if (color[n]==1) return true;
+            if (color[n]==2) return false;
+            color[n]=1;
+            auto it=next.find(n);
+            if (it!=next.end()) for (int x:it->second) if (visit(x)) return true;
+            color[n]=2; return false;
+        };
+        return visit(a);
+    }
+    // Prefix: every activation reaching b has passed a, in this occurrence
+    // order. Cyclic CFGs cannot establish iteration-sensitive occurrence order.
+    bool before(int a,int b) const {
+        const auto key=std::make_pair(a,b);
+        if (beforeFacts.count(key)) return beforeFacts.at(key);
+        bool value=same(a,b)&&!path(a,b).empty()&&dominates(a,b)&&(a==b||path(b,a).empty());
+        // Internal reflexivity, never cross-activation Req discharge.
+        return beforeFacts[key]=value;
+    }
+    // Completion closure: every continuation after a passes b before any exit.
+    // Infinite bypass cycles are conservatively retained, not assumed terminating.
+    bool after(int a,int b) const {
+        const auto key=std::make_pair(a,b);
+        if (afterFacts.count(key)) return afterFacts.at(key);
+        auto establish=[&]() {
+            if (!same(a,b)||path(a,b).empty()||path(entry(a),a).empty()) return false;
+            if (a==b) return true;
+            const auto& exits=functions.at(nodes.at(a).at("function_id")).at("exits");
+            if (exits.empty()||cycleFrom(a,b)||!path(b,a).empty()) return false;
+            for (const auto& e:exits) if (!path(a,e,b).empty()) return false;
+            return true;
+        };
+        return afterFacts[key]=establish();
+    }
+    bool region(int a,const J& region) const {
+        int start=region.at("start_node"), end=region.at("end_node");
+        if (a==start||a==end||!before(start,a)||!after(a,end)) return false;
+        // The Gua declares matching token acquisition/release. The graph checks
+        // continuous control flow; opaque calls or another acquisition/release
+        // inside the interval would require interprocedural effect summaries.
+        for (int id:functionNodes.at(nodes.at(start).at("function_id"))) {
+            const auto& n=nodes.at(id);
+            if (id==start||id==end||!same(id,start)||path(start,id).empty()||path(id,end).empty()) continue;
+            if (n.value("kind",std::string{})=="call"||n.value("kind",std::string{})=="invoke") {
+                const auto api=n.value("api",std::string{});
+                if (api.rfind("llvm.dbg.",0)!=0&&api.rfind("llvm.lifetime.",0)!=0) return false;
             }
         }
-    }
-    bool control(int a, int b) const { return a == b || (relations.control_reachable && relations.control_reachable(a,b)); }
-    bool order(int a, int b) const {
-        // One code node can denote two concurrently running activations.
-        if (a == b) return false;
-        if (relations.synchronized_order && relations.synchronized_order(a,b)) return true;
-        std::set<int> visited; Nodes work;
-        for (const auto& e : edges) if (control(a,e.first) && visited.insert(e.second).second) work.push_back(e.second);
-        while (!work.empty()) {
-            int x = work.back(); work.pop_back();
-            if (control(x,b)) return true;
-            for (const auto& e : edges) if (control(x,e.first) && visited.insert(e.second).second) work.push_back(e.second);
-        }
-        return false;
-    }
-    // All sequence operations and the interferer must share ONE exclusion
-    // identity. Protecting one step, or different steps under different locks,
-    // cannot discharge a compound atomicity requirement.
-    bool excludes(const Nodes& sequence, int other) const {
-        for (const auto& bucket : exclusive) {
-            const auto& ex = bucket.second;
-            auto it = shared.find(bucket.first);
-            auto covered = [&](int n) { return contains(ex,n) || (it != shared.end() && contains(it->second,n)); };
-            if (!covered(other)) continue;
-            if (std::all_of(sequence.begin(), sequence.end(), [&](int n) {
-                return covered(n) && (contains(ex,n) || contains(ex,other)); })) return true;
-        }
-        return false;
-    }
-    bool atomicPair(int a, int b) const {
-        for (const auto& [t, ns] : atomic) if (contains(ns,a) && contains(ns,b)) return true;
-        return false;
+        return true;
     }
 };
-bool lockCovers(const J& object, const Nodes& sequence, int other) {
-    std::set<std::string> common;
-    auto locks = [&](int n) {
-        std::set<std::string> out;
-        for (const auto& a : object.at("accesses")) if (a.at("node_id") == n && a.value("lock_protected",false)) {
-            auto t = token(a.value("lock",std::string())); if (!t.empty()) out.insert(t);
-        }
-        return out;
-    };
-    common = locks(other);
-    for (int n : sequence) {
-        auto ns = locks(n); std::set<std::string> next;
-        std::set_intersection(common.begin(), common.end(), ns.begin(), ns.end(), std::inserter(next,next.end()));
-        common = std::move(next);
-    }
-    return !sequence.empty() && !common.empty();
+std::vector<int> operand(const J& claim,const char* key) {
+    return claim.value(key,J::array()).get<std::vector<int>>();
 }
 }
-J checkModuleRequirements(const J& requirements, const J& guarantees, const J& surface, const CheckerRelations& relations) {
-    J result = J::object(); Evidence evidence(relations,guarantees);
-    std::set<int> reentrant;
-    for (const auto& t : surface.value("threads",J::array())) if (t.value("reentrant_entry",false)) reentrant.insert(t.at("thread_id").get<int>());
-    for (const auto& r : requirements) {
-        const std::string id = r.at("id"), form = r.at("form");
-        auto& check = result[id]; check = {{"status","requires_semantic_review"},{"proof",false}};
-        const int oid = r.at("object_id");
-        if (oid < 0 || static_cast<size_t>(oid) >= surface.at("shared_objects").size() || r.value("requires_semantic_review",false)) {
-            check["reason"] = "Resource or activation/source operands lack a static mapping"; continue;
+J checkModuleRequirements(const J& requirements,const J& guarantees,const J& model,const J& sourceOperations) {
+    Graph graph(model); J result=J::object();
+    for (const auto& r:requirements) {
+        const auto id=r.at("id").get<std::string>(); J facts=J::array(), premises=J::array(), gaps=J::array(), failures=J::array();
+        std::set<std::string> seenFailures;
+        auto failure=[&](const J& f) { if (seenFailures.insert(f.dump()).second) failures.push_back(f); };
+        std::set<size_t> used;
+        auto a=operand(r,"a_nodes"),b=operand(r,"b_nodes"),interference=operand(r,"interference_nodes");
+        bool missing=!r.value("assumptions",J::array()).empty();
+        if (missing) gaps.push_back({{"kind","unresolved_requirement_premises"},{"assumptions",r.at("assumptions")}});
+        for (const char* key:{"a_sources","b_sources","interference_sources"}) for (const auto& s:r.value(key,J::array())) {
+            // Valid source operands are retained. Debug line coincidence is not
+            // promoted into operation equivalence; agent can inspect candidates.
+            missing=true; gaps.push_back({{"kind","source_operand_not_bound_to_ir"},{"source_id",s},
+                {"snapshot_present",sourceOperations.contains(s.get<std::string>())}});
         }
-        const auto& object = surface.at("shared_objects").at(oid);
-        const auto a = r.at("a_nodes").get<Nodes>(), b = r.at("b_nodes").get<Nodes>();
-        if (a.empty() || (form != "MustBeAtomic" && b.empty())) { check["reason"] = "Empty static operand set"; continue; }
-        auto fail = [&](int x,int y,const std::string& why) {
-            check = {{"status","undischarged"},{"proof",false},{"first_witness",{{"a",x},{"b",y},{"reason",why}}}};
+        for (int n:a) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
+        for (int n:b) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
+        for (int n:interference) if (!graph.available(n)) { missing=true; gaps.push_back({{"kind","exact_cfg_unavailable"},{"node_id",n}}); }
+        auto credited=[&](const J& g) {
+            if (!g.value("unconditional",false)||g.value("resource","")!=r.value("resource","")||
+                g.value("scope","")!=r.value("scope","")||r.value("scope","").empty()) return false;
+            for (const char* key:{"a_sources","b_sources","evidence_sources"}) if (!g.value(key,J::array()).empty()) return false;
+            const auto evidence=operand(g,"evidence_nodes"); if (evidence.empty()) return false;
+            for (int n:evidence) if (!graph.available(n)) return false;
+            return true;
         };
-        bool failed = false;
-        if (form == "MustPrecede" || form == "MustBeMediated") {
-            for (int x : a) {
-                for (int y : b) {
-                    bool covered = evidence.order(x,y);
-                    if (form == "MustBeMediated") covered = covered || evidence.order(y,x) || evidence.excludes({x},y) || evidence.atomicPair(x,y) || lockCovers(object,{x},y);
-                    if (!covered) { fail(x,y,"No applicable ordering or synchronization witness for " + form); failed=true; break; }
+        // A successful cross-activation chain must contain at least one Gua.
+        // Same-function/local order and a==b alone cannot discharge any Req.
+        auto ordered=[&](int from,int to) {
+            struct State { int point; std::vector<size_t> chain; J local; };
+            std::queue<State> todo; todo.push({from,{},J::array()}); std::set<std::pair<int,bool>> seen;
+            while (!todo.empty()) {
+                auto state=todo.front(); todo.pop();
+                if (!seen.insert({state.point,!state.chain.empty()}).second) continue;
+                if (!state.chain.empty()&&!graph.before(state.point,to)) {
+                    J bypass=J::array();
+                    if (graph.same(state.point,to)) bypass=graph.path(graph.entry(to),to,state.point);
+                    failure({{"rule","target_prefix"},{"from",state.point},{"to",to},{"cfg_bypass",bypass},
+                        {"note","CFG navigation path only; feasibility and synchronization semantics require source review"}});
                 }
-                if (failed) break;
+                if (!state.chain.empty()&&graph.before(state.point,to)) {
+                    for (auto index:state.chain) used.insert(index);
+                    state.local.push_back({{"kind","target_prefix"},{"from",state.point},{"to",to}});
+                    facts.push_back({{"kind","synchronized_order"},{"a",from},{"b",to},{"guarantee_indices",state.chain},{"cfg_premises",state.local}}); return true;
+                }
+                for (size_t i=0;i<guarantees.size();++i) {
+                    const auto& g=guarantees[i]; if (!credited(g)||(g.at("form")!="Order"&&g.at("form")!="Wait")) continue;
+                    if (std::find(state.chain.begin(),state.chain.end(),i)!=state.chain.end()) continue;
+                    for (int x:operand(g,"a_nodes")) for (int y:operand(g,"b_nodes")) {
+                        bool closure=state.chain.empty()?graph.after(state.point,x):graph.before(state.point,x);
+                        if (!closure) {
+                            J bypass=J::array();
+                            if (graph.same(state.point,x)) {
+                                if (state.chain.empty()) {
+                                    for (const auto& exit:graph.functions.at(graph.nodes.at(state.point).at("function_id")).at("exits")) {
+                                        auto path=graph.path(state.point,exit,x); if (!path.empty()) { bypass=path; break; }
+                                    }
+                                } else bypass=graph.path(graph.entry(x),x,state.point);
+                            }
+                            failure({{"rule",state.chain.empty()?"source_completion":"handoff_prefix"},{"from",state.point},{"to",x},
+                                {"guarantee_index",i},{"cfg_bypass",bypass},{"note","Missing must-order premise; an empty bypass may mean a loop, missing cross-function summary or unreachable endpoint"}});
+                        }
+                        if (!closure||!graph.available(y)) continue;
+                        auto chain=state.chain; chain.push_back(i); J local=state.local;
+                        local.push_back({{"kind",state.chain.empty()?"source_completion":"handoff_prefix"},{"from",state.point},{"to",x}});
+                        todo.push({y,std::move(chain),std::move(local)});
+                    }
+                }
             }
-        } else if (form == "MustBeAtomic") {
-            const int owner = r.at("owner_thread"); bool any = false;
-            for (const auto& access : object.at("accesses")) {
-                int tid = access.at("thread_id"), n = access.at("node_id");
-                if (tid == owner && !reentrant.count(tid)) continue;
-                const auto kind = access.at("access_type").get<std::string>();
-                // Both reads and writes may observe/break a compound invariant.
-                if (n < 0 || (kind != "Read" && kind != "Write" && kind != "ReadWrite" && kind != "Free")) continue;
-                any = true;
-                bool outside = evidence.order(n,a.front()) || evidence.order(a.back(),n);
-                // Individual atomic accesses do not make a multi-step sequence atomic.
-                if (outside || evidence.excludes(a,n) || lockCovers(object,a,n)) continue;
-                fail(a.front(),n,"An access may interleave the compound region; no whole-region exclusion witness"); failed=true; break;
+            return false;
+        };
+        auto excluded=[&](const std::vector<int>& sequence,int other) {
+            for (size_t i=0;i<guarantees.size();++i) {
+                const auto& g=guarantees[i];
+                if (!credited(g)||g.at("form")!="Exclude"||g.value("mode","")!="exclusive"||g.value("token","").empty()) continue;
+                const auto protectedOps=operand(g,"a_nodes");
+                if (std::find(protectedOps.begin(),protectedOps.end(),other)==protectedOps.end()) continue;
+                if (!std::all_of(sequence.begin(),sequence.end(),[&](int n){return std::find(protectedOps.begin(),protectedOps.end(),n)!=protectedOps.end();})) continue;
+                const auto regions=g.value("regions",J::array()); bool transaction=false, contender=false;
+                for (const auto& region:regions) {
+                    if (std::all_of(sequence.begin(),sequence.end(),[&](int n){return graph.region(n,region);})) transaction=true;
+                    if (graph.region(other,region)) contender=true;
+                }
+                if (transaction&&contender) {
+                    used.insert(i); facts.push_back({{"kind","continuous_exclusion"},{"sequence",sequence},{"other",other},{"guarantee_index",i},{"regions",regions}}); return true;
+                }
             }
-            if (!any) { check["reason"] = "No statically modeled interference; semantic applicability still needs review"; continue; }
-        } else { check["reason"] = "Unsupported requirement form"; continue; }
-        if (!failed) check = {{"status","checker_suggests_satisfied"},{"proof",false},
-            {"reason","Retained operands have static/declared synchronization hints; path, identity and protocol scope require review"}};
+            return false;
+        };
+        auto atomicPair=[&](int x,int y) {
+            if (!graph.available(x)||!graph.available(y)||!graph.nodes.at(x).value("atomic",false)||!graph.nodes.at(y).value("atomic",false)) return false;
+            for (size_t i=0;i<guarantees.size();++i) {
+                const auto& g=guarantees[i]; if (!credited(g)||g.at("form")!="AtomicOp"||g.value("token","").empty()) continue;
+                auto ops=operand(g,"a_nodes");
+                if (std::find(ops.begin(),ops.end(),x)!=ops.end()&&std::find(ops.begin(),ops.end(),y)!=ops.end()) {
+                    used.insert(i); facts.push_back({{"kind","compatible_atomic_operations"},{"a",x},{"b",y},{"guarantee_index",i}}); return true;
+                }
+            } return false;
+        };
+        bool success=!missing&&!a.empty(); J failed=J::array();
+        const std::string form=r.at("form");
+        if (form=="MustBeAtomic") {
+            if (a.size()<2||interference.empty()) { success=false; missing=true; gaps.push_back({{"kind","atomic_sequence_or_interference_domain_missing"}}); }
+            // Local sequence order is a premise, not synchronization.
+            for (size_t i=1;i<a.size();++i) if (!graph.before(a[i-1],a[i])) { success=false; gaps.push_back({{"kind","sequence_order_not_established"},{"a",a[i-1]},{"b",a[i]}}); }
+            if (!missing) for (int n:interference)
+                if (!ordered(a.back(),n)&&!ordered(n,a.front())&&!excluded(a,n)) { success=false; failed.push_back({{"sequence",a},{"interference",n}}); }
+        } else {
+            if (b.empty()) { missing=true; success=false; gaps.push_back({{"kind","second_operand_missing"}}); }
+            if (!missing) for (int x:a) for (int y:b) {
+                bool ok=ordered(x,y);
+                if (form=="MustBeMediated") ok=ok||ordered(y,x)||excluded({x},y)||atomicPair(x,y);
+                if (!ok) { success=false; failed.push_back({{"a",x},{"b",y}}); }
+            }
+        }
+        for (size_t i:used) premises.push_back({{"guarantee_index",i},{"resource",guarantees[i].at("resource")},
+            {"scope",guarantees[i].at("scope")},{"conditions",guarantees[i].at("conditions")},{"note",guarantees[i].at("note")}});
+        result[id]={{"status",missing?"requires_semantic_review":success?"discharged":"undischarged"},
+            {"proof",false},{"model_relative",true},{"facts",facts},{"guarantee_premises",premises},{"gaps",gaps},
+            {"unresolved_combinations",failed},{"rule_failures",failures},{"counterexample_constructed",false},
+            {"meaning",success?"Sufficient rule holds under the declared Gua semantics and instance/activation scope; mandatory source review remains":"No sufficient discharge established; failure is not a feasible interleaving or proof of a defect"}};
     }
     return result;
 }
