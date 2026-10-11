@@ -31,12 +31,18 @@ def main():
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
             assert body.get('tool_choice') == 'required', 'Every module phase turn must use a tool, including finalization'
+            tools = {t['function']['name']: t['function'] for t in body['tools']}
+            assert 'record_api_summary' not in tools, 'API summaries must not be a mandatory intermediate representation'
+            if 'add_requirement' in tools:
+                assert set(tools['add_requirement']['parameters']['properties']['form']['enum']) == {'MustPrecede', 'MustBeAtomic', 'MustBeMediated'}
+                assert set(tools['add_guarantee']['parameters']['properties']['form']['enum']) == {'Order', 'Wait', 'Exclude', 'AtomicOp'}
             state["calls"] += 1
             messages = body["messages"]
             if state["next"] == "start":
                 content = messages[-1]["content"]
                 overview = json.JSONDecoder().raw_decode(content.split("Static navigation overview:\n", 1)[1])[0]
                 state["source_bytes_in_first_prompt"] = len(content)
+                state['static_obligations'] = overview['static_obligations']
                 assert "<source file=" in content
                 if overview["access_functions"]:
                     name, arguments = "record_protocol", {"functions": overview["access_functions"], "summary": "Offline plumbing test: no semantic judgment attempted.", "status": "unknown"}
@@ -51,33 +57,45 @@ def main():
                 calls = json.loads(messages[-1]["content"])
                 assert calls and calls[0]['arguments'][0]['code'] == '&ilwt->dst_cache', calls
                 state['bound_nodes'] = [c['node_id'] for c in calls]
+                call = next(c for c in calls if c['thread_contexts'])
+                state['test_node'] = call['node_id']
+                state['test_thread'] = call['thread_contexts'][0]
                 name, arguments = "repository_search", {"symbol": "dst_cache_get", "path_prefix": "include", "offset": 0}
                 state["next"] = "read"
             elif state["next"] == "read":
                 search = json.loads(messages[-1]["content"])
                 assert search['revision'] == args.revision and search['matches']
                 name, arguments = "repository_read", {"path": search['matches'][0]['path'], "start_line": 1, "line_count": 100}
-                state["next"] = "forged_summary"
-            elif state["next"] == "forged_summary":
+                state["next"] = "invalid_requirement"
+            elif state["next"] == "invalid_requirement":
                 source = json.loads(messages[-1]["content"])
                 state['source_id'] = source['source_id']
-                state['summary'] = {"api": "dst_cache_get", "effects": [{"argument_index": 0,
-                    "resource_path": "pointed-to cache", "access": "ReadWrite"}],
-                    "preconditions": ["Offline test predicate; not a semantic assessment"], "guarantees": [],
-                    "evidence_ids": ["src:forged"], "basis": "inferred", "conditions": "Offline plumbing only",
-                    "explanation": "Tests callsite binding and ledger accounting, not detection quality."}
-                name, arguments = "record_api_summary", state['summary']
-                state["next"] = "valid_summary"
-            elif state["next"] == "valid_summary":
+                state['requirement'] = {'form': 'CallPrecondition', 'owner_thread': state['test_thread'],
+                    'object_ids': [], 'resource': 'ilwt->dst_cache', 'a_nodes': [state['test_node']],
+                    'b_nodes': [state['test_node']], 'repository_evidence_ids': [state['source_id']],
+                    'note': 'Offline plumbing only: hypothetical mediation of two same-resource activations, not a source or feasibility assessment.'}
+                name, arguments = 'add_requirement', dict(state['requirement'])
+                state['next'] = 'forged_requirement'
+            elif state['next'] == 'forged_requirement':
+                assert 'Invalid requirement form' in messages[-1]['content'], messages[-1]
+                state['requirement']['form'] = 'MustBeMediated'
+                state['requirement']['repository_evidence_ids'] = ['src:forged']
+                name, arguments = 'add_requirement', dict(state['requirement'])
+                state['next'] = 'valid_requirement'
+            elif state["next"] == "valid_requirement":
                 assert 'Unknown source_id' in messages[-1]['content'], messages[-1]
-                state['summary']['evidence_ids'] = [state['source_id']]
-                name, arguments = "record_api_summary", state['summary']
+                state['requirement']['repository_evidence_ids'] = [state['source_id']]
+                name, arguments = 'add_requirement', dict(state['requirement'])
+                state['next'] = 'invalid_guarantee'
+            elif state['next'] == 'invalid_guarantee':
+                assert 'Semantic requirements recorded' in messages[-1]['content'], messages[-1]
+                name, arguments = 'add_guarantee', {'form': 'Allocation', 'a_nodes': [state['test_node']],
+                    'b_nodes': [], 'token': '', 'mode': '', 'conditions': 'Offline only', 'unconditional': False,
+                    'evidence_nodes': [state['test_node']], 'note': 'General API behavior is not a synchronization guarantee.'}
                 state["next"] = "finish_a"
             elif state["next"] == "finish_a":
                 if args.repository:
-                    applied = json.loads(messages[-1]['content'])
-                    assert applied['automatic_discharge'] is False
-                    assert applied['new_requirements'][0]['a_nodes'] == state['bound_nodes']
+                    assert 'Invalid guarantee form' in messages[-1]['content'], messages[-1]
                 name, arguments = "finalize_contract", {}
                 state["next"] = "phase_c"
             elif state["next"] == "phase_c":
@@ -87,9 +105,12 @@ def main():
             elif state["next"] == "review":
                 rows = json.loads(messages[-1]["content"])
                 if args.repository:
-                    api_rows = [r for r in rows if r['form'] == 'CallPrecondition']
-                    assert len(api_rows) == 1
-                    assert api_rows[0]['checker_hint']['status'] == 'requires_semantic_review'
+                    unmodeled = [r for r in rows if r['object_id'] == -1]
+                    assert len(unmodeled) == 1
+                    assert unmodeled[0]['form'] == 'MustBeMediated'
+                    assert unmodeled[0]['resource'] == 'ilwt->dst_cache'
+                    assert unmodeled[0]['checker_hint']['status'] == 'requires_semantic_review'
+                    assert 'static object mapping' in unmodeled[0]['checker_hint']['reason']
                 if rows:
                     name, arguments = "review_obligations", {"ids": [r["id"] for r in rows], "status": "unknown",
                         "evidence_nodes": [], "witness_nodes": [], "reason": "Offline test; real model assessment intentionally not performed.", "interleaving": ""}
@@ -128,8 +149,14 @@ def main():
         assert not report["coverage"]["complete"], "Unreviewed semantics must never become a clean result"
         assert len(report["requirements"]) == len(report["reviews"]), "Silent obligation loss"
         if args.repository:
-            assert report['api_summaries']['dst_cache_get']['evidence_ids'] == [state['source_id']]
-            assert report['coverage']['imported_call_resources'] == len(state['bound_nodes'])
+            assert 'api_summaries' not in report and 'api_resources' not in report
+            assert 'unsummarized_calls_without_callee_edge' not in report['coverage']
+            assert len(report['requirements']) == state['static_obligations'] + 1, 'Invalid claims mutated the ledger'
+            req = next(r for r in report['requirements'] if r['origin'] == 'llm_unmodeled_resource')
+            assert req['form'] == 'MustBeMediated' and req['repository_evidence_ids'] == [state['source_id']]
+            assert req['a_nodes'] == req['b_nodes'] == [state['test_node']]
+            assert report['coverage']['requirements_outside_static_objects'] == 1
+            assert not report['guarantees'], 'Non-synchronization claims must not enter the ledger'
             assert report['repository_evidence'][state['source_id']]['revision'] == args.revision
         state.update(simulated_model=True, real_model_calls=0, coverage=report["coverage"])
         (args.output / "offline-validation.json").write_text(json.dumps(state, indent=2))

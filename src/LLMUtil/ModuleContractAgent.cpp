@@ -27,6 +27,13 @@ requirements: do not enumerate those access pairs yourself. get_obligations
 returns quantified operand sets, not sampled pairs. Use get_object to resolve
 object IDs and get_function_ops to resolve real CCPG node IDs. Add semantic
 MustPrecede, MustBeAtomic or MustBeMediated only when source intent supports them.
+Requirements describe concurrency safety relations between operations:
+MustPrecede(A,B) requires A to complete before B in the same instance/lifetime;
+MustBeAtomic(S) prevents a conflicting activation from interrupting sequence S;
+MustBeMediated(A,B) requires potentially conflicting operations to be coordinated
+by ordering, exclusion, or a compatible atomic protocol. Ordinary local order,
+general API legality and 'must disable BH before calling' are not independent
+requirement kinds. Identify the conflicting operations and harmful interleaving.
 Check/use is not automatically atomic: snapshots, validation and retries may be
 correct. Check related fields together. Report protocol coverage for every listed
 access-containing function, in batches where they implement the same protocol.
@@ -34,9 +41,19 @@ This is an auditable semantic review checklist, NOT proof of semantic completene
 Declare unknown functions as unknown; never label missing context as safe.
 add_guarantee records Order, Wait, Exclude, AtomicOp with source evidence AND
 applicability conditions. A mutex around free does not prevent a later use.
+Guarantees describe synchronization effects, not allocation, return values or
+arbitrary API behavior. Order is an established synchronization order; ordinary
+thread-local program order is not a new cross-context synchronization guarantee.
+Exclude is scoped to its actual domain and protected operations. AtomicOp gives
+an operation or protected sequence a valid atomic effect. Wait states which
+activations must finish before the continuation; it does not prevent new work.
 An API name alone proves nothing: identify the domain, return conditions, and
 whether new work can start afterwards. Only unconditional node-scoped guarantees
 enter the legacy checker; conditional guarantees remain available to your review.
+If the checker cannot represent a required scope, do not mark the guarantee
+unconditional. BH disabling may exclude same-CPU softirq reentry, not activity
+on every CPU. RCU grace periods cover the applicable preexisting readers; inspect
+upstream retirement/wait paths before proposing a use/free witness.
 
 When a pinned repository is available, use repository_search/read to inspect
 external declarations, definitions, callers, callback registrations and protocol
@@ -44,17 +61,18 @@ documentation. The module call inventory retains API arguments even when the
 legacy shared-object surface missed a resource. No external source is injected
 in advance. Inspect unresolved calls that affect shared resources, lifecycle or
 execution context. Do not stop at 'outside this file' when source is queryable.
-Use record_api_summary to bind source-backed effects, required preconditions and
-provided guarantees to the module callsites. A documented API precondition is
-NOT a guarantee that its callers satisfy it. Summaries preserve configuration,
-instance and caller assumptions. External source is not compiled or statically
-verified in this prototype. Search hits alone do not prove a call chain.
-CallPrecondition obligations can represent resources absent from the surface;
-do not force them onto an unrelated existing object. Imported effects are not
-proof that different invocations alias or run concurrently. For other semantic
-requirements, resource_ids may refer to imported call effects. Describe a
-concurrent invalidator; ordinary local program order alone is not a new safety
-requirement. Encode the relation stated in the explanation: a use-before-destroy
+External queries provide evidence for the SAME three requirements and four
+synchronization guarantees. There is no separate API-summary phase and no need
+to register every external API. An API precondition is a clue to its protocol:
+follow the implementation, resource, execution domain and concurrent invalidator,
+then express the actual concurrency relation with add_requirement/add_guarantee.
+Attach repository_evidence_ids when a claim relies on queried source. External
+source is not compiled or statically verified. Search hits do not prove a call
+chain or aliasing. If a resource is absent from the static object inventory, use
+object_ids=[] and its concrete source expression in resource, with real module
+operation nodes and source rationale; its missing static mapping stays visible.
+Do not force it onto an unrelated object or treat a source spelling as alias proof.
+Encode the relation stated in the explanation: a use-before-destroy
 requirement must actually name uses as its first operand, not publication.
 Record gaps for evidence still missing after reasonable repository investigation.
 End Phase A with finalize_contract.
@@ -69,14 +87,11 @@ satisfied = actual protocol covers EVERY operation represented by these groups;
 not_applicable = infeasible concurrency or different instances/lifetimes;
 unknown = evidence missing. One rejected sample does not close its entire group.
 Batch judgments only where the SAME justification covers all listed groups.
-For CallPrecondition, check the predicate at the listed callsites, including
-caller-established protection, execution-context/configuration conditions and
-paths that bypass protection. Citing the API requirement alone cannot prove a
-violation. Use repository evidence IDs in the judgment. One concrete callsite
-can witness an API-precondition violation, but source_supported still needs a
-feasible harmful concurrent execution with its source-backed context. Inspect
-callers if the local module cannot establish that context. For satisfied, explain
-why the actual evidence covers every listed callsite and applicable context.
+Inspect caller-established protection, execution-context/configuration conditions
+and paths that bypass protection. An API precondition alone cannot prove a bug.
+Use repository evidence IDs when the judgment relies on queried source. Inspect
+callers if the module cannot establish concurrency. A missing static object
+mapping does not change the requirement's meaning or establish object identity.
 For source_supported give concrete witness nodes and an interleaving. These are
 source-supported candidates, not reproduced or formally verified vulnerabilities.
 End with finalize_review. Unknowns stay visible and mean analysis incomplete.
@@ -164,6 +179,10 @@ void ModuleContractAgent::generate() {
 static Parameter arrayParam(const char* name, const char* type, const char* description) {
     return Parameter(name, J{{"type", "array"}, {"items", {{"type", type}}}, {"description", description}}, true);
 }
+static Parameter repositoryEvidenceParam() {
+    return Parameter("repository_evidence_ids", J{{"type", "array"}, {"items", {{"type", "string"}}},
+        {"description", "Optional source_id values from repository_read supporting this claim. Cite queried source when used; IDs are validated."}}, false);
+}
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     auto tools = SharedToolKit::get_shared_tools();
     auto repoTools = repositoryTools(); tools.insert(tools.end(), repoTools.begin(), repoTools.end());
@@ -178,17 +197,17 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
             {arrayParam("functions", "string", "Access-containing functions reviewed together."),
              {"summary", "string", "Protocol, invariants, synchronization, or reason no extra semantic requirement is needed.", true},
              {"status", "string", "reviewed or unknown. Unknown keeps coverage incomplete.", true}}});
-        tools.push_back({"add_requirement", "Add a semantic requirement, expanded across all listed affected objects. Common obligations already exist.",
-            {{"form", "string", "MustPrecede, MustBeAtomic, MustBeMediated", true},
+        tools.push_back({"add_requirement", "Add a concurrency safety relation between anchored operations, expanded across all listed affected objects. Common obligations already exist; API call preconditions are evidence, not a fourth requirement kind.",
+            {Parameter("form", J{{"type", "string"}, {"enum", {"MustPrecede", "MustBeAtomic", "MustBeMediated"}}}, true),
              {"owner_thread", "integer", "Thread context in which operand A executes.", true},
              arrayParam("object_ids", "integer", "All affected object IDs, including related fields."),
              arrayParam("a_nodes", "integer", "Real CCPG IDs; ordered sequence for atomicity."),
              arrayParam("b_nodes", "integer", "Second operand; empty for atomicity."),
-             Parameter("resource_ids", J{{"type", "array"}, {"items", {{"type", "string"}}},
-                 {"description", "Optional IDs from record_api_summary effects, for resources absent from the static surface. Use object_ids=[] for these."}}, false),
+             {"resource", "string", "Concrete source resource expression when object_ids=[]; missing static mapping remains a coverage gap.", false},
+             repositoryEvidenceParam(),
              {"note", "string", "Source intent and applicability conditions, not a bug label.", true}}});
         tools.push_back({"add_guarantee", "Record synchronization with source evidence and applicability conditions.",
-            {{"form", "string", "Order, Wait, Exclude or AtomicOp", true},
+            {Parameter("form", J{{"type", "string"}, {"enum", {"Order", "Wait", "Exclude", "AtomicOp"}}}, true),
              arrayParam("a_nodes", "integer", "Source/enabler/protected/atomic nodes."),
              arrayParam("b_nodes", "integer", "Target/wait continuation; empty for Exclude/AtomicOp."),
              {"token", "string", "Source spelling of lock/atomic identity, or empty.", true},
@@ -196,6 +215,7 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
              {"conditions", "string", "Conditions/domain/return semantics supporting the guarantee.", true},
              {"unconditional", "boolean", "True only if no unresolved condition exists at these exact nodes.", true},
              arrayParam("evidence_nodes", "integer", "Source nodes proving the synchronization."),
+             repositoryEvidenceParam(),
              {"note", "string", "Why source establishes this effect.", true}}});
         tools.push_back({"finalize_contract", "Finish only after all access functions have an explicit semantic review position.", {}});
     } else {
@@ -204,8 +224,7 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
              {"status", "string", "source_supported, satisfied, not_applicable, or unknown", true},
              arrayParam("evidence_nodes", "integer", "Source nodes supporting this judgment; may be empty for unknown."),
              arrayParam("witness_nodes", "integer", "Concrete involved operations for source_supported; otherwise empty."),
-             Parameter("repository_evidence_ids", J{{"type", "array"}, {"items", {{"type", "string"}}},
-                 {"description", "source_id values from repository_read supporting caller/context judgments. Required for non-unknown CallPrecondition judgments."}}, false),
+             repositoryEvidenceParam(),
              {"reason", "string", "Explain applicability and why the judgment covers all operations in the group.", true},
              {"interleaving", "string", "Feasible harmful interleaving for source_supported; otherwise empty.", true}}});
         tools.push_back({"finalize_review", "Finish only after every requirement has an explicit judgment. Unknowns remain incomplete.", {}});
@@ -249,7 +268,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
                 {"owner_thread", r["owner_thread"]}, {"a_count", r["a_nodes"].size()}, {"b_count", r["b_nodes"].size()}} : r;
             if (data_["checks"].is_object() && data_["checks"].contains(id)) row["checker_hint"] = data_["checks"][id];
             if (data_["reviews"].contains(id)) row["review"] = data_["reviews"][id];
-            if (r.contains("predicate")) row["predicate"] = r["predicate"];
+            if (r.contains("resource")) row["resource"] = r["resource"];
             out.push_back(row);
         }
         if (!ids.empty() && out.size() != ids.size()) throw std::invalid_argument("Unknown requirement id");
@@ -280,20 +299,18 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
         }
         if (!known) throw std::invalid_argument("Unknown owner_thread");
         auto objects = args.at("object_ids").get<std::set<int>>();
-        auto resources = args.value("resource_ids", std::vector<std::string>{});
-        if ((objects.empty() && resources.empty()) || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Object or imported resource scope and rationale required");
+        const auto resource = args.value("resource", std::string{});
+        const auto repoEvidence = args.value("repository_evidence_ids", J::array());
+        validRepositoryEvidence(repoEvidence, false);
+        if ((objects.empty() && resource.empty()) || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Object scope or concrete unmodeled resource and rationale required");
+        if (!objects.empty() && !resource.empty()) throw std::invalid_argument("Use object_ids=[] for an unmodeled resource; do not conflate it with static objects");
         for (int oid : objects) if (oid < 0 || size_t(oid) >= surface_.shared_objects.size()) throw std::invalid_argument("Unknown object_id");
-        for (const auto& id : resources) {
-            bool found = false;
-            for (const auto& resource : data_["api_resources"]) if (resource.at("id") == id) found = true;
-            if (!found) throw std::invalid_argument("Unknown imported resource ID");
-        }
-        if (!resources.empty()) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
-            {"origin", "llm_imported_resource"}, {"form", form}, {"owner_thread", tid}, {"object_id", -1},
-            {"resource_ids", resources}, {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
+        if (objects.empty()) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
+            {"origin", "llm_unmodeled_resource"}, {"form", form}, {"owner_thread", tid}, {"object_id", -1},
+            {"resource", resource}, {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
         for (int oid : objects) data_["requirements"].push_back({{"id", "semantic:" + std::to_string(data_["requirements"].size())},
             {"origin", "llm"}, {"form", form}, {"owner_thread", tid}, {"object_id", oid},
-            {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
+            {"repository_evidence_ids", repoEvidence}, {"a_nodes", a}, {"b_nodes", b}, {"note", args.at("note")}});
         save(); return "Semantic requirements recorded";
     }
     if (name == "add_guarantee" && generating_) {
@@ -303,6 +320,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
         if ((form == "Exclude" || form == "AtomicOp") && args.at("token").get<std::string>().empty()) throw std::invalid_argument("Token required");
         if (form == "Exclude" && args.at("mode") != "exclusive" && args.at("mode") != "shared") throw std::invalid_argument("Invalid exclusion mode");
         if (args.at("conditions").get<std::string>().empty() || args.at("note").get<std::string>().empty()) throw std::invalid_argument("Conditions and evidence explanation required");
+        validRepositoryEvidence(args.value("repository_evidence_ids", J::array()), false);
         data_["guarantees"].push_back(args); save(); return "Guarantee recorded; conditions retained for review";
     }
     if (name == "finalize_contract" && generating_) {
@@ -324,15 +342,15 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
         auto repoEvidence = args.value("repository_evidence_ids", J::array());
         validRepositoryEvidence(repoEvidence, false);
         for (const auto& r : data_["requirements"]) if (ids.count(r.at("id"))) {
-            bool apiPrecondition = r.at("form") == "CallPrecondition";
-            if (apiPrecondition && status != "unknown") validRepositoryEvidence(repoEvidence, true);
             if (status == "source_supported") {
                 int oid = r.at("object_id");
                 bool selfRace = oid >= 0 && surface_.shared_objects.at(oid).is_self_race;
-                if (!apiPrecondition && witness.size() < 2 && !selfRace)
+                if (oid < 0) for (const auto& t : surface_.threads)
+                    if (t.thread_id == r.at("owner_thread") && t.reentrant_entry) selfRace = true;
+                if (witness.size() < 2 && !selfRace)
                     throw std::invalid_argument("Two witness operations required unless two activations of a reentrant operation share one node ID");
                 std::set<int> a = r["a_nodes"].get<std::set<int>>(), b = r["b_nodes"].get<std::set<int>>();
-                bool hasA = false, hasB = r["form"] == "MustBeAtomic" || apiPrecondition;
+                bool hasA = false, hasB = r["form"] == "MustBeAtomic";
                 for (int n : witness) { hasA |= a.count(n); hasB |= b.count(n); }
                 if (!hasA || !hasB) throw std::invalid_argument("Witness must involve both operands of each reported requirement");
             }
@@ -355,7 +373,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name, const J& 
 std::map<int, LLM::ConcurrencyContract> ModuleContractAgent::contracts() const {
     std::map<int, LLM::ConcurrencyContract> out;
     for (const auto& r : data_["requirements"]) {
-        if (r.at("form") == "CallPrecondition" || r.at("object_id").get<int>() < 0) continue;
+        if (r.at("object_id").get<int>() < 0) continue; // Missing static object mapping, not a different requirement type.
         int tid = r.at("owner_thread");
         if (!out.count(tid)) out.emplace(tid, LLM::ConcurrencyContract(tid, -1));
         LLM::ConcurrencyContract::NodeReq req;
@@ -394,8 +412,7 @@ std::vector<query::Hypothesis> ModuleContractAgent::findings() const {
         const auto& review = data_["reviews"].at(id);
         if (review.at("status") != "source_supported") continue;
         query::Hypothesis h; h.id = id; h.severity = "medium";
-        h.bug_category = r.at("form") == "CallPrecondition" ? "concurrency_precondition_violation" :
-            r.at("form") == "MustPrecede" ? "order_violation" : r.at("form") == "MustBeAtomic" ? "atomicity_violation" : "data_race";
+        h.bug_category = r.at("form") == "MustPrecede" ? "order_violation" : r.at("form") == "MustBeAtomic" ? "atomicity_violation" : "data_race";
         h.description = "[module/source-supported; not reproduced] " + review.at("reason").get<std::string>() + "\n" + review.at("interleaving").get<std::string>();
         auto witness = review.at("witness_nodes").get<std::vector<int>>();
         for (size_t i = 0; i < witness.size(); ++i) h.nodes["witness_" + std::to_string(i)] = witness[i];
@@ -406,22 +423,20 @@ std::vector<query::Hypothesis> ModuleContractAgent::findings() const {
 
 void ModuleContractAgent::save(const std::string& error) const {
     J report = data_; size_t unknown = 0;
-    size_t unsummarizedCalls = 0;
-    for (const auto& call : data_["module_calls"]) if (!data_["api_summaries"].contains(call.at("api").get<std::string>()) &&
-        !call.at("callee_edge_in_static_graph").get<bool>()) ++unsummarizedCalls;
+    size_t unmodeledResources = 0;
     for (const auto& p : data_["protocols"]) if (p.at("status") == "unknown") ++unknown;
     for (const auto& r : data_["requirements"]) {
+        if (r.at("object_id").get<int>() < 0) ++unmodeledResources;
         std::string id = r.at("id");
         if (!data_["reviews"].contains(id) || data_["reviews"].at(id).at("status") == "unknown") ++unknown;
     }
     report["coverage"] = {{"static_objects", surface_.shared_objects.size()}, {"obligation_groups", data_["requirements"].size()},
         {"access_functions", functions_.size()}, {"accounted_functions", coveredFunctions_.size()},
-        {"module_call_sites", data_["module_calls"].size()}, {"api_summaries", data_["api_summaries"].size()},
-        {"unsummarized_calls_without_callee_edge", unsummarizedCalls}, {"imported_call_resources", data_["api_resources"].size()},
+        {"module_call_sites", data_["module_calls"].size()}, {"requirements_outside_static_objects", unmodeledResources},
         {"repository_source_excerpts", data_["repository_evidence"].size()},
         {"unresolved_groups_or_functions", unknown}, {"unanchored_accesses", data_["unanchored_accesses"].size()},
         {"generation_finished", generationFinished_}, {"review_finished", reviewFinished_},
-        {"complete", error.empty() && generationFinished_ && reviewFinished_ && !unknown && !unsummarizedCalls && data_["unanchored_accesses"].empty() && data_["gaps"].empty()},
+        {"complete", error.empty() && generationFinished_ && reviewFinished_ && !unknown && !unmodeledResources && data_["unanchored_accesses"].empty() && data_["gaps"].empty()},
         {"scope", "coverage relative to the v2 extracted static surface; no semantic completeness or program-safety claim"}};
     if (!error.empty()) report["error"] = error;
     auto path = TargetPath::getInstance()->getOutputDir() / "module_contracts.json";

@@ -2597,8 +2597,9 @@ void AgentManager::runAnalysisContractMode(bool useContracts) {
         nlohmann::json checks = nlohmann::json::object();
         for (const auto& r : agent.requirements()) {
             std::string id = r.at("id");
-            bool external = r.at("form") == "CallPrecondition" || r.at("object_id").get<int>() < 0;
-            checks[id] = {{"status", external ? "requires_semantic_review" : "checker_suggests_satisfied"}, {"proof", false}};
+            bool unmodeledResource = r.at("object_id").get<int>() < 0;
+            checks[id] = {{"status", unmodeledResource ? "requires_semantic_review" : "checker_suggests_satisfied"}, {"proof", false}};
+            if (unmodeledResource) checks[id]["reason"] = "No static object mapping for this concurrency requirement";
         }
         auto cands = l2::checkRequirements(objects, tids, contracts, indices, ccpg, HBGraph::getInstance());
         for (const auto& c : cands) checks[c.requirementId] = {{"status", "undischarged"}, {"proof", false},

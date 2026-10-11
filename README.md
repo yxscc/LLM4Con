@@ -28,22 +28,33 @@ explicit `LACE_AGENT_HARNESS=legacy` ablation retain the old implementation.
 
 **Module workflow.** Set `LACE_MODULE_CONTRACTS=1`, or use the runner below:
 
-1. Reuse v2's CPG/LLVM/Phasar entry and shared-access extraction.
-2. Generate conditional, quantified use-before-free and read/write mediation
+1. Input the target module source and its LLVM IR; optional pinned repository
+   source is available through tools, without injecting the whole repository.
+2. Reuse v2's CPG/LLVM/Phasar entry and shared-access extraction.
+3. Generate conditional, quantified use-before-free and read/write mediation
    obligations from **all extracted objects and accesses**. Keep missing node
    anchors as coverage gaps. Operand sets represent groups without materializing
    an access-pair list; they are not sampled representatives.
-3. Give one SDK conversation the complete supplied C/C++ module and an entry/
+4. Give one SDK conversation the complete supplied C/C++ module and an entry/
    function navigation inventory. It describes protocols across functions,
    supplements semantic requirements, and records node-anchored synchronization
    guarantees with applicability conditions. Static obligations are immutable.
-4. Run v2's deterministic checker once over the module. Its first failing witness
+5. Run v2's deterministic checker once over the module. Its first failing witness
    and apparent discharges are **hints**, not proofs: every requirement remains
    in the subsequent semantic review inventory. Conditional guarantees do not
    enter automatic discharge.
-5. Continue the same SDK conversation to review complete obligation groups;
-   batch groups sharing a justification. Persist source-supported candidates,
-   satisfied/not-applicable judgments, and explicit unknowns separately.
+6. Continue the same SDK conversation to review complete obligation groups;
+   batch groups sharing a justification, including apparent discharges.
+7. Persist source-supported candidates, satisfied/not-applicable judgments,
+   evidence and explicit unknowns separately in the contract/review ledger.
+
+Requirements retain the paper's concurrency relations: `MustPrecede`,
+`MustBeAtomic`, and `MustBeMediated`. Guarantees retain its synchronization
+relations: `Order`, `Exclude`, `AtomicOp`, and `Wait`. API legality or general
+functionality is evidence for understanding a protocol, not an extra contract
+kind. Ordinary local order does not create a synchronization guarantee. Each
+claim must identify its operations, resource/domain, applicability and source
+basis. Scope that the checker cannot represent remains conditional for review.
 
 This path branches before object triage, top-20 thread seeding, object/thread/
 session cost budgets and cluster splitting. It does not call the old truncated
@@ -105,23 +116,25 @@ commit messages, labels or future revisions are exposed through these tools.
 Existing bitcode provenance is recorded as **unverified**; matching source bytes
 does not prove the bitcode's build configuration or revision.
 
-`record_api_summary` stores evidence-backed argument-relative effects, required
-preconditions, provided guarantees and applicability assumptions. Each effect is
-bound to **all extracted module callsites** of that API. It can introduce a
-resource absent from the old shared-object inventory. Preconditions become
-`CallPrecondition` obligations over those callsites, independent of a legacy
-object ID. Source citations must refer to excerpts actually read. Neither an API
-name match nor a textual argument match proves object identity or aliasing.
+The Agent directly submits the same three requirements and four guarantees
+through `add_requirement` and `add_guarantee`. External source supplies evidence;
+there is no API-summary registration step or requirement to summarize every
+external call. Optional `repository_evidence_ids` on contracts and judgments
+are checked against source excerpts actually read. An API's documented calling
+condition alone does not establish a concurrency defect: the Agent must identify
+the conflicting operations, same-resource applicability and harmful interleaving.
 
-The legacy checker skips these new obligations and labels them
-`requires_semantic_review`; it cannot discharge them from local program order.
-Phase C must inspect caller-established protection and a feasible harmful
-concurrent execution, not merely quote the API's requirement. Findings are still
-source-supported candidates. API summaries are model judgments, not verified
-contracts. External dependencies currently receive source inspection only; they
-are not compiled into the module IR. Unknown effects, unresolved contexts and
-unanchored accesses remain explicit coverage limitations. This is a pilot of
-dependency access and callsite binding, not whole-kernel analysis.
+If static extraction omitted a resource, `add_requirement` accepts `object_ids=[]`
+and a concrete `resource` expression, alongside real module operation nodes,
+rationale and any repository citations. The requirement still has one of the
+three concurrency forms. Its missing static mapping is explicit (`object_id=-1`);
+the legacy checker labels it `requires_semantic_review`, and it is reviewed in
+the same Phase C inventory. Neither the expression nor its citations prove
+aliasing or feasible concurrency. `requirements_outside_static_objects` keeps
+this static coverage gap visible even after review. External source receives
+inspection only; it is not compiled into module IR. Missing operation anchors
+still require a gap instead of an invented node. This is a dependency-access
+prototype, not whole-kernel analysis.
 
 Offline validation (no external model requests):
 
@@ -129,8 +142,6 @@ Offline validation (no external model requests):
 python -m pytest -q tests/test_sdk_worker.py tests/test_repository_context.py
 clang++-16 -std=c++17 -Iinclude tests/module_requirements_test.cpp -o /tmp/module-req-test
 /tmp/module-req-test
-clang++-16 -std=c++17 -Iinclude tests/module_api_summary_test.cpp -o /tmp/module-api-test
-/tmp/module-api-test
 python tests/offline_module_pilot.py --source /path/to/src --bitcode /path/to/merged.ll \
   --output module_runs/offline-example
 ```
@@ -142,9 +153,11 @@ obligation, reentrancy, read/read exclusion and visible missing anchors. The
 offline end-to-end pilot deliberately marks all semantics unknown; its report
 must remain incomplete and must not be interpreted as a detection experiment.
 Repository tests cover isolation from later fixes, source/version mismatch,
-pagination, rejected forged citations, omitted-resource binding, and preservation
-of semantic-review status through the C++/SDK workflow. The repository-enabled
-offline pilot uses the public ILA fixture and a deliberately artificial predicate;
+pagination, rejected forged citations, direct omitted-resource requirements, and
+preservation of semantic-review status through the C++/SDK workflow. The
+repository-enabled offline pilot also rejects API-precondition requirement kinds
+and non-synchronization guarantee kinds without changing the ledger. It uses the
+public ILA fixture and a deliberately hypothetical concurrency relation;
 pass `--repository` and `--revision` to exercise this integration path.
 
 Official API guidance: [Agents SDK quickstart](https://developers.openai.com/api/docs/guides/agents/quickstart?lang=python)
