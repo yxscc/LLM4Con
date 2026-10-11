@@ -59,7 +59,7 @@ SDK 是官方 Python/Agents，C++保留静态与工具执行。进程间桥每�
 - 最新源目录：`LLM4Con-v2-module-agent/module_runs/diverse-batch-02`。
 - `manifest.json`记录每个文件大小与 SHA256，复制后逐文件校验，删除其他日志前再次校验。
 
-**历史缺口**：论文及2.0的72个 case 结果/统计可保留，但 dump_index 指向的原始调用目录在此次清理前已经缺失；扫描各 LLM4Con 工作树未找到。保留可用内容与索引，明确缺失，不伪造原轨迹。最新版三个 case 保存完整 native/SDK 目录。数据集源码、IR、GT、编译输入与 Linux 仓库留存；旧日志的删除记录单独保存。
+**历史缺口**：论文与2.0的72个 case 结果/统计和逐case控制台日志已归档；两套 `native_logs/` 各有72份。dump_index 指向的原始模型调用目录在此次清理前已缺失，扫描各 LLM4Con 工作树未找到。控制台日志不能补造完整模型轨迹。最新版三个 case 保存完整 native/SDK 目录。数据集源码、IR、GT、编译输入与 Linux 仓库留存；旧日志删除记录单独保存。
 
 本地镜像：`/Users/bytedance/Documents/并发缺陷检测/lace2-module-agent`；该目录本身不是 Git 工作树。继续改代码要同步到远端分支、编译后提交。凭据不能写入文档/日志，不需要重新找 Opus 实现。
 
@@ -74,3 +74,7 @@ Release 从零全量编译成功；2项 CTest 与12项 Python测试通过。三�
 本地唯一冻结实验目录改为 `analysis_outputs/lace-experiment-archive`，包含三套数据与逐文件哈希。本地先前的旧实验轨迹及三个case的部分副本已清理；原始用户提供的 `concurrency_hunt`分析证据、数据集源码/IR/GT、其他工具资料保留。
 
 复杂度需分开报告：一个对象有T个入口、A条访问时，静态桶本身O(A)，当前规则最多产生3T组，但每个入口复制对侧集合，最坏存储/构建仍O(TA)。E的全称检查最坏要遍历O(A²)访问对，叠加图可达与保护查询开销；控制流闭包也不是免费的。因此“一个持续Agent会话”降低会话数量，不能宣称把整体静态与提示规模变成线性。后续可以共享不可变操作集合、缓存关系查询，并以协议/事务维护复核覆盖，不能通过挑代表/删条目来伪装覆盖率。
+
+最后补充归档：保守保留了现有论文相关消融材料，共34,869个文件，逐成员核验SHA256后压缩进论文档案。它们是 supporting data，不能混作20260709主实验。压缩文件 `paper-full72/supporting_ablations_and_reference_snapshot.tgz` 的消融成员前缀是 `lace-experiment-archive/paper-full72/supporting_ablations/`，详情在外层 manifest 的 `supporting_ablations` 字段；不必先解压全部材料。压缩包还含打包时的三个参考快照，外层 manifest 是最终权威索引。
+
+另外删除3,147份非保留轮次日志及旧 auto-entry 图目录；保留102份编译/构建日志作为输入配置与IR构建依据。第一轮空间数字仅对应第一轮清理，最终数据见 `retention-summary.json`、`remote-cleanup-extra-summary.json`。删除的是实验输出，未删除备份 benign case 的源码、IR或GT。
