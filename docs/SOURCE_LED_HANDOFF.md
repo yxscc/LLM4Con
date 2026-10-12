@@ -1,3 +1,7 @@
+> **最新入口（2026-10-12）：请先读 [HANDOFF.md](HANDOFF.md)。**
+> 本文保留 2026-10-11 的源代码主导重构历史；其中实验状态、轮数预算、绑定能力和默认复核流程已由最新交接更新。
+> 当前最新真实评测是七例无轮数上限、关闭最终 Agent 复核的 E-only 实验。
+
 # Source-led contract refactor — 2026-10-11
 
 ## Purpose and decisions

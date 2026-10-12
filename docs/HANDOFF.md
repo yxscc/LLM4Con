@@ -1,80 +1,266 @@
-# 新对话交接：LACE 模块 Agent 清理版
+# 新对话交接：LACE 源码主导 Agent / E-only 优化
 
-用户目标是把静态分析与 LLM 结合成可开源、能查真实并发漏洞的 Agent。此次任务是清理旧代码、改进架构并整理日志；下一轮优先诊断漏报，不优先调误报，不让 Cursor/Opus实现，不引入 GT 引导检测。
+更新：2026-10-12。**本文是当前交接入口**。旧清理版已保存到
+[history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
+[SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
-## 实现与算法
+## 1. 用户目标和最新约定（优先遵守）
 
-1. 输入完整模块源码目录和匹配 IR。Joern→CPG，Phasar→指针/别名/访问，CCPG/TCT/HB→调用上下文、入口、同步。完整同版本 Linux Git 仓库按需只读查询，既不全部注入也不全部静态编译。
-2. 对象按字段/别名形成 may-share 集合，保留多入口访问或可能重入的单入口访问；不使用对象 self-race 开关、global-only 筛选、风险排序、初始化形状惩罚、伪造第二线程。入口重入是有来源的近似，最终需要检验并发可行性。
-3. 按对象、入口、访问类型建操作桶。不同可能并发激活的 use/free 形成 MustPrecede(U,F)，含写访问形成 MustBeMediated(A,B)。保存全部集合，不展开成逐对 Agent；静态检查仍可能遍历 Cartesian product，因此没有宣称解决全部组合开销。
-4. 一个 Agent 获得带行号的完整模块与静态概览；工具提供对象、函数操作、调用参数、IR 函数导航和全部约束。Agent 补充业务原子事务、发布/生命周期等并发关系，以及代码实际同步保证。普通线程内顺序和普通 API 调用前提不是此处 Req/Gua。
-5. 检查器直接读模块账本，没有转换回旧线程契约。只采纳无未决条件且可映射的 Gua；源码操作、未知资源返回 requires_semantic_review。MustPrecede 需要同步或声明保证链；MustBeMediated 可用顺序/互斥/原子访问；MustBeAtomic 检查整个序列与其他可干扰访问，包含同入口重入和读者。单步原子访问不保证复合事务原子性。结果是提示，不是路径敏感证明。
-6. 同一完整 SDK 会话继续复核所有组，包括表面满足的组。source_supported 只需要一条有害交错；排除整组需覆盖全部适用成员；证据不足为 unknown。前端遗漏可通过经校验的模块源码操作补充，不造 CCPG 节点。固定版本依赖摘录可用于理由。
-7. 最终报告只来自 source_supported 复核，结构化 reports.json 与可读 bugs.txt 同步生成。资源、类别、完全相同的证据位置集合用于保守去重；全部贡献约束/解释保留。GT 在外部评估，最终报告数量不等于命中。
+目标：静态分析 + LLM 的可开源并发缺陷检测 Agent，随后检测真实漏洞。
+当前以 LACE v2 工程为基础继续优化，源码主导抽取 Req/Gua，静态图用于 E。
+不要重新使用不可靠的入口识别/共享对象 surface 来限制 Agent 的分析范围。
 
-## 这次移除与修正
+- Agent 阅读完整输入模块，可查询同版本 Linux 依赖；**不注入 AST**，也不注入整个 Linux。
+- 静态图覆盖 supplied IR 的全部定义/指令以及 Joern 留下的源码方法，不按入口裁剪。
+- Req 是并发安全需求；Gua 是代码实际提供的同步保障。普通本地顺序/API 前提不算同步 Gua。
+- LLM 通过工具直接产生可解析 Req/Gua，不从自然语言 note 再猜规则。
+- 维持统一的 `Req + Gua + CCPG → E` 检查流程；不要改成散落的事实清单替代 Req 消解。
+- **当前实验关闭最终 Agent 复核（Phase C）**，优先看 E 是否产生对应候选。
+- 优先分析漏报和通用实现问题，误报调优暂缓；多案例验证，不能只调一个 case。
+- **人工读最终报告、轨迹、源码和历史修复来归因**。用户明确不认可自动 GT 标签/阶段标注代替判断。
+- 归因关注：①相关节点是否在模型/是否正确绑定；②Gua 真实语义及作用域；③Req 真实逻辑及操作集；④E 如何构建并检查关系。
+- **召回按大致匹配真实缺陷判断，不要求根因/类型/全部操作与 GT 完全一致。**
+  仍要检查 Req/Gua 逻辑、节点绑定、同步关系和消解本身是否正确。
+- 删除 Gua 后原候选仍存在是预期行为，**不能据此认定 E 无效或“蒙对”**；此前该推断已撤回。
+- 用户认为当前模式可以继续。不要因不能给出完整形式化证明而推翻整套流程。
+- 最新关于 AtomicOp：它应表达单次操作的实际原子性保障，而不是需求或泛泛的“属于某协议”。
+  **用户说暂时保留，先看新实验，不要现在重构 AtomicOp 类型体系。**
+- 不让 Cursor/Opus实现；用户希望当前 Agent 自己实现。未授权新开 subagent。
+- 不设任意对象/参与者/代表采样上限。48 轮已影响正常完成，当前默认无硬性轮数上限。
 
-移除旧线程契约生成、线程对与逐对象推理、机制规则 Agent、对象 triage、第二个独立 verifier、旧约束 DSL、独立 LLM 入口发现、手写 OpenAI/Gemini HTTP/历史裁剪、旧比较入口与旧检测脚本。旧实现已有历史分支，不在当前可执行代码里兼容。
+本轮最后请求是更新交接文档；**暂停继续代码优化/新模型实验**，交接后由新对话继续。
+七例新实验已结束，没有仍在运行的模型队列需要接管。
 
-模块编排、检查器、SDK 会话、提示词和报告输出分离。检查器通过函数适配器接静态关系，可在没有 LLVM/模型的情况下测试策略。
+## 2. 工作位置、版本和访问
 
-修正：同一节点的不同激活不自动有序；原子序列不能凭某一个受保护步骤消解；不能把多个独立 AtomicOp 当作复合事务；保留同入口干扰以及可能看到中间状态的读者；同步 token 不转小写、不删解引用以伪装同对象。静态锁信息取调用上下文共同锁，而不是并集。
+本地镜像：`/Users/bytedance/Documents/并发缺陷检测/lace2-module-agent`。
+该目录本身不是独立 Git 工作树；提交、构建在远端进行。不要在父项目误提交全部研究资料。
 
-取消 100 抽象线程截断与 150 函数 IR 补充截断；使用已访问入口/函数集合保证有限图遍历终止。检查器 HB 查询不使用硬编码深度 64。静态上下文枚举仍保留原来的执行预算；预算/递归截断时明确记缺口，停用可能受影响的静态锁/同步顺序提示。不能把这当作可扩展上下文分析已经完成。
+SSH：`122353`。
+远端项目：`/mlx_devbox/users/mayunlong.39/playground/LLM4Con-v2-module-agent`。
+分支：`lace-v2-module-agent`。
+最新实验使用的**代码**提交：`2d1b6a7c33cbf0badd50ad64c13f1382e8c34053`。
+交接文档可能在其后单独提交；以 batch 中的 implementation_commit 标识实验版本。
 
-## 最新真实实验与漏报
+运行/构建前静默加载：
 
-冻结实验：`diverse-batch-02`，代码 `868ffabed56814c225b85eaae85c427eff3557ae`，模型 `gpt-5.5-2026-04-24`，OpenAI Python 3.26 / Agents 0.23.1，Chat Completions，每阶段96轮，2并发。此次整理没有新增真实模型评测。
+```sh
+source /mlx_devbox/users/mayunlong.39/playground/LLM4Con/setup_env.sh >/dev/null 2>&1
+```
 
-| Case | 源码行数 | 最终报告 | 精确 GT 命中 | 首要漏报问题 |
+Python：`/mlx_devbox/users/mayunlong.39/playground/LLM4Con/.venv-lace3/bin/python`。
+LLVM/编译器：LLVM 16，`/usr/bin/clang++-16`。
+二进制：项目的 `Release-build/llm_detector`、`Release-build/contract_replay`。
+Pinned 源码仓库：`/mlx_devbox/users/mayunlong.39/playground/linux.git`，已核对官方 kernel.org origin。
+数据集：`/mlx_devbox/users/mayunlong.39/playground/LLM4Con/kernel_experiment`。
+
+SSH 偶发 `gssapi-with-mic` 失败，相同读/复制请求重试往往恢复；不要打印凭据或 setup_env 内容。
+模型使用既有配置网关。已完成的七例只发送经版本核验的公开 Linux 源码/依赖，不发送 GT、修复或私有资料。
+本轮曾有自动审批暂拒，核验公开源码和既有目的地后已获准执行；这是已解决状态。
+
+Joern CLI 不在当前远端 PATH；案例重用有效 CPG 缓存。不能宣称本轮重新解析了所有源码。
+现有 IR 的完整构建配置/版本来源仍未验证；源码字节已在 pinned revision 核验。
+
+## 3. 当前实际流程
+
+1. 构造 `module_model.json`：全部输入 IR 定义及指令、函数内 CFG、源码方法、直接调用导航和覆盖信息。
+   这条路线不初始化 TCT/旧 HB/入口筛选；外部仓库可读，但未全部编译进模型。
+2. Agent 接收带行号的完整模块源码、图覆盖概览、六类可扩展协议提示。
+   不提供自动静态 Req、对象桶、thread/surface。IR 证据只通过窄范围工具按需查询。
+3. Agent 注册源码操作，用 `add_requirement`/`add_guarantee` 写结构化契约。
+   `record_protocol` 保存普通协议事实；`record_pattern_review` 是流程记账，不证明抽取完备。
+4. E 绑定源码操作到实际 IR，根据有效 Gua 与 CFG 检查每条 Req，保存详细检查依据。
+5. `--no-review` 直接由 E 失败组合输出 `static_contract_candidate`，origin=`deterministic_E`。
+   完整模式仍保留同一 SDK 历史继续 Phase C，但本轮实验没启用。
+6. 原始 Req/Gua、模型、SDK 轨迹、最终 `stateful_bugs/reports.json` 和 `bugs.txt` 均保存。
+
+SDK 是官方 OpenAI Python + Agents SDK，C++ 执行静态工具，Python worker 负责模型/工具循环。
+官方 SDK 版本：openai `3.26.0`，openai-agents `0.23.1`。
+模型：`gpt-5.5-2026-04-24`；Chat Completions；reasoning 使用 provider default。
+
+## 4. 关键实现位置与已完成修改
+
+- `src/CCPG/ModuleGraph.cpp`：完整输入模型。
+- `include/CCPG/IRSourceFacts.h` / `src/CCPG/IRSourceFacts.cpp`：DWARF/DataLayout 派生 memory_role、access_paths、内联源码位置链、memory_ordering、volatile 等。
+- `src/LLMUtil/OperationBinding.cpp`：源码行范围 + kind/symbol/function + 编译器访问/调用事实。
+  唯一语义匹配才 bound；不存在/模糊匹配保留 unknown。不是仅靠同一 debug 行选节点。
+- `src/LLMUtil/ModuleContractAgent.cpp`：工具、契约、覆盖状态、E-only 输出。
+- `include/LLMUtil/ModulePrompt.h`：明确抽取任务、并发 Req/Gua 定义、事务步骤/干扰区分。
+- `src/LLMUtil/RequirementChecker.cpp`：纯 JSON E，source 绑定、Gua 适用性、CFG 关系、失败组合。
+- `src/LLMUtil/ModuleAnalysis.cpp`：抽取→E→可选复核；预算耗尽时也检查已接受的部分契约。
+- `harness/run_module.py` / `harness/run_batch.py`：实验编排、输入核验、冻结 manifest。
+- `config/protocol_catalog.json`：v1.1，六类可扩展启发式问题；加入重复激活和逐个已识别注册表的检查提示。
+
+`d90a229` 已实现后端语义绑定、E 解析源码操作、Gua 诊断、E-only、离线 contract_replay、重复源码别名核验去重。
+`2d1b6a7` 已实现：
+
+- runner 默认 `--max-turns 0`；0 表示无硬性轮数 cap，由 validated finish tool 结束。
+- 正数 cap 仍可显式使用。MaxTurnsExceeded 后对已接受 Req 执行 E，跳过 C，保留 error/nonzero exit/partial_extraction，不能假装完整完成。
+- 未解决 Req assumptions 不再跳过整条关系；有绑定的组合继续检查，状态仍可 requires_semantic_review。
+- MustBeAtomic 的步骤未绑定、少于两个或顺序未建立时，不再靠剩余步骤产生假事务候选。
+- 提示词澄清真实事务操作、对侧干扰、窄锚点；不以一个“代表注册表”替代其他已识别协议。
+
+E 目前**不修改原始 CCPG**：Order/Wait 在查询中是虚拟有向关系，Exclude 是带 token/临界区的保护关系，AtomicOp 是个体原子效果兼容关系。
+采用 Gua 前要求 resource/scope 字符串精确匹配、unconditional=true、全部操作与 evidence 可绑定。
+Order/Wait 的端点集合按组合解释；Exclude 用 CFG 检查持续区域，内部不透明调用需要 effect summary。
+MustPrecede 必须包含同步 Gua；普通同线程 CFG 顺序不能直接排除线程间冲突。
+
+当前不支持一般跨过程 must-order/匹配返回、完整循环 occurrence 分析、独立别名/实例证明、弱内存形式化检查。
+候选和局部 CFG 见证不是已复现/已证明缺陷；用户仍接受大致 GT 匹配作为召回。
+
+## 5. 最新七例真实实验：全部完成
+
+**原始 48 轮批次**：
+远端 `.../lace-e-stage-real-20261012`，commit `d90a229c041004da98c7d01e3e35f6bb06336fbd`。
+本地 `analysis_outputs/lace-e-diagnostics-20261012/real/`。
+四例（PHY/ioprio/KVM/OA）在 48 轮处停止，没有原生 E；另外三例正常完成。
+离线部分账本 replay 是诊断实验，不改写原实验的 incomplete 状态。
+
+**最新无 cap 批次**：
+远端 `/mlx_devbox/users/mayunlong.39/playground/lace-e-stage-uncapped-20261012`。
+本地 `/Users/bytedance/Documents/并发缺陷检测/analysis_outputs/lace-e-diagnostics-20261012/uncapped`。
+2026-10-12 北京时间 09:36:50–10:16:18；jobs=2；全部 exit 0、E finished、Phase C disabled。
+全部确认 implementation_unchanged=true。原始完整数据已下载，不能删或覆盖。
+
+| Case | 模型请求 | 最终 E 候选报告 | 当前人工 GT 对照 | 首要问题/依据 |
 | --- | ---: | ---: | --- | --- |
-| CVE-2024-26984 Nouveau | 486 | 0 | 否 | 理解到 refcount 快路径，但没生成 ptrs 发布/内存顺序相关 Req |
-| CVE-2022-48830 CAN | 1626 | 2 | 否 | 静态同入口 rx.len 冲突已有；复核巨大字段组时因不能统一判断全部组合而 unknown，没提出关键复合事务交错 |
-| CVE-2024-35986 PHY/power | 2079 | 2 | 否 | 源码回退与报告已工作，但 device 引用保护不等于外部 charger 驱动后端生命期，缺少这层语义 Req |
+| CVE-2024-26984 Nouveau | 48 | 4 | 对应候选 | req:6 报 maps/refcount 快路径下 map/ptrs 发布可见性。7个关键源码操作绑定；两个包装表达式仍未知。E不是弱内存证明。 |
+| CVE-2022-48830 CAN | 42 | 5 | 粗粒度对应，可按用户宽松标准计召回 | req:4 最终报告指出接收回调并发、重组状态缺保护，与修复 rx_lock 的范围对应。但 A 放 FF/CF 写，B 主要放 timer/启动timer，未准确组成 FF↔CF 冲突；需继续检查真实 Req 操作逻辑。 |
+| CVE-2024-35986 PHY/power | 62 | 8 | 未有对应最终候选 | 新 req:10 识别属性检查/回调与 unregister 的生命周期冲突，但两个序列操作未绑定，E 未评估成候选。其他 charger 缓存/本地 PHY 移除报告不是外部 provider 退役 GT。 |
+| CVE-2016-7911 ioprio | 42 | 4 | 对应候选 | req:1 实际 read 6273 与 free 6478/7144 入最终报告。指针读取锚点仍歧义，但没有丢掉已绑定的生命周期组合。 |
+| CVE-2024-40953 KVM | 67 | 6 | 未有对应最终候选 | 无 last_boosted_vcpu Req；图中关键读/写存在。轨迹将部分 directed-yield 字段泛化为近似启发式而不提 Req；不能说67轮完成就覆盖了全部代码。 |
+| CVE-2024-56788 OA TC6 | 65 | 3 | 对应候选 | req:5 报 waiting_tx_skb 的发送写入与消费清空冲突。另有 req:1 Atomic，但包含未绑定 wake；该原子约束未完成 E 检查。 |
+| CVE-2024-35898 netfilter | 54 | 2 | 未有对应最终候选 | 没生成 flowtable 类型查找/注销 Req。Agent 协议记录把 nfnl 锁、commit_mutex、模块引用过度推广到全局类型表，未追清释放锁后的查找。 |
 
-精确已知 GT 是0/3，不可因报告数或相关函数出现说修好了漏报。模型关注点、GT 在外部、输入哈希见冻结 batch 与 `recall-evaluation.json`。
+按目前粗粒度口径：**3例明确对应 + CAN 1例粗粒度对应，3例漏报**。
+这不是正式 benchmark recall；CAN 的操作组成问题需说明。不要沿用旧“必须匹配 rx.len 精确交错”的否判门槛。
+不可以用此前严格评估的0/3与现在粗粒度结果直接声称算法提升。
 
-历史可比性：旧版用数据集配置根，Nouveau/CAN 是单根 self-race；最新版自动入口更多。因此报告数不能直接作为同配置算法提升。论文保存 CAN4/Nouveau1/PHY0，2.0 lockfix 保存 CAN14/Nouveau1/PHY0；Nouveau 旧报告不是 ptrs 发布 GT，PHY 旧静态零对象。
+总模型请求 380；累计输入 tokens 32,400,908，输出 227,219；单例约6.2–13.0分钟。
+累计输入包含反复发送历史，不是独立代码量，也不是已确认的计费 token。
+Req 共59条；E状态57条 requires_semantic_review、2条 undischarged。
+**不能把状态全是 unknown 理解成完全没检查**：Req assumptions/部分绑定导致这个状态，但已绑定组合仍有候选。
+coverage.unknown_positions 也会因关闭C而计入未复核 Req；不是自动阶段归因。
 
-## 仍需科学设计的部分
+提示词/检查器与预算一起改变，运行随机性也存在，因此不是“只取消48轮”的受控消融。
+但 PHY62/KVM67/OA65/netfilter54 的自然完成长度确实表明原 cap 会截断正常流程。
 
-优先 D 与 F：怎样让语义 Req 补齐更系统；怎样以资源协议/事务组织持续复核，使一个有害见证就能报，而无需对巨大组所有组合先做统一结论。函数登记只能说明读过，不能证明语义完备。
+## 6. 已经人工核实的实现问题（不是自动标签）
 
-E 仍是近似：HB 是图可达而非路径与实例敏感证明；保证端点和局部 control-flow 闭包可能扩大作用范围；共同锁操作不证明两个步骤连续持锁；type+offset 聚合可能混合 RX/TX 与不同实例；第一条未消解组合也未必对应 GT。如今它的定位是给同一 Agent 提示，不能用满足提示删掉 Req。之后应给出明确的适用条件、关系域、同步对象绑定和覆盖证据，而不是添加 case 规则。
+### A. 源码到 IR 绑定存在通用缺口
 
-静态前端仍大、启发式多：入口名称/ops表/注册模型、间接调用、IR与源码映射以及选择性 IR 回退都有近似。调用上下文枚举仍有界；百万行覆盖和开销尚未验证。此次没有为了清代码重写指针分析/CPG前端，也没有让 LLM 接手全部静态爆炸。
+PHY 新 req:10 的 source 操作包括 atomic_read、间接 psy->desc->get_property、atomic_dec_return、device_unregister。
+实际 IR 已存在：
 
-SDK 是官方 Python/Agents，C++保留静态与工具执行。进程间桥每阶段拉起 worker，但显式传递完整 SDK history，使同一 Agent 继续推理；不等于第二个无上下文 Agent。
+- 节点7279：atomic_read 内联展开的 `load volatile i32`，DWARF 内联链回到 core.c:1058；它不是 LLVM atomic instruction。
+- 节点7299：通过 `%37` 的间接 callback call，core.c:1064；callee pointer 的读取节点7295具有 `psy.desc.get_property` 路径。
+- 节点5979：device_unregister，core.c:1458，已成功绑定。
 
-## 版本与实验存储
+当前 binder 用 API 名+kind 对比直接 callee，不能正确识别内联原子 API/宏效果、间接 callee。
+Inline pointer temporaries 的 access_paths 可能只有 `v`，无法直接对应 `psy->use_cnt`。
+**不要把 Linux atomic_read 简单标成 LLVM atomic=true 来硬绑；不要随便取同一行候选。**
+下一步可做一般 compiler-derived inline/callee/effect correspondence；先离线验证，再多case跑。
+这里尚未实现或做手工节点修复后的 PHY replay，不能声称已修复其召回。
 
-远端根：`/mlx_devbox/users/mayunlong.39/playground`，SSH `122353`。
+### B. Gua Order/Wait 端点过度包含最终程序关系
 
-- 活跃代码：`LLM4Con-v2-module-agent`，分支 `lace-v2-module-agent`。
-- 清理前锚点：tag `cleanup-before-20261011` → `868ffab`。
-- 旧论文代码：`paper-thread-contract` → `f810894`；2.0：`lace-v2` → `3ff95ba`。这些是已保存代码分支；不要把分支当前 HEAD 自动当作每次历史实验运行的精确 commit。
-- 三套冻结数据统一在 `lace-experiment-archive`：`paper-full72`、`optimized-full72`、`module-threecases`。
-- 论文源快照：`LLM4Con/results/lace_full72_20260709`。
-- 2.0源快照：`LLM4Con/kernel_experiment/eval_snapshots/lockfix_20260907_204407`。
-- 最新源目录：`LLM4Con-v2-module-agent/module_runs/diverse-batch-02`。
-- `manifest.json`记录每个文件大小与 SHA256，复制后逐文件校验，删除其他日志前再次校验。
+详见 [IOPRIO_OA_CONTRACT_AUDIT_20261012.md](IOPRIO_OA_CONTRACT_AUDIT_20261012.md)。
+这是原48轮 OA ledger 的**另一条退出生命周期 req:2**，不是 waiting-slot GT Req。
+Gua语义在实际代码成立：kthread_stop 确实等线程退出，且在free之前。
+但 Gua 的 A 是线程内操作、B已经是最终free；stop节点7891只在 evidence。
+E直接采用 uses→free 虚拟边，U→U/F→F 的局部闭包使位置检查退化。
 
-**历史缺口**：论文与2.0的72个 case 结果/统计和逐case控制台日志已归档；两套 `native_logs/` 各有72份。dump_index 指向的原始模型调用目录在此次清理前已缺失，扫描各 LLM4Con 工作树未找到。控制台日志不能补造完整模型轨迹。最新版三个 case 保存完整 native/SDK 目录。数据集源码、IR、GT、编译输入与 Linux 仓库留存；旧日志删除记录单独保存。
+已完成零模型调用的独立诊断：
 
-本地镜像：`/Users/bytedance/Documents/并发缺陷检测/lace2-module-agent`；该目录本身不是 Git 工作树。继续改代码要同步到远端分支、编译后提交。凭据不能写入文档/日志，不需要重新找 Opus 实现。
+| Gua 终点 | CFG | E建立的顺序组合 | 未消解组合 |
+| --- | --- | ---: | ---: |
+| 原始free终点 | 原程序 | 12 | 0 |
+| 原始free终点 | 合成CFG把stop放free后 | 12 | 0 |
+| 手工改为stop返回节点7891 | 原程序 | 12 | 0 |
+| 手工改为stop返回节点7891 | 合成CFG把stop放free后 | 0 | 12 |
 
-## 清理验证与空间
+模型/账本变体单独保留，**不是重编译后的内核，不是模型实际抽取，不是新漏洞**。
+新对话可考虑让 Gua 描述同步 handoff 到返回点 W，CCPG 独立验证 W→F；不要让 Agent 直接把目标 Req 完整结论当同步边。
+这一点已经定位但**尚未修改正式实现**。用户认为总体模式仍可用，不需要推翻架构。
 
-Release 从零全量编译成功；2项 CTest 与12项 Python测试通过。三个 development case 分别用本地脚本模型完成真实静态前端→SDK→源码引用工具→两阶段→最终报告流程；每个测试13次本地请求，0次真实模型调用。每个 case 故意保留 unknown，测试输出的2条合成候选只用于报告通路与独立证据去重，绝不当作检出。细节见 `docs/cleanup-validation.json`。
+### C. 循环内事务顺序过强
 
-跨机器同步文件时间戳曾导致增量构建混用旧对象；从零重编译后全流程通过。`build.sh`使用 clean-first，后续远端同步应注意这一点。
+手工将 OA 正确消费事务 [9092读槽位,9098清空] 与干扰6972发送写交给现有 E，得到 sequence_order_not_established。
+`Graph::before` 拒绝 b→a 可达，包括下一循环迭代；这不代表同一迭代中的 a→b 顺序不成立。
+需要 occurrence/iteration-aware 的局部事务规则，不能直接全局放宽 HB。
+这个问题已定位、**未修复**。新 OA 原子Req当前主要卡wake绑定，不能把两种现象混为一次测试。
 
-日志清理：本地已移除876,326,273字节；远端已移除1,726,316,544字节（分配空间，约1.61GiB）。远端删除37个旧实验目录。删前和删后均核对保留文件 SHA256。删除目录明细见本地实验档案的 `local-cleanup.json` 与 `remote-cleanup.json`；统计不会承诺继续运行期间的实时剩余空间。
+### D. Agent 提前排除/漏提 Req
 
-本地唯一冻结实验目录改为 `analysis_outputs/lace-experiment-archive`，包含三套数据与逐文件哈希。本地先前的旧实验轨迹及三个case的部分副本已清理；原始用户提供的 `concurrency_hunt`分析证据、数据集源码/IR/GT、其他工具资料保留。
+KVM：compound-state review 泛称 directed-yield spin/preempted 字段近似，没有 last_boosted_vcpu Req。
+实际GT读/写节点23237/23426存在；不是静态模型没建出来，也不是E错误消解。
 
-复杂度需分开报告：一个对象有T个入口、A条访问时，静态桶本身O(A)，当前规则最多产生3T组，但每个入口复制对侧集合，最坏存储/构建仍O(TA)。E的全称检查最坏要遍历O(A²)访问对，叠加图可达与保护查询开销；控制流闭包也不是免费的。因此“一个持续Agent会话”降低会话数量，不能宣称把整体静态与提示规模变成线性。后续可以共享不可变操作集合、缓存关系查询，并以协议/事务维护复核覆盖，不能通过挑代表/删条目来伪装覆盖率。
+netfilter：Agent已查询 nfnetlink。其证据中 nfnetlink.c:428 已 nfnl_unlock，519 才调用 batch callback。
+模块 source 的 type lookup 在 try_module_get 前已遍历；commit_mutex不能作为全局类型注销使用的同一锁。
+目前是协议理解导致漏提 Req；没有对应类型注册表 Gua 被E错误消解的证据。
 
-最后补充归档：保守保留了现有论文相关消融材料，共34,869个文件，逐成员核验SHA256后压缩进论文档案。它们是 supporting data，不能混作20260709主实验。压缩文件 `paper-full72/supporting_ablations_and_reference_snapshot.tgz` 的消融成员前缀是 `lace-experiment-archive/paper-full72/supporting_ablations/`，详情在外层 manifest 的 `supporting_ablations` 字段；不必先解压全部材料。压缩包还含打包时的三个参考快照，外层 manifest 是最终权威索引。
+CAN：文字识别并发接收重组冲突，但操作两侧混入 timer API；这是 contract formalization/operand 选择偏差。
+粗粒度报告可以算召回，逻辑/绑定检查仍应修，不因“召回了”就认为全部关系构造正确。
 
-另外删除3,147份非保留轮次日志及旧 auto-entry 图目录；保留102份编译/构建日志作为输入配置与IR构建依据。第一轮空间数字仅对应第一轮清理，最终数据见 `retention-summary.json`、`remote-cleanup-extra-summary.json`。删除的是实验输出，未删除备份 benign case 的源码、IR或GT。
+## 7. 测试与独立诊断已做什么
+
+`2d1b6a7`：2项CTest通过；SDK/repository Python测试15项通过。
+官方SDK测试包含 max_turns=0；单独脚本模拟API流程19次localhost请求正常结束，无真实模型调用。
+预算耗尽回归12次localhost请求：Req已写入、E执行、C关闭、exit2和partial/incomplete保留。
+这些只是工程测试，不作为缺陷召回。
+
+原七例完整账本已离线 replay，结果单独保存在：
+
+- 本地 `analysis_outputs/lace-e-diagnostics-20261012/replays/corrected_E/`
+- 本地 `.../replays/original_E_partial/`
+- 远端 `.../lace-e-replay-budget-fix-20261012/`
+
+手工语义/端点/CFG probes：
+
+- 本地 `analysis_outputs/lace-e-diagnostics-20261012/semantic-audit/`
+- 远端 `/mlx_devbox/users/mayunlong.39/playground/lace-ioprio-oa-semantic-audit-20261012/`
+
+`Release-build/contract_replay model.json contracts.json output.json` 只运行 binding/E，0模型请求。
+输入副本、手工操作选择和模型变体须明确标注，原始native结果不能被它覆盖。
+`harness/diagnose_case.py` / `tests/test_stage_diagnosis.py` 仍存在但本轮未作为判断依据；不要扩展自动GT标注方案。
+
+## 8. 原始记录与实验输入
+
+每例目录包含 `run.json`、`run.log`、`artifacts/<run>/module_model.json`、
+`module_contracts.json`、`llm_simplified_trace.log`、`stateful_bugs/reports.json`/`bugs.txt`。
+先读最终报告，随后按问题查工具轨迹、Req/Gua及E事实；不要只数约束数量。
+batch.json 记录源码核验、IR hash、SDK/模型、prompt hash、代码版本、实际usage和完整状态。
+
+`tests/e_stage_batch_plan.json` 固定这七个development输入：
+
+| Case | IR | pinned Linux revision |
+| --- | --- | --- |
+| CVE-2024-26984 | nv50.ll | 4c08f01934ab67d1d283d5cbaa52b923abcfe4cd |
+| CVE-2022-48830 | isotp.ll | 7db788ad627aabff2b74d4f1a3b68516d0fee0d7 |
+| CVE-2024-35986 | merged.ll | 4201b8c8f2c32af321fb50867e68ac6c1cbed4be |
+| CVE-2016-7911 | merged.ll | 74524955556096a0b2a821a49b4d0abebad3ee16 |
+| CVE-2024-40953 | kvm_main.ll | 09b2d2a2267187336b446f4c08e6204c30688bcf |
+| CVE-2024-56788 | oa_tc6.ll | b15b0df3967e5de43e1638bb152c575ae60062d1 |
+| CVE-2024-35898 | nf_tables_api.ll | 994209ddf4f430946f6247616b2e33d179243769 |
+
+GT在数据集的ground_truth.json，用于人工事后评估，不提供给Agent。
+ioprio有flat与block/目录重复源码；只有canonical字节通过pinned校验后才省略重复Agent输入，保留aliases来源记录。
+
+## 9. 下一轮建议顺序
+
+1. 先核实远端HEAD/工作树和所有原始结果；不要重跑已经完成的七例来恢复上下文。
+2. 优先修通用 source→IR 对应（内联/宏/间接调用），用现有账本离线判断PHY相关Req能否进入E。
+3. 调整同步 Gua 端点，使程序位置由CCPG检查；保留现有正反顺序诊断作回归。
+4. 修循环内事务的局部顺序规则；不恢复旧“图可达就是跨线程HB”的误判。
+5. 再处理KVM/netfilter等抽取遗漏：防止“近似字段”“框架有锁”“模块有引用”未经具体域核验就提前排除。
+6. 改动提交并冻结后，继续多个真实case的E-only实验；人工读轨迹归因，暂不加入最终Agent复核来掩盖E问题。
+
+不要现在重做AtomicOp、引入surface/自动入口裁剪、要求用户逐case补标注或给全部Linux预构巨大别名上下文。
+
+## 10. 历史保留
+
+`analysis_outputs/lace-experiment-archive`（本地与远端）包含论文full72、优化full72、旧三例完整输入/输出档案。
+旧论文代码 `paper-thread-contract` → f810894，旧2.0 `lace-v2` →3ff95ba；实验精确版本以各manifest为准。
+历史72例逐case控制台日志在，但部分更早原始SDK轨迹在清理前已缺失；不能补造“完整模型轨迹”。
+当前新七例原始完整数据另存如上，不删除。更早清理过程和空间记录见 history/HANDOFF_20261011_CLEANUP.md。
+用户提供的 concurrency_hunt 轨迹、论文、数据集/GT/IR和工具资料均不属于可随意删除日志。

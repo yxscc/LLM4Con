@@ -1,0 +1,80 @@
+# 新对话交接：LACE 模块 Agent 清理版
+
+用户目标是把静态分析与 LLM 结合成可开源、能查真实并发漏洞的 Agent。此次任务是清理旧代码、改进架构并整理日志；下一轮优先诊断漏报，不优先调误报，不让 Cursor/Opus实现，不引入 GT 引导检测。
+
+## 实现与算法
+
+1. 输入完整模块源码目录和匹配 IR。Joern→CPG，Phasar→指针/别名/访问，CCPG/TCT/HB→调用上下文、入口、同步。完整同版本 Linux Git 仓库按需只读查询，既不全部注入也不全部静态编译。
+2. 对象按字段/别名形成 may-share 集合，保留多入口访问或可能重入的单入口访问；不使用对象 self-race 开关、global-only 筛选、风险排序、初始化形状惩罚、伪造第二线程。入口重入是有来源的近似，最终需要检验并发可行性。
+3. 按对象、入口、访问类型建操作桶。不同可能并发激活的 use/free 形成 MustPrecede(U,F)，含写访问形成 MustBeMediated(A,B)。保存全部集合，不展开成逐对 Agent；静态检查仍可能遍历 Cartesian product，因此没有宣称解决全部组合开销。
+4. 一个 Agent 获得带行号的完整模块与静态概览；工具提供对象、函数操作、调用参数、IR 函数导航和全部约束。Agent 补充业务原子事务、发布/生命周期等并发关系，以及代码实际同步保证。普通线程内顺序和普通 API 调用前提不是此处 Req/Gua。
+5. 检查器直接读模块账本，没有转换回旧线程契约。只采纳无未决条件且可映射的 Gua；源码操作、未知资源返回 requires_semantic_review。MustPrecede 需要同步或声明保证链；MustBeMediated 可用顺序/互斥/原子访问；MustBeAtomic 检查整个序列与其他可干扰访问，包含同入口重入和读者。单步原子访问不保证复合事务原子性。结果是提示，不是路径敏感证明。
+6. 同一完整 SDK 会话继续复核所有组，包括表面满足的组。source_supported 只需要一条有害交错；排除整组需覆盖全部适用成员；证据不足为 unknown。前端遗漏可通过经校验的模块源码操作补充，不造 CCPG 节点。固定版本依赖摘录可用于理由。
+7. 最终报告只来自 source_supported 复核，结构化 reports.json 与可读 bugs.txt 同步生成。资源、类别、完全相同的证据位置集合用于保守去重；全部贡献约束/解释保留。GT 在外部评估，最终报告数量不等于命中。
+
+## 这次移除与修正
+
+移除旧线程契约生成、线程对与逐对象推理、机制规则 Agent、对象 triage、第二个独立 verifier、旧约束 DSL、独立 LLM 入口发现、手写 OpenAI/Gemini HTTP/历史裁剪、旧比较入口与旧检测脚本。旧实现已有历史分支，不在当前可执行代码里兼容。
+
+模块编排、检查器、SDK 会话、提示词和报告输出分离。检查器通过函数适配器接静态关系，可在没有 LLVM/模型的情况下测试策略。
+
+修正：同一节点的不同激活不自动有序；原子序列不能凭某一个受保护步骤消解；不能把多个独立 AtomicOp 当作复合事务；保留同入口干扰以及可能看到中间状态的读者；同步 token 不转小写、不删解引用以伪装同对象。静态锁信息取调用上下文共同锁，而不是并集。
+
+取消 100 抽象线程截断与 150 函数 IR 补充截断；使用已访问入口/函数集合保证有限图遍历终止。检查器 HB 查询不使用硬编码深度 64。静态上下文枚举仍保留原来的执行预算；预算/递归截断时明确记缺口，停用可能受影响的静态锁/同步顺序提示。不能把这当作可扩展上下文分析已经完成。
+
+## 最新真实实验与漏报
+
+冻结实验：`diverse-batch-02`，代码 `868ffabed56814c225b85eaae85c427eff3557ae`，模型 `gpt-5.5-2026-04-24`，OpenAI Python 3.26 / Agents 0.23.1，Chat Completions，每阶段96轮，2并发。此次整理没有新增真实模型评测。
+
+| Case | 源码行数 | 最终报告 | 精确 GT 命中 | 首要漏报问题 |
+| --- | ---: | ---: | --- | --- |
+| CVE-2024-26984 Nouveau | 486 | 0 | 否 | 理解到 refcount 快路径，但没生成 ptrs 发布/内存顺序相关 Req |
+| CVE-2022-48830 CAN | 1626 | 2 | 否 | 静态同入口 rx.len 冲突已有；复核巨大字段组时因不能统一判断全部组合而 unknown，没提出关键复合事务交错 |
+| CVE-2024-35986 PHY/power | 2079 | 2 | 否 | 源码回退与报告已工作，但 device 引用保护不等于外部 charger 驱动后端生命期，缺少这层语义 Req |
+
+精确已知 GT 是0/3，不可因报告数或相关函数出现说修好了漏报。模型关注点、GT 在外部、输入哈希见冻结 batch 与 `recall-evaluation.json`。
+
+历史可比性：旧版用数据集配置根，Nouveau/CAN 是单根 self-race；最新版自动入口更多。因此报告数不能直接作为同配置算法提升。论文保存 CAN4/Nouveau1/PHY0，2.0 lockfix 保存 CAN14/Nouveau1/PHY0；Nouveau 旧报告不是 ptrs 发布 GT，PHY 旧静态零对象。
+
+## 仍需科学设计的部分
+
+优先 D 与 F：怎样让语义 Req 补齐更系统；怎样以资源协议/事务组织持续复核，使一个有害见证就能报，而无需对巨大组所有组合先做统一结论。函数登记只能说明读过，不能证明语义完备。
+
+E 仍是近似：HB 是图可达而非路径与实例敏感证明；保证端点和局部 control-flow 闭包可能扩大作用范围；共同锁操作不证明两个步骤连续持锁；type+offset 聚合可能混合 RX/TX 与不同实例；第一条未消解组合也未必对应 GT。如今它的定位是给同一 Agent 提示，不能用满足提示删掉 Req。之后应给出明确的适用条件、关系域、同步对象绑定和覆盖证据，而不是添加 case 规则。
+
+静态前端仍大、启发式多：入口名称/ops表/注册模型、间接调用、IR与源码映射以及选择性 IR 回退都有近似。调用上下文枚举仍有界；百万行覆盖和开销尚未验证。此次没有为了清代码重写指针分析/CPG前端，也没有让 LLM 接手全部静态爆炸。
+
+SDK 是官方 Python/Agents，C++保留静态与工具执行。进程间桥每阶段拉起 worker，但显式传递完整 SDK history，使同一 Agent 继续推理；不等于第二个无上下文 Agent。
+
+## 版本与实验存储
+
+远端根：`/mlx_devbox/users/mayunlong.39/playground`，SSH `122353`。
+
+- 活跃代码：`LLM4Con-v2-module-agent`，分支 `lace-v2-module-agent`。
+- 清理前锚点：tag `cleanup-before-20261011` → `868ffab`。
+- 旧论文代码：`paper-thread-contract` → `f810894`；2.0：`lace-v2` → `3ff95ba`。这些是已保存代码分支；不要把分支当前 HEAD 自动当作每次历史实验运行的精确 commit。
+- 三套冻结数据统一在 `lace-experiment-archive`：`paper-full72`、`optimized-full72`、`module-threecases`。
+- 论文源快照：`LLM4Con/results/lace_full72_20260709`。
+- 2.0源快照：`LLM4Con/kernel_experiment/eval_snapshots/lockfix_20260907_204407`。
+- 最新源目录：`LLM4Con-v2-module-agent/module_runs/diverse-batch-02`。
+- `manifest.json`记录每个文件大小与 SHA256，复制后逐文件校验，删除其他日志前再次校验。
+
+**历史缺口**：论文与2.0的72个 case 结果/统计和逐case控制台日志已归档；两套 `native_logs/` 各有72份。dump_index 指向的原始模型调用目录在此次清理前已缺失，扫描各 LLM4Con 工作树未找到。控制台日志不能补造完整模型轨迹。最新版三个 case 保存完整 native/SDK 目录。数据集源码、IR、GT、编译输入与 Linux 仓库留存；旧日志删除记录单独保存。
+
+本地镜像：`/Users/bytedance/Documents/并发缺陷检测/lace2-module-agent`；该目录本身不是 Git 工作树。继续改代码要同步到远端分支、编译后提交。凭据不能写入文档/日志，不需要重新找 Opus 实现。
+
+## 清理验证与空间
+
+Release 从零全量编译成功；2项 CTest 与12项 Python测试通过。三个 development case 分别用本地脚本模型完成真实静态前端→SDK→源码引用工具→两阶段→最终报告流程；每个测试13次本地请求，0次真实模型调用。每个 case 故意保留 unknown，测试输出的2条合成候选只用于报告通路与独立证据去重，绝不当作检出。细节见 `docs/cleanup-validation.json`。
+
+跨机器同步文件时间戳曾导致增量构建混用旧对象；从零重编译后全流程通过。`build.sh`使用 clean-first，后续远端同步应注意这一点。
+
+日志清理：本地已移除876,326,273字节；远端已移除1,726,316,544字节（分配空间，约1.61GiB）。远端删除37个旧实验目录。删前和删后均核对保留文件 SHA256。删除目录明细见本地实验档案的 `local-cleanup.json` 与 `remote-cleanup.json`；统计不会承诺继续运行期间的实时剩余空间。
+
+本地唯一冻结实验目录改为 `analysis_outputs/lace-experiment-archive`，包含三套数据与逐文件哈希。本地先前的旧实验轨迹及三个case的部分副本已清理；原始用户提供的 `concurrency_hunt`分析证据、数据集源码/IR/GT、其他工具资料保留。
+
+复杂度需分开报告：一个对象有T个入口、A条访问时，静态桶本身O(A)，当前规则最多产生3T组，但每个入口复制对侧集合，最坏存储/构建仍O(TA)。E的全称检查最坏要遍历O(A²)访问对，叠加图可达与保护查询开销；控制流闭包也不是免费的。因此“一个持续Agent会话”降低会话数量，不能宣称把整体静态与提示规模变成线性。后续可以共享不可变操作集合、缓存关系查询，并以协议/事务维护复核覆盖，不能通过挑代表/删条目来伪装覆盖率。
+
+最后补充归档：保守保留了现有论文相关消融材料，共34,869个文件，逐成员核验SHA256后压缩进论文档案。它们是 supporting data，不能混作20260709主实验。压缩文件 `paper-full72/supporting_ablations_and_reference_snapshot.tgz` 的消融成员前缀是 `lace-experiment-archive/paper-full72/supporting_ablations/`，详情在外层 manifest 的 `supporting_ablations` 字段；不必先解压全部材料。压缩包还含打包时的三个参考快照，外层 manifest 是最终权威索引。
+
+另外删除3,147份非保留轮次日志及旧 auto-entry 图目录；保留102份编译/构建日志作为输入配置与IR构建依据。第一轮空间数字仅对应第一轮清理，最终数据见 `retention-summary.json`、`remote-cleanup-extra-summary.json`。删除的是实验输出，未删除备份 benign case 的源码、IR或GT。
