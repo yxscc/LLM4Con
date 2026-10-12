@@ -11,6 +11,7 @@ public:
     std::string send_message(const std::string& input);
     void set_max_turns(int n);
 protected:
+    void set_instructions(std::string instructions);
     virtual std::vector<Tool> get_available_tools() const = 0;
     virtual std::string get_tool_choice() const { return "required"; }
     virtual std::string execute_tool(const std::string&, const nlohmann::json&) = 0;

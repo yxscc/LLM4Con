@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 namespace llm_client {
 inline constexpr const char* modulePrompt = R"PROMPT(
 You audit a complete C/C++ module for interleaving concurrency safety defects.
@@ -219,4 +220,16 @@ common justification covers each Req; one safe pair does not close a whole set.
 Source-only evidence can support reports and is never dropped because E lacks a
 node. Account for every Req and end with finalize_review. Preserve unknowns.
 )PROMPT";
+// Phase A only needs extraction/checking definitions. Review instructions are
+// installed if Phase C actually starts, rather than injected into every audit.
+inline std::string moduleExtractionInstructions() {
+    std::string prompt(modulePrompt);
+    const auto review=prompt.find("\nPHASE C: CONTINUING SOURCE REVIEW");
+    if (review!=std::string::npos) prompt.erase(review);
+    const std::string old="One continuing agent conversation extracts contracts and reviews E's evidence.";
+    const auto intro=prompt.find(old);
+    if (intro!=std::string::npos) prompt.replace(intro,old.size(),
+        "Extract source-supported Req/Gua; the static backend checks the accepted contracts.");
+    return prompt;
+}
 }

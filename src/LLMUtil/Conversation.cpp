@@ -11,6 +11,9 @@ void Conversation::set_max_turns(int n) {
     if (n < 0) throw std::invalid_argument("max_turns must be nonnegative; 0 means unlimited");
     max_turns_ = n;
 }
+void Conversation::set_instructions(std::string instructions) {
+    instructions_=std::move(instructions);
+}
 std::string Conversation::send_message(const std::string& input) {
     trace_ << "[sdk] User: " << input << std::endl;
     auto result = client_->runAgent(instructions_, input, history_, get_available_tools(),

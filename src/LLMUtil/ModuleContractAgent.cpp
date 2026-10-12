@@ -21,7 +21,7 @@ Parameter correction() { return Parameter("correction_reason", "string", "Requir
 void nonempty(const J& a,const char* key) { if (a.at(key).get<std::string>().empty()) throw std::invalid_argument(std::string(key)+" must not be empty"); }
 }
 ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG* ccpg,const J& model)
-    : Conversation(client,modulePrompt),ccpg_(ccpg),model_(model) {
+    : Conversation(client,moduleExtractionInstructions()),ccpg_(ccpg),model_(model) {
     const char* configured=std::getenv("LACE_PROTOCOL_CATALOG");
     fs::path path=configured&&*configured?fs::path(configured):fs::path(PROJECT_PATH)/"config/protocol_catalog.json";
     std::ifstream in(path); if (!in) throw std::runtime_error("Cannot read protocol catalog: "+path.string()); in>>catalog_;
@@ -34,7 +34,7 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
     data_={{"schema","lace-source-contracts-v1"},{"requirements",J::array()},{"guarantees",J::array()},
         {"source_operations",J::object()},{"source_binding_revisions",J::array()},{"protocols",J::array()},{"pattern_reviews",J::object()},
         {"reviews",J::object()},{"checks",J::object()},{"gaps",J::array()},{"source_manifest",J::array()},
-        {"harness","openai-agents"},{"observation_format","source-workspace-sdk-shell-no-ast-v2"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
+        {"harness","openai-agents"},{"observation_format","source-workspace-sdk-shell-no-ast-v2"},{"agent_instructions",moduleExtractionInstructions()},{"protocol_catalog",catalog_},
         {"graph_coverage",model_.at("coverage")}};
     for (const auto& f:model_["functions"]) functions_.insert(f.at("name"));
     initializeRepositoryContext();
@@ -74,9 +74,12 @@ std::string ModuleContractAgent::sourcePacket() {
 void ModuleContractAgent::generate() {
     try {
         auto packet=sourcePacket(); save();
+        // Bibliography is provenance retained in the ledger, not task input.
+        // Keep every actual pattern/question and its interpretation unchanged.
+        auto catalogInput=catalog_; catalogInput.erase("sources");
         send_message("Phase A. Audit the whole available module through SDK exec_command/write_stdin. Sources are under module/, with the full index in module_files.json. Read original source and follow source-supported protocols across files; use line-numbered slices and targeted searches, continuing after tool output truncation. contract_state.json is a read-only live view of accepted contracts, not a submission interface. The directory index below contains no source bodies. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
             "Use the extensible catalog as an auditing guide, pursue other source-supported protocols too, and declare actual concurrency Req/Gua. "
-            "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalog_.dump()+
+            "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalogInput.dump()+
             "\nRepository context: "+(data_["repository_context"].is_null()?std::string("not configured"):data_["repository_context"]["revision"].get<std::string>())+"\n"+packet);
         if (!generationFinished_) throw std::runtime_error("Agent did not finalize contract extraction"); save();
     } catch (const std::exception& e) { save(e.what()); throw; }
@@ -292,7 +295,8 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
     throw std::invalid_argument("Unknown tool or wrong phase");
 }
 void ModuleContractAgent::review(const J& checks) {
-    generating_=false; data_["checks"]=checks; data_["e_finished"]=true;save();
+    generating_=false; data_["checks"]=checks; data_["e_finished"]=true;
+    set_instructions(modulePrompt);data_["review_instructions"]=modulePrompt;save();
     try {
         send_message("Phase C. Continue in this SAME conversation. Review ALL Req using get_obligations, including E discharges. "
             "E implements sufficient deterministic rules under declared Gua premises. Undischarged does not mean a feasible counterexample; "

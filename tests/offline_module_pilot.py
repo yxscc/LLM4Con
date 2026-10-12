@@ -47,16 +47,28 @@ def main():
                 assert not {'read_file', 'grep_source', 'list_dir'} & set(tools)
                 messages = body['messages']
                 initial = next(m['content'] for m in messages if m.get('role') == 'user')
+                instructions='\n'.join(m.get('content','') for m in messages if m.get('role') in {'system','developer'} and isinstance(m.get('content',''),str))
+                if state['phase']=='A' and 'review_obligations' not in tools:
+                    assert 'PHASE C: CONTINUING SOURCE REVIEW' not in instructions, 'Review instructions injected during extraction'
                 if 'review_obligations' in tools and state['phase'] == 'A':
                     state.update(phase='C', step='obligations')
                     assert 'Phase A.' in initial and 'NO precomputed requirements' in initial, 'History or extraction setup lost'
+                    assert 'PHASE C: CONTINUING SOURCE REVIEW' in instructions, 'Review instructions not installed at Phase C'
                 step = state['step']
                 if step == 'fail':
                     return self.do_failure()
                 if step == 'start':
+                    (args.output/'initial-model-request.json').write_text(json.dumps(body,indent=2))
+                    state['initial_request_profile']={
+                        'instruction_chars':len(instructions),
+                        'initial_user_utf8_bytes':len(initial.encode()),
+                        'tool_count':len(body['tools']),
+                        'tool_schema_utf8_bytes':len(json.dumps(body['tools']).encode()),
+                        'request_json_utf8_bytes':len(json.dumps(body).encode())}
                     assert tools['add_requirement']['parameters']['properties']['form']['enum'] == ['MustPrecede', 'MustBeAtomic', 'MustBeMediated']
                     assert 'owner_thread' not in tools['add_requirement']['parameters']['properties']
                     catalog = json.loads(initial.split('\nCatalog: ', 1)[1].split('\nRepository context: ', 1)[0])
+                    assert 'sources' not in catalog, 'Bibliography metadata injected into initial task input'
                     state['patterns'] = [p['id'] for p in catalog['patterns']]
                     assert '<source file=' not in initial, 'Source bodies were injected'
                     state['source_bytes_in_first_prompt'] = len(initial.encode())
@@ -324,6 +336,7 @@ def main():
             'catalog_patterns': state['patterns'], 'coverage': report['coverage'], 'synthetic_reports': len(final),
             'source_anchor_response_bytes':state['source_anchor_response_bytes'], 'ast_node_observations':0,
             'ir_evidence_is_on_demand':True}
+        summary['initial_request_profile']=state['initial_request_profile']
         summary['source_binding_recovery']=args.recover_lock_binding
         (args.output/'offline-validation.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))

@@ -4,6 +4,17 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-12 初始上下文核验与清理
+
+- 用户最新要求：可用的压缩应启用，不是强制关闭。七例重跑暂未启动，先核实压缩与初始注入。
+- 当前同模型/既有网关配置重新测试 Responses：HTTP 400、错误码 -1013；只发送 `Return OK.`，未发送案例源码/GT/修复。原生 SDK Compaction 已接入，但这个配置尚不能实际启用；不要把“代码支持”说成“已启用”。后续保持 `LACE_CONTEXT_MANAGEMENT=auto`，不强制 off。
+- 官方原生 compaction 使用 Responses；官方 Session 摘要示例属于应用侧策略，需要适配。尤其不能直接照搬按 user turns 触发的示例来处理 Phase A 内的一次用户输入及长工具循环。当前没有实现或启用 Chat Completions 客户端摘要压缩。
+- 源码正文、完整 IR/AST、节点/对象清单、GT/修复均未自动注入初始请求。完整输入文件在工作区，源码与窄范围 IR 证据通过工具获取。后端读取源码用于锚点验证不等于模型初始输入。
+- 已清理：Phase A 不再携带 Phase C 复核章节，只有实际启动 C 时切换到复核说明；协议目录的 bibliography/sources 元数据不进入初始消息，但完整目录与来源仍保存在账本。六类问题、Req/Gua 定义、绑定/消解规则未变。
+- 实际 localhost 请求保存为 `initial-model-request.json`。OA/CAN 样例：Phase A 系统说明 14,475 字符；首次 user 输入分别 5,000/4,986 字节；16 个工具的 schema 共 17,116 字节；整个请求约 37 KB。这些是字节/字符，不是 token 或计费数；真实运行启用 repository 工具时接口定义会更多。
+- 远端构建与 5 项 CTest 通过；OA E-only（含 Agent 绑定恢复）及 CAN A→E→C 的 localhost 全流程通过。C 说明按阶段切换且 SDK 历史延续。离线验证 0 真实模型请求；另有上述 1 次失败的真实接口兼容性请求。没有新的七例模型实验。
+- 原始审计记录：远端 `.../lace-initial-context-audit-20261012/`；本地 `../analysis_outputs/lace-initial-context-audit-20261012/`。后续上下文仍会累积已读源码、IR 工具结果及契约轨迹；删除初始源码正文不能代替压缩。
+
 ### 2026-10-12 源码→IR 的 Agent 恢复（优先于后面的旧“歧义直接未知”说明）
 
 - 用户授权：自动源码匹配失败但 IR 有候选时，让 LLM 检查并匹配；操作未进入 supplied IR 则保留未知。

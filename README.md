@@ -80,6 +80,13 @@ Tools:
 - `add_requirement`, `add_guarantee`, `get_obligations`: contract ledger.
 - `review_obligations`, `finalize_contract/review`: validated workflow accounting.
 
+The initial request contains extraction instructions, all catalog questions,
+coverage counts, a directory summary and tool schemas. It does not contain source
+bodies or graph-node lists. Catalog bibliography stays in the audit ledger;
+review instructions are installed only when Phase C starts. Read source and IR
+evidence through tools. Their results still accumulate in conversational history
+when the endpoint cannot provide native compaction.
+
 ## E: implemented rules and their boundaries
 
 The checker is pure JSON code, testable independently of Joern/LLVM/model calls.
