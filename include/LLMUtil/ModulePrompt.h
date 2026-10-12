@@ -32,13 +32,21 @@ Requirements state concurrency safety needs, whether satisfied or violated:
   initialization-before-publication in one activation is not enough by itself.
 * MustBeMediated(A,B): conflicting accesses require applicable ordering,
   exclusion or a compatible atomic protocol. Explain actual resource conflict.
+  A and B are the operations of opposing activations, not one bucket of every
+  access to a state machine. Two overlapping callbacks using different message
+  types/branches may be distinct actors even through the same dispatcher. Put
+  their actual conflicts on opposite sides; a separate timeout relation does
+  not account for callback-versus-callback conflicts.
 * MustBeAtomic(S,I): a logical multi-operation transaction must be protected from
   interfering activations between its steps. Identify the ordered sequence and
   concrete interference_nodes/sources. Related fields can share one transaction.
   Snapshots, validation and retries can change what atomicity is actually needed.
   S must be concrete dependent steps of ONE activation, with opposing actors'
   operations in interference. Do not put opposing actors' steps into S merely
-  because they concern related state. One activation may span helper calls;
+  because they concern related state. S must be feasible along ONE execution
+  path: alternative read/write or success/error branches are not consecutive
+  steps. Represent differing dependent sequences as separate scoped Req rather
+  than concatenating both branches. One activation may span helper calls;
   retain those operands and any unresolved interprocedural ordering as a gap.
   Anchor the operations that
   enforce the stated invariant, not a different field used as a proxy. A broad
@@ -53,6 +61,11 @@ For that Req, a_sources/a_nodes is S in execution order, b_sources/b_nodes is
 empty, and interference_sources/interference_nodes is I from opposing actors.
 For each I explain the source-supported state change it can insert between S's
 steps and the resulting invariant failure for the same instance/generation.
+The same shared instance can be reused for a new message/state generation while
+an older activation still uses it. Include such overwrites when they invalidate
+the older observation; do not assume matching message generations to exclude
+the very interference being investigated. Distinguish slot detach, reference
+acquisition and final reclamation and trace their causal/lifetime protocol.
 Select the actual observation and dependent update/use, with read/write anchors
 on their exact statements; do not replace them with a timer, wake, registration
 or helper invocation that merely accompanies those steps. Include such calls in
@@ -83,9 +96,17 @@ Guarantees state the actual synchronization effect supplied by existing code:
   transaction prefer an Exclude Gua with whole-region evidence.
 Use exact resource/scope labels matching the Req the mechanism can support.
 State the identifiable mechanism, matching participants, applicable domain and
-conditions, including unresolved ones. unconditional=true only when those
-premises are source-established for these operands; it is not an independent
-proof. Conditional Gua remain available for review. An API name, desired safety
+conditions, including unresolved ones. unconditional=true when those
+premises are source-established WITHIN the declared scope for these operands;
+it does not require proof for every caller, unlisted path or the entire Req.
+Same-instance/legal-use domain restrictions describe where an effect applies,
+not missing evidence by themselves. Separate established domain restrictions
+from genuinely unresolved premises in conditions. Use false only for a concrete
+unknown matching, execution, return, admission or mechanism premise; investigate
+that evidence and state what remains unknown. A correct partial Exclude may be
+unconditional for its listed operations even though others remain unprotected.
+This is not an independent proof. Conditional Gua remain available for review.
+An API name, desired safety
 or generic function behavior alone is insufficient for a synchronization claim.
 
 Two brief distinctions:
@@ -104,6 +125,13 @@ Use read/write with the exact lvalue (p->field), or call with the callee name.
 Backend binding combines coordinates with compiler-derived access/callee facts;
 missing or ambiguous matches stay unknown. Bindings are not instance/alias proof. Use narrow spans for actual operations; a whole function excerpt
 is context, not one indivisible event. Source IDs are valid Req/Gua operands.
+Check the returned binding status. If a span includes several source statements
+and several semantic matches, register the actual individual statements rather
+than leaving a function/branch range as one event. If one exact statement still
+has several compiler effects, retain the ambiguity: never pick the first graph
+node. A call that actually implements a relevant copy/update can be anchored as
+that call with source-supported effects; do not invent a store on the pointer
+expression passed to it.
 For a concrete contract that benefits from exact CFG checking, get_operations
 optionally provides paginated IR evidence filtered by source_id or precise
 function/file/lines. Query only the relevant operations; no quota or exhaustive
@@ -127,6 +155,16 @@ an entire function invocation as a callsite. Use batched source registration
 where appropriate. Contract extraction and checklist completion are different:
 a checklist marked reviewed does not establish that its safety relations were
 correctly represented by the submitted operands.
+add_requirement/add_guarantee return extraction diagnostics. no_local_path means
+the pair cannot occur in that order in one local function invocation: inspect
+branches and split alternatives, or explain distinct helper invocations and keep
+that context unsupported. cyclic_local_path is a loop occurrence limitation;
+do not delete real steps or invent ordering to remove it. Before finishing use
+get_contract_diagnostics to revisit binding errors, sequence alternatives and
+Gua applicability. Correct an accepted record by resubmitting its full fields
+with replace_id and a concrete correction_reason; its ID and revision history
+are preserved. Add a new Req for a different valid relation. Do not leave a
+known wrong transaction active merely because a later corrected duplicate exists.
 
 PHASE C: CONTINUING SOURCE REVIEW
 E applies deterministic sufficient rules over Req, Gua and exact IR CFG facts.

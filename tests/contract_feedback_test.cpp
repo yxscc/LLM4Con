@@ -1,0 +1,69 @@
+#include "LLMUtil/ContractFeedback.h"
+#include <iostream>
+#include <stdexcept>
+using J = nlohmann::json;
+void check(bool ok, const char* reason) { if (!ok) throw std::runtime_error(reason); }
+int main() {
+    J nodes = J::array();
+    for (int id : {1,2,3,4,10,11}) nodes.push_back({{"node_id", id}, {"function_id", id < 10 ? 1 : 10},
+        {"origin", "ir"}, {"kind", "load"}, {"file", "test.c"}, {"line", id},
+        {"memory_role", "read"}, {"source_function", "f"}, {"access_paths", {"p.field"}}});
+    J model = {{"nodes", nodes}, {"functions", {{{"function_id",1},{"cfg_complete",true}},
+        {{"function_id",10},{"cfg_complete",true}}}}, {"cfg_edges", {{1,2},{1,3},{2,4},{3,4},{10,11}}}};
+    J atomic = {{"form","MustBeAtomic"}, {"a_nodes",{2,3}}, {"b_nodes",J::array()}, {"interference_nodes",{11}}};
+    const J empty = J::object();
+    auto feedback = [&](const J& r) { return llm_client::contractFeedback(r,model,empty,J::array()); };
+    const J original = model;
+    auto d = feedback(atomic);
+    check(d["sequence_pairs"][0]["status"] == "no_local_path", "Alternative branches silently accepted as one local path");
+    check(model == original, "Extraction feedback changed the static model");
+    check(d["synchronization_established"] == false && d["semantics_verified"] == false, "Reachability claimed synchronization or semantics");
+    atomic["a_nodes"] = {2,4};
+    check(feedback(atomic)["sequence_pairs"][0]["status"] == "local_path", "Valid forward path lost");
+    model["cfg_edges"].push_back({4,1});
+    check(feedback(atomic)["sequence_pairs"][0]["status"] == "cyclic_local_path", "Loop occurrence was treated as unique order");
+    atomic["a_nodes"] = {2,11};
+    check(feedback(atomic)["sequence_pairs"][0]["status"] == "interprocedural_not_checked", "Call/return context invented");
+    model["functions"][0]["cfg_complete"] = false;
+    atomic["a_nodes"] = {2,4};
+    check(feedback(atomic)["sequence_pairs"][0]["status"] == "unbound_or_incomplete_cfg", "Incomplete CFG got a definitive path judgment");
+    model = original;
+    J op = {{"path","test.c"},{"first_line",2},{"last_line",3},{"content","x = p->field; y = p->field;"},
+        {"operation_kind","read"},{"symbol","p->field"},{"function","f"}};
+    J sources = {{"wide",op}};
+    atomic["a_nodes"] = J::array(); atomic["a_sources"] = {"wide","absent"};
+    d = llm_client::contractFeedback(atomic,model,sources,J::array({J{{"path","test.c"}}}));
+    check(d["bindings"][0]["status"] == "ambiguous" && d["bindings"][0]["semantic_match_count"] == 2,
+        "A wide anchor chose an arbitrary node");
+    check(!d["bindings"][0].contains("operation_id"), "Source feedback exposed an invented exact operation ID");
+    check(d["bindings"][1]["status"] == "unknown_source_id", "Unknown source operand disappeared");
+
+    J ledger = {{"requirements",J::array()},{"guarantees",J::array()}};
+    J r = {{"form","MustBeAtomic"},{"a_sources",{"old"}},{"note","old mutually exclusive sequence"}};
+    check(llm_client::storeContract(ledger,r,true)["id"] == "req:0", "Initial Req ID changed");
+    J replacement = r; replacement["a_sources"] = {"read","use"};
+    replacement["replace_id"] = "req:0"; replacement["correction_reason"] = "Separate the alternative branch after reading source";
+    auto revised = llm_client::storeContract(ledger,replacement,true);
+    check(revised["id"] == "req:0" && ledger["requirements"].size() == 1, "Correction created a duplicate active requirement");
+    check(!revised.contains("replace_id") && !revised.contains("correction_reason"), "Revision controls became contract operands");
+    check(ledger["contract_revisions"][0]["previous"]["a_sources"] == J({"old"}), "Original extraction was lost");
+    check(ledger["contract_revisions"][0]["replacement"] == revised, "Correction history differs from active contract");
+    check(llm_client::storeContract(ledger,r,true)["id"] == "req:1", "New ID collides after correction");
+    J g = {{"form","Exclude"},{"unconditional",false},{"note","source-established lock within scope"}};
+    auto stored = llm_client::storeContract(ledger,g,false);
+    check(stored["unconditional"] == false, "Backend inferred applicability from prose");
+    check(feedback(stored)["declared_applicability"] == "unresolved_by_agent", "Conditional guarantee auto-credited");
+    g["replace_id"] = "gua:0"; g["correction_reason"] = "Pinned source establishes the claimed scoped effect"; g["unconditional"] = true;
+    check(llm_client::storeContract(ledger,g,false)["unconditional"] == true, "Explicit applicability correction was ignored");
+    J snapshot = ledger;
+    for (const auto& bad : {J{{"replace_id","req:0"},{"correction_reason","wrong contract kind"}},
+                            J{{"replace_id","gua:0"},{"correction_reason","   "}},
+                            J{{"replace_id","gua:99"},{"correction_reason","absent"}}}) {
+        J args = g; args.update(bad);
+        bool rejected = false;
+        try { llm_client::storeContract(ledger,args,false); }
+        catch (const std::invalid_argument&) { rejected = true; }
+        check(rejected && ledger == snapshot, "Invalid correction mutated or silently added a record");
+    }
+    std::cout << "Contract extraction feedback and revision regressions passed\n";
+}

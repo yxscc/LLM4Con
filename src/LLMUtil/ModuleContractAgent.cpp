@@ -1,5 +1,6 @@
 #include "LLMUtil/ModuleContractAgent.h"
 #include "LLMUtil/OperationBinding.h"
+#include "LLMUtil/ContractFeedback.h"
 #include "LLMUtil/ModulePrompt.h"
 #include "LLMUtil/SharedToolKit.h"
 #include "Util/TargetPath.h"
@@ -16,6 +17,8 @@ Parameter list(const char* name,const char* type,const char* description,bool re
 Parameter choice(const char* name,J values) { return Parameter(name,J{{"type","string"},{"enum",values}},true); }
 Parameter source(const char* name) { return list(name,"string","Validated module source-operation IDs; use instead of numeric operands when no exact operation is bound.",false); }
 Parameter repo() { return list("repository_evidence_ids","string","Cited IDs returned by repository_read; separate from module operation IDs.",false); }
+Parameter replacement() { return Parameter("replace_id", "string", "Optional existing ID of this contract kind to replace in full; empty/omitted adds a new record. The original and correction are retained in revision history.", false); }
+Parameter correction() { return Parameter("correction_reason", "string", "Required with replace_id: concrete source/evidence reason for correcting the previous operands, domain or applicability. Empty/omitted for new records.", false); }
 void nonempty(const J& a,const char* key) { if (a.at(key).get<std::string>().empty()) throw std::invalid_argument(std::string(key)+" must not be empty"); }
 }
 ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG* ccpg,const J& model)
@@ -92,22 +95,24 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
             {list("functions","string","Related module functions; not a coverage quota."),{"summary","string","Protocol, source evidence, assumptions and gaps.",true},choice("status",{"reviewed","unknown"})}});
         tools.push_back({"record_pattern_review","Record how a catalog question was investigated. This accounts for the checklist, not semantic completeness.",
             {{"pattern_id","string","Catalog pattern ID.",true},choice("status",{"reviewed","not_applicable","unknown"}),{"reason","string","Source-based audit position; describe unresolved evidence.",true}}});
-        tools.push_back({"add_requirement","Record one concurrency safety relation; preserve all operands. No static object or entry IDs required.",
+        tools.push_back({"get_contract_diagnostics","Inspect extraction bindings, local sequence reachability and declared Gua applicability. No AST/IR records, semantic proof, HB or E discharge. Correct actual extraction errors with add_requirement/add_guarantee replace_id; preserve unresolved mappings as gaps.",
+            {list("ids","string","Req/Gua IDs; [] for all accepted contracts.")}});
+        tools.push_back({"add_requirement","Record or explicitly replace one concurrency safety relation. Returns extraction diagnostics; no static object or entry IDs required.",
             {choice("form",{"MustPrecede","MustBeAtomic","MustBeMediated"}),{"resource","string","Concrete source resource expression.",true},
              {"scope","string","Stable domain label for same instance, lifetime/generation and activation pairing; use exactly this label on matching Gua.",true},
-             list("actors","string","At least two potential execution activations; two invocations of one function are distinct actors."),
-             list("a_nodes","integer","Exact inspected operation IDs; for atomicity, ordered dependent steps S of one activation."),list("b_nodes","integer","Second operand; [] for atomicity."),
+             list("actors","string","At least two potential execution activations; two invocations of one function are distinct actors. Assign opposing activations to opposite operands/interference, not just to this text list."),
+             list("a_nodes","integer","Exact inspected operation IDs; for atomicity, ordered dependent steps S feasible along one activation's path. Separate mutually exclusive alternatives."),list("b_nodes","integer","Opposing activation's actual conflicting operations for mediation/order; [] for atomicity."),
              source("a_sources"),source("b_sources"),list("interference_nodes","integer","For atomicity, opposing operations I that can invalidate the transaction between S steps; [] otherwise."),source("interference_sources"),
-             list("assumptions","string","Unresolved applicability/coverage premises; [] if source-established."),repo(),{"note","string","Concurrent conflict, actors' source evidence, intended invariant and scope. For atomicity explain the observation, dependent update/use and invalidating interference. Ordinary local order/API prerequisites are not Req.",true}}});
-        tools.push_back({"add_guarantee","Record synchronization supplied by actual code, including scoped non-lock protocols. Pure local order is not an Order Gua.",
+             list("assumptions","string","Unresolved applicability/coverage premises; [] if source-established."),repo(),replacement(),correction(),{"note","string","Concurrent conflict, actors' source evidence, intended invariant and scope. For atomicity explain the observation, dependent update/use and invalidating interference. Ordinary local order/API prerequisites are not Req.",true}}});
+        tools.push_back({"add_guarantee","Record or explicitly replace synchronization supplied by actual code, including scoped non-lock protocols. Applicability is relative to the declared operands/domain; pure local order is not an Order Gua.",
             {choice("form",{"Order","Wait","Exclude","AtomicOp"}),{"resource","string","Resource matching Req.",true},{"scope","string","Exact Req instance/activation domain label.",true},
              list("a_nodes","integer","Predecessor completion events, or protected/atomic operations."),list("b_nodes","integer","Post-handoff continuation operations for Order/Wait; [] otherwise."),
              source("a_sources"),source("b_sources"),{"token","string","Scoped protection/atomic token; empty for Order/Wait.",true},{"mode","string","exclusive/shared for Exclude; empty otherwise.",true},
-             {"conditions","string","Established and unresolved instance/domain/matching/return/requeue premises.",true},{"unconditional","boolean","Applicability and scope established for these operands. Still subject to source review.",true},
+             {"conditions","string","State the established protection domain and any concrete unresolved premise separately. Same-instance and legal API-use domain labels are not themselves unresolved evidence.",true},{"unconditional","boolean","True when source establishes this effect for the declared operands within scope, even if it does not cover other paths or the whole Req. False only for an actual unresolved applicability premise; identify it in conditions. No automatic semantic proof.",true},
              list("evidence_nodes","integer","Actual synchronization operation IDs."),source("evidence_sources"),
              Parameter("regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_node",{{"type","integer"}}},{"end_node",{{"type","integer"}}}}},{"required",{"start_node","end_node"}},{"additionalProperties",false}}},{"description","Exclude: matching acquisition/release boundaries for each protected interval. E requires whole sequence continuously protected; opaque interior calls remain unsupported. [] for other Gua."}},true),
              Parameter("source_regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_source",{{"type","string"}}},{"end_source",{{"type","string"}}}}},{"required",{"start_source","end_source"}},{"additionalProperties",false}}}},false),
-             repo(),{"note","string","Actual mechanism and why it supplies the claimed synchronization effect on this domain.",true}}});
+             repo(),replacement(),correction(),{"note","string","Actual mechanism and why it supplies the claimed synchronization effect on this domain.",true}}});
         tools.push_back({"finalize_contract","Finish after explicitly considering every catalog pattern; unknown positions are retained. No per-object/function quota.",{}});
     } else {
         tools.push_back({"review_obligations","Review every Req, including E discharges. Source-supported reports need a concrete applicable harmful interleaving.",
@@ -171,6 +176,18 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
         }
         if (!ids.empty()&&out.size()!=ids.size()) throw std::invalid_argument("Unknown Req ID"); return out.dump();
     }
+    if (name=="get_contract_diagnostics"&&generating_) {
+        auto ids=args.at("ids").get<std::set<std::string>>(); J out=J::array(); std::set<std::string> found;
+        for (const char* collection:{"requirements","guarantees"}) for (const auto& claim:data_.at(collection)) {
+            const std::string id=claim.at("id"); if (!ids.empty()&&!ids.count(id)) continue;
+            J row={{"id",id},{"form",claim.at("form")},{"resource",claim.at("resource")},{"scope",claim.at("scope")},
+                {"diagnostics",contractFeedback(claim,model_,data_["source_operations"],data_["source_manifest"])}};
+            if (claim.contains("unconditional")) {row["unconditional"]=claim.at("unconditional");row["conditions"]=claim.at("conditions");}
+            out.push_back(row);found.insert(id);
+        }
+        if (!ids.empty()&&found!=ids) throw std::invalid_argument("Unknown Req/Gua ID");
+        return out.dump();
+    }
     if (name=="record_protocol"&&generating_) {
         nonempty(args,"summary"); if (args.at("status")!="reviewed"&&args.at("status")!="unknown") throw std::invalid_argument("Invalid protocol status");
         for (const auto& f:args.at("functions")) if (!functions_.count(f.get<std::string>())&&!hasSourceFunction(f)) throw std::invalid_argument("Unknown module function");
@@ -192,14 +209,11 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
         if (((req&&form!="MustBeAtomic")||form=="Order"||form=="Wait")&&b.empty()&&sb.empty()) throw std::invalid_argument("Operand B required");
         if (form=="MustBeAtomic"&&(a.size()+sa.size()<2||!b.empty()||!sb.empty())) throw std::invalid_argument("Atomic Req needs ordered multi-operation sequence and empty B");
         validRepositoryEvidence(args.value("repository_evidence_ids",J::array()),false);
-        J record=args;
         if (req) {
             auto actors=args.at("actors").get<std::set<std::string>>(); if (actors.size()<2||actors.count("")) throw std::invalid_argument("At least two distinct execution activations required");
             auto ni=validNodes(args,"interference_nodes",false); auto si=validSources(args,"interference_sources");
             if (!ni.empty()&&!si.empty()) throw std::invalid_argument("Use one interference namespace");
             for (const auto& premise:args.at("assumptions")) if (!premise.is_string()) throw std::invalid_argument("Assumptions must be text");
-            record["id"]="req:"+std::to_string(data_["requirements"].size()); record["origin"]="source_agent";
-            data_["requirements"].push_back(record);
         } else {
             auto ev=validNodes(args,"evidence_nodes",false); auto se=validSources(args,"evidence_sources");
             if (ev.empty()&&se.empty()) throw std::invalid_argument("Synchronization evidence required"); nonempty(args,"conditions");
@@ -208,9 +222,10 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             if (!args.at("unconditional").is_boolean()) throw std::invalid_argument("unconditional must be boolean");
             for (const auto& region:args.at("regions")) { validNodes(J{{"boundary",{region.at("start_node"),region.at("end_node")}}},"boundary"); }
             for (const auto& region:args.value("source_regions",J::array())) validSources(J{{"bounds",{region.at("start_source"),region.at("end_source")}}},"bounds");
-            record["id"]="gua:"+std::to_string(data_["guarantees"].size()); data_["guarantees"].push_back(record);
         }
-        save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false}}.dump();
+        auto diagnostics=contractFeedback(args,model_,data_["source_operations"],data_["source_manifest"]);
+        auto record=storeContract(data_,args,req);
+        save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false},{"diagnostics",diagnostics}}.dump();
     }
     if (name=="finalize_contract"&&generating_) {
         J missing=J::array(); for (const auto& p:catalog_["patterns"]) if (!data_["pattern_reviews"].contains(p.at("id"))) missing.push_back(p.at("id"));

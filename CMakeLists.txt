@@ -19,7 +19,7 @@ add_executable(llm_detector
     src/Query/ModuleFinding.cpp
     src/LLMUtil/SDKBridge.cpp src/LLMUtil/LLMClient.cpp src/LLMUtil/Conversation.cpp
     src/LLMUtil/SharedToolKit.cpp src/LLMUtil/ModuleContractAgent.cpp src/LLMUtil/ModuleRepository.cpp
-    src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
+    src/LLMUtil/OperationBinding.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
 target_link_libraries(llm_detector PRIVATE lace_static_core)
 add_executable(contract_replay src/contract_replay.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp)
 llvm_map_components_to_libnames(LACE_IR_LIBRARIES core irreader analysis support)
@@ -32,6 +32,8 @@ if(BUILD_TESTING)
     add_test(NAME complete_module_graph COMMAND module_graph_test)
     add_executable(requirement_checker_test tests/requirement_checker_test.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp)
     add_test(NAME requirement_checker COMMAND requirement_checker_test)
+    add_executable(contract_feedback_test tests/contract_feedback_test.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/OperationBinding.cpp)
+    add_test(NAME contract_feedback COMMAND contract_feedback_test)
     find_program(LACE_TEST_CLANG NAMES clang-16 clang HINTS ${LLVM_TOOLS_BINARY_DIR} REQUIRED)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ir_source_facts_fixture.ll
         COMMAND ${LACE_TEST_CLANG} -O0 -g -fno-discard-value-names -S -emit-llvm
