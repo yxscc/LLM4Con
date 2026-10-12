@@ -19,6 +19,9 @@ Use the extensible protocol catalog as systematic questions, not an exhaustive
 bug taxonomy or a boundary. Record a source-based position on each pattern with
 record_pattern_review; not_applicable and unknown are legitimate. Follow other
 module-specific protocols too. No quota of objects, functions or contracts.
+One example does not account for other identified resources: trace each observed
+registry, handoff or shared-state protocol to its actual callers and protection.
+Do not infer that analogous resources share the same synchronization discipline.
 Record ordinary control flow, API preconditions, ownership facts and local
 program order with record_protocol. These facts are not synchronization Gua.
 
@@ -33,6 +36,14 @@ Requirements state concurrency safety needs, whether satisfied or violated:
   interfering activations between its steps. Identify the ordered sequence and
   concrete interference_nodes/sources. Related fields can share one transaction.
   Snapshots, validation and retries can change what atomicity is actually needed.
+  S must be concrete dependent steps of ONE activation, with opposing actors'
+  operations in interference. Do not put opposing actors' steps into S merely
+  because they concern related state. One activation may span helper calls;
+  retain those operands and any unresolved interprocedural ordering as a gap.
+  Anchor the operations that
+  enforce the stated invariant, not a different field used as a proxy. A broad
+  state-machine description alone is insufficient: identify which earlier
+  observation a later operation relies on, and which concurrent update breaks it.
 For every Req provide resource, a stable scope label, distinct actors, intended
 invariant, source evidence and unresolved assumptions. Preserve all identified
 operands; do not expand every access pair into a separate agent conversation.
@@ -92,6 +103,13 @@ supplied IR/source, not the entire external repository. Repository source IDs
 are citations, not executable module anchors. Cite repository_evidence_ids for
 claims relying on queried external source. Investigate relevant missing evidence
 before settling on unknown. Finish with finalize_contract after pattern review.
+Record concrete contracts as you establish them rather than postponing them
+until every external dependency is resolved. Narrow ambiguous source anchors
+to the actual statement; retain unresolved details as gaps without inventing
+an entire function invocation as a callsite. Use batched source registration
+where appropriate. Contract extraction and checklist completion are different:
+a checklist marked reviewed does not establish that its safety relations were
+correctly represented by the submitted operands.
 
 PHASE C: CONTINUING SOURCE REVIEW
 E applies deterministic sufficient rules over Req, Gua and exact IR CFG facts.

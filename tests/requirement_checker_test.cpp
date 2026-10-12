@@ -47,6 +47,14 @@ int main() {
     J ag=g; ag["form"]="AtomicOp"; ag["token"]="obj"; ag["a_nodes"]={2,3,12}; ag["b_nodes"]=J::array();
     for (auto& n:model["nodes"]) n["atomic"]=true;
     check(result(J::array({ag}))["status"]=="undischarged","Individual atomic operations discharge whole transaction");
+    r["a_nodes"]={2};
+    check(result()["e_candidate"]==false,"One remaining step reported as an atomicity defect");
+    r["a_nodes"]={2,12};
+    check(result()["e_candidate"]==false,"Different activation functions treated as one atomic sequence");
+    r["a_nodes"]={2,3};
+    r["a_sources"]={"unbound-step"};
+    check(result()["e_candidate"]==false,"Dropped source sequence step still produced an atomicity candidate");
+    r.erase("a_sources");
     r["interference_nodes"]=J::array();
     check(result(J::array({ag}))["status"]=="requires_semantic_review","Empty interference domain means safe transaction");
     r["form"]="MustBeMediated"; r["a_nodes"]={2}; r["b_nodes"]={12};

@@ -105,7 +105,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--no-review", action="store_true", help="Disable final Agent review in every case")
     parser.add_argument("--jobs", type=int, default=2)
-    parser.add_argument("--max-turns", type=int, default=96)
+    parser.add_argument("--max-turns", type=int, default=0, help="Optional per-phase cap; 0 disables it (default).")
     args = parser.parse_args()
     if args.jobs < 1 or args.max_turns < 0:
         parser.error("jobs >= 1 and max-turns >= 0")

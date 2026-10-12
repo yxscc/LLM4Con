@@ -1,17 +1,87 @@
 {
   "schema": "lace-protocol-catalog-v1",
-  "version": "1.0",
+  "version": "1.1",
   "scope": "Heuristic auditing prompts for interleaving safety; neither an exhaustive taxonomy nor a completeness proof. Add patterns without changing the graph builder or checker.",
   "sources": [
-    {"title": "A Comprehensive Study of Concurrency Bugs in the Linux Kernel (ICSE 2026)", "url": "https://www.cs.purdue.edu/homes/pfonseca/papers/icse26-concurrencybugstudy.pdf", "use": "Empirical motivation for order/atomicity violations, driver control paths, interrupts and synchronization misuse. The patterns below are our operational synthesis, not the paper's taxonomy."},
-    {"title": "Linux workqueue documentation", "url": "https://docs.kernel.org/core-api/workqueue.html", "use": "Cancellation, flushing and requeue semantics; inspect the input's pinned version before relying on API details."}
+    {
+      "title": "A Comprehensive Study of Concurrency Bugs in the Linux Kernel (ICSE 2026)",
+      "url": "https://www.cs.purdue.edu/homes/pfonseca/papers/icse26-concurrencybugstudy.pdf",
+      "use": "Empirical motivation for order/atomicity violations, driver control paths, interrupts and synchronization misuse. The patterns below are our operational synthesis, not the paper's taxonomy."
+    },
+    {
+      "title": "Linux workqueue documentation",
+      "url": "https://docs.kernel.org/core-api/workqueue.html",
+      "use": "Cancellation, flushing and requeue semantics; inspect the input's pinned version before relying on API details."
+    }
   ],
   "patterns": [
-    {"id": "resource-retirement", "questions": ["What object is freed or retired? Which activations can still use it?", "What stops admission and completes all outstanding uses before reclamation? Include error and partially initialized paths."], "requirements": ["MustPrecede", "MustBeMediated"]},
-    {"id": "async-revocation", "questions": ["Trace each work item, timer, interrupt or callback from registration to execution and cancellation.", "Can another activation requeue or rearm after cancellation? Does the wait cover the correct instance and all outstanding executions?"], "requirements": ["MustPrecede", "MustBeAtomic"]},
-    {"id": "initialization-publication", "questions": ["Which operation makes state reachable by another activation? What must that activation observe initialized?", "Trace the actual handoff and lifetime/visibility mechanism. Local initialization order alone is not synchronization."], "requirements": ["MustPrecede", "MustBeMediated"]},
-    {"id": "compound-state", "questions": ["Which checks, updates and related fields implement one logical transaction?", "What interfering activation can invalidate its invariant between steps? Include shared counters, length/buffer pairs, state transitions, retry and validation protocols."], "requirements": ["MustBeAtomic", "MustBeMediated"]},
-    {"id": "ownership-handoff", "questions": ["How are references, lookup results and ownership transferred between activations?", "Does a reference protect the actual resource being used, or only its containing device? Inspect RCU/grace-period and refcount boundaries."], "requirements": ["MustPrecede", "MustBeMediated"]},
-    {"id": "interrupt-and-protection-domain", "questions": ["Which operations may overlap in process, interrupt, softirq or per-CPU contexts?", "Do locks, interrupt/BH disabling and atomics protect the same resource instance and all relevant contexts? Is an entire transaction continuously protected?"], "requirements": ["MustBeMediated", "MustBeAtomic"]}
+    {
+      "id": "resource-retirement",
+      "questions": [
+        "What object is freed or retired? Which activations can still use it?",
+        "What stops admission and completes all outstanding uses before reclamation? Include error and partially initialized paths."
+      ],
+      "requirements": [
+        "MustPrecede",
+        "MustBeMediated"
+      ]
+    },
+    {
+      "id": "async-revocation",
+      "questions": [
+        "Trace each work item, timer, interrupt or callback from registration to execution and cancellation.",
+        "Can another activation requeue or rearm after cancellation? Does the wait cover the correct instance and all outstanding executions?"
+      ],
+      "requirements": [
+        "MustPrecede",
+        "MustBeAtomic"
+      ]
+    },
+    {
+      "id": "initialization-publication",
+      "questions": [
+        "Which operation makes state reachable by another activation? What must that activation observe initialized?",
+        "Trace the actual handoff and lifetime/visibility mechanism. Local initialization order alone is not synchronization."
+      ],
+      "requirements": [
+        "MustPrecede",
+        "MustBeMediated"
+      ]
+    },
+    {
+      "id": "compound-state",
+      "questions": [
+        "Which checks, updates and related fields implement one logical transaction?",
+        "What interfering activation can invalidate its invariant between steps? Include shared counters, length/buffer pairs, state transitions, retry and validation protocols."
+      ],
+      "requirements": [
+        "MustBeAtomic",
+        "MustBeMediated"
+      ]
+    },
+    {
+      "id": "ownership-handoff",
+      "questions": [
+        "How are references, lookup results and ownership transferred between activations?",
+        "Does a reference protect the actual resource being used, or only its containing device? Inspect RCU/grace-period and refcount boundaries.",
+        "For every identified registry or lookup/retirement protocol, inspect its own traversal, mutation and caller protection; do not use one analogous registry as evidence for all others."
+      ],
+      "requirements": [
+        "MustPrecede",
+        "MustBeMediated"
+      ]
+    },
+    {
+      "id": "interrupt-and-protection-domain",
+      "questions": [
+        "Which operations may overlap in process, interrupt, softirq or per-CPU contexts?",
+        "Do locks, interrupt/BH disabling and atomics protect the same resource instance and all relevant contexts? Is an entire transaction continuously protected?",
+        "Can concurrent invocations of the same function access the same instance? Include plain scalar/pointer accesses, compiler access atomicity, and shared state not covered by a teardown or multi-step transaction."
+      ],
+      "requirements": [
+        "MustBeMediated",
+        "MustBeAtomic"
+      ]
+    }
   ]
 }

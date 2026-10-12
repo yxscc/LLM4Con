@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--no-review', action='store_true')
     parser.add_argument('--catalog', type=Path)
     parser.add_argument('--source-anchors', action='store_true', help='Exercise synthetic source-only report output')
+    parser.add_argument('--exhaust-after-contract', action='store_true', help='Verify budget exhaustion still runs E on accepted partial contracts')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     state = {'calls': 0, 'step': 'start', 'phase': 'A'}
@@ -171,13 +172,24 @@ def main():
                NO_PROXY='127.0.0.1,localhost', no_proxy='127.0.0.1,localhost', LACE_PROTOCOL_CATALOG=str(args.catalog.resolve()) if args.catalog else str(repo/'config/protocol_catalog.json'))
     env.pop('LACE_MODEL_API', None)
     try:
-        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []), env=env,
+        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []) + (['--max-turns', '12'] if args.exhaust_after_contract else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
-        assert code == 0, f'Native workflow failed; see {args.output}/run.log'
+        assert code == (2 if args.exhaust_after_contract else 0), f'Unexpected native exit; see {args.output}/run.log'
         manifest = json.loads((args.output/'run.json').read_text())
         report_path = Path(manifest['report']); report = json.loads(report_path.read_text())
         model = json.loads((report_path.parent/'module_model.json').read_text())
+        if args.exhaust_after_contract:
+            assert state['calls'] == 12 and state['phase'] == 'A'
+            assert len(report['requirements']) == 1 and 'req:0' in report['checks']
+            assert report['coverage']['e_finished'] and not report['coverage']['generation_finished']
+            assert not report['coverage']['workflow_complete'] and report['partial_extraction']
+            assert report['review_disabled'] and not report['reviews']
+            assert 'MaxTurnsExceeded' in report['error'] and manifest['exit_code'] == 2
+            assert (report_path.parent/'stateful_bugs/reports.json').is_file()
+            print(json.dumps({'budget_exhaustion_regression': True, 'real_model_calls': 0,
+                              'scripted_calls': state['calls'], 'coverage': report['coverage']}))
+            return
         assert model['parallel_entries_inferred'] is False
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']

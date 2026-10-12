@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--revision", help="Full commit SHA for all repository queries; must match the target source")
     parser.add_argument("--autoconf", type=Path, help="Generated kernel autoconf.h from the IR build; forwarded to CPG preprocessing. Its hash is recorded, but existing IR provenance is not inferred.")
     parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parents[1] / "Release-build/llm_detector")
-    parser.add_argument("--max-turns", type=int, default=32, help="Per-phase execution budget; exhaustion is an incomplete error, never truncation of obligations.")
+    parser.add_argument("--max-turns", type=int, default=0, help="Optional per-phase execution cap (0: no cap, default). Exhaustion remains an incomplete run.")
     args = parser.parse_args()
     if not args.source.is_dir() or not args.bitcode.is_file():
         parser.error("--source must be an existing directory and --bitcode an existing matching IR file")

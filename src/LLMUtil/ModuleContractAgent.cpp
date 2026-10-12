@@ -246,7 +246,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
     throw std::invalid_argument("Unknown tool or wrong phase");
 }
 void ModuleContractAgent::review(const J& checks) {
-    generating_=false; data_["checks"]=checks; save();
+    generating_=false; data_["checks"]=checks; data_["e_finished"]=true;save();
     try {
         send_message("Phase C. Continue in this SAME conversation. Review ALL Req using get_obligations, including E discharges. "
             "E implements sufficient deterministic rules under declared Gua premises. Undischarged does not mean a feasible counterexample; "
@@ -256,7 +256,8 @@ void ModuleContractAgent::review(const J& checks) {
     } catch (const std::exception& e) { save(e.what()); throw; }
 }
 void ModuleContractAgent::finishWithoutReview(const J& checks) {
-    data_["checks"]=checks; data_["review_disabled"]=true; save();
+    data_["checks"]=checks; data_["review_disabled"]=true;
+    data_["e_finished"]=true;data_["partial_extraction"]=!generationFinished_;save();
 }
 std::vector<query::ModuleFinding> ModuleContractAgent::findings() const {
     std::vector<query::ModuleFinding> out;
@@ -292,7 +293,7 @@ void ModuleContractAgent::save(const std::string& error) const {
         {"accounted_patterns",data_["pattern_reviews"].size()},{"unknown_positions",unknown},{"source_anchors_without_ir_candidates",unmapped},
         {"generation_finished",generationFinished_},{"review_finished",reviewFinished_},
         {"review_disabled",data_.value("review_disabled",false)},
-        {"e_finished",data_["checks"].size()==data_["requirements"].size()&&generationFinished_},
+        {"e_finished",data_.value("e_finished",false)},
         {"workflow_complete",error.empty()&&generationFinished_&&(reviewFinished_||data_.value("review_disabled",false))},
         {"scope","Workflow accounting and supplied-input graph coverage; no guarantee that all concurrency requirements were extracted or proved"}};
     if (!error.empty()) report["error"]=error;

@@ -140,8 +140,12 @@ Optional `--autoconf` must be the actual configuration used to compile the IR;
 source/config/IR equivalence is not inferred merely from providing a header.
 `--static-only` on the runner also permits a graph-only run without credentials.
 Entry configuration and `--only-thread-entry` are removed rather than silently
-limiting graph scope. Turn budget exhaustion preserves partial evidence and
-reports incomplete execution; no requirement sampling is performed.
+limiting graph scope. The runner defaults to `--max-turns 0` (no turn cap),
+letting the validated finish tool terminate extraction. An explicit positive
+cap is an execution guard, not an algorithmic coverage boundary. Exhaustion
+still runs E on accepted partial contracts, disables final review, preserves
+the error/nonzero exit and marks extraction incomplete. No requirement sampling
+is performed; partial E reports do not imply complete analysis.
 
 ## Validation and interpretation
 
@@ -168,4 +172,4 @@ Source anchors optionally supply `operation_kind`, `symbol` and `function`. Bind
 
 Each E record saves operand bindings, resolved IR operations, every Gua's eligibility/rejection reasons, rules attempted, CFG bypasses, and discharge facts. Requirement applicability assumptions no longer prevent checking independently grounded graph relations. Failed combinations produce `static_contract_candidate` reports with `origin: deterministic_E`; they are candidates, not proved feasible interleavings. A partially resolved requirement cannot be discharged.
 
-`Release-build/contract_replay model.json contracts.json checks.json` reruns binding/E without any model request. Preserve original ledgers; save replay results separately. `harness/diagnose_case.py` is an offline evaluator that combines runtime facts with GT sites and explicit semantic annotations. It separates (1) graph coordinate coverage and actual binding, (2) Gua correctness, (3) Req correctness, (4) E composition. Semantic correctness defaults to `not_assessed`, never inferred from schema acceptance. An absent Gua can correctly reflect missing synchronization in buggy code. Multiple failures may coexist. GT expectations/annotations are never passed to the detector.
+`Release-build/contract_replay model.json contracts.json checks.json` reruns binding/E without any model request. Preserve original ledgers; save replay results separately. Failure attribution is a manual reading of the final report, complete tool trajectory, structured contracts, source and historical fix. Assess graph coverage/binding, Gua semantics, Req semantics and E composition separately. Runtime diagnostics help locate evidence; schema acceptance and automated GT-site matches do not establish correctness or recall. GT/fixes are never passed to the detector.

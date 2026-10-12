@@ -22,7 +22,8 @@ def test_endpoint_normalization():
 
 
 @pytest.mark.parametrize("route", ["/v1/chat/completions", "/gateway/custom/completion"])
-def test_official_runner_tool_cycle_and_continuation(route):
+@pytest.mark.parametrize("turn_cap", [0, 5])
+def test_official_runner_tool_cycle_and_continuation(route, turn_cap):
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -56,7 +57,7 @@ def test_official_runner_tool_cycle_and_continuation(route):
         "model": "offline-test", "instructions": "Inspect evidence", "input": "module source " + "x" * 70000,
         "history": [], "tools": [{"name": "read_evidence", "description": "Read a node",
             "parameters": {"type": "object", "properties": {"node": {"type": "integer"}}, "required": ["node"]}}],
-        "max_turns": 5}
+        "max_turns": turn_cap}
     try:
         proc = subprocess.Popen([sys.executable, str(WORKER)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True)

@@ -248,10 +248,13 @@ J checkModuleRequirements(const J& requirements,const J& inputGuarantees,const J
         bool success=!missing&&!a.empty(); J failed=J::array();
         const std::string form=r.at("form");
         if (form=="MustBeAtomic") {
+            bool sequenceUsable=a.size()>=2;
+            for (const auto& binding:r.at("bindings")) if (binding.at("operand")=="a"&&binding.at("status")!="bound") sequenceUsable=false;
+            for (int n:a) if (!graph.available(n)) sequenceUsable=false;
             if (a.size()<2||interference.empty()) { success=false; missing=true; gaps.push_back({{"kind","atomic_sequence_or_interference_domain_missing"}}); }
             // Local sequence order is a premise, not synchronization.
-            for (size_t i=1;i<a.size();++i) if (!graph.before(a[i-1],a[i])) { success=false; gaps.push_back({{"kind","sequence_order_not_established"},{"a",a[i-1]},{"b",a[i]}}); }
-            if (!a.empty()) for (int n:interference) if (graph.available(n)&&std::all_of(a.begin(),a.end(),[&](int x){return graph.available(x);}))
+            for (size_t i=1;i<a.size();++i) if (!graph.before(a[i-1],a[i])) { success=false;missing=true;sequenceUsable=false;gaps.push_back({{"kind","sequence_order_not_established"},{"a",a[i-1]},{"b",a[i]}}); }
+            if (sequenceUsable) for (int n:interference) if (graph.available(n))
                 if (!ordered(a.back(),n)&&!ordered(n,a.front())&&!excluded(a,n)) { success=false; failed.push_back({{"sequence",a},{"interference",n}}); }
         } else {
             if (b.empty()) { missing=true; success=false; gaps.push_back({{"kind","second_operand_missing"}}); }
