@@ -137,6 +137,8 @@ def main():
                 "binary_sha256": sha256(project / "Release-build/llm_detector"),
                 "model": os.environ.get("LLM_MODEL"), "max_turns_per_phase": args.max_turns,
                 "jobs": args.jobs, "model_api": os.environ.get("LACE_MODEL_API", "chat_completions"),
+                "context_management_requested": os.environ.get("LACE_CONTEXT_MANAGEMENT", "auto"),
+                "compaction_threshold": os.environ.get("LACE_COMPACT_THRESHOLD", "sdk_default"),
                 "reasoning_effort": os.environ.get("LACE_REASONING_EFFORT", "provider default"),
                 "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "ground_truth_files_loaded": False, "review_disabled": args.no_review, "results": {}}

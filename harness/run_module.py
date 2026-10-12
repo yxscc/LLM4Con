@@ -65,6 +65,8 @@ def main():
     manifest = {"model": args.model, "harness": "openai-agents", "max_turns_per_phase": args.max_turns,
                 "sdk_versions": {name: importlib.metadata.version(name) for name in ("openai", "openai-agents")},
                 "model_api": env.get("LACE_MODEL_API", "chat_completions"),
+                "context_management_requested": env.get("LACE_CONTEXT_MANAGEMENT", "auto"),
+                "compaction_threshold": env.get("LACE_COMPACT_THRESHOLD", "sdk_default"),
                 "reasoning_effort": env.get("LACE_REASONING_EFFORT", "provider default"),
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
                 "entry_mode": "not_inferred", "graph_scope": "complete_input_module",

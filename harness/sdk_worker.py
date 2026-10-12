@@ -1,7 +1,7 @@
 """Official OpenAI/Agents SDK runtime for the C++ static-analysis tool service.
 
-One Runner invocation per request. No handwritten model/tool loop and no history
-truncation. stdout is reserved for IPC; credentials are never persisted.
+One Runner invocation per request. Native SDK compaction manages model context;
+the original history remains available for auditing. stdout is reserved for IPC.
 """
 import asyncio
 import json
@@ -46,6 +46,26 @@ def endpoint_mode(endpoint):
 
 def emit(value):
     print(json.dumps(value, ensure_ascii=False), flush=True)
+
+
+def context_management(model_api, model):
+    """Use the SDK capability; never emulate compaction by dropping old messages."""
+    mode = os.getenv('LACE_CONTEXT_MANAGEMENT', 'auto')
+    if mode not in ('auto', 'native', 'off'):
+        raise ValueError('LACE_CONTEXT_MANAGEMENT must be auto, native or off')
+    if mode == 'off' or (mode == 'auto' and model_api == 'chat_completions'):
+        return None, {'requested': mode, 'enabled': False,
+                      'reason': 'explicitly_disabled' if mode == 'off' else 'responses_api_required'}
+    if model_api != 'responses':
+        raise ValueError('SDK native compaction requires LACE_MODEL_API=responses and a Responses-compatible endpoint')
+    from agents.sandbox.capabilities import Compaction, StaticCompactionPolicy
+    threshold = os.getenv('LACE_COMPACT_THRESHOLD')
+    if threshold is not None and int(threshold) <= 0:
+        raise ValueError('LACE_COMPACT_THRESHOLD must be positive')
+    capability = Compaction(policy=StaticCompactionPolicy(threshold=int(threshold))) if threshold else Compaction()
+    settings = capability.sampling_params({'model': model})
+    return capability, {'requested': mode, 'enabled': True, 'implementation': 'agents.sandbox.Compaction',
+                        **settings}
 
 
 async def run(request):
@@ -94,13 +114,19 @@ async def run(request):
             return ToolsToFinalOutputResult(is_final_output=tool_finished,
                                             final_output="finish" if tool_finished else None)
 
-        model_class = (OpenAIResponsesModel if os.getenv("LACE_MODEL_API", "chat_completions") == "responses"
+        model_api = os.getenv('LACE_MODEL_API', 'chat_completions')
+        if model_api not in ('chat_completions', 'responses'):
+            raise ValueError('LACE_MODEL_API must be chat_completions or responses')
+        compaction, context_config = context_management(model_api, request['model'])
+        model_class = (OpenAIResponsesModel if model_api == "responses"
                        else OpenAIChatCompletionsModel)
         reasoning = os.getenv("LACE_REASONING_EFFORT")
         agent = Agent(name="LACE", instructions=request["instructions"],
                       model=model_class(model=request["model"], openai_client=client),
                       model_settings=ModelSettings(parallel_tool_calls=False,
                           reasoning=Reasoning(effort=reasoning) if reasoning else None,
+                          store=False if model_api == 'responses' else None,
+                          extra_args=compaction.sampling_params({'model': request['model']}) if compaction else None,
                           tool_choice=request.get("tool_choice", "auto") if request["tools"] else None),
                       tools=[make_tool(t) for t in request["tools"]], tool_use_behavior=finished,
                       # SDK defaults reset tool_choice after the first call.
@@ -112,11 +138,20 @@ async def run(request):
         # None means no turn cap; a user-selected cap raises MaxTurnsExceeded,
         # which the parent records as an incomplete run, never a clean result.
         turns = request.get("max_turns") or None
+        # The Runner owns the loop. Its input hook delegates context reduction
+        # to the SDK's opaque compaction item handling; accepted contracts remain
+        # in the C++ ledger, never reconstructed from a compressed summary.
+        def compact_input(data):
+            from agents.run_config import ModelInputData
+            return ModelInputData(input=compaction.process_context(data.model_data.input),
+                                  instructions=data.model_data.instructions)
         result = await Runner.run(agent, history, max_turns=turns,
-                                  run_config=RunConfig(tracing_disabled=True))
+                                  run_config=RunConfig(tracing_disabled=True,
+                                      call_model_input_filter=compact_input if compaction else None))
         usage = result.context_wrapper.usage
         return {"event": "result", "history": result.to_input_list(),
                 "output": result.final_output, "tool_finished": tool_finished,
+                "context_management": context_config,
                 "usage": {"requests": usage.requests, "input_tokens": usage.input_tokens,
                           "output_tokens": usage.output_tokens}}
 
