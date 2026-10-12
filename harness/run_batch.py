@@ -139,6 +139,7 @@ def main():
                 "jobs": args.jobs, "model_api": os.environ.get("LACE_MODEL_API", "chat_completions"),
                 "context_management_requested": os.environ.get("LACE_CONTEXT_MANAGEMENT", "auto"),
                 "compaction_threshold": os.environ.get("LACE_COMPACT_THRESHOLD", "sdk_default"),
+                "source_access": "sdk_exec_command_write_stdin_read_only_workspace",
                 "reasoning_effort": os.environ.get("LACE_REASONING_EFFORT", "provider default"),
                 "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "ground_truth_files_loaded": False, "review_disabled": args.no_review, "results": {}}

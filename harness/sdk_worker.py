@@ -118,6 +118,12 @@ async def run(request):
         if model_api not in ('chat_completions', 'responses'):
             raise ValueError('LACE_MODEL_API must be chat_completions or responses')
         compaction, context_config = context_management(model_api, request['model'])
+        native_tools, source_session, source_config = [], None, None
+        if request.get('source_root') or request.get('contract_path'):
+            if not request.get('source_root') or not request.get('contract_path'):
+                raise ValueError('SDK source tools require source_root and contract_path together')
+            from source_workspace import source_tools
+            native_tools, source_session, source_config = await source_tools(request)
         model_class = (OpenAIResponsesModel if model_api == "responses"
                        else OpenAIChatCompletionsModel)
         reasoning = os.getenv("LACE_REASONING_EFFORT")
@@ -128,7 +134,7 @@ async def run(request):
                           store=False if model_api == 'responses' else None,
                           extra_args=compaction.sampling_params({'model': request['model']}) if compaction else None,
                           tool_choice=request.get("tool_choice", "auto") if request["tools"] else None),
-                      tools=[make_tool(t) for t in request["tools"]], tool_use_behavior=finished,
+                      tools=[make_tool(t) for t in request["tools"]]+native_tools, tool_use_behavior=finished,
                       # SDK defaults reset tool_choice after the first call.
                       # Structured workflows must retain it until their validated
                       # finish tool succeeds (or the explicit budget is hit).
@@ -145,13 +151,25 @@ async def run(request):
             from agents.run_config import ModelInputData
             return ModelInputData(input=compaction.process_context(data.model_data.input),
                                   instructions=data.model_data.instructions)
-        result = await Runner.run(agent, history, max_turns=turns,
-                                  run_config=RunConfig(tracing_disabled=True,
-                                      call_model_input_filter=compact_input if compaction else None))
+        try:
+            result = await Runner.run(agent, history, max_turns=turns,
+                                      run_config=RunConfig(tracing_disabled=True,
+                                          call_model_input_filter=compact_input if compaction else None))
+        except BaseException:
+            if source_session is not None:
+                try:
+                    await source_session.aclose()
+                except Exception as cleanup_error:
+                    print('SDK source cleanup also failed: '+type(cleanup_error).__name__, file=sys.stderr)
+            raise
+        else:
+            if source_session is not None:
+                await source_session.aclose()
         usage = result.context_wrapper.usage
         return {"event": "result", "history": result.to_input_list(),
                 "output": result.final_output, "tool_finished": tool_finished,
                 "context_management": context_config,
+                "source_tools": source_config,
                 "usage": {"requests": usage.requests, "input_tokens": usage.input_tokens,
                           "output_tokens": usage.output_tokens}}
 

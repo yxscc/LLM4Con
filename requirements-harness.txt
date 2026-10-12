@@ -2,3 +2,4 @@
 openai==3.26.0
 openai-agents==0.23.1
 httpx2>=2.12.0,<3
+# Linux source-workspace execution also needs bubblewrap (or LACE_SOURCE_BWRAP).

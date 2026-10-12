@@ -15,8 +15,10 @@ sufficient-discharge rules over the complete input graph, then continues the
    Functions are analysis units, **not inferred parallel entries**. No TCT,
    shared-object surface, automatic Req generation or entry-limited graph is
    used in this workflow. The queried external repository is not all compiled.
-3. The agent receives complete line-numbered module source, graph coverage and
-   an extensible protocol catalog. It identifies overlapping actors from source
+3. The agent receives a complete source-directory index, graph coverage and
+   an extensible protocol catalog. All original source files are available in
+   a read-only workspace through the SDK's native `exec_command/write_stdin`;
+   source bodies are not pasted into the initial prompt. It identifies overlapping actors from source
    evidence and records resource protocols, Req and Gua. Detailed graph facts
    are obtained through paginated tools; they do not restrict source auditing.
 4. E checks each Req using scoped Gua and exact IR control-flow relations.
@@ -62,6 +64,7 @@ that the model's synchronization interpretation or concurrency claim is true.
 
 Tools:
 
+- SDK `exec_command/write_stdin`: source listing/search/reads and live raw contract queries in the read-only workspace.
 - `get_module_functions`: paginated source/IR function inventory.
 - `get_operations`: optional, paginated **IR-only** evidence by source ID or function/file/lines. AST operation queries are rejected.
 - `get_source_operation(s)`: validates source path/lines/text and reports an unbound IR candidate count; returns no graph nodes, even for whole-function spans. A unique debug-line candidate is not automatically bound.
@@ -126,6 +129,28 @@ Requires LLVM/Phasar, Joern, Graphviz and the Python dependencies in
 CTest. Python calls/tools use the official OpenAI SDK and Agents SDK; C++ owns
 static model construction and contract validation. Existing transport keeps
 cross-phase history; this refactor does not replace the SDK harness.
+
+The source workspace uses the SDK's `ExecCommandTool/WriteStdinTool`, including
+its PTY handling and output formatting. Linux execution requires bubblewrap
+(`bwrap` in PATH or `LACE_SOURCE_BWRAP`). Only supplied source files and the live,
+read-only `contract_state.json` ledger are exposed. Native tool observations are
+saved in `sdk_source_tools.jsonl`, including when extraction fails. External
+Linux dependencies remain pinned repository queries; AST and full IR stay in
+the static backend.
+
+Native context management reuses the SDK's `Compaction` capability and Runner
+input hook. `LACE_CONTEXT_MANAGEMENT=auto` enables it on the Responses path;
+`native` explicitly requires `LACE_MODEL_API=responses`, and `off` disables it.
+`LACE_COMPACT_THRESHOLD` is optional; the default is the SDK policy. Full audit
+history is retained, while later model requests use the SDK's opaque compaction
+items. Chat Completions does not silently emulate this feature. The existing
+experimental gateway rejected the standard Responses compatibility probe, so
+actual native compaction is pending a compatible endpoint; the model is unchanged.
+
+The proposed completion/state/relation changes are documented in
+[AGENT_RELATION_DESIGN_20261012.md](docs/AGENT_RELATION_DESIGN_20261012.md).
+The current E still uses resource/scope label matching; independent Gua relation
+construction is a design, not an implemented result.
 
 ```sh
 Release-build/llm_detector --input-src /path/module --input-bc /path/merged.ll --static-only

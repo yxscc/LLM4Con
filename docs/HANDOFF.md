@@ -4,6 +4,19 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-12 SDK harness 更新（优先于本文后面的旧输入流程说明）
+
+- `d4c9b9d`：所有抽取异常均尽力对已接受 Req/Gua 执行部分 E；保留原始错误、非零退出和未完成状态，C 不启动。
+- `cd81270`：复用 SDK `Compaction` 与 Runner 的输入 hook。Responses 模式自动启用，原始审计历史保留；不自建压缩 Agent 或模型/工具循环。
+- 当前既有网关对标准 Responses 兼容性请求返回 HTTP 400（错误码 -1013），因此尚不能声称实际原生压缩已启用。待同一模型的可用 Responses 配置；密钥留在服务器，不写入交接。模型不变。
+- 初始消息改为全量源码目录索引，不再注入全部源码正文。Agent 使用 SDK 原生 `exec_command/write_stdin` 阅读工作区 `module/`；完整列表在 `module_files.json`。旧 read_file/grep_source/list_dir 不再暴露。
+- `harness/source_workspace.py` 只负责允许输入的工作区准备、Unix-local 的 Linux bubblewrap 隔离及原始工具轨迹，不重写 SDK shell、PTY 或 Runner。只暴露输入源码和只读实时契约，不挂载 GT、AST、全 IR、凭据或整个 Linux。外部依赖仍通过同版本 repository 工具查询。
+- `contract_state.json` 是实时原始 Req/Gua 账本的只读视图；提交仍使用 add_requirement/add_guarantee。原子替换后的新版本可在下一次查询看到。完整 native 工具观察保存在 `sdk_source_tools.jsonl`，抽取错误也保留。
+- `LACE_CONTEXT_MANAGEMENT=auto/native/off`；native 要求 `LACE_MODEL_API=responses`，否则明确报错。auto 在 Chat Completions 下明确记录未启用，不伪装有压缩。`LACE_COMPACT_THRESHOLD` 可选，默认使用 SDK 策略；不改变默认 max-turns=0。
+- SDK/源码工作区/仓库 Python 测试、4 项 CTest，以及 Nouveau/CAN/PHY 三例输入的 localhost 全流程回归通过；没有新的真实案例模型实验。复用现有 CPG 缓存，未重新运行全部 Joern。最终测试数以独立验证汇总为准。
+- 完整离线数据：远端 `.../lace-sdk-source-offline-20261012/194344`；本地 `../analysis_outputs/lace-sdk-source-offline-20261012/194344`。原始实验和第六项修复的早期回归均保留。
+- 第 3/4/5 项设计见 [AGENT_RELATION_DESIGN_20261012.md](AGENT_RELATION_DESIGN_20261012.md)。正式结束条件和 E 的 resource/scope 文字匹配门槛尚未改变；Gua 独立关系层是设计，不是已实现结果。
+
 ## 1. 用户目标和最新约定（优先遵守）
 
 目标：静态分析 + LLM 的可开源并发缺陷检测 Agent，随后检测真实漏洞。

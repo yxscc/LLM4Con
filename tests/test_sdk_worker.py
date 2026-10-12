@@ -124,7 +124,8 @@ def test_native_compaction_configuration(monkeypatch):
         {'type': 'compaction', 'encrypted_content': 'opaque'}, {'role': 'user', 'content': 'new'}]
 
 
-def test_official_runner_native_compaction_and_continuation():
+@pytest.mark.parametrize('use_source_workspace', [False, True])
+def test_official_runner_native_compaction_and_continuation(tmp_path, use_source_workspace):
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -135,9 +136,11 @@ def test_official_runner_native_compaction_and_continuation():
             body = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
             requests.append(body)
             if len(requests) == 1:
+                name = 'exec_command' if use_source_workspace else 'read_evidence'
+                arguments = '{"cmd":"cat module/hello.c"}' if use_source_workspace else '{"node":7}'
                 output = [{'type': 'compaction', 'id': 'cmp_test', 'encrypted_content': 'opaque-offline-compaction'},
                           {'type': 'function_call', 'id': 'fc_test', 'call_id': 'call-1',
-                           'name': 'read_evidence', 'arguments': '{"node":7}', 'status': 'completed'}]
+                           'name': name, 'arguments': arguments, 'status': 'completed'}]
             else:
                 output = [{'type': 'message', 'id': 'msg_test', 'role': 'assistant', 'status': 'completed',
                            'content': [{'type': 'output_text', 'text': 'evidence reviewed', 'annotations': []}]}]
@@ -157,13 +160,23 @@ def test_official_runner_native_compaction_and_continuation():
         'history': [], 'tools': [{'name': 'read_evidence', 'description': 'Read a node',
             'parameters': {'type': 'object', 'properties': {'node': {'type': 'integer'}}, 'required': ['node']}}],
         'max_turns': 0}
+    if use_source_workspace:
+        source = tmp_path/'source'; source.mkdir(); (source/'hello.c').write_text('int SDK_SOURCE_MARKER;\n')
+        ledger = tmp_path/'module_contracts.json'
+        ledger.write_text(json.dumps({'source_manifest': [{'path': 'hello.c', 'lines': 1, 'bytes': 23}],
+                                     'requirements': [], 'guarantees': []}))
+        request.update(source_root=str(source), contract_path=str(ledger))
     try:
         proc = subprocess.Popen([sys.executable, str(WORKER)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, env=env)
         proc.stdin.write(json.dumps(request)+'\n'); proc.stdin.flush()
-        assert json.loads(proc.stdout.readline())['event'] == 'tool_call'
-        proc.stdin.write(json.dumps({'output': 'node 7 is a use'})+'\n'); proc.stdin.flush()
-        result = json.loads(proc.stdout.readline())
+        first = json.loads(proc.stdout.readline())
+        if use_source_workspace:
+            result = first
+        else:
+            assert first['event'] == 'tool_call'
+            proc.stdin.write(json.dumps({'output': 'node 7 is a use'})+'\n'); proc.stdin.flush()
+            result = json.loads(proc.stdout.readline())
         assert proc.wait(timeout=20) == 0, proc.stderr.read()
         assert result['event'] == 'result' and result['context_management']['enabled']
         assert requests[0]['context_management'] == [{'type': 'compaction', 'compact_threshold': 1000}]
@@ -171,6 +184,9 @@ def test_official_runner_native_compaction_and_continuation():
         assert 'PUBLIC_OLD_SOURCE_BEFORE_COMPACTION' not in json.dumps(requests[1]['input'])
         assert any(item.get('type') == 'compaction' for item in requests[1]['input'])
         assert any(item.get('type') == 'function_call_output' for item in requests[1]['input'])
+        if use_source_workspace:
+            assert 'SDK_SOURCE_MARKER' in json.dumps(requests[1]['input'])
+            assert result['source_tools']['files'] == 1
         # Audit history stays complete even though the model sees the SDK's
         # compacted context. Continue Phase C without losing the compaction item.
         assert 'PUBLIC_OLD_SOURCE_BEFORE_COMPACTION' in json.dumps(result['history'])

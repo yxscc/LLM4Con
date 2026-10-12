@@ -2,8 +2,8 @@
 #include "LLMUtil/LLMClient.h"
 #include <fstream>
 namespace llm_client {
-// Full SDK history is continued between extraction and review. No pruning,
-// synthetic summaries, message-count limits or alternate hand-written loop.
+// Full audit history continues between extraction and review. The SDK's native
+// compaction capability manages model input; no alternate handwritten loop.
 class Conversation {
 public:
     Conversation(std::shared_ptr<LLMClient> client, std::string instructions);

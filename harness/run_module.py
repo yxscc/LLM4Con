@@ -71,6 +71,7 @@ def main():
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
                 "entry_mode": "not_inferred", "graph_scope": "complete_input_module",
                 "agent_observation_policy": "source_first_ir_on_demand_no_ast",
+                "source_access": "sdk_exec_command_write_stdin_read_only_workspace",
                 "ground_truth_files_loaded": False, "review_disabled": args.no_review}
     manifest['cpg_build_config'] = {'mode': 'explicit_autoconf' if args.autoconf else 'legacy_compile_log_discovery',
         'path': str(args.autoconf.resolve()) if args.autoconf else None,

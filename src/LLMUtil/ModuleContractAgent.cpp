@@ -2,7 +2,6 @@
 #include "LLMUtil/OperationBinding.h"
 #include "LLMUtil/ContractFeedback.h"
 #include "LLMUtil/ModulePrompt.h"
-#include "LLMUtil/SharedToolKit.h"
 #include "Util/TargetPath.h"
 #include <fstream>
 #include <sstream>
@@ -35,7 +34,7 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
     data_={{"schema","lace-source-contracts-v1"},{"requirements",J::array()},{"guarantees",J::array()},
         {"source_operations",J::object()},{"protocols",J::array()},{"pattern_reviews",J::object()},
         {"reviews",J::object()},{"checks",J::object()},{"gaps",J::array()},{"source_manifest",J::array()},
-        {"harness","openai-agents"},{"observation_format","source-first-no-ast-v1"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
+        {"harness","openai-agents"},{"observation_format","source-workspace-sdk-shell-no-ast-v2"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
         {"graph_coverage",model_.at("coverage")}};
     for (const auto& f:model_["functions"]) functions_.insert(f.at("name"));
     initializeRepositoryContext();
@@ -53,20 +52,29 @@ std::string ModuleContractAgent::sourcePacket() {
         const auto ext=e.path().extension().string();
         if (e.is_regular_file()&&!aliases.count(fs::relative(e.path(),root).string())&&(ext==".c"||ext==".h"||ext==".cpp"||ext==".hpp"||ext==".hh"||ext==".cc"||ext==".cxx")) files.push_back(e.path());
     }
-    std::sort(files.begin(),files.end()); std::ostringstream out;
+    std::sort(files.begin(),files.end());
     for (const auto& path:files) {
         std::ifstream in(path); if (!in) throw std::runtime_error("Cannot read source: "+path.string());
         std::string name=fs::relative(path,root).string(),line; size_t lines=0,bytes=0;
-        out<<"\n<source file="<<J(name).dump()<<">\n";
-        while (std::getline(in,line)) { sourceLines_[name].push_back(line); bytes+=line.size()+1; out<<++lines<<": "<<line<<'\n'; }
-        out<<"</source>\n"; data_["source_manifest"].push_back({{"path",name},{"lines",lines},{"bytes",bytes},{"complete",true}});
+        sourceLines_[name];
+        while (std::getline(in,line)) { sourceLines_[name].push_back(line); bytes+=line.size()+1; ++lines; }
+        data_["source_manifest"].push_back({{"path",name},{"lines",lines},{"bytes",bytes},{"complete",true}});
     }
-    if (files.empty()) throw std::runtime_error("No C/C++ module sources found"); return out.str();
+    if (files.empty()) throw std::runtime_error("No C/C++ module sources found");
+    size_t lines=0,bytes=0; J directories=J::object();
+    for (const auto& file:data_["source_manifest"]) {
+        const auto parent=fs::path(file.at("path").get<std::string>()).parent_path().generic_string();
+        const std::string directory=parent.empty()?".":parent;
+        directories[directory]=directories.value(directory,size_t(0))+1;
+        lines+=file.at("lines").get<size_t>();bytes+=file.at("bytes").get<size_t>();
+    }
+    return J{{"files",files.size()},{"lines",lines},{"bytes",bytes},{"directories",directories},
+        {"source_access","All supplied source files are available under module/ through SDK exec_command/write_stdin. module_files.json is the complete file index; contract_state.json is the live accepted Req/Gua ledger. No source bodies, AST or full IR are injected."}}.dump();
 }
 void ModuleContractAgent::generate() {
     try {
         auto packet=sourcePacket(); save();
-        send_message("Phase A. Read the complete module below. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
+        send_message("Phase A. Audit the whole available module through SDK exec_command/write_stdin. Sources are under module/, with the full index in module_files.json. Read original source and follow source-supported protocols across files; use line-numbered slices and targeted searches, continuing after tool output truncation. contract_state.json is a read-only live view of accepted contracts, not a submission interface. The directory index below contains no source bodies. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
             "Use the extensible catalog as an auditing guide, pursue other source-supported protocols too, and declare actual concurrency Req/Gua. "
             "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalog_.dump()+
             "\nRepository context: "+(data_["repository_context"].is_null()?std::string("not configured"):data_["repository_context"]["revision"].get<std::string>())+"\n"+packet);
@@ -74,7 +82,7 @@ void ModuleContractAgent::generate() {
     } catch (const std::exception& e) { save(e.what()); throw; }
 }
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
-    auto tools=SharedToolKit::get_source_tools(); auto rt=repositoryTools(); tools.insert(tools.end(),rt.begin(),rt.end());
+    auto tools=repositoryTools();
     tools.push_back({"get_module_functions","Query all source/IR function representations; these are not parallel entries. Pagination retains all rows.",
         {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
     tools.push_back({"get_operations","On-demand IR evidence only; never returns AST nodes. Filter narrowly by function/file/lines or a registered source_id. Coordinates are navigation, not proven source equivalence. Pagination retains every matching instruction.",
@@ -256,7 +264,6 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
         J missing=J::array(); for (const auto& r:data_["requirements"]) if (!data_["reviews"].contains(r.at("id"))) missing.push_back(r.at("id"));
         if (!missing.empty()) return J{{"error","Unreviewed requirements"},{"missing",missing}}.dump(); reviewFinished_=true; save(); return "finish";
     }
-    if (name=="read_file"||name=="grep_source"||name=="list_dir") if (auto result=SharedToolKit::handle_shared_tool(name,args,ccpg_)) return *result;
     throw std::invalid_argument("Unknown tool or wrong phase");
 }
 void ModuleContractAgent::review(const J& checks) {

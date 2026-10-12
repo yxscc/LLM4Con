@@ -42,6 +42,8 @@ def main():
                 assert body['tool_choice'] == 'required'
                 tools = {t['function']['name']: t['function'] for t in body['tools']}
                 assert 'get_object' not in tools and 'record_api_summary' not in tools
+                assert {'exec_command', 'write_stdin'} <= set(tools)
+                assert not {'read_file', 'grep_source', 'list_dir'} & set(tools)
                 messages = body['messages']
                 initial = next(m['content'] for m in messages if m.get('role') == 'user')
                 if 'review_obligations' in tools and state['phase'] == 'A':
@@ -55,10 +57,15 @@ def main():
                     assert 'owner_thread' not in tools['add_requirement']['parameters']['properties']
                     catalog = json.loads(initial.split('\nCatalog: ', 1)[1].split('\nRepository context: ', 1)[0])
                     state['patterns'] = [p['id'] for p in catalog['patterns']]
-                    blocks = re.findall(r'<source file=("[^"\n]+")>\n(.*?)</source>', initial, re.S)
-                    path, content = next((json.loads(p), c) for p, c in blocks if Path(json.loads(p)).suffix in {'.c','.cpp','.cc','.cxx'} and len([x for x in c.splitlines() if x.split(': ', 1)[-1].strip()]) >= 2)
-                    lines = [int(x.split(':', 1)[0]) for x in content.splitlines() if ': ' in x and x.split(': ', 1)[1].strip()]
-                    state.update(path=path, lines=lines[:2], last_line=int(content.splitlines()[-1].split(':',1)[0]), source_bytes_in_first_prompt=len(initial.encode()))
+                    assert '<source file=' not in initial, 'Source bodies were injected'
+                    state['source_bytes_in_first_prompt'] = len(initial.encode())
+                    command = "python3 - <<'PY'\nimport json\nfrom pathlib import Path\nfiles=json.loads(Path('module_files.json').read_text())\nfor row in files:\n p=Path(row['path'])\n if p.suffix not in {'.c','.cpp','.cc','.cxx'}:continue\n lines=(Path('module')/p).read_text().splitlines()\n selected=[i+1 for i,line in enumerate(lines) if line.strip()][:2]\n if len(selected)<2:continue\n print('OFFLINE_SOURCE_SAMPLE='+json.dumps({'path':str(p),'lines':selected,'last_line':len(lines)}))\n break\nPY"
+                    name, arguments = 'exec_command', {'cmd': command}
+                    state['step'] = 'source_index'
+                elif step == 'source_index':
+                    sample = re.search(r'OFFLINE_SOURCE_SAMPLE=(\{.*\})', messages[-1]['content'])
+                    assert sample, messages[-1]['content']
+                    state.update(json.loads(sample.group(1)))
                     name, arguments = 'get_module_functions', {'name': '', 'origin': 'ir', 'offset': 0, 'limit': 1}
                     state['step'] = 'function_page'
                 elif step == 'function_page':
@@ -208,7 +215,7 @@ def main():
                NO_PROXY='127.0.0.1,localhost', no_proxy='127.0.0.1,localhost', LACE_PROTOCOL_CATALOG=str(args.catalog.resolve()) if args.catalog else str(repo/'config/protocol_catalog.json'))
     env.pop('LACE_MODEL_API', None)
     try:
-        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []) + (['--max-turns', '12'] if args.exhaust_after_contract else []), env=env,
+        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []) + (['--max-turns', '13'] if args.exhaust_after_contract else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
         assert code == (2 if args.exhaust_after_contract or args.fail_after_contract else 0), f'Unexpected native exit; see {args.output}/run.log'
@@ -218,7 +225,7 @@ def main():
         if args.exhaust_after_contract or args.fail_after_contract:
             assert state['phase'] == 'A'
             if args.exhaust_after_contract:
-                assert state['calls'] == 12
+                assert state['calls'] == 13
             else:
                 assert len(report['guarantees']) == 1 and report['guarantees'][0]['id'] == 'gua:0'
             assert len(report['requirements']) == 1 and 'req:0' in report['checks']
@@ -229,11 +236,14 @@ def main():
                               'disconnect': 'APIConnectionError'}.get(args.fail_after_contract, 'MaxTurnsExceeded')
             assert expected_error in report['error'] and manifest['exit_code'] == 2
             assert (report_path.parent/'stateful_bugs/reports.json').is_file()
+            assert (report_path.parent/'sdk_source_tools.jsonl').is_file()
             print(json.dumps({'budget_exhaustion_regression': args.exhaust_after_contract,
                               'extraction_failure_regression': args.fail_after_contract or 'turn_limit', 'real_model_calls': 0,
                               'scripted_calls': state['calls'], 'coverage': report['coverage']}))
             return
         assert model['parallel_entries_inferred'] is False
+        source_events = [json.loads(line) for line in (report_path.parent/'sdk_source_tools.jsonl').read_text().splitlines()]
+        assert any(row['name'] == 'exec_command' and row['event'] == 'tool_result' for row in source_events)
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']
         assert all('graph_candidates' not in op for op in report['source_operations'].values())

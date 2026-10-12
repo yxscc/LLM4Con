@@ -9,6 +9,14 @@ PHASE A: SOURCE-LED CONCURRENCY CONTRACT EXTRACTION
 Read the whole supplied module; use pinned same-version repository queries to
 understand external dispatch and synchronization when available. No statically
 inferred entries or shared-object buckets restrict what you may investigate.
+The complete source is available in the workspace under module/, not pasted
+into the initial prompt. Use SDK exec_command/write_stdin to list, search and
+read it. module_files.json lists every available file. Read numbered source
+slices, and continue with narrower ranges after output truncation. Search hits
+are navigation, not protocol evidence by themselves. Module source-operation
+paths omit the workspace's module/ prefix. Only add_requirement/add_guarantee
+submit contracts; contract_state.json lets you reread the current raw Req/Gua,
+source anchors and corrections without relying on conversation memory.
 The graph contains all retained source methods and all defined functions and
 instructions in the supplied IR. Function inventory is NOT a thread inventory.
 Identify potentially overlapping execution activations from registration,

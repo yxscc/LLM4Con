@@ -1,4 +1,5 @@
 #include "LLMUtil/LLMClient.h"
+#include "Util/TargetPath.h"
 #include <stdexcept>
 namespace llm_client {
 LLMClient::LLMClient(std::string baseUrl, std::string apiKey, std::string model, long timeout)
@@ -19,7 +20,9 @@ nlohmann::json LLMClient::runAgent(const std::string& instructions, const std::s
     auto result = runSDKWorker({{"action", "agent"}, {"base_url", base_url_},
         {"api_key", api_key_}, {"timeout", timeout_seconds_}, {"model", default_model_},
         {"instructions", instructions}, {"input", input}, {"history", history},
-        {"tools", schemas}, {"tool_choice", toolChoice}, {"max_turns", maxTurns}}, execute);
+        {"tools", schemas}, {"tool_choice", toolChoice}, {"max_turns", maxTurns},
+        {"source_root",TargetPath::getInstance()->getTargetAbsolutePath().string()},
+        {"contract_path",(TargetPath::getInstance()->getOutputDir()/"module_contracts.json").string()}}, execute);
     {
         const auto& usage = result.at("usage");
         token_stats_.total_requests += usage.value("requests", size_t(0));
