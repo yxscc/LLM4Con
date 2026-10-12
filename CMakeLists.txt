@@ -34,6 +34,8 @@ if(BUILD_TESTING)
     add_test(NAME requirement_checker COMMAND requirement_checker_test)
     add_executable(contract_feedback_test tests/contract_feedback_test.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/OperationBinding.cpp)
     add_test(NAME contract_feedback COMMAND contract_feedback_test)
+    add_executable(source_binding_recovery_test tests/source_binding_recovery_test.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/RequirementChecker.cpp)
+    add_test(NAME source_binding_recovery COMMAND source_binding_recovery_test)
     find_program(LACE_TEST_CLANG NAMES clang-16 clang HINTS ${LLVM_TOOLS_BINARY_DIR} REQUIRED)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ir_source_facts_fixture.ll
         COMMAND ${LACE_TEST_CLANG} -O0 -g -fno-discard-value-names -S -emit-llvm

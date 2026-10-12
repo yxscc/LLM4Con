@@ -32,7 +32,7 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
         for (const auto& q:p.at("questions")) if (!q.is_string()||q.get<std::string>().empty()) throw std::invalid_argument("Catalog question must be nonempty text");
     }
     data_={{"schema","lace-source-contracts-v1"},{"requirements",J::array()},{"guarantees",J::array()},
-        {"source_operations",J::object()},{"protocols",J::array()},{"pattern_reviews",J::object()},
+        {"source_operations",J::object()},{"source_binding_revisions",J::array()},{"protocols",J::array()},{"pattern_reviews",J::object()},
         {"reviews",J::object()},{"checks",J::object()},{"gaps",J::array()},{"source_manifest",J::array()},
         {"harness","openai-agents"},{"observation_format","source-workspace-sdk-shell-no-ast-v2"},{"agent_instructions",modulePrompt},{"protocol_catalog",catalog_},
         {"graph_coverage",model_.at("coverage")}};
@@ -99,6 +99,10 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     tools.push_back({"record_gap","Record missing source/context, unresolved mapping or unsupported semantics.",{{"description","string","Missing evidence and affected protocol.",true}}});
     tools.push_back({"get_obligations","Query all requirements (empty IDs) or full selected records with E evidence and reviews.",{list("ids","string","IDs, or [] for all.")}});
     if (generating_) {
+        tools.push_back({"bind_source_operation","Recover an unresolved source-to-IR correspondence after inspecting get_operations. Select one actual effect within this source anchor's coordinates/function and explain the compiler lowering or ambiguity. Records an Agent judgment, not synchronization, atomicity or instance proof. When no IR candidate exists, preserve unknown. Req/Gua keep their source IDs; E uses the recorded mapping.",
+            {{"source_id","string","Previously registered module source-operation ID.",true},
+             {"node_id","integer","Exact IR instruction inspected with get_operations; -1 withdraws an earlier Agent selection.",true},
+             {"reason","string","Concrete correspondence evidence from original source and inspected instruction; explain macro/inline lowering or why this candidate represents the intended effect. Required also for withdrawal/replacement.",true}}});
         tools.push_back({"record_protocol","Describe ordinary source facts, resource protocol and local control flow; these are not synchronization Gua.",
             {list("functions","string","Related module functions; not a coverage quota."),{"summary","string","Protocol, source evidence, assumptions and gaps.",true},choice("status",{"reviewed","unknown"})}});
         tools.push_back({"record_pattern_review","Record how a catalog question was investigated. This accounts for the checklist, not semantic completeness.",
@@ -168,11 +172,32 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
                     J{{"path",path},{"first_line",first>0?first:0},{"last_line",last>0?last:2147483647}},data_["source_manifest"])) continue;
             } rows.push_back(row);
         }
-        J page=J::array(); for (size_t i=offset;i<rows.size()&&i<size_t(offset+limit);++i) page.push_back(rows[i]);
-        return J{{"rows",page},{"total",rows.size()},{"next_offset",size_t(offset)+page.size()<rows.size()?J(size_t(offset)+page.size()):J(nullptr)}}.dump();
+        J page=J::array(); for (size_t i=offset;i<rows.size()&&i<size_t(offset+limit);++i) {
+            page.push_back(rows[i]);
+            if (name=="get_operations") inspectedIRNodes_.insert(rows[i].at("node_id").get<int>());
+        }
+        J result={{"rows",page},{"total",rows.size()},{"next_offset",size_t(offset)+page.size()<rows.size()?J(size_t(offset)+page.size()):J(nullptr)}};
+        if (!anchor.is_null()) result["source_binding"]=bindSourceOperation(anchor,model_,data_["source_manifest"]);
+        return result.dump();
     }
     if (name=="get_source_operation") return sourceOperation(args).dump();
     if (name=="get_source_operations") { J result=J::array(); if (args.at("operations").empty()) throw std::invalid_argument("No operations"); for (const auto& op:args.at("operations")) result.push_back(sourceOperation(op)); return result.dump(); }
+    if (name=="bind_source_operation"&&generating_) {
+        const auto id=args.at("source_id").get<std::string>();
+        if (!data_["source_operations"].contains(id)) throw std::invalid_argument("Unknown module source operation");
+        const int node=args.at("node_id");
+        if (node!=-1&&!inspectedIRNodes_.count(node)) throw std::invalid_argument("Inspect the selected IR instruction with get_operations before binding");
+        const auto reason=args.at("reason").get<std::string>();
+        const auto previous=data_["source_operations"].at(id);
+        auto updated=selectSourceIRBinding(previous,node,reason,model_,data_["source_manifest"]);
+        updated.erase("binding_recovery");
+        if (updated.at("binding")!="bound") updated["binding_recovery"]={{"action","inspect_ir_candidates"},{"query_tool","get_operations"},{"source_id",id},{"selection_tool","bind_source_operation"}};
+        data_["source_binding_revisions"].push_back({{"source_id",id},{"reason",reason},
+            {"previous",previous.value("agent_binding",J(nullptr))},{"replacement",updated.value("agent_binding",J(nullptr))}});
+        data_["source_operations"][id]=updated; save();
+        return J{{"source_id",id},{"recorded",true},{"binding",bindSourceOperation(updated,model_,data_["source_manifest"])},
+            {"semantics_verified",false},{"synchronization_established",false}}.dump();
+    }
     if (auto result=executeRepositoryTool(name,args)) return *result;
     if (name=="record_gap") { nonempty(args,"description"); data_["gaps"].push_back(args.at("description")); save(); return "Gap recorded"; }
     if (name=="get_obligations") {

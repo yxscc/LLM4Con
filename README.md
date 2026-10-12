@@ -31,9 +31,14 @@ sufficient-discharge rules over the complete input graph, then continues the
 
 Source and IR are separate representations. A source-coordinate match does not
 establish operation equivalence. `get_source_operation(s)` validates exact text
-in the input snapshot and returns candidate graph nodes. The agent may inspect
-and select a concrete operation using `get_operations`; ambiguous mappings are
-not silently selected. If none is suitable, use the validated module source ID
+in the input snapshot and returns binding status and candidate counts. When
+automatic matching fails, the agent inspects candidate IR instructions using
+`get_operations` and records a justified selection with `bind_source_operation`.
+The selected instruction must have been inspected and belong to that anchor's
+coordinates/function. Req/Gua retain their source IDs; feedback and E use the
+same persisted correspondence, marked as an Agent judgment. Selections can be
+corrected or withdrawn; snapshots and revision history preserve their provenance.
+Ambiguous mappings are not silently selected. If none is suitable, use the validated module source ID
 in `a_sources`, `b_sources` or `interference_sources`. The Req is retained, E
 returns `requires_semantic_review`, and source review/reporting still proceeds.
 No fabricated graph nodes, synthetic execution roots or ignored Req are used.
@@ -68,6 +73,7 @@ Tools:
 - `get_module_functions`: paginated source/IR function inventory.
 - `get_operations`: optional, paginated **IR-only** evidence by source ID or function/file/lines. AST operation queries are rejected.
 - `get_source_operation(s)`: validates source path/lines/text and reports an unbound IR candidate count; returns no graph nodes, even for whole-function spans. A unique debug-line candidate is not automatically bound.
+- `bind_source_operation`: after IR inspection, recover a failed/ambiguous source correspondence with an explicit node ID and reason. `node_id=-1` withdraws a previous selection. No IR candidate stays unknown; selection does not change compiler facts or supply a synchronization Gua.
 - `get_module_calls`: paginated compact API/function/path/line index; read source for arguments. No AST records are returned.
 - `repository_search/read`: pinned dependency lookup when configured.
 - `record_protocol`, `record_pattern_review`, `record_gap`: source audit record.
@@ -193,7 +199,7 @@ workflow completion never means all program requirements were found or proved.
 
 `harness/run_module.py --no-review` runs source-led contract extraction followed by deterministic E and disables Phase C. `harness/run_batch.py --no-review --plan tests/e_stage_batch_plan.json ...` applies the same policy to seven development cases, including four legacy reports manually matched to GT. Their selection is for failure diagnosis, not an unbiased recall estimate.
 
-Source anchors optionally supply `operation_kind`, `symbol` and `function`. Binding combines debug coordinates (including inline chains) with compiler-derived callee/access facts. Missing, ambiguous, or unverifiable selectors remain explicit gaps. Binding does not prove alias, object instance or overlapping activations. No AST is injected. Byte-identical flat build copies are omitted from the Agent packet only when their canonical copy verifies at the pinned revision; all aliases remain in provenance.
+Source anchors optionally supply `operation_kind`, `symbol` and `function`. Binding combines debug coordinates (including inline chains) with compiler-derived callee/access facts. Failed automatic matches with IR candidates are investigated through IR queries and explicit Agent correspondence selection. Missing IR and unresolved correspondence remain explicit gaps. A persisted selection is revalidated against its source/instruction snapshots, retains the automatic result and selection reason, and applies equally to Req operands, Gua evidence and region boundaries. Binding does not prove alias, object instance, overlapping activations or atomicity. No AST is injected. Byte-identical flat build copies are omitted from the Agent packet only when their canonical copy verifies at the pinned revision; all aliases remain in provenance.
 
 Each E record saves operand bindings, resolved IR operations, every Gua's eligibility/rejection reasons, rules attempted, CFG bypasses, and discharge facts. Requirement applicability assumptions no longer prevent checking independently grounded graph relations. Failed combinations produce `static_contract_candidate` reports with `origin: deterministic_E`; they are candidates, not proved feasible interleavings. A partially resolved requirement cannot be discharged.
 

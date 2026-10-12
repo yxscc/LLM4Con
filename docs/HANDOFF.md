@@ -4,6 +4,18 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-12 源码→IR 的 Agent 恢复（优先于后面的旧“歧义直接未知”说明）
+
+- 用户授权：自动源码匹配失败但 IR 有候选时，让 LLM 检查并匹配；操作未进入 supplied IR 则保留未知。
+- Phase A 新增 `bind_source_operation(source_id,node_id,reason)`。Agent 先用 `get_operations(source_id=...)` 查看候选指令，再明确选择；后端检查节点已经被查询、属于该源码坐标/函数、选择理由非空，不能创建不存在的节点。错误 selector 需重新注册正确源码锚点。
+- 映射保存在原源码操作的 `agent_binding`；Req/Gua 保持 source ID。抽取反馈和 E 共用 `bindSourceOperation`，因此 Req、Gua evidence 和 source_regions 端点均可使用恢复后的节点。不是把自然语言理由再解析成规则。
+- 保存自动绑定状态、选择理由、源码/指令快照和 `source_binding_revisions`。标明 `binding_origin=agent_selected`，不伪装成编译器匹配或语义/实例证明；不改变 atomic 等编译器事实，不产生同步 Gua。
+- 可重新提交选择来修订；`node_id=-1` 撤回后恢复自动结果/未知。重新注册同一源码操作不清除既有选择。E 重放时重新验证快照；失效映射或缺失 CFG 继续未知。真正需要多个 IR 效果的操作不能随意挑一个代替全部操作。
+- 当前同步图设计、Req 类型、E 消解规则、循环 occurrence 和 AtomicOp 类型体系未变。恢复提示要求处理已提交 Req/Gua 的匹配失败；IR 不存在或检查后仍无法对应的保留源码操作及 gap。
+- 验证：远端完整构建、5 项 CTest 和 24 项 SDK/源码工作区/仓库 Python 测试通过；OA 原输入的 localhost 脚本完成“查看候选→选择→重新注册→撤回→重新选择→Req→E”，并验证抽取异常后仍使用已接受绑定执行部分 E。CAN 原输入的 localhost 完整流程通过。均为 0 真实模型请求，不是新召回实验。
+- OA/ioprio 最新 native 账本分别保留副本做手工选择后的离线重放：OA 6735/6875 对应 mutex_lock_nested；ioprio 7808 对应 pointer-sized RCU 读取的 volatile i64 分支。OA gua:0 的绑定 eligibility 从 false 变为 true，但仍要经过原 E 的区域/关系检查；不能把匹配成功当成同步正确性证明。手工变体不是 Agent 实际抽取，原 native 数据及模型未修改。
+- 独立完整记录：远端 `.../lace-source-binding-recovery-20261012/`；本地 `../analysis_outputs/lace-source-binding-recovery-20261012/`。原自动结果、选择理由/快照、脚本轨迹、baseline/manual-selected checks 和验证输出均单独保存。
+
 ### 2026-10-12 SDK harness 更新（优先于本文后面的旧输入流程说明）
 
 - `d4c9b9d`：所有抽取异常均尽力对已接受 Req/Gua 执行部分 E；保留原始错误、非零退出和未完成状态，C 不启动。

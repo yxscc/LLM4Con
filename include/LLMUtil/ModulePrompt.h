@@ -131,21 +131,42 @@ path/lines/text with operation_kind, symbol and function selectors copied from
 source, and returns a backend binding status/count without graph node records.
 Use read/write with the exact lvalue (p->field), or call with the callee name.
 Backend binding combines coordinates with compiler-derived access/callee facts;
-missing or ambiguous matches stay unknown. Bindings are not instance/alias proof. Use narrow spans for actual operations; a whole function excerpt
+automatic matching can fail for macro lowering or multiple compiler effects.
+Bindings are not instance/alias proof. Use narrow spans for actual operations; a whole function excerpt
 is context, not one indivisible event. Source IDs are valid Req/Gua operands.
 Check the returned binding status. If a span includes several source statements
 and several semantic matches, register the actual individual statements rather
-than leaving a function/branch range as one event. If one exact statement still
-has several compiler effects, retain the ambiguity: never pick the first graph
-node. A call that actually implements a relevant copy/update can be anchored as
+than leaving a function/branch range as one event. For an unresolved operation
+with IR candidates, inspect get_operations filtered by its source_id, following
+all relevant pages. Compare the original statement with instruction code,
+compiler access/callee facts and relevant type/branch context. When evidence
+identifies the intended effect, call bind_source_operation(source_id,node_id,
+reason) to record that correspondence, including macro-renamed calls or one
+supported effect among multiple candidates. Explain why that candidate matches;
+never pick the first node merely because it shares a line. The chosen instruction
+must have been inspected with get_operations and belong to this source anchor's
+coordinates/function. Req/Gua can keep the same source ID after recovery.
+If the selector itself is wrong, register the corrected exact source selector.
+If several effects are genuinely required, submit distinct inspected numeric
+operands or distinct exact source anchors where available, and retain their
+unsupported context; do not silently represent all of them by
+one arbitrarily chosen instruction. If no candidate exists in supplied IR or
+correspondence remains unresolved after inspection, keep the source operand and
+record the missing evidence as a gap. No fabricated IR node is permitted.
+A call that actually implements a relevant copy/update can be anchored as
 that call with source-supported effects; do not invent a store on the pointer
 expression passed to it.
 For a concrete contract that benefits from exact CFG checking, get_operations
 optionally provides paginated IR evidence filtered by source_id or precise
 function/file/lines. Query only the relevant operations; no quota or exhaustive
 IR mapping is required. Inspect instruction code and correspondence before
-choosing a numeric ID. Debug-line coincidence, even a unique candidate, does
-not prove equivalence. Ambiguous operands stay source-only. Source line numbers
+choosing a numeric ID or recovering a source binding. Debug-line coincidence,
+even a unique candidate, does not establish correspondence by itself. Agent
+selection records source/IR correspondence, not atomicity, synchronization or
+same-instance proof; it never changes the selected instruction's compiler facts.
+Use bind_source_operation with node_id=-1 and a reason to withdraw a wrong
+selection, or resubmit a supported selection with a correction reason; all
+selections/corrections remain in history. Unresolved operands stay source-only. Source line numbers
 and function IDs are not operation IDs. Only IR operations with complete CFG
 support E discharge. Do not invent nodes, entries or aliases to make E accept
 a claim. Each operand uses one namespace.
@@ -171,7 +192,8 @@ it does not mean that distinct IR effects on one source line are duplicates.
 Only same_resolved_operation identifies the same bound IR operation. Do not
 delete real steps or invent ordering to remove a cycle. Before finishing use
 get_contract_diagnostics to revisit binding errors, sequence alternatives and
-Gua applicability. Correct an accepted record by resubmitting its full fields
+Gua applicability. For accepted Req/Gua with available IR candidates, attempt
+the source/IR recovery above before settling on unknown. Correct an accepted record by resubmitting its full fields
 with replace_id and a concrete correction_reason; its ID and revision history
 are preserved. Add a new Req for a different valid relation. Do not leave a
 known wrong transaction active merely because a later corrected duplicate exists.

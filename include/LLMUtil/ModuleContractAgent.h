@@ -24,6 +24,7 @@ private:
     CCPG* ccpg_;
     nlohmann::json data_, model_, catalog_;
     std::set<std::string> functions_;
+    std::set<int> inspectedIRNodes_;
     std::map<std::string, std::vector<std::string>> sourceLines_;
     bool generating_ = true, generationFinished_ = false, reviewFinished_ = false;
     std::string sourcePacket();

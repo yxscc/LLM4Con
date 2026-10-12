@@ -42,10 +42,18 @@ J ModuleContractAgent::sourceOperation(const J& args) {
         const auto kind=op.at("operation_kind").get<std::string>();
         if (kind!="read"&&kind!="write"&&kind!="call"&&kind!="atomic"&&kind!="fence"&&kind!="unspecified") throw std::invalid_argument("Invalid operation selector kind");
     }
+    // Re-reading/registering the same frozen anchor must not erase an accepted
+    // Agent correspondence. bindSourceOperation revalidates its snapshots.
+    if (data_["source_operations"].contains(id)&&data_["source_operations"].at(id).contains("agent_binding"))
+        op["agent_binding"]=data_["source_operations"].at(id).at("agent_binding");
     auto binding=bindSourceOperation(op,model_,data_["source_manifest"]);
     op["ir_candidate_count"] = binding.at("coordinate_candidates").size();
     op["binding"] = binding.at("status");
     op["operation_equivalence_proved"] = false;
+    if (binding.at("status")!="bound") op["binding_recovery"]={
+        {"action",binding.at("coordinate_candidates").empty()?"retain_unknown":"inspect_ir_candidates"},
+        {"query_tool","get_operations"},{"source_id",id},
+        {"selection_tool","bind_source_operation"}};
     data_["source_operations"][id] = op; save(); return op;
 }
 std::vector<std::string> ModuleContractAgent::validSources(const J& args, const char* key) const {

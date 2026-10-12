@@ -22,6 +22,7 @@ def main():
     parser.add_argument('--no-review', action='store_true')
     parser.add_argument('--catalog', type=Path)
     parser.add_argument('--source-anchors', action='store_true', help='Exercise synthetic source-only report output')
+    parser.add_argument('--recover-lock-binding', action='store_true', help='OA TC6 only: exercise inspected macro-call binding, reread, withdrawal and E persistence; no real model')
     parser.add_argument('--exhaust-after-contract', action='store_true', help='Verify budget exhaustion still runs E on accepted partial contracts')
     parser.add_argument('--fail-after-contract', choices=['context_error', 'api_error', 'disconnect'],
                         help='Fail the localhost API after accepting Req/Gua; verify partial E and incomplete status')
@@ -112,13 +113,53 @@ def main():
                     state['step'] = 'invalid_type'
                 elif step == 'invalid_type':
                     assert len(json.loads(messages[-1]['content'])['rows'])<=1
-                    state['req'] = {'form': 'CallPrecondition', 'resource': 'OFFLINE SYNTHETIC protocol resource', 'scope': 'synthetic-one-instance',
-                        'actors': ['synthetic activation A', 'synthetic activation B'], 'a_nodes': [], 'b_nodes': [],
-                        'a_sources': [state['anchors'][0]], 'b_sources': [state['anchors'][1]], 'interference_nodes': [],
-                        'interference_sources': [], 'assumptions': ['Offline plumbing; no semantic or feasibility assessment'], 'repository_evidence_ids': [],
-                        'note': 'OFFLINE SYNTHETIC Req exercises source-only preservation; it is NOT a discovered concurrency defect.'}
-                    name, arguments = 'add_requirement', state['req']
-                    state['step'] = 'invalid_node'
+                    if args.recover_lock_binding and not state.get('binding_recovery_done'):
+                        state['lock_anchor']={'path':'drivers/net/ethernet/oa_tc6.c','first_line':333,'last_line':333,
+                            'operation_kind':'call','symbol':'mutex_lock','function':'oa_tc6_read_registers'}
+                        name, arguments='get_source_operation',state['lock_anchor']
+                        state['step']='recovery_uninspected'
+                    else:
+                        name, arguments=self.invalid_requirement()
+                elif step == 'recovery_uninspected':
+                    op=json.loads(messages[-1]['content'])
+                    assert op['binding']=='operation_not_resolved' and op['ir_candidate_count']>0
+                    state['recovered_source']=op['source_id']
+                    name, arguments='bind_source_operation',{'source_id':op['source_id'],'node_id':2147483647,'reason':'OFFLINE probe of uninspected-node rejection'}
+                    state['step']='recovery_query'
+                elif step == 'recovery_query':
+                    assert 'Inspect the selected IR instruction' in messages[-1]['content']
+                    name, arguments='get_operations',{'function_id':-1,'path':'','first_line':0,'last_line':0,
+                        'source_id':state['recovered_source'],'origin':'ir','offset':0,'limit':1000}
+                    state['step']='recovery_select'
+                elif step == 'recovery_select':
+                    page=json.loads(messages[-1]['content'])
+                    matches=[n for n in page['rows'] if n.get('api')=='mutex_lock_nested']
+                    assert len(matches)==1 and page['source_binding']['status']=='operation_not_resolved'
+                    state['recovered_node']=matches[0]['node_id']
+                    name, arguments=self.recover_binding()
+                    state['step']='recovery_reregister'
+                elif step == 'recovery_reregister':
+                    result=json.loads(messages[-1]['content'])
+                    assert result['recorded'] and result['binding']['binding_origin']=='agent_selected'
+                    assert result['binding']['node_id']==state['recovered_node'] and not result['synchronization_established']
+                    name, arguments='get_source_operation',state['lock_anchor']
+                    state['step']='recovery_withdraw'
+                elif step == 'recovery_withdraw':
+                    op=json.loads(messages[-1]['content'])
+                    assert op['binding']=='bound' and op['agent_binding']['node_id']==state['recovered_node']
+                    name, arguments='bind_source_operation',{'source_id':state['recovered_source'],'node_id':-1,
+                        'reason':'OFFLINE withdrawal exercises restoration of unknown correspondence'}
+                    state['step']='recovery_reselect'
+                elif step == 'recovery_reselect':
+                    result=json.loads(messages[-1]['content'])
+                    assert result['binding']['status']=='operation_not_resolved'
+                    name, arguments=self.recover_binding()
+                    state['step']='recovery_done'
+                elif step == 'recovery_done':
+                    assert json.loads(messages[-1]['content'])['binding']['status']=='bound'
+                    state['binding_recovery_done']=True
+                    state['anchors'][0]=state['recovered_source']
+                    name, arguments=self.invalid_requirement()
                 elif step == 'invalid_node':
                     assert 'Invalid contract form' in messages[-1]['content']
                     state['req']['form'] = 'MustPrecede'
@@ -130,6 +171,9 @@ def main():
                     state['step'] = 'early_finish'
                 elif step == 'early_finish':
                     assert json.loads(messages[-1]['content'])['id'] == 'req:0', 'Invalid claims mutated the ledger'
+                    if args.recover_lock_binding:
+                        recovered=json.loads(messages[-1]['content'])['diagnostics']['bindings'][0]
+                        assert recovered['binding_origin']=='agent_selected' and recovered['selected_node_id']==state['recovered_node']
                     if args.fail_after_contract:
                         name, arguments = 'add_guarantee', {
                             'form': 'Order', 'resource': state['req']['resource'], 'scope': state['req']['scope'],
@@ -192,6 +236,19 @@ def main():
             state['step'] = 'pattern_next'
             return 'record_pattern_review', {'pattern_id': state['patterns'][state['pattern_index']], 'status': 'unknown', 'reason': 'Offline test; model semantic audit intentionally not performed.'}
 
+        def invalid_requirement(self):
+            state['req'] = {'form': 'CallPrecondition', 'resource': 'OFFLINE SYNTHETIC protocol resource', 'scope': 'synthetic-one-instance',
+                'actors': ['synthetic activation A', 'synthetic activation B'], 'a_nodes': [], 'b_nodes': [],
+                'a_sources': [state['anchors'][0]], 'b_sources': [state['anchors'][1]], 'interference_nodes': [],
+                'interference_sources': [], 'assumptions': ['Offline plumbing; no semantic or feasibility assessment'], 'repository_evidence_ids': [],
+                'note': 'OFFLINE SYNTHETIC Req exercises source-only preservation; it is NOT a discovered concurrency defect.'}
+            state['step']='invalid_node'
+            return 'add_requirement',state['req']
+
+        def recover_binding(self):
+            return 'bind_source_operation',{'source_id':state['recovered_source'],'node_id':state['recovered_node'],
+                'reason':'OFFLINE scripted correspondence: source mutex_lock macro compiles to inspected mutex_lock_nested with subclass 0; no synchronization judgment'}
+
         def do_failure(self):
             state['calls'] += 1
             if args.fail_after_contract == 'disconnect':
@@ -246,6 +303,11 @@ def main():
         assert any(row['name'] == 'exec_command' and row['event'] == 'tool_result' for row in source_events)
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']
+        if args.recover_lock_binding:
+            assert state['binding_recovery_done'] and len(report['source_binding_revisions'])==3
+            recovered=report['checks']['req:0']['bindings'][0]
+            assert recovered['binding_origin']=='agent_selected' and recovered['node_id']==state['recovered_node']
+            assert report['checks']['req:0']['resolved_operands']['a_nodes']==[state['recovered_node']]
         assert all('graph_candidates' not in op for op in report['source_operations'].values())
         assert len(report['requirements']) == 1 and len(report['reviews']) == (0 if args.no_review else 1) and not report['guarantees']
         if args.no_review:
@@ -262,6 +324,7 @@ def main():
             'catalog_patterns': state['patterns'], 'coverage': report['coverage'], 'synthetic_reports': len(final),
             'source_anchor_response_bytes':state['source_anchor_response_bytes'], 'ast_node_observations':0,
             'ir_evidence_is_on_demand':True}
+        summary['source_binding_recovery']=args.recover_lock_binding
         (args.output/'offline-validation.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))
     finally:

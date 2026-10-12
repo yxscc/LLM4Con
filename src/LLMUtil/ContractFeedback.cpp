@@ -45,6 +45,13 @@ J contractFeedback(const J& claim, const J& model, const J& sources,
             auto binding = bindSourceOperation(sources.at(id.get<std::string>()), model, manifest);
             row["status"] = binding.at("status");
             row["semantic_match_count"] = binding.at("matching_candidates").size();
+            if (binding.contains("binding_origin")) {
+                row["binding_origin"]=binding.at("binding_origin");
+                row["automatic_status"]=binding.at("automatic_status");
+                row["selected_node_id"]=binding.at("node_id");
+                if (binding.contains("selection_reason")) row["selection_reason"]=binding.at("selection_reason");
+                if (binding.contains("selection_error")) row["selection_error"]=binding.at("selection_error");
+            }
             if (binding.at("status") == "bound") n = binding.at("node_id");
             row["cfg_available"] = n >= 0 && available(n);
         }
