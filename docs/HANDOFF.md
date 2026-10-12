@@ -28,8 +28,8 @@
 - 不让 Cursor/Opus实现；用户希望当前 Agent 自己实现。未授权新开 subagent。
 - 不设任意对象/参与者/代表采样上限。48 轮已影响正常完成，当前默认无硬性轮数上限。
 
-2026-10-12 新对话最新约定：**先修源码→IR 对应实现问题**；use→free 的端到端 Req 合理，Gua 端点设计与循环问题暂缓。首次绑定修复与七例离线验证已完成，见 [SOURCE_BINDING_FIX_20261012.md](SOURCE_BINDING_FIX_20261012.md)。用户随后同意沿现有 `MustBeAtomic(S,I)` 补充真实事务 Req；通用抽取提示已修改，OA/CAN/ioprio 三例新 E-only 实验及人工分析已完成，见 [TRANSACTION_EXTRACTION_20261012.md](TRANSACTION_EXTRACTION_20261012.md)。没有新增 Req 类型或 E 规则。
-原七例与新三例均已结束，没有仍在运行的模型队列需要接管。
+2026-10-12 新对话最新约定：**先修源码→IR 对应实现问题**；use→free 的端到端 Req 合理，Gua 端点设计与循环问题暂缓。首次绑定修复与七例离线验证已完成，见 [SOURCE_BINDING_FIX_20261012.md](SOURCE_BINDING_FIX_20261012.md)。随后沿现有 `MustBeAtomic(S,I)` 强化事务抽取并完成三例，见 [TRANSACTION_EXTRACTION_20261012.md](TRANSACTION_EXTRACTION_20261012.md)。用户又授权修残留：互斥分支混串、宽锚点/对侧接收遗漏和作用域内 Gua applicability；反馈/修订接口及再一轮三例已完成，见 [CONTRACT_REPAIR_20261012.md](CONTRACT_REPAIR_20261012.md)。没有新增 Req/Gua 类型或更改 E 消解规则。
+全部实验均已结束，没有仍在运行的模型队列需要接管。
 
 ## 2. 工作位置、版本和访问
 
@@ -41,7 +41,9 @@ SSH：`122353`。
 分支：`lace-v2-module-agent`。
 原七例 uncapped 实验使用的**代码**提交：`2d1b6a7c33cbf0badd50ad64c13f1382e8c34053`。
 源码绑定修复提交：`19e779d4b8408cb0d59e18a02641ef17071138fa`，先完成七例旧账本零模型调用重放。
-当前实现及新三例实验提交：`151593eed6e04523e50e99677fddf7061fb33cbe`（包含绑定修复，强化事务抽取提示；原七例 native 版本不改写）。
+首轮事务抽取三例：`151593eed6e04523e50e99677fddf7061fb33cbe`。
+最新残留修复三例实验：`d95026cbbd02b1e0dae504b52375385833ca84e0`（绑定/局部路径反馈、显式契约修订、分支/对侧/作用域提示）。
+当前实现：`3ce3e18c091ef4cfcda5ff50480aca18eacbee5f`（实验结束后区分同一绑定 IR 操作与不同效果的循环路径；该诊断补丁只做零模型核验，不冒充已用于上述三例）。原七例版本不改写。
 交接文档可能在其后单独提交；以 batch 中的 implementation_commit 标识实验版本。
 
 运行/构建前静默加载：
@@ -87,11 +89,12 @@ SDK 是官方 OpenAI Python + Agents SDK，C++ 执行静态工具，Python worke
 - `src/LLMUtil/OperationBinding.cpp`：源码行范围 + kind/symbol/function + 编译器访问/调用事实。
   唯一语义匹配才 bound；不存在/模糊匹配保留 unknown。不是仅靠同一 debug 行选节点。
 - `src/LLMUtil/ModuleContractAgent.cpp`：工具、契约、覆盖状态、E-only 输出。
+- `include/LLMUtil/ContractFeedback.h` / `src/LLMUtil/ContractFeedback.cpp`：抽取期间的绑定/路径/applicability 诊断；显式替换保留 ID 与原始修订历史。不建立同步、不消解 Req。
 - `include/LLMUtil/ModulePrompt.h`：明确抽取任务、并发 Req/Gua 定义、事务步骤/干扰区分。
 - `src/LLMUtil/RequirementChecker.cpp`：纯 JSON E，source 绑定、Gua 适用性、CFG 关系、失败组合。
 - `src/LLMUtil/ModuleAnalysis.cpp`：抽取→E→可选复核；预算耗尽时也检查已接受的部分契约。
 - `harness/run_module.py` / `harness/run_batch.py`：实验编排、输入核验、冻结 manifest。
-- `config/protocol_catalog.json`：v1.2，六类可扩展启发式问题；包含重复激活、逐个已识别注册表与交接双方事务的检查提示。
+- `config/protocol_catalog.json`：v1.3，六类可扩展启发式问题；包含重复激活、逐个注册表、交接双方、互斥分支与作用域保障的检查提示。
 
 `d90a229` 已实现后端语义绑定、E 解析源码操作、Gua 诊断、E-only、离线 contract_replay、重复源码别名核验去重。
 `2d1b6a7` 已实现：
@@ -110,9 +113,15 @@ MustPrecede 必须包含同步 Gua；普通同线程 CFG 顺序不能直接排�
 当前不支持一般跨过程 must-order/匹配返回、完整循环 occurrence 分析、独立别名/实例证明、弱内存形式化检查。
 候选和局部 CFG 见证不是已复现/已证明缺陷；用户仍接受大致 GT 匹配作为召回。
 
-## 5. 真实实验：原七例与新三例全部完成
+## 5. 真实实验：原七例与后续两轮三例全部完成
 
-**最新事务抽取三例批次**：`151593e`，远端 `.../lace-transaction-extraction-20261012`，本地 `analysis_outputs/lace-transaction-extraction-20261012`。北京时间 13:19:32–13:39:37；jobs=2、max-turns=0、Phase C disabled，三例 exit 0、E finished、implementation_unchanged=true。183 次模型请求；34 个原始文件全部下载并核对 SHA-256。
+**最新残留修复批次**：`d95026c`，远端 `.../lace-contract-repair-20261012/native`，本地 `analysis_outputs/lace-contract-repair-20261012/native`。北京时间 14:01:23–14:20:48；三例 exit 0、generation/E finished、implementation_unchanged=true；jobs=2、max-turns=0、Phase C disabled。OA 56 请求/4 报告，CAN 48 请求/8 报告，ioprio 51 请求/6 报告，共 155 请求。三个完整案例及独立 conditional probe 的 37 个文件已下载核验 SHA-256。
+
+人工核对：OA 没有继续使用控制读写互斥步骤混串，保留控制事务调用之间的 mediation；消费槽位 Atomic 与对应 mediation 仍在，前者受循环限制。CAN req:2 的 FF 写 state 7754↔CF 读 state 7797 入 E 候选；req:3 的 CF 事务 S 与 FF/CF/timer 干扰全绑定，但循环可零次迭代导致写索引不支配后续读取。ioprio task_lock 的声明标为 true 且排除无锁 get_task_ioprio；其观察/解引用及 use/free 候选保留。
+
+实际修订保存在 contract_revisions。OA 一次修订理由错误地把同一行不同效果说成重复；原始历史保留，之后补 same_resolved_operation 与 cyclic_local_path 区分及回归（`3ce3e18`），没有据此修改原生结果。Gua 正确声明不等于 E 完整消解：锁边界绑定、内部调用 effect summary、调用者前提仍有缺口。具体记录见最新报告，不能把报告数当正确漏洞数或正式召回提升。
+
+**首轮事务抽取三例批次**：`151593e`，远端 `.../lace-transaction-extraction-20261012`，本地 `analysis_outputs/lace-transaction-extraction-20261012`。北京时间 13:19:32–13:39:37；jobs=2、max-turns=0、Phase C disabled，三例 exit 0、E finished、implementation_unchanged=true。183 次模型请求；34 个原始文件全部下载并核对 SHA-256。
 
 OA 新 `req:0` 正确登记消费事务 S=[9092读 waiting,9095写 ongoing,9098清 waiting]、I=6972发送写，全部绑定，但循环反向可达造成 sequence_order_not_established，未进入 Atomic 检查；独立槽位冲突候选仍对应。ioprio 新 `req:0` 的观察→解引用与退出/free 干扰全部绑定，E 产生 4 个失败组合及对应候选。CAN 额外登记状态检查/timer取消事务，但 FF↔CF 分组仍未解决，接收状态报告仍是粗粒度对应。
 
@@ -256,14 +265,14 @@ ioprio有flat与block/目录重复源码；只有canonical字节通过pinned校�
 
 ## 9. 下一轮建议顺序
 
-通用对应修复、七例离线验证，以及现有 Atomic Req 的抽取强化和三例新模型实验均已完成。用户明确将端点设计和循环修改暂缓；不能把旧建议当成全部已授权实施任务。
+通用对应修复、七例离线验证、事务抽取强化，以及残留修复/反馈/修订和两轮三例实验均已完成。用户明确将端点设计和循环修改暂缓；不能把旧建议当成全部已授权实施任务。
 
 1. 核实远端 HEAD/工作树和保存的原始结果；不要为恢复上下文重跑已完成实验。
-2. 继续讨论操作集逻辑时，以真实轨迹为依据：互斥分支混串、宽锚点、对侧接收激活遗漏以及 scope 内保障被泛化标成 conditional，均是本轮实际观察到的残留。
+2. 继续人工查具体契约逻辑，利用 get_contract_diagnostics 和有历史的 replace_id 修订。最新实验已改善互斥分支、窄锚点、对侧接收及 task_lock applicability；不能宣称所有契约选择/条件已正确。
 3. KVM/netfilter 的提前排除与漏提仍未修复；防止“近似字段”“框架有锁”“模块有引用”未经具体域核验就提前排除。
 4. 后续改动提交并冻结，再按用户选定方向做多个真实 case 的 E-only 实验，人工读轨迹归因。
 
-若用户恢复端点或循环工作，沿用已保存的正反顺序诊断与 OA 新原生事务；循环应处理同次事务 occurrence，不能将全局可达性放宽成跨线程 HB。
+若用户恢复端点或循环工作，沿用已保存的正反顺序诊断与 OA/CAN 新原生事务；循环既有下一次迭代反向可达，也有零次迭代绕过步骤的支配问题。应处理同次事务 occurrence/路径前提，不能将全局可达性放宽成跨线程 HB。完整锁消解还需实际锁宏对应和不透明调用 effect summary；不能靠把全部 conditional 翻为 true 或要求最终 free 全部放进 task_lock 来掩盖。
 
 不要现在重做AtomicOp、引入surface/自动入口裁剪、要求用户逐case补标注或给全部Linux预构巨大别名上下文。
 
