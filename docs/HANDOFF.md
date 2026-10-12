@@ -28,8 +28,8 @@
 - 不让 Cursor/Opus实现；用户希望当前 Agent 自己实现。未授权新开 subagent。
 - 不设任意对象/参与者/代表采样上限。48 轮已影响正常完成，当前默认无硬性轮数上限。
 
-2026-10-12 新对话最新约定：**先修源码→IR 对应实现问题**；use→free 的端到端 Req 合理，Gua 端点设计暂缓；事务 Req 表达先讨论，循环问题暂缓。本轮首次绑定修复与七例离线验证已完成，见 [SOURCE_BINDING_FIX_20261012.md](SOURCE_BINDING_FIX_20261012.md)。没有启动新的模型实验。
-七例新实验已结束，没有仍在运行的模型队列需要接管。
+2026-10-12 新对话最新约定：**先修源码→IR 对应实现问题**；use→free 的端到端 Req 合理，Gua 端点设计与循环问题暂缓。首次绑定修复与七例离线验证已完成，见 [SOURCE_BINDING_FIX_20261012.md](SOURCE_BINDING_FIX_20261012.md)。用户随后同意沿现有 `MustBeAtomic(S,I)` 补充真实事务 Req；通用抽取提示已修改，OA/CAN/ioprio 三例新 E-only 实验及人工分析已完成，见 [TRANSACTION_EXTRACTION_20261012.md](TRANSACTION_EXTRACTION_20261012.md)。没有新增 Req 类型或 E 规则。
+原七例与新三例均已结束，没有仍在运行的模型队列需要接管。
 
 ## 2. 工作位置、版本和访问
 
@@ -39,8 +39,9 @@
 SSH：`122353`。
 远端项目：`/mlx_devbox/users/mayunlong.39/playground/LLM4Con-v2-module-agent`。
 分支：`lace-v2-module-agent`。
-最新实验使用的**代码**提交：`2d1b6a7c33cbf0badd50ad64c13f1382e8c34053`。
-当前实现提交：`19e779d4b8408cb0d59e18a02641ef17071138fa`（编译器对应修复；只做旧账本零模型调用重放，原七例 native 版本仍为上述 `2d1b6a7`）。
+原七例 uncapped 实验使用的**代码**提交：`2d1b6a7c33cbf0badd50ad64c13f1382e8c34053`。
+源码绑定修复提交：`19e779d4b8408cb0d59e18a02641ef17071138fa`，先完成七例旧账本零模型调用重放。
+当前实现及新三例实验提交：`151593eed6e04523e50e99677fddf7061fb33cbe`（包含绑定修复，强化事务抽取提示；原七例 native 版本不改写）。
 交接文档可能在其后单独提交；以 batch 中的 implementation_commit 标识实验版本。
 
 运行/构建前静默加载：
@@ -90,7 +91,7 @@ SDK 是官方 OpenAI Python + Agents SDK，C++ 执行静态工具，Python worke
 - `src/LLMUtil/RequirementChecker.cpp`：纯 JSON E，source 绑定、Gua 适用性、CFG 关系、失败组合。
 - `src/LLMUtil/ModuleAnalysis.cpp`：抽取→E→可选复核；预算耗尽时也检查已接受的部分契约。
 - `harness/run_module.py` / `harness/run_batch.py`：实验编排、输入核验、冻结 manifest。
-- `config/protocol_catalog.json`：v1.1，六类可扩展启发式问题；加入重复激活和逐个已识别注册表的检查提示。
+- `config/protocol_catalog.json`：v1.2，六类可扩展启发式问题；包含重复激活、逐个已识别注册表与交接双方事务的检查提示。
 
 `d90a229` 已实现后端语义绑定、E 解析源码操作、Gua 诊断、E-only、离线 contract_replay、重复源码别名核验去重。
 `2d1b6a7` 已实现：
@@ -109,7 +110,13 @@ MustPrecede 必须包含同步 Gua；普通同线程 CFG 顺序不能直接排�
 当前不支持一般跨过程 must-order/匹配返回、完整循环 occurrence 分析、独立别名/实例证明、弱内存形式化检查。
 候选和局部 CFG 见证不是已复现/已证明缺陷；用户仍接受大致 GT 匹配作为召回。
 
-## 5. 最新七例真实实验：全部完成
+## 5. 真实实验：原七例与新三例全部完成
+
+**最新事务抽取三例批次**：`151593e`，远端 `.../lace-transaction-extraction-20261012`，本地 `analysis_outputs/lace-transaction-extraction-20261012`。北京时间 13:19:32–13:39:37；jobs=2、max-turns=0、Phase C disabled，三例 exit 0、E finished、implementation_unchanged=true。183 次模型请求；34 个原始文件全部下载并核对 SHA-256。
+
+OA 新 `req:0` 正确登记消费事务 S=[9092读 waiting,9095写 ongoing,9098清 waiting]、I=6972发送写，全部绑定，但循环反向可达造成 sequence_order_not_established，未进入 Atomic 检查；独立槽位冲突候选仍对应。ioprio 新 `req:0` 的观察→解引用与退出/free 干扰全部绑定，E 产生 4 个失败组合及对应候选。CAN 额外登记状态检查/timer取消事务，但 FF↔CF 分组仍未解决，接收状态报告仍是粗粒度对应。
+
+人工检查还发现：OA 控制事务把互斥读写分支串成 S（旧账本也存在），不是循环问题；ioprio 受 task_lock 保护的取引用事务仍报候选，其匹配 Gua 被标为 unconditional=false 而拒绝采用。这些不能算建模已全面正确或新漏洞。具体绑定、源码、Gua 和 E 依据见上述事务抽取报告。三例都保留粗粒度对应报告，但不能据此声称提示词单变量召回提升。
 
 **原始 48 轮批次**：
 远端 `.../lace-e-stage-real-20261012`，commit `d90a229c041004da98c7d01e3e35f6bb06336fbd`。
@@ -117,7 +124,7 @@ MustPrecede 必须包含同步 Gua；普通同线程 CFG 顺序不能直接排�
 四例（PHY/ioprio/KVM/OA）在 48 轮处停止，没有原生 E；另外三例正常完成。
 离线部分账本 replay 是诊断实验，不改写原实验的 incomplete 状态。
 
-**最新无 cap 批次**：
+**原七例无 cap 批次**：
 远端 `/mlx_devbox/users/mayunlong.39/playground/lace-e-stage-uncapped-20261012`。
 本地 `/Users/bytedance/Documents/并发缺陷检测/analysis_outputs/lace-e-diagnostics-20261012/uncapped`。
 2026-10-12 北京时间 09:36:50–10:16:18；jobs=2；全部 exit 0、E finished、Phase C disabled。
@@ -249,14 +256,14 @@ ioprio有flat与block/目录重复源码；只有canonical字节通过pinned校�
 
 ## 9. 下一轮建议顺序
 
-更新：第一项通用对应修复及七例离线验证已完成。用户当前明确将第二项端点设计、第四项循环修改暂缓；第三项事务表达先沿现有 Req 形式讨论，不能把下列旧建议当成全部已授权实施任务。
+通用对应修复、七例离线验证，以及现有 Atomic Req 的抽取强化和三例新模型实验均已完成。用户明确将端点设计和循环修改暂缓；不能把旧建议当成全部已授权实施任务。
 
-1. 先核实远端HEAD/工作树和所有原始结果；不要重跑已经完成的七例来恢复上下文。
-2. 优先修通用 source→IR 对应（内联/宏/间接调用），用现有账本离线判断PHY相关Req能否进入E。
-3. 调整同步 Gua 端点，使程序位置由CCPG检查；保留现有正反顺序诊断作回归。
-4. 修循环内事务的局部顺序规则；不恢复旧“图可达就是跨线程HB”的误判。
-5. 再处理KVM/netfilter等抽取遗漏：防止“近似字段”“框架有锁”“模块有引用”未经具体域核验就提前排除。
-6. 改动提交并冻结后，继续多个真实case的E-only实验；人工读轨迹归因，暂不加入最终Agent复核来掩盖E问题。
+1. 核实远端 HEAD/工作树和保存的原始结果；不要为恢复上下文重跑已完成实验。
+2. 继续讨论操作集逻辑时，以真实轨迹为依据：互斥分支混串、宽锚点、对侧接收激活遗漏以及 scope 内保障被泛化标成 conditional，均是本轮实际观察到的残留。
+3. KVM/netfilter 的提前排除与漏提仍未修复；防止“近似字段”“框架有锁”“模块有引用”未经具体域核验就提前排除。
+4. 后续改动提交并冻结，再按用户选定方向做多个真实 case 的 E-only 实验，人工读轨迹归因。
+
+若用户恢复端点或循环工作，沿用已保存的正反顺序诊断与 OA 新原生事务；循环应处理同次事务 occurrence，不能将全局可达性放宽成跨线程 HB。
 
 不要现在重做AtomicOp、引入surface/自动入口裁剪、要求用户逐case补标注或给全部Linux预构巨大别名上下文。
 
