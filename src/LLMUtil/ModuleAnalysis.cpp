@@ -15,13 +15,20 @@ void runModuleAnalysis(CCPG* ccpg, std::shared_ptr<LLMClient> client, bool stati
     try {
         agent.generate();
     } catch (const std::exception& e) {
-        // Budget exhaustion does not invalidate contracts already accepted by
-        // the tools. Run E on that partial ledger, retain the failure/coverage
-        // gap, and never start Phase C or claim extraction completed.
-        if (std::string(e.what()).find("MaxTurnsExceeded")==std::string::npos) throw;
-        auto checks=checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations(),agent.sourceManifest());
-        agent.finishWithoutReview(checks);agent.save(e.what());
-        query::writeModuleFindings(agent.findings(),ccpg,output);
+        // Extraction errors do not invalidate contracts already accepted by
+        // the tools. Check the partial ledger without starting Phase C, retain
+        // the incomplete state, and propagate the original extraction error.
+        const std::string extractionError=e.what();
+        try {
+            auto checks=checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations(),agent.sourceManifest());
+            agent.finishWithoutReview(checks);agent.save(extractionError);
+            query::writeModuleFindings(agent.findings(),ccpg,output);
+        } catch (const std::exception& partialError) {
+            // A failed fallback must not replace the original failure. Preserve
+            // its diagnostic and the actual E state when storage permits.
+            try { agent.save(extractionError+"\nPartial E/report recovery failed: "+partialError.what()); }
+            catch (...) {} // Preserve the original exception even if saving fails.
+        }
         throw;
     }
     auto checks = checkModuleRequirements(agent.requirements(),agent.guarantees(),model,agent.sourceOperations(),agent.sourceManifest());

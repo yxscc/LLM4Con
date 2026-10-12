@@ -23,7 +23,11 @@ def main():
     parser.add_argument('--catalog', type=Path)
     parser.add_argument('--source-anchors', action='store_true', help='Exercise synthetic source-only report output')
     parser.add_argument('--exhaust-after-contract', action='store_true', help='Verify budget exhaustion still runs E on accepted partial contracts')
+    parser.add_argument('--fail-after-contract', choices=['context_error', 'api_error', 'disconnect'],
+                        help='Fail the localhost API after accepting Req/Gua; verify partial E and incomplete status')
     args = parser.parse_args()
+    if args.exhaust_after_contract and args.fail_after_contract:
+        parser.error('Choose one extraction failure mode')
     repo = Path(__file__).resolve().parents[1]
     state = {'calls': 0, 'step': 'start', 'phase': 'A'}
     errors = []
@@ -44,6 +48,8 @@ def main():
                     state.update(phase='C', step='obligations')
                     assert 'Phase A.' in initial and 'NO precomputed requirements' in initial, 'History or extraction setup lost'
                 step = state['step']
+                if step == 'fail':
+                    return self.do_failure()
                 if step == 'start':
                     assert tools['add_requirement']['parameters']['properties']['form']['enum'] == ['MustPrecede', 'MustBeAtomic', 'MustBeMediated']
                     assert 'owner_thread' not in tools['add_requirement']['parameters']['properties']
@@ -117,8 +123,22 @@ def main():
                     state['step'] = 'early_finish'
                 elif step == 'early_finish':
                     assert json.loads(messages[-1]['content'])['id'] == 'req:0', 'Invalid claims mutated the ledger'
-                    name, arguments = 'finalize_contract', {}
-                    state['step'] = 'pattern'
+                    if args.fail_after_contract:
+                        name, arguments = 'add_guarantee', {
+                            'form': 'Order', 'resource': state['req']['resource'], 'scope': state['req']['scope'],
+                            'a_nodes': [], 'b_nodes': [], 'a_sources': [state['anchors'][0]], 'b_sources': [state['anchors'][1]],
+                            'token': '', 'mode': '', 'conditions': 'OFFLINE synthetic synchronization is unresolved',
+                            'unconditional': False, 'evidence_nodes': [], 'evidence_sources': [state['anchors'][0]],
+                            'regions': [], 'source_regions': [], 'repository_evidence_ids': [],
+                            'note': 'OFFLINE SYNTHETIC Gua tests persistence across an extraction error; no synchronization claim.'}
+                        state['step'] = 'guarantee_accepted'
+                    else:
+                        name, arguments = 'finalize_contract', {}
+                        state['step'] = 'pattern'
+                elif step == 'guarantee_accepted':
+                    assert json.loads(messages[-1]['content'])['id'] == 'gua:0'
+                    state['step'] = 'fail'
+                    return self.do_failure()
                 elif step == 'pattern':
                     assert 'Unaccounted catalog patterns' in messages[-1]['content']
                     state['pattern_index'] = 0
@@ -165,6 +185,22 @@ def main():
             state['step'] = 'pattern_next'
             return 'record_pattern_review', {'pattern_id': state['patterns'][state['pattern_index']], 'status': 'unknown', 'reason': 'Offline test; model semantic audit intentionally not performed.'}
 
+        def do_failure(self):
+            state['calls'] += 1
+            if args.fail_after_contract == 'disconnect':
+                self.close_connection = True
+                self.connection.shutdown(2)
+                return
+            context_error = args.fail_after_contract == 'context_error'
+            payload = json.dumps({'error': {
+                'message': 'OFFLINE synthetic context limit' if context_error else 'OFFLINE synthetic API unavailable',
+                'type': 'invalid_request_error' if context_error else 'server_error',
+                'code': 'context_length_exceeded' if context_error else 'offline_unavailable'}}).encode()
+            self.send_response(400 if context_error else 503)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(payload)))
+            self.end_headers(); self.wfile.write(payload)
+
     server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
     env = os.environ.copy()
@@ -175,19 +211,26 @@ def main():
         code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []) + (['--max-turns', '12'] if args.exhaust_after_contract else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
-        assert code == (2 if args.exhaust_after_contract else 0), f'Unexpected native exit; see {args.output}/run.log'
+        assert code == (2 if args.exhaust_after_contract or args.fail_after_contract else 0), f'Unexpected native exit; see {args.output}/run.log'
         manifest = json.loads((args.output/'run.json').read_text())
         report_path = Path(manifest['report']); report = json.loads(report_path.read_text())
         model = json.loads((report_path.parent/'module_model.json').read_text())
-        if args.exhaust_after_contract:
-            assert state['calls'] == 12 and state['phase'] == 'A'
+        if args.exhaust_after_contract or args.fail_after_contract:
+            assert state['phase'] == 'A'
+            if args.exhaust_after_contract:
+                assert state['calls'] == 12
+            else:
+                assert len(report['guarantees']) == 1 and report['guarantees'][0]['id'] == 'gua:0'
             assert len(report['requirements']) == 1 and 'req:0' in report['checks']
             assert report['coverage']['e_finished'] and not report['coverage']['generation_finished']
             assert not report['coverage']['workflow_complete'] and report['partial_extraction']
             assert report['review_disabled'] and not report['reviews']
-            assert 'MaxTurnsExceeded' in report['error'] and manifest['exit_code'] == 2
+            expected_error = {'context_error': 'BadRequestError', 'api_error': 'InternalServerError',
+                              'disconnect': 'APIConnectionError'}.get(args.fail_after_contract, 'MaxTurnsExceeded')
+            assert expected_error in report['error'] and manifest['exit_code'] == 2
             assert (report_path.parent/'stateful_bugs/reports.json').is_file()
-            print(json.dumps({'budget_exhaustion_regression': True, 'real_model_calls': 0,
+            print(json.dumps({'budget_exhaustion_regression': args.exhaust_after_contract,
+                              'extraction_failure_regression': args.fail_after_contract or 'turn_limit', 'real_model_calls': 0,
                               'scripted_calls': state['calls'], 'coverage': report['coverage']}))
             return
         assert model['parallel_entries_inferred'] is False
