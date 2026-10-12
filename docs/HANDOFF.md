@@ -28,7 +28,7 @@
 - 不让 Cursor/Opus实现；用户希望当前 Agent 自己实现。未授权新开 subagent。
 - 不设任意对象/参与者/代表采样上限。48 轮已影响正常完成，当前默认无硬性轮数上限。
 
-本轮最后请求是更新交接文档；**暂停继续代码优化/新模型实验**，交接后由新对话继续。
+2026-10-12 新对话最新约定：**先修源码→IR 对应实现问题**；use→free 的端到端 Req 合理，Gua 端点设计暂缓；事务 Req 表达先讨论，循环问题暂缓。本轮首次绑定修复与七例离线验证已完成，见 [SOURCE_BINDING_FIX_20261012.md](SOURCE_BINDING_FIX_20261012.md)。没有启动新的模型实验。
 七例新实验已结束，没有仍在运行的模型队列需要接管。
 
 ## 2. 工作位置、版本和访问
@@ -40,6 +40,7 @@ SSH：`122353`。
 远端项目：`/mlx_devbox/users/mayunlong.39/playground/LLM4Con-v2-module-agent`。
 分支：`lace-v2-module-agent`。
 最新实验使用的**代码**提交：`2d1b6a7c33cbf0badd50ad64c13f1382e8c34053`。
+当前实现提交：`19e779d4b8408cb0d59e18a02641ef17071138fa`（编译器对应修复；只做旧账本零模型调用重放，原七例 native 版本仍为上述 `2d1b6a7`）。
 交接文档可能在其后单独提交；以 batch 中的 implementation_commit 标识实验版本。
 
 运行/构建前静默加载：
@@ -160,7 +161,7 @@ PHY 新 req:10 的 source 操作包括 atomic_read、间接 psy->desc->get_prope
 Inline pointer temporaries 的 access_paths 可能只有 `v`，无法直接对应 `psy->use_cnt`。
 **不要把 Linux atomic_read 简单标成 LLVM atomic=true 来硬绑；不要随便取同一行候选。**
 下一步可做一般 compiler-derived inline/callee/effect correspondence；先离线验证，再多case跑。
-这里尚未实现或做手工节点修复后的 PHY replay，不能声称已修复其召回。
+此缺口现已通过 `19e779d` 的通用编译器对应实现首次修复：7279/7299/5915 均唯一绑定，5979 保持绑定；原 req:10 离线进入 E，产生两个失败组合。没有手工指定节点，也没有新的模型抽取或 native 报告，不能直接声称新实验召回提升。原七例所有成功 Req/Gua 绑定均保留；宏/多个效果等剩余缺口仍可能 unknown。详见绑定修复记录。
 
 ### B. Gua Order/Wait 端点过度包含最终程序关系
 
@@ -247,6 +248,8 @@ GT在数据集的ground_truth.json，用于人工事后评估，不提供给Agen
 ioprio有flat与block/目录重复源码；只有canonical字节通过pinned校验后才省略重复Agent输入，保留aliases来源记录。
 
 ## 9. 下一轮建议顺序
+
+更新：第一项通用对应修复及七例离线验证已完成。用户当前明确将第二项端点设计、第四项循环修改暂缓；第三项事务表达先沿现有 Req 形式讨论，不能把下列旧建议当成全部已授权实施任务。
 
 1. 先核实远端HEAD/工作树和所有原始结果；不要重跑已经完成的七例来恢复上下文。
 2. 优先修通用 source→IR 对应（内联/宏/间接调用），用现有账本离线判断PHY相关Req能否进入E。
