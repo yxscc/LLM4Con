@@ -81,12 +81,15 @@ J contractFeedback(const J& claim, const J& model, const J& sources,
             std::string status;
             if (a < 0 || b < 0) status = "unbound_or_incomplete_cfg";
             else if (nodes.at(a).at("function_id") != nodes.at(b).at("function_id")) status = "interprocedural_not_checked";
+            else if (a == b) status = "same_resolved_operation";
             else if (!reachable(a, b)) status = "no_local_path";
-            else if (a == b || reachable(b, a)) status = "cyclic_local_path";
+            else if (reachable(b, a)) status = "cyclic_local_path";
             else status = "local_path";
-            feedback["sequence_pairs"].push_back({{"from_index", i-1}, {"to_index", i}, {"status", status}});
+            J pair = {{"from_index", i-1}, {"to_index", i}, {"status", status}};
+            if (a >= 0 && b >= 0) pair["same_resolved_operation"] = a == b;
+            feedback["sequence_pairs"].push_back(pair);
         }
-        feedback["sequence_interpretation"] = "Local reachability in one function invocation only. A local_path is not must-order or HB; cyclic paths do not establish iteration order. Inspect no_local_path for alternative branches or distinct helper invocations; retain unsupported context as a gap.";
+        feedback["sequence_interpretation"] = "Local reachability in one function invocation only. A local_path is not must-order or HB. same_resolved_operation identifies one IR effect; different read/write effects may share one source line. cyclic_local_path concerns distinct effects and does not establish iteration order: it is not a duplicate-step diagnosis. Inspect no_local_path for alternative branches or distinct helper invocations; retain unsupported context as a gap.";
     }
     if (claim.contains("unconditional")) {
         feedback["declared_applicability"] = claim.at("unconditional").get<bool>() ? "established_within_declared_scope" : "unresolved_by_agent";

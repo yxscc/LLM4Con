@@ -22,6 +22,20 @@ int main() {
     check(feedback(atomic)["sequence_pairs"][0]["status"] == "local_path", "Valid forward path lost");
     model["cfg_edges"].push_back({4,1});
     check(feedback(atomic)["sequence_pairs"][0]["status"] == "cyclic_local_path", "Loop occurrence was treated as unique order");
+    check(feedback(atomic)["sequence_pairs"][0]["same_resolved_operation"] == false, "Distinct loop effects called the same operation");
+    model["nodes"][3].update({{"line",2},{"kind","store"},{"memory_role","write"},{"access_paths",{"p.dest"}}});
+    J read = {{"path","test.c"},{"first_line",2},{"last_line",2},{"content","p->dest = p->field;"},
+        {"operation_kind","read"},{"symbol","p->field"},{"function","f"}};
+    J write = read; write["operation_kind"] = "write"; write["symbol"] = "p->dest";
+    J sameLineSources = {{"read",read},{"write",write},{"read-alias",read}};
+    J sameLine = atomic; sameLine["a_nodes"] = J::array(); sameLine["a_sources"] = {"read","write"};
+    d = llm_client::contractFeedback(sameLine,model,sameLineSources,J::array({J{{"path","test.c"}}}));
+    check(d["sequence_pairs"][0]["status"] == "cyclic_local_path" && d["sequence_pairs"][0]["same_resolved_operation"] == false,
+        "Same-line read/write effects conflated because of a loop");
+    sameLine["a_sources"] = {"read","read-alias"};
+    d = llm_client::contractFeedback(sameLine,model,sameLineSources,J::array({J{{"path","test.c"}}}));
+    check(d["sequence_pairs"][0]["status"] == "same_resolved_operation" && d["sequence_pairs"][0]["same_resolved_operation"] == true,
+        "Two source anchors for the same effect were mistaken for distinct loop steps");
     atomic["a_nodes"] = {2,11};
     check(feedback(atomic)["sequence_pairs"][0]["status"] == "interprocedural_not_checked", "Call/return context invented");
     model["functions"][0]["cfg_complete"] = false;

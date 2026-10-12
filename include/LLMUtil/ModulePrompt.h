@@ -159,7 +159,9 @@ add_requirement/add_guarantee return extraction diagnostics. no_local_path means
 the pair cannot occur in that order in one local function invocation: inspect
 branches and split alternatives, or explain distinct helper invocations and keep
 that context unsupported. cyclic_local_path is a loop occurrence limitation;
-do not delete real steps or invent ordering to remove it. Before finishing use
+it does not mean that distinct IR effects on one source line are duplicates.
+Only same_resolved_operation identifies the same bound IR operation. Do not
+delete real steps or invent ordering to remove a cycle. Before finishing use
 get_contract_diagnostics to revisit binding errors, sequence alternatives and
 Gua applicability. Correct an accepted record by resubmitting its full fields
 with replace_id and a concrete correction_reason; its ID and revision history
