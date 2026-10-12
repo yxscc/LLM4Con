@@ -92,3 +92,38 @@ def test_flat_build_alias_requires_identical_verified_canonical_copy(context):
     (target / 'api.h').write_text('void unrelated(void);\n')
     with pytest.raises(ValueError):
         ctx.verify_source(target)
+
+
+@pytest.mark.parametrize('name', ['api.h', 'build_api.h'])
+def test_flat_or_renamed_snapshot_is_verified_without_adding_a_canonical_copy(context, name):
+    ctx, target = context
+    content = ctx.blob('include/api.h')[1]
+    (target / name).write_bytes(content)
+    checked = ctx.verify_source(target)
+    mapped = next(f for f in checked['verified_files'] if f['path'] == name)
+    assert mapped['repository_path'] == 'include/api.h'
+    assert 'alias_of' not in mapped  # The Agent must still receive this input file.
+    assert (target / name).read_bytes() == content
+    assert not (target / 'include/api.h').exists()
+
+
+def test_flat_snapshot_does_not_pick_one_of_several_identical_canonical_files(context):
+    ctx, target = context
+    repo = Path(ctx.repository)
+    (repo / 'another').mkdir()
+    (repo / 'another/api.h').write_bytes(ctx.blob('include/api.h')[1])
+    subprocess.run(['git', '-C', str(repo), 'add', '.'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(repo), 'commit', '-m', 'two canonical copies'], check=True, capture_output=True)
+    revision = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD']).decode().strip()
+    newer = RepositoryContext(repo, revision)
+    (target / 'driver.c').write_bytes(newer.blob('driver.c')[1])
+    (target / 'api.h').write_bytes(newer.blob('include/api.h')[1])
+    with pytest.raises(ValueError, match='2 canonical byte matches'):
+        newer.verify_source(target)
+
+
+def test_existing_repository_path_with_wrong_bytes_is_not_remapped(context):
+    ctx, target = context
+    (target / 'driver.c').write_bytes(ctx.blob('include/api.h')[1])
+    with pytest.raises(ValueError, match='differs'):
+        ctx.verify_source(target)

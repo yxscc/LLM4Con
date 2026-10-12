@@ -22,12 +22,39 @@ class RepositoryContext:
         if self.revision.lower() != revision.lower():
             raise ValueError('Revision did not resolve to the requested commit')
 
-    def git(self, *args, allowed=(0,)):
+    def git(self, *args, allowed=(0,), input_data=None):
         proc = subprocess.run(['git', '--no-pager', '-C', self.repository, *args],
-                              capture_output=True, timeout=90)
+                              input=input_data, capture_output=True, timeout=90)
         if proc.returncode not in allowed:
             raise ValueError('Pinned repository query failed: ' + proc.stderr.decode(errors='replace')[:500])
         return proc.stdout
+
+    def verified_flat_path(self, file):
+        """Locate an unchanged flat/renamed build copy by pinned Git blob identity.
+
+        Prefer a unique matching basename. If the build renamed the file, require
+        a unique regular-file blob in the entire pinned tree. Never choose among
+        several canonical paths or read working-tree/symlink contents.
+        """
+        if not hasattr(self, '_blob_paths'):
+            self._blob_paths = {}
+            for record in self.git('ls-tree', '-r', '-z', self.revision).split(b'\0'):
+                if not record:
+                    continue
+                metadata, path = record.split(b'\t', 1)
+                mode, kind, oid = metadata.split()
+                if mode not in {b'100644', b'100755'} or kind != b'blob':
+                    continue
+                name = path.decode()
+                if PurePosixPath(name).suffix in SOURCE_SUFFIXES:
+                    self._blob_paths.setdefault(oid.decode(), []).append(name)
+        oid = self.git('hash-object', '--stdin', input_data=file.read_bytes()).decode().strip()
+        paths = self._blob_paths.get(oid, [])
+        matching_names = [p for p in paths if PurePosixPath(p).name == file.name]
+        candidates = matching_names if matching_names else paths
+        if len(candidates) != 1:
+            raise ValueError(f'Flat source has {len(candidates)} canonical byte matches at the pinned revision: {file.name}')
+        return candidates[0]
 
     @staticmethod
     def path(raw, allow_empty=False):
@@ -118,6 +145,7 @@ class RepositoryContext:
             if not file.is_file() or file.suffix not in SOURCE_SUFFIXES:
                 continue
             relative = file.name if root.is_file() else file.relative_to(root).as_posix()
+            self.path(relative)
             repository_path = relative
             try:
                 _, content = self.blob(relative)
@@ -138,14 +166,23 @@ class RepositoryContext:
                                 continue
                             if blob == file.read_bytes():
                                 aliases.append((canonical, blob))
-                if len(aliases) != 1:
+                if len(aliases) == 1:
+                    repository_path, content = aliases[0]
+                elif aliases or not root.is_dir() or len(Path(relative).parts) != 1:
                     raise
-                repository_path, content = aliases[0]
+                else:
+                    repository_path = self.verified_flat_path(file)
+                    _, content = self.blob(repository_path)
             if content != file.read_bytes():
                 raise ValueError('Target source differs from pinned revision: ' + relative)
             row = {'path': relative, 'sha256': hashlib.sha256(content).hexdigest()}
             if repository_path != relative:
-                row.update(repository_path=repository_path, alias_of=repository_path)
+                row.update(repository_path=repository_path)
+                canonical = root / repository_path
+                if canonical.is_file() and not canonical.is_symlink() and canonical.read_bytes() == content:
+                    row['alias_of'] = repository_path
+                else:
+                    row['provenance_basis'] = 'unique pinned Git blob identity; retained flat/renamed input copy'
             verified.append(row)
         if not verified:
             raise ValueError('No target source files to verify')
