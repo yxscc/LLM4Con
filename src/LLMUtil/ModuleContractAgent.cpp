@@ -1,4 +1,5 @@
 #include "LLMUtil/ModuleContractAgent.h"
+#include "LLMUtil/OperationBinding.h"
 #include "LLMUtil/ModulePrompt.h"
 #include "LLMUtil/SharedToolKit.h"
 #include "Util/TargetPath.h"
@@ -145,15 +146,13 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             else {
                 if (row.at("kind")=="Method") continue;
                 if (!anchor.is_null()) {
-                    int line=row.at("line");
-                    if (!matchesSourcePath(row.at("file").get<std::string>(),anchor.at("path").get<std::string>())||
-                        line<anchor.at("first_line").get<int>()||line>anchor.at("last_line").get<int>()) continue;
+                    if (!sourceCoordinateMatches(row,anchor,data_["source_manifest"])) continue;
                 }
                 if (args.at("function_id").get<int>()>=0&&row.at("function_id")!=args.at("function_id")) continue;
-                auto path=args.at("path").get<std::string>(),file=row.at("file").get<std::string>();
-                if (!path.empty()&&file!=path&&(file.size()<=path.size()||file.substr(file.size()-path.size()-1)!="/"+path)) continue;
-                int first=args.at("first_line"),last=args.at("last_line"),line=row.at("line");
-                if ((first>0&&line<first)||(last>0&&line>last)) continue;
+                auto path=args.at("path").get<std::string>();
+                int first=args.at("first_line"),last=args.at("last_line");
+                if ((!path.empty()||first>0||last>0)&&!sourceCoordinateMatches(row,
+                    J{{"path",path},{"first_line",first>0?first:0},{"last_line",last>0?last:2147483647}},data_["source_manifest"])) continue;
             } rows.push_back(row);
         }
         J page=J::array(); for (size_t i=offset;i<rows.size()&&i<size_t(offset+limit);++i) page.push_back(rows[i]);
