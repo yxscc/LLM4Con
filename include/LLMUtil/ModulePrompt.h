@@ -32,7 +32,7 @@ Requirements state concurrency safety needs, whether satisfied or violated:
   initialization-before-publication in one activation is not enough by itself.
 * MustBeMediated(A,B): conflicting accesses require applicable ordering,
   exclusion or a compatible atomic protocol. Explain actual resource conflict.
-* MustBeAtomic(S): a logical multi-operation transaction must be protected from
+* MustBeAtomic(S,I): a logical multi-operation transaction must be protected from
   interfering activations between its steps. Identify the ordered sequence and
   concrete interference_nodes/sources. Related fields can share one transaction.
   Snapshots, validation and retries can change what atomicity is actually needed.
@@ -44,6 +44,23 @@ Requirements state concurrency safety needs, whether satisfied or violated:
   enforce the stated invariant, not a different field used as a proxy. A broad
   state-machine description alone is insufficient: identify which earlier
   observation a later operation relies on, and which concurrent update breaks it.
+Inspect BOTH sides of every source-supported ownership/state handoff. A
+producer's check/update and a consumer's observe/use/reset can be different
+transactions. A MustBeMediated covering the same field does not account for a
+dependent multi-step transaction: record a separate MustBeAtomic when source
+supports the stronger need and it is not already represented by another Req.
+For that Req, a_sources/a_nodes is S in execution order, b_sources/b_nodes is
+empty, and interference_sources/interference_nodes is I from opposing actors.
+For each I explain the source-supported state change it can insert between S's
+steps and the resulting invariant failure for the same instance/generation.
+Select the actual observation and dependent update/use, with read/write anchors
+on their exact statements; do not replace them with a timer, wake, registration
+or helper invocation that merely accompanies those steps. Include such calls in
+S only when the invariant specifically requires them to be indivisible with the
+other steps. Single exchange/CAS operations are not multi-step transactions.
+Account for validation, retries and permissible intermediate states before
+requiring non-interference. If they make the interleaving safe, do not invent an
+Atomic Req. Keep independent mediation, publication and lifetime requirements.
 For every Req provide resource, a stable scope label, distinct actors, intended
 invariant, source evidence and unresolved assumptions. Preserve all identified
 operands; do not expand every access pair into a separate agent conversation.

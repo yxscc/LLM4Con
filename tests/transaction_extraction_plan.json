@@ -1,0 +1,29 @@
+{
+  "name": "transaction-extraction-diverse-20261012",
+  "purpose": "Three development modules for manual inspection of structured transaction extraction; not a recall benchmark.",
+  "cases": [
+    {
+      "case": "CVE-2024-56788",
+      "ir": "oa_tc6.ll",
+      "split": "development",
+      "mechanisms": "Producer/consumer compound skb handoff",
+      "legacy_gt_match_verified": true,
+      "revision": "b15b0df3967e5de43e1638bb152c575ae60062d1"
+    },
+    {
+      "case": "CVE-2022-48830",
+      "split": "development",
+      "mechanisms": "Receive callback reentrancy, protocol state and timer lifetime",
+      "ir": "isotp.ll",
+      "revision": "7db788ad627aabff2b74d4f1a3b68516d0fee0d7"
+    },
+    {
+      "case": "CVE-2016-7911",
+      "ir": "merged.ll",
+      "split": "development",
+      "mechanisms": "Unlocked task io_context lifetime",
+      "legacy_gt_match_verified": true,
+      "revision": "74524955556096a0b2a821a49b4d0abebad3ee16"
+    }
+  ]
+}

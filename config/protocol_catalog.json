@@ -1,6 +1,6 @@
 {
   "schema": "lace-protocol-catalog-v1",
-  "version": "1.1",
+  "version": "1.2",
   "scope": "Heuristic auditing prompts for interleaving safety; neither an exhaustive taxonomy nor a completeness proof. Add patterns without changing the graph builder or checker.",
   "sources": [
     {
@@ -52,7 +52,8 @@
       "id": "compound-state",
       "questions": [
         "Which checks, updates and related fields implement one logical transaction?",
-        "What interfering activation can invalidate its invariant between steps? Include shared counters, length/buffer pairs, state transitions, retry and validation protocols."
+        "What interfering activation can invalidate its invariant between steps? Include shared counters, length/buffer pairs, state transitions, retry and validation protocols.",
+        "For each source-supported transaction, which concrete observation does a later update/use depend on, and what opposing update can break it? Check both participants; a pairwise mediation Req does not represent the whole transaction."
       ],
       "requirements": [
         "MustBeAtomic",
@@ -64,11 +65,13 @@
       "questions": [
         "How are references, lookup results and ownership transferred between activations?",
         "Does a reference protect the actual resource being used, or only its containing device? Inspect RCU/grace-period and refcount boundaries.",
-        "For every identified registry or lookup/retirement protocol, inspect its own traversal, mutation and caller protection; do not use one analogous registry as evidence for all others."
+        "For every identified registry or lookup/retirement protocol, inspect its own traversal, mutation and caller protection; do not use one analogous registry as evidence for all others.",
+        "For shared slots, handles and state handoffs, inspect producer and consumer steps separately. Can an observe/use/reset or lookup/reference sequence lose or invalidate an intervening update? Identify the actual sequence and interference, and account for atomic exchange, validation or retry protocols."
       ],
       "requirements": [
         "MustPrecede",
-        "MustBeMediated"
+        "MustBeMediated",
+        "MustBeAtomic"
       ]
     },
     {

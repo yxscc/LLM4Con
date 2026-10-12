@@ -96,9 +96,9 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
             {choice("form",{"MustPrecede","MustBeAtomic","MustBeMediated"}),{"resource","string","Concrete source resource expression.",true},
              {"scope","string","Stable domain label for same instance, lifetime/generation and activation pairing; use exactly this label on matching Gua.",true},
              list("actors","string","At least two potential execution activations; two invocations of one function are distinct actors."),
-             list("a_nodes","integer","Exact inspected operation IDs; ordered sequence for atomicity."),list("b_nodes","integer","Second operand; [] for atomicity."),
-             source("a_sources"),source("b_sources"),list("interference_nodes","integer","All identified interfering operations for atomicity; [] otherwise."),source("interference_sources"),
-             list("assumptions","string","Unresolved applicability/coverage premises; [] if source-established."),repo(),{"note","string","Concurrent conflict, actors' source evidence, intended invariant and scope. Ordinary local order/API prerequisites are not Req.",true}}});
+             list("a_nodes","integer","Exact inspected operation IDs; for atomicity, ordered dependent steps S of one activation."),list("b_nodes","integer","Second operand; [] for atomicity."),
+             source("a_sources"),source("b_sources"),list("interference_nodes","integer","For atomicity, opposing operations I that can invalidate the transaction between S steps; [] otherwise."),source("interference_sources"),
+             list("assumptions","string","Unresolved applicability/coverage premises; [] if source-established."),repo(),{"note","string","Concurrent conflict, actors' source evidence, intended invariant and scope. For atomicity explain the observation, dependent update/use and invalidating interference. Ordinary local order/API prerequisites are not Req.",true}}});
         tools.push_back({"add_guarantee","Record synchronization supplied by actual code, including scoped non-lock protocols. Pure local order is not an Order Gua.",
             {choice("form",{"Order","Wait","Exclude","AtomicOp"}),{"resource","string","Resource matching Req.",true},{"scope","string","Exact Req instance/activation domain label.",true},
              list("a_nodes","integer","Predecessor completion events, or protected/atomic operations."),list("b_nodes","integer","Post-handoff continuation operations for Order/Wait; [] otherwise."),
