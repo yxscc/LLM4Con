@@ -67,7 +67,7 @@ Agent 恢复仍要求先看指令、限定坐标/函数、记录理由和快照�
 构建和零模型验证保存在远端
 `/mlx_devbox/users/mayunlong.39/playground/lace-source-contract-artifacts-validation-20261013`。
 该目录保存修改前的三份二进制副本、构建日志、合成 SDK 请求、失败尝试及后续修复结果。
-原生模型实验尚未用此新接口重跑；不能把工程验证或派生账本结果当成新召回率/耗时结论。
+后续已完成七例真实模型重跑，见[SOURCE_CONTRACT_PILOT_20261013.md](SOURCE_CONTRACT_PILOT_20261013.md)；本节的工程验证和派生账本仍不能当成模型召回/耗时实验。
 
 回归覆盖结构化翻译、未知定位、内联对应、稳定 ID、SDK 工作区权限和增量回调。
 localhost 全流程覆盖创建、修订、非法修改回滚、结束拦截、删除、嵌套文件、跨 pass 历史、部分 E 和可选 C 的只读文件。

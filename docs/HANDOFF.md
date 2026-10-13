@@ -4,6 +4,14 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-13 文件接口七例真实重跑（最新实验，全部结束）
+
+- 已用 `c4f4695210918f8341adfd5fc3ad29879c080d7e` 重跑上一轮七个development病例，源码/IR/autoconf与旧批逐一核验一致；模型/SDK相同，jobs=7、无轮数cap、两次源码抽取、E-only。全部exit0/E结束/implementation_unchanged，没有上下文超限。当前没有模型队列待接管。
+- 14:37–15:00，单例7.7–23分钟、平均15.2（旧38.0）；请求1228→407，累计input272.6M→41.9M。旧并发最初2后扩7，新全程7；不是单变量消融，input不是独立源码或已核实计费token。
+- 人工明确保住MACSEC/NF objects；serdev新增初始化回调候选、CIFS新增channel表候选，但首个open admission和真正锁外picker reader仍未正确描述，单列粗相关/逻辑缺口。KVM last_boosted_vcpu、GPU reset/BO和ipset owner/RCU child callback需求仍遗漏。NF objects现在单独成Req，5操作全绑定、6组合，writer Gua未越域消解reader。
+- 通用残留：部分read/write expression写成整条赋值/条件，和exact lvalue selector不一致；copy API被当成write。独立ipset定位副本仅将set->elements--改为set->elements即自动绑定20504，0模型；不改原生结果，也不是正式修复。
+- 原始完整395文件约318MB已本地下载并核验hash。实验远端 `lace-source-contract-artifacts-pilot-20261013`，本地 `../analysis_outputs/lace-source-contract-artifacts-pilot-20261013/native`。详细表格、人工逐例说明和边界见[SOURCE_CONTRACT_PILOT_20261013.md](SOURCE_CONTRACT_PILOT_20261013.md)。
+
 ### 2026-10-13 源码契约文件接口（最新实现，优先于后面的旧提交/结束流程）
 
 - 用户同意 Agent 增量维护源码层 Req/Gua JSON，后端处理 ID、校验和一般绑定。最新分支 `codex/source-contract-artifacts`，工作树仍为 `/mlx_devbox/users/mayunlong.39/playground/LLM4Con-req-first-workflow`，基于 `2c9fa779`；原七例模型实验和原分支结果保留。
