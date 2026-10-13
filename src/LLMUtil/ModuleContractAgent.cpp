@@ -123,6 +123,8 @@ void ModuleContractAgent::generate() {
 }
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     auto tools=repositoryTools();
+    tools.push_back({"get_module_functions","Optional source/IR function navigation with pagination. Names/locations are not parallel entries or a source-reading completeness proof; source methods may be absent from the parser cache.",
+        {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
     if (artifactMode_&&generating_) {
         const J locator={{"type","object"},{"properties",{
             {"path",{{"type","string"}}},{"line",{{"type","integer"}}},{"end_line",{{"type","integer"}}},
@@ -140,8 +142,6 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
         tools.push_back({"finalize_contract","Finish this source extraction pass. Contract files are imported and structurally validated. Source/IR unknowns stay explicit and do not require mechanical per-anchor queries. This does not prove extraction completeness.",{}});
         return tools;
     }
-    tools.push_back({"get_module_functions","Query all source/IR function representations; these are not parallel entries. Pagination retains all rows.",
-        {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
     tools.push_back({"get_operations","On-demand IR evidence only; never returns AST nodes. Filter narrowly by function/file/lines or a registered source_id. Coordinates are navigation, not proven source equivalence. Pagination retains every matching instruction.",
         {{"function_id","integer","Function representation ID, or -1 for any.",true},{"path","string","File path or suffix, or empty.",true},
          {"first_line","integer","Inclusive lower bound, or 0 for any.",true},{"last_line","integer","Upper bound, or 0 for any.",true},

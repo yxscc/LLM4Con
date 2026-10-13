@@ -317,11 +317,63 @@ inline std::string moduleArtifactExtractionInstructions() {
         "In a Gua file use regions with source-operation start/end locators.");
     prompt+=R"PROMPT(
 
+TURN SOURCE EVIDENCE INTO REQUIREMENTS
+Use synchronization searches to navigate, then switch to the actual resource:
+search its field, aliases and access helpers throughout the supplied module.
+Read surrounding bodies and callers, including operations after unlock/return.
+An API-only grep followed by head/one page can omit ordinary readers. Continue
+truncated searches; get_module_functions is optional navigation for unexamined
+bodies, not a thread filter. Use notes only to remember investigation gaps;
+notes never become contracts automatically and no coverage checklist is required.
+
+For a source-supported participant, identify the actual resource it accesses,
+the opposing invalidating operation, and why their overlap breaks a safety
+property. Express that relation using the existing Req forms before deciding
+whether its synchronization suffices. The following are inference guides, not
+claims that every matching API is buggy:
+* Even when a deferred callback's record is retained by its protocol, the callback
+  may dereference a different owner, payload, driver data or executable code. Follow each captured
+  pointer actually USED in its body to that resource's retirement. Cancellation
+  of a producer does not by itself drain work it already queued on another
+  executor. An RCU grace period and completion of queued RCU callbacks are
+  different events. For MustPrecede put actual callback uses in A and retirement
+  of the SAME used resource in B, not cancellation API versus a mixture of uses
+  and frees. Check producer closure and the correct completion domain separately
+  when deriving Gua; a barrier before a still-active producer does not cover
+  callbacks queued later. Investigate pinned implementations for API details.
+* For initialization, trace the entire dispatch chain to the first enable/open/
+  registration that permits another actor. A dispatcher may dereference its
+  ops/context before entering the user callback. Determine what it accesses
+  BEFORE any readiness test. Installing an ops pointer later cannot retroactively
+  block an already-enabled dispatcher. Req relates those real initialization
+  writes to real external reads/dispatch uses, with the admission evidence in
+  its note/scope. A later publication assignment is not a substitute for them.
+* CPU reference-zero, process exit or software queue deletion does not establish
+  completion of device/DMA/hardware accesses. If source submits device work,
+  trace its stop/reset/completion protocol before retiring its memory. Represent
+  source-visible queue-use/completion effects versus that memory's reclamation;
+  never invent a hardware IR instruction. Follow required external implementations
+  with pinned repository tools; preserve a concrete unknown when unsupported.
+* Approximate/stale values being allowed does not establish tolerance of all
+  compiler-transformed or torn accesses. Trace how the value is consumed, its
+  bounds/validation/retry and overlapping writers. A bounded index and a purely
+  diagnostic hint can have different needs. When indivisible accesses are needed,
+  emit MustBeMediated for the same field's actual reads/writes; do not invent a
+  total freshness order. Conversely, demonstrated tolerance can make a stronger
+  Req unnecessary. READ_ONCE/WRITE_ONCE are not general acquire/release or RMW
+  atomicity guarantees; keep actual Gua semantics and scope precise.
+
 SOURCE CONTRACT FILES AND BACKEND CORRESPONDENCE
 Use SDK exec_command/write_stdin to incrementally write one JSON file per Req or
 Gua under contracts/. Read contract_format.json first. Each operation has path,
 line, kind and expression; optional end_line/function narrow its context. Copy
-paths, exact statements and expressions from the module source. Include ordered
+paths and expressions from the module source. For read/write select one actual
+lvalue, e.g. p->field rather than p->field = value or a whole condition. Separate
+different field effects. For a copy/update API invocation use call plus its real
+callee; a helper is not automatically one write. Optional function means the
+actual containing function, not a nearby heading; omit it when uncertain.
+Simple write assignments/increments are normalized conservatively by the backend
+while preserving the original artifact. Include ordered
 a/b/interference/evidence and matching start/end regions according to the form.
 The backend generates internal IDs, validates every file, registers source
 operands and binds compiler effects automatically. No source registration or
@@ -359,6 +411,12 @@ Revisit concrete shared-state accesses, their opposing activations and lifetime
 boundaries against the Req files already in contracts/. Investigate missing
 scalar/RMW conflicts, same-entry overlap, protection-domain outsiders, first
 admission, post-completion uses, child resources, generations and hardware actors.
+Move from an API search to each identified resource's actual accesses and uses.
+Follow captured-resource dependencies through deferred executors; identify the
+first admission from the dispatcher implementation; distinguish software lifetime
+from hardware completion and stale-value tolerance from access integrity. Compare
+these actual opposing operations with the accepted Req operands rather than only
+rereading the existing protocol summaries. Query missing pinned dependencies.
 Incrementally write additional Req/Gua files or correct existing files when
 source supports a real change. Do not manufacture a quota or merely repeat
 protocol summaries. Preserve valid existing relations and unsupported source

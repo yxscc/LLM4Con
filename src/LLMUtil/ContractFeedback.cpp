@@ -46,6 +46,8 @@ J contractFeedback(const J& claim, const J& model, const J& sources,
             auto binding = bindSourceOperation(sources.at(id.get<std::string>()), model, manifest);
             row["status"] = binding.at("status");
             row["semantic_match_count"] = binding.at("matching_candidates").size();
+            for (const char* key:{"correspondence_issue","coordinate_functions","source_effect_selector"})
+                if (binding.contains(key)) row[key]=binding.at(key);
             if (binding.contains("binding_origin")) {
                 row["binding_origin"]=binding.at("binding_origin");
                 row["automatic_status"]=binding.at("automatic_status");

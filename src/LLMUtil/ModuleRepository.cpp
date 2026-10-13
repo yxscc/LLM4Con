@@ -49,6 +49,8 @@ J ModuleContractAgent::sourceOperation(const J& args) {
     if (data_["source_operations"].contains(id)&&data_["source_operations"].at(id).contains("agent_binding"))
         op["agent_binding"]=data_["source_operations"].at(id).at("agent_binding");
     auto binding=bindSourceOperation(op,model_,data_["source_manifest"]);
+    for (const char* key:{"correspondence_issue","coordinate_functions","source_effect_selector"})
+        if (binding.contains(key)) op[key]=binding.at(key);
     op["ir_candidate_count"] = binding.at("coordinate_candidates").size();
     op["binding"] = binding.at("status");
     op["operation_equivalence_proved"] = false;

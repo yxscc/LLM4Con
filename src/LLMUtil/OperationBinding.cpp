@@ -11,6 +11,28 @@ std::string norm(std::string s) {
     s=std::regex_replace(s,std::regex("->"),".");
     s=std::regex_replace(s,std::regex("[[:space:]()]"),""); return s;
 }
+// Narrow lexical correspondence, not C semantic inference. Keep the original
+// source selector/ID and derive a lvalue only for an explicit single update.
+// Calls, conditions, chained assignments and compound lvalues stay unchanged.
+std::string effectSelector(const J& op) {
+    const auto original=op.value("symbol",std::string());
+    if (!op.value("statement_binding",false)) return original;
+    auto expression=std::regex_replace(original,std::regex("[[:space:]]"),"");
+    if (!expression.empty()&&expression.back()==';') expression.pop_back();
+    const std::string lvalue=R"([A-Za-z_][A-Za-z0-9_]*(?:(?:->|\.)[A-Za-z_][A-Za-z0-9_]*|\[(?:[A-Za-z_][A-Za-z0-9_]*|[0-9]+)\])*)";
+    std::smatch match;
+    const auto role=op.value("operation_kind",std::string());
+    if (role=="write") {
+        if (std::regex_match(expression,match,std::regex("^("+lvalue+")(?:<<=|>>=|[+*/%&|^-]=|=)([^=].*)$"))) {
+            const auto rhs=match[2].str();
+            if (rhs.find(';')==std::string::npos&&rhs.find("++")==std::string::npos&&rhs.find("--")==std::string::npos&&
+                !std::regex_search(rhs,std::regex("(^|[^=!<>])=(?!=)"))) return match[1].str();
+        }
+        if (std::regex_match(expression,match,std::regex("^("+lvalue+")(?:\\+\\+|--)$"))) return match[1].str();
+        if (std::regex_match(expression,match,std::regex("^(?:\\+\\+|--)("+lvalue+")$"))) return match[1].str();
+    }
+    return original;
+}
 bool matches(const std::string& file,const std::string& path,const J& manifest) {
     namespace fs=std::filesystem;
     auto f=fs::path(file).lexically_normal(),p=fs::path(path).lexically_normal();
@@ -32,12 +54,16 @@ namespace {
 J automaticBinding(const J& op,const J& model,const J& manifest) {
     J coordinates=J::array(),selected=J::array(),correspondence=J::array();
     std::vector<const J*> sourceNodes;
-    auto role=op.value("operation_kind",std::string("unspecified")),symbol=op.value("symbol",std::string()),fn=op.value("function",std::string());
+    auto role=op.value("operation_kind",std::string("unspecified")),symbol=effectSelector(op),fn=op.value("function",std::string());
     auto text=norm(op.value("content",std::string()));
-    const bool selectorInSource=symbol.empty()||text.find(norm(symbol))!=std::string::npos;
+    const auto original=op.value("symbol",std::string());
+    const bool selectorInSource=original.empty()||text.find(norm(original))!=std::string::npos;
+    std::set<std::string> coordinateFunctions;
     for (const auto& n:model.at("nodes")) {
         if (n.at("origin")!="ir"||n.at("kind")=="Method") continue;
         if (!sourceCoordinateMatches(n,op,manifest)) continue; coordinates.push_back(n.at("node_id"));
+        const auto compilerFunction=n.value("source_function",std::string());
+        if (!compilerFunction.empty()) coordinateFunctions.insert(compilerFunction);
         if (!selectorInSource||(!fn.empty()&&n.value("source_function",std::string())!=fn)) continue;
         sourceNodes.push_back(&n);
         const auto actualRole=n.value("memory_role",std::string());
@@ -123,11 +149,19 @@ J automaticBinding(const J& op,const J& model,const J& manifest) {
     else if (selected.empty()) status="operation_not_resolved";
     else if (selected.size()!=1) status="ambiguous";
     else status="bound";
-    return {{"status",status},{"coordinate_candidates",coordinates},{"matching_candidates",selected},
+    J result={{"status",status},{"coordinate_candidates",coordinates},{"matching_candidates",selected},
         {"node_id",status=="bound"?selected.front():J(nullptr)},
         {"basis","debug location plus source selector and compiler callee/access facts"},
         {"correspondence",correspondence},
         {"instance_equivalence_proved",false},{"semantic_correctness_verified",false}};
+    if (op.value("statement_binding",false)) {
+        if (symbol!=original) result["source_effect_selector"]=symbol;
+        if (!fn.empty()&&!coordinateFunctions.empty()&&!coordinateFunctions.count(fn)) {
+            result["correspondence_issue"]="function_selector_mismatch";
+            result["coordinate_functions"]=coordinateFunctions;
+        }
+    }
+    return result;
 }
 J sourceSnapshot(const J& op) {
     J snapshot=J::object();

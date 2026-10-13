@@ -8,9 +8,15 @@ CONTRACT_FORMAT = {
         "line": "integer source line, 1-based",
         "end_line": "optional last line, prefer one exact statement",
         "kind": "read | write | call | atomic | fence",
-        "expression": "source lvalue or callee expression copied from the statement",
-        "function": "optional containing source function, useful for inline contexts",
+        "expression": "For read/write, the accessed lvalue (p->field), not a condition or whole assignment. For call/atomic, the invoked callee/API expression. Copy from source. Simple write assignments/increments are accepted and their lvalue derived without changing the original artifact.",
+        "function": "optional actual containing source function; omit if uncertain rather than copying a nearby function name",
     },
+    "operation_guidance": [
+        "p->field = value / p->field++: kind write, expression p->field. A read of that field is a separate kind read operand.",
+        "if (p->a && p->b): select each actual field read separately; the whole condition is not one memory effect.",
+        "memcpy, list_add_rcu, helpers or macros performing memory updates: anchor as kind call with the actual API when selecting the invocation. Do not relabel every helper as a single write.",
+        "A macro/inline API may have several IR effects. Unknown correspondence is legal; no arbitrary first instruction or invented LLVM atomic flag.",
+    ],
     "requirement": {
         "required": ["kind", "form", "resource", "scope", "a", "actors", "note"],
         "kind": "requirement",

@@ -44,6 +44,26 @@ int main(){
     check(llm_client::bindSourceOperation(write,model,manifest)["status"]=="bound","Unique write with missing DWARF name not bound");
     model["nodes"][0]["access_paths"]={"p.other"};
     check(llm_client::bindSourceOperation(write,model,manifest)["status"]!="bound","Known conflicting field ignored");
+    model["nodes"][0]["access_paths"]={"p.field"};
+    for (const auto& expression:{"p->field = value", "p->field += count", "p->field--", "++p->field", "p->field &= mask;"}) {
+        auto update=write;update["symbol"]=expression;update["content"]=std::string("10: ")+expression+";";
+        auto result=llm_client::bindSourceOperation(update,model,manifest);
+        check(result["status"]=="bound"&&result["source_effect_selector"]=="p->field","Concrete assignment/update not bound to its lvalue");
+        check(update["symbol"]==expression,"Original selector mutated");
+        auto strict=update;strict.erase("statement_binding");
+        check(llm_client::bindSourceOperation(strict,model,manifest)["status"]!="bound","Legacy ledger implicitly normalized");
+    }
+    for (const auto& expression:{"p->field == value", "p->field = other->field = value", "p->field = value; other->field = value", "p->field = other->field++", "copy(&p->field, value)", "p->other = value"}) {
+        auto update=write;update["symbol"]=expression;update["content"]=std::string("10: ")+expression+";";
+        check(llm_client::bindSourceOperation(update,model,manifest)["status"]!="bound","Condition, multiple effects, API or wrong field accepted");
+    }
+    auto update=write;update["symbol"]="p->field = value";update["content"]="10: p->field = different;";
+    check(llm_client::bindSourceOperation(update,model,manifest)["status"]=="selector_not_in_source","Derived lvalue hid a fabricated source statement");
+    update["content"]="10: p->field = value;";update["function"]="wrong_function";
+    auto wrong=llm_client::bindSourceOperation(update,model,manifest);
+    check(wrong["status"]!="bound"&&wrong["correspondence_issue"]=="function_selector_mismatch"&&wrong["coordinate_functions"]==J({"reader"}),"Wrong function was overridden or lacks corrective evidence");
+    update["function"]="reader";second=model["nodes"][0];second["node_id"]=2;model["nodes"].push_back(second);
+    check(llm_client::bindSourceOperation(update,model,manifest)["status"]=="ambiguous","Two concrete stores collapsed by lvalue derivation");
     J ledger={{"requirements",J::array()},{"guarantees",J::array()}};
     check(llm_client::storeContract(ledger,translated,true)["id"]=="req:0","First ID changed");
     ledger["requirements"].clear();

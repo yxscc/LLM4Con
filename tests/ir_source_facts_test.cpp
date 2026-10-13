@@ -55,6 +55,12 @@ int main(int argc,char** argv) {
         check(bind(op("ALIAS_CALLEE","call","psy->desc->get_property","aliased"))["status"]=="bound","caller source alias lost from indirect callee");
         check(bind(op("AMBIGUOUS_INLINE","atomic","atomic_read","twice"))["status"]=="ambiguous","two inline invocations arbitrarily selected");
         check(bind(op("AMBIGUOUS_FIELD","read","psy->use_cnt.value","repeated_field"))["status"]=="ambiguous","two field reads arbitrarily selected");
+        auto update=op("ORDINARY_UPDATE","write","psy->use_cnt.value += 2","ordinary_update");
+        update["statement_binding"]=true;
+        auto updateBinding=bind(update);
+        check(updateBinding["status"]=="bound","Actual compiled compound assignment not bound");
+        for (const auto& n:model["nodes"]) if (n["node_id"]==updateBinding["node_id"])
+            check(n["memory_role"]=="write"&&n["access_paths"]==J({"psy.use_cnt.value"}),"Compound assignment selected pointer spill or read instead of real field store");
         auto escaped=op("ESCAPED_CALLBACK","call","psy->desc->get_property","escaped_callback");
         escaped["first_line"]=escaped.at("last_line").get<int>()-2;
         escaped["content"]="callback = psy->desc->get_property; change(&callback); return callback(psy);";

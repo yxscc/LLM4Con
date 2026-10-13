@@ -4,6 +4,14 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-13 Req 遗漏调查与源码对应优化（最新修改）
+
+- 用户授权优先解决 IR 未绑定和 Req 未产生；本轮人工读最新七例轨迹，尚未启动新真实模型实验。CIFS 主要漏读真正 picker 读；KVM 已读未提出，当前日志没有明确放弃理由；serdev 查到首个 open 准入却错选较晚 set_client_ops；ipset 漏追 RCU callback 对 owner 的依赖；GPU 没追软件生命周期外的硬件/reset 完成链，后两例本批没有 pinned 依赖读取。不能统一认定“LLM 不懂知识”。
+- 文件定位后端保守派生简单 write 赋值/增减的 lvalue，保留原 selector/ID；旧非 statement_binding 账本不变。错误函数限定返回编译器函数名供 Agent 修订，不自动越过该限定。多效果、复杂条件/API、真正无 IR 继续 unknown。
+- 强化通用 source→Req 推导：资源全模块访问追踪、延期 executor 的 captured-resource 依赖、首次 dispatcher admission、软件与硬件完成区别、stale 容忍与访问完整性区别。恢复按需函数导航；没有新增 Req/Gua 类型、自动 GT 标签、finish 记账门槛或改动 E。
+- 完整构建/6 CTest/25 pytest/localhost SDK A→E 通过。七例冻结原模型/账本离线重放：原已绑定节点均保持，serdev 新增 15 个、ipset 新增 18 个绑定，CIFS 7 个错误函数限定给出诊断。新增绑定不是新模型召回，首个准入/RCU owner/GPU 目标 Req 仍需新抽取验证。
+- 细节见 [REQ_OMISSION_AND_BINDING_20261013.md](REQ_OMISSION_AND_BINDING_20261013.md)。远端验证根 `lace-req-binding-validation-20261013`；原生七例目录及旧二进制保留。
+
 ### 2026-10-13 文件接口七例真实重跑（最新实验，全部结束）
 
 - 已用 `c4f4695210918f8341adfd5fc3ad29879c080d7e` 重跑上一轮七个development病例，源码/IR/autoconf与旧批逐一核验一致；模型/SDK相同，jobs=7、无轮数cap、两次源码抽取、E-only。全部exit0/E结束/implementation_unchanged，没有上下文超限。当前没有模型队列待接管。

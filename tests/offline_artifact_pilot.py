@@ -69,6 +69,7 @@ def main():
                     assert '<source file=' not in initial and 'shared=1' not in initial
                     assert 'add_requirement' not in instructions and 'record_pattern_review' not in instructions
                     assert 'source_id' not in tools['get_operations']['parameters']['properties']
+                    assert 'get_module_functions' in tools
                     (args.output/'initial-request.json').write_text(json.dumps(body, indent=2))
                     name, arguments = 'exec_command', {'cmd': 'cat contract_format.json; nl -ba module/fixture.c; nl -ba module/extra.c'}
                 elif step == 1:

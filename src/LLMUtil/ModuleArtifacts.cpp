@@ -27,8 +27,11 @@ J ModuleContractAgent::artifactFeedback(const std::string& id) const {
                 {"expression",op.value("symbol",std::string())}};
             if (op.contains("function")) location["function"]=op.at("function");
             if (op.at("first_line")!=op.at("last_line")) location["end_line"]=op.at("last_line");
-            unknown.push_back({{"operation",location},{"status",op.at("binding")},
-                {"ir_candidate_count",op.at("ir_candidate_count")}});
+            J row={{"operation",location},{"status",op.at("binding")},
+                {"ir_candidate_count",op.at("ir_candidate_count")}};
+            for (const char* key:{"correspondence_issue","coordinate_functions","source_effect_selector"})
+                if (op.contains(key)) row[key]=op.at(key);
+            unknown.push_back(row);
         }
     }
     return {{"id",id},{"bound_operations",bound},{"unknown_operations",unknown},
