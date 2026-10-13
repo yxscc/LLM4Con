@@ -94,6 +94,28 @@ J contractFeedback(const J& claim, const J& model, const J& sources,
             else status = "local_path";
             J pair = {{"from_index", i-1}, {"to_index", i}, {"status", status}};
             if (a >= 0 && b >= 0) pair["same_resolved_operation"] = a == b;
+            // Reachability alone is not the prefix order used by E. Diagnose
+            // compiler-arm bypasses while the Agent can still correct anchors.
+            std::string order = "not_established";
+            if (status == "local_path") {
+                const auto& fn = functions.at(nodes.at(b).at("function_id"));
+                if (!fn.contains("entry")) order = "cfg_entry_unavailable";
+                else {
+                    int entry = fn.at("entry");
+                    std::queue<int> todo; std::set<int> seen;
+                    if (entry != a) { todo.push(entry); seen.insert(entry); }
+                    bool bypass = false;
+                    while (!todo.empty()) {
+                        int n = todo.front(); todo.pop();
+                        if (n == b) { bypass = true; break; }
+                        for (int x : next[n]) if (x != a && seen.insert(x).second) todo.push(x);
+                    }
+                    order = !reachable(entry,b) ? "unreachable_from_entry" :
+                        bypass ? "not_dominating" : "established";
+                }
+            } else if (status == "cyclic_local_path") order = "occurrence_order_unsupported";
+            else if (status == "same_resolved_operation") order = "same_resolved_operation";
+            pair["e_sequence_order"] = order;
             feedback["sequence_pairs"].push_back(pair);
         }
         feedback["sequence_interpretation"] = "Local reachability in one function invocation only. A local_path is not must-order or HB. same_resolved_operation identifies one IR effect; different read/write effects may share one source line. cyclic_local_path concerns distinct effects and does not establish iteration order: it is not a duplicate-step diagnosis. Inspect no_local_path for alternative branches or distinct helper invocations; retain unsupported context as a gap.";
@@ -103,6 +125,43 @@ J contractFeedback(const J& claim, const J& model, const J& sources,
         feedback["applicability_interpretation"] = "This flag is the Agent's declaration, not a backend semantic judgment. A stated same-instance/protection domain is not itself an unresolved premise. False requires a concrete unresolved premise; true still requires actual scoped synchronization evidence.";
     }
     return feedback;
+}
+
+std::string extractionState(const J& ledger) {
+    return J{{"requirements",ledger.at("requirements")},
+        {"guarantees",ledger.at("guarantees")},
+        {"source_operations",ledger.at("source_operations")}}.dump();
+}
+J extractionCompletionIssues(const J& ledger,const J& model,
+    const std::set<std::string>& inspectedSources,const std::string& diagnosticState) {
+    J issues=J::array();
+    if (diagnosticState != extractionState(ledger)) issues.push_back({
+        {"kind","current_contract_diagnostics_not_inspected"},
+        {"tool","get_contract_diagnostics"},{"ids",J::array()}});
+    std::map<std::string,std::set<std::string>> references;
+    for (const char* kind:{"requirements","guarantees"}) for (const auto& claim:ledger.at(kind)) {
+        for (const char* key:{"a_sources","b_sources","interference_sources","evidence_sources"})
+            for (const auto& source:claim.value(key,J::array())) references[source.get<std::string>()].insert(claim.at("id"));
+        for (const auto& region:claim.value("source_regions",J::array()))
+            for (const char* key:{"start_source","end_source"}) references[region.at(key).get<std::string>()].insert(claim.at("id").get<std::string>());
+    }
+    for (const auto& [id,contracts]:references) {
+        if (!ledger.at("source_operations").contains(id)) continue; // schema validation handles absent IDs
+        const auto& op=ledger.at("source_operations").at(id);
+        auto binding=bindSourceOperation(op,model,ledger.at("source_manifest"));
+        if (binding.at("status")=="bound"||binding.at("coordinate_candidates").empty()) continue;
+        if (!inspectedSources.count(id)) {
+            issues.push_back({{"kind","unresolved_source_not_inspected"},{"source_id",id},
+                {"contract_ids",contracts},{"status",binding.at("status")},{"tool","get_operations"}});
+            continue;
+        }
+        const auto gaps=ledger.value("source_binding_gaps",J::object());
+        if (!gaps.contains(id)||gaps.at(id).value("source_snapshot",J())!=op||
+            gaps.at(id).value("reason",std::string()).find_first_not_of(" \t\r\n")==std::string::npos)
+            issues.push_back({{"kind","unresolved_source_needs_reason"},{"source_id",id},
+                {"contract_ids",contracts},{"status",binding.at("status")},{"tool","record_gap"}});
+    }
+    return issues;
 }
 
 J storeContract(J& ledger, const J& arguments, bool requirement) {

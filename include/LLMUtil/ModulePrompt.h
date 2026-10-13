@@ -24,6 +24,32 @@ Identify potentially overlapping execution activations from registration,
 callers, asynchronous scheduling, interrupt/context rules and source protocols.
 Two invocations of one function can be distinct actors. Explain that evidence.
 
+DISCOVER NEEDS FROM SHARED STATE, NOT FROM THE SYNCHRONIZATION APIS
+For each source-supported shared state or resource, follow its actual reads,
+updates, publication, reuse and retirement, including ordinary scalar/RMW
+operations. Ask which activations can access the SAME instance and which
+invariant their overlap could break. Work/timer/lock/refcount APIs are clues to
+those activations and effects, not a substitute for the state accesses.
+Submit each identified concurrency Req even when existing code appears to
+satisfy it. Then submit the actual Gua within its own supported domain; let E
+check the relationship. Seeing a lock, reference, RCU section, per-CPU field or
+framework protocol is not a reason to omit a real Req. Conversely, do not
+invent concurrency requirements for local state or permitted intermediate states.
+Follow the complete relevant access path, not only the container's lifetime:
+an object reference may not pin its driver data, a detached entry may still be
+used by a callback, and a reused slot can have a new generation while an older
+activation still uses an observation. Inspect the operations AFTER unlock,
+counter-zero, detach, cancellation and notification as well as those before.
+Find the first operation that actually admits another actor, including open,
+enable, registration or queue publication; a later assignment need not be the
+first publication. Include readers outside the apparent protection domain,
+other invocations of the same entry, error rollback, and hardware consumers
+when source supports them. Trace dependencies needed to establish those actors.
+Keep extraction incremental: identify the relation, register its real operands,
+submit Req, investigate and submit Gua, and address structural feedback. Do not
+postpone all Req or all Gua until the end. A broad safe-protocol summary does not
+account for an access, participant or lifetime boundary it never examined.
+
 Use the extensible protocol catalog as systematic questions, not an exhaustive
 bug taxonomy or a boundary. Record a source-based position on each pattern with
 record_pattern_review; not_applicable and unknown are legitimate. Follow other
@@ -198,6 +224,16 @@ the source/IR recovery above before settling on unknown. Correct an accepted rec
 with replace_id and a concrete correction_reason; its ID and revision history
 are preserved. Add a new Req for a different valid relation. Do not leave a
 known wrong transaction active merely because a later corrected duplicate exists.
+The e_sequence_order diagnostic reports the same local order premise used by
+E, separately from mere reachability. not_dominating may indicate another
+compiler lowering arm or a branch-specific step, not a missing source check;
+cyclic order remains an occurrence limitation. Do not change a correct source
+transaction or delete its steps merely to make the local predicate pass.
+Before finalize_contract, inspect get_contract_diagnostics(ids=[]). For a
+referenced unresolved source anchor with IR candidates, inspect get_operations
+using that source_id and either repair the correspondence/selector or record_gap
+with source_ids and the actual reason it remains unknown. No-IR operands may
+remain unknown. This is extraction consistency, not a completeness proof.
 
 PHASE C: CONTINUING SOURCE REVIEW
 E applies deterministic sufficient rules over Req, Gua and exact IR CFG facts.
@@ -232,4 +268,30 @@ inline std::string moduleExtractionInstructions() {
         "Extract source-supported Req/Gua; the static backend checks the accepted contracts.");
     return prompt;
 }
+inline constexpr const char* moduleSourceCrosscheck = R"PROMPT(
+Phase A continues: SOURCE REQUIREMENT CROSSCHECK, before E and without bug review.
+The first extraction pass is saved in contract_state.json. Use the same source
+workspace and pinned dependency tools. This is a further source investigation,
+not a restatement of catalog reviews or a verdict on E candidates.
+
+Revisit shared-state accesses and their actual participants against the accepted
+Req operands. Search for source-supported needs omitted by the initial focus on
+locks, async APIs or whole-object lifetime. In particular inspect ordinary scalar
+and RMW accesses, repeated activations of the same function, protocol-external
+readers, the first admission/publication point, accesses after apparent completion,
+subobject/driver-data lifetime, reuse generations, error rollback, and hardware
+consumers. Follow missing callers/dispatch/helper effects when necessary.
+
+For a real omitted relation, register the actual observation/use/update and its
+opposing access, then add_requirement even if a real Gua satisfies it. If an
+accepted Req selected a proxy field, the wrong participant or an early retirement
+boundary, correct it with replace_id and source evidence. Retain other valid Req.
+Add or correct actual Gua as needed; do not expand a narrow protection domain to
+avoid creating Req. Use the raw ledger for state, not a prose reconstruction.
+
+No quota, entry filtering or claim of exhaustive coverage. Do not manufacture a
+new Req just to change the count. Investigate relevant gaps, preserve unsupported
+ones explicitly, inspect current contract diagnostics and finalize_contract when
+this further investigation is complete. Phase C remains a separate optional step.
+)PROMPT";
 }

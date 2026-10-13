@@ -25,8 +25,11 @@ private:
     nlohmann::json data_, model_, catalog_;
     std::set<std::string> functions_;
     std::set<int> inspectedIRNodes_;
+    std::set<std::string> inspectedSourceQueries_;
+    std::string inspectedDiagnosticState_;
     std::map<std::string, std::vector<std::string>> sourceLines_;
     bool generating_ = true, generationFinished_ = false, reviewFinished_ = false;
+    bool requirementSweep_ = true;
     std::string sourcePacket();
     std::string execute_tool(const std::string&, const nlohmann::json&) override;
     std::vector<Tool> get_available_tools() const override;

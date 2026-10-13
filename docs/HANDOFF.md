@@ -4,6 +4,17 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-13 状态需求导向的抽取流程（隔离开发分支）
+
+- 用户要求优先解决影响大的高层问题；此前48个未召回病例的人工主要归因中，39例属于阅读/Req逻辑，不能只修绑定。
+- 新代码在远端隔离工作树 /mlx_devbox/users/mayunlong.39/playground/LLM4Con-req-first-workflow，分支 codex/req-first-workflow。原 lace-v2-module-agent 的全量实验仍使用806055d，当前运行及原始输出未被修改。本地镜像代码已对应此新实现，不要将原批次视为已使用新流程。
+- Phase A 默认先从共享状态的实际读写、使用和失效提出Req/Gua，再在同一SDK会话中执行源码需求扫描；第二步在E之前调查遗漏参与者、普通字段、发布/结束边界、子对象/世代和硬件消费者。它继续提交/修订结构化Req/Gua，不读取E结果或GT，不是Phase C，也不要求固定数量的新增Req。
+- 完成前检查当前契约诊断；有IR候选的未绑定引用必须查询并恢复，或通过record_gap(source_ids)说明为什么保持unknown。无IR候选可保持unknown，未知不要求清零。反馈另报E的局部顺序前提，区分可达却不支配的compiler arm与循环。
+- LACE_REQUIREMENT_SWEEP=on/off 或run_module/run_batch --requirement-sweep on/off可做同代码对照，默认on。max-turns仍默认0；显式正数按每次SDK调用限制，新增元数据说明，旧字段保留。第二步失败仍部分E、非零退出、incomplete，不能把第一步结束当完整抽取。
+- 工程验证：5项CTest、24项Python测试、6组localhost全流程通过；新计划七例原始账本的E零模型重放与原生结果一致。ioprio初试的测试输入别名问题及纠正后结果均保留。没有真实新模型调用或召回提升结论。
+- 实现/设计详见[REQ_DISCOVERY_WORKFLOW_20261013.md](REQ_DISCOVERY_WORKFLOW_20261013.md)，固定输入后续计划为tests/req_discovery_plan.json（未启动）。原始工程验证在远端 lace-req-discovery-offline-20261013。
+- 独立Gua增强图、Gua端点、循环occurrence、一般跨过程和AtomicOp体系仍按此前约定保留；本轮没有宣称解决这些边界。
+
 ### 2026-10-12 初始上下文核验与清理
 
 - 用户最新要求：可用的压缩应启用，不是强制关闭。七例重跑暂未启动，先核实压缩与初始注入。

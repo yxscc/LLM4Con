@@ -8,8 +8,8 @@ int main() {
     for (int id : {1,2,3,4,10,11}) nodes.push_back({{"node_id", id}, {"function_id", id < 10 ? 1 : 10},
         {"origin", "ir"}, {"kind", "load"}, {"file", "test.c"}, {"line", id},
         {"memory_role", "read"}, {"source_function", "f"}, {"access_paths", {"p.field"}}});
-    J model = {{"nodes", nodes}, {"functions", {{{"function_id",1},{"cfg_complete",true}},
-        {{"function_id",10},{"cfg_complete",true}}}}, {"cfg_edges", {{1,2},{1,3},{2,4},{3,4},{10,11}}}};
+    J model = {{"nodes", nodes}, {"functions", {{{"function_id",1},{"cfg_complete",true},{"entry",1}},
+        {{"function_id",10},{"cfg_complete",true},{"entry",10}}}}, {"cfg_edges", {{1,2},{1,3},{2,4},{3,4},{10,11}}}};
     J atomic = {{"form","MustBeAtomic"}, {"a_nodes",{2,3}}, {"b_nodes",J::array()}, {"interference_nodes",{11}}};
     const J empty = J::object();
     auto feedback = [&](const J& r) { return llm_client::contractFeedback(r,model,empty,J::array()); };
@@ -20,6 +20,12 @@ int main() {
     check(d["synchronization_established"] == false && d["semantics_verified"] == false, "Reachability claimed synchronization or semantics");
     atomic["a_nodes"] = {2,4};
     check(feedback(atomic)["sequence_pairs"][0]["status"] == "local_path", "Valid forward path lost");
+    check(feedback(atomic)["sequence_pairs"][0]["e_sequence_order"] == "not_dominating",
+        "A compiler-arm bypass was hidden by reachability feedback");
+    atomic["a_nodes"] = {1,4};
+    check(feedback(atomic)["sequence_pairs"][0]["e_sequence_order"] == "established",
+        "A dominating local prefix was lost");
+    atomic["a_nodes"] = {2,4};
     model["cfg_edges"].push_back({4,1});
     check(feedback(atomic)["sequence_pairs"][0]["status"] == "cyclic_local_path", "Loop occurrence was treated as unique order");
     check(feedback(atomic)["sequence_pairs"][0]["same_resolved_operation"] == false, "Distinct loop effects called the same operation");
@@ -51,6 +57,27 @@ int main() {
         "A wide anchor chose an arbitrary node");
     check(!d["bindings"][0].contains("operation_id"), "Source feedback exposed an invented exact operation ID");
     check(d["bindings"][1]["status"] == "unknown_source_id", "Unknown source operand disappeared");
+
+    J completion = {{"requirements", {{{"id","req:0"},{"a_sources",{"wide"}},{"b_sources",{"no-ir"}}}}},
+        {"guarantees",J::array()},{"source_operations",{{"wide",op},{"orphan",op}}},
+        {"source_manifest",J::array({J{{"path","test.c"}}})}};
+    J noIR=op; noIR["first_line"]=90; noIR["last_line"]=90;
+    completion["source_operations"]["no-ir"]=noIR;
+    auto pending=[&](std::set<std::string> seen,const std::string& state) {
+        return llm_client::extractionCompletionIssues(completion,model,seen,state);
+    };
+    check(pending({}, "").size()==2, "Uninspected diagnostics/source correspondence silently finished");
+    auto state=llm_client::extractionState(completion);
+    check(pending({}, state)[0]["kind"]=="unresolved_source_not_inspected", "Missing IR inspection not reported");
+    check(pending({"wide"}, state)[0]["kind"]=="unresolved_source_needs_reason", "Inspection silently turned unknown into completion");
+    completion["source_binding_gaps"]["wide"]={{"reason","Two effects inspected; correspondence remains unresolved"},{"source_snapshot",op}};
+    check(pending({"wide"},state).empty(), "Documented unknown, no-IR operand or unused anchor blocked completion");
+    check(llm_client::extractionState(completion)==state, "Recording a gap modified accepted contracts");
+    completion["requirements"][0]["note"]="Corrected invariant";
+    check(pending({"wide"},state)[0]["kind"]=="current_contract_diagnostics_not_inspected", "Stale diagnostic inspection survived a Req edit");
+    completion["source_operations"]["wide"]["content"]="x = p->field; y = p->field; /* revised source evidence */";
+    state=llm_client::extractionState(completion);
+    check(pending({"wide"},state)[0]["kind"]=="unresolved_source_needs_reason", "A stale gap snapshot excused a changed source anchor");
 
     J ledger = {{"requirements",J::array()},{"guarantees",J::array()}};
     J r = {{"form","MustBeAtomic"},{"a_sources",{"old"}},{"note","old mutually exclusive sequence"}};

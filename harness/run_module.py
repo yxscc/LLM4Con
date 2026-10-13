@@ -23,7 +23,9 @@ def main():
     parser.add_argument("--revision", help="Full commit SHA for all repository queries; must match the target source")
     parser.add_argument("--autoconf", type=Path, help="Generated kernel autoconf.h from the IR build; forwarded to CPG preprocessing. Its hash is recorded, but existing IR provenance is not inferred.")
     parser.add_argument("--binary", type=Path, default=Path(__file__).resolve().parents[1] / "Release-build/llm_detector")
-    parser.add_argument("--max-turns", type=int, default=0, help="Optional per-phase execution cap (0: no cap, default). Exhaustion remains an incomplete run.")
+    parser.add_argument("--max-turns", type=int, default=0, help="Optional cap per SDK invocation (0: no cap). Each extraction pass has an invocation; exhaustion remains incomplete.")
+    parser.add_argument("--requirement-sweep", choices=["on","off"], default=os.getenv("LACE_REQUIREMENT_SWEEP","on"),
+                        help="Further source-led Req discovery within Phase A; off supports controlled ablation.")
     args = parser.parse_args()
     if not args.source.is_dir() or not args.bitcode.is_file():
         parser.error("--source must be an existing directory and --bitcode an existing matching IR file")
@@ -43,7 +45,8 @@ def main():
         source_check = context.verify_source(args.source)
     env = os.environ.copy()
     env.update(LACE_PYTHON=sys.executable, LLM_MODEL=args.model or "",
-               LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns))
+               LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns),
+               LACE_REQUIREMENT_SWEEP=args.requirement_sweep)
     if args.catalog:
         env["LACE_PROTOCOL_CATALOG"] = str(args.catalog.resolve())
     env.pop('LACE_CPG_AUTOCONF', None)
@@ -63,6 +66,7 @@ def main():
     # Paths/model/budget are safe metadata. Credentials and gateway URL are not
     # copied into the manifest or process arguments.
     manifest = {"model": args.model, "harness": "openai-agents", "max_turns_per_phase": args.max_turns,
+                "max_turns_per_sdk_invocation": args.max_turns, "requirement_sweep_requested": args.requirement_sweep,
                 "sdk_versions": {name: importlib.metadata.version(name) for name in ("openai", "openai-agents")},
                 "model_api": env.get("LACE_MODEL_API", "chat_completions"),
                 "context_management_requested": env.get("LACE_CONTEXT_MANAGEMENT", "auto"),

@@ -21,14 +21,22 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--no-review', action='store_true')
     parser.add_argument('--catalog', type=Path)
+    parser.add_argument('--repository', type=Path, help='Pinned public source repository for normal verification and alias deduplication')
+    parser.add_argument('--revision', help='Full pinned source commit; required with repository')
     parser.add_argument('--source-anchors', action='store_true', help='Exercise synthetic source-only report output')
     parser.add_argument('--recover-lock-binding', action='store_true', help='OA TC6 only: exercise inspected macro-call binding, reread, withdrawal and E persistence; no real model')
     parser.add_argument('--exhaust-after-contract', action='store_true', help='Verify budget exhaustion still runs E on accepted partial contracts')
     parser.add_argument('--fail-after-contract', choices=['context_error', 'api_error', 'disconnect'],
                         help='Fail the localhost API after accepting Req/Gua; verify partial E and incomplete status')
+    parser.add_argument('--fail-crosscheck', action='store_true', help='Fail the second Phase A pass; retain initial contracts and partial E')
+    parser.add_argument('--no-source-crosscheck', action='store_true', help='Disable second extraction pass for offline ablation')
     args = parser.parse_args()
+    if bool(args.repository)!=bool(args.revision):
+        parser.error('Provide repository and revision together')
     if args.exhaust_after_contract and args.fail_after_contract:
         parser.error('Choose one extraction failure mode')
+    if args.fail_crosscheck and (args.exhaust_after_contract or args.fail_after_contract or args.no_source_crosscheck):
+        parser.error('Crosscheck failure requires the second pass and no earlier failure mode')
     repo = Path(__file__).resolve().parents[1]
     state = {'calls': 0, 'step': 'start', 'phase': 'A'}
     errors = []
@@ -54,6 +62,13 @@ def main():
                     state.update(phase='C', step='obligations')
                     assert 'Phase A.' in initial and 'NO precomputed requirements' in initial, 'History or extraction setup lost'
                     assert 'PHASE C: CONTINUING SOURCE REVIEW' in instructions, 'Review instructions not installed at Phase C'
+                if state['step']=='await_c' and 'review_obligations' not in tools:
+                    assert 'SOURCE REQUIREMENT CROSSCHECK' in messages[-1]['content']
+                    assert any(m.get('role')=='tool' and 'req:0' in m.get('content','') for m in messages), 'Crosscheck lost accepted-contract history'
+                    state['source_crosscheck_seen']=True
+                    if args.fail_crosscheck:
+                        return self.do_failure()
+                    state['step']='crosscheck_diagnostics'
                 step = state['step']
                 if step == 'fail':
                     return self.do_failure()
@@ -212,7 +227,35 @@ def main():
                         name, arguments = self.pattern()
                     else:
                         name, arguments = 'finalize_contract', {}
-                        state['step'] = 'await_c'
+                        state['step'] = 'finish_diagnostics'
+                elif step == 'finish_diagnostics':
+                    pending=json.loads(messages[-1]['content'])
+                    assert pending['unknown_permitted'] and not pending['semantic_completeness_proved']
+                    assert any(p['kind']=='current_contract_diagnostics_not_inspected' for p in pending['pending'])
+                    name, arguments='get_contract_diagnostics',{'ids':[]}
+                    state['step']='inspect_unknown_next'
+                elif step == 'inspect_unknown_next':
+                    rows=json.loads(messages[-1]['content'])
+                    state['unknown_sources']=list(dict.fromkeys(b['source_id'] for row in rows for b in row['diagnostics']['bindings']
+                        if b.get('status')!='bound' and 'source_id' in b))
+                    name,arguments=self.inspect_unknown()
+                elif step == 'retain_unknown':
+                    page=json.loads(messages[-1]['content'])
+                    assert 'source_binding' in page and not page['source_binding']['semantic_correctness_verified']
+                    name,arguments='record_gap',{'source_ids':[state['unknown_source']],
+                        'description':'OFFLINE synthetic source span inspected; no semantic correspondence is asserted and unknown is deliberately retained.'}
+                    state['step']='next_unknown'
+                elif step == 'next_unknown':
+                    assert messages[-1]['content']=='Gap recorded'
+                    name,arguments=self.inspect_unknown()
+                elif step == 'crosscheck_diagnostics':
+                    name,arguments='get_contract_diagnostics',{'ids':[]}
+                    state['step']='crosscheck_finish'
+                elif step == 'crosscheck_finish':
+                    rows=json.loads(messages[-1]['content'])
+                    assert len(rows)==1 and rows[0]['id']=='req:0'
+                    name,arguments='finalize_contract',{}
+                    state['step']='await_c'
                 elif step == 'obligations':
                     name, arguments = 'get_obligations', {'ids': []}
                     state['step'] = 'judge'
@@ -248,6 +291,14 @@ def main():
             state['step'] = 'pattern_next'
             return 'record_pattern_review', {'pattern_id': state['patterns'][state['pattern_index']], 'status': 'unknown', 'reason': 'Offline test; model semantic audit intentionally not performed.'}
 
+        def inspect_unknown(self):
+            if not state['unknown_sources']:
+                state['step']='await_c'
+                return 'finalize_contract',{}
+            source_id=state['unknown_sources'].pop(0);state['unknown_source']=source_id;state['step']='retain_unknown'
+            return 'get_operations',{'function_id':-1,'path':'','first_line':0,'last_line':0,
+                'source_id':source_id,'origin':'ir','offset':0,'limit':1000}
+
         def invalid_requirement(self):
             state['req'] = {'form': 'CallPrecondition', 'resource': 'OFFLINE SYNTHETIC protocol resource', 'scope': 'synthetic-one-instance',
                 'actors': ['synthetic activation A', 'synthetic activation B'], 'a_nodes': [], 'b_nodes': [],
@@ -267,7 +318,7 @@ def main():
                 self.close_connection = True
                 self.connection.shutdown(2)
                 return
-            context_error = args.fail_after_contract == 'context_error'
+            context_error = args.fail_after_contract == 'context_error' or args.fail_crosscheck
             payload = json.dumps({'error': {
                 'message': 'OFFLINE synthetic context limit' if context_error else 'OFFLINE synthetic API unavailable',
                 'type': 'invalid_request_error' if context_error else 'server_error',
@@ -283,26 +334,30 @@ def main():
     env.update(LLM_BASE_URL=f'http://127.0.0.1:{server.server_port}/v1', LLM_API_KEY='offline-test-only', LLM_MODEL='offline-scripted',
                NO_PROXY='127.0.0.1,localhost', no_proxy='127.0.0.1,localhost', LACE_PROTOCOL_CATALOG=str(args.catalog.resolve()) if args.catalog else str(repo/'config/protocol_catalog.json'))
     env.pop('LACE_MODEL_API', None)
+    env['LACE_REQUIREMENT_SWEEP']='off' if args.no_source_crosscheck else 'on'
     try:
-        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--no-review'] if args.no_review else []) + (['--max-turns', '13'] if args.exhaust_after_contract else []), env=env,
+        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--repository',str(args.repository),'--revision',args.revision] if args.repository else []) + (['--no-review'] if args.no_review else []) + (['--max-turns', '13'] if args.exhaust_after_contract else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
-        assert code == (2 if args.exhaust_after_contract or args.fail_after_contract else 0), f'Unexpected native exit; see {args.output}/run.log'
+        assert code == (2 if args.exhaust_after_contract or args.fail_after_contract or args.fail_crosscheck else 0), f'Unexpected native exit; see {args.output}/run.log'
         manifest = json.loads((args.output/'run.json').read_text())
         report_path = Path(manifest['report']); report = json.loads(report_path.read_text())
         model = json.loads((report_path.parent/'module_model.json').read_text())
-        if args.exhaust_after_contract or args.fail_after_contract:
+        if args.exhaust_after_contract or args.fail_after_contract or args.fail_crosscheck:
             assert state['phase'] == 'A'
             if args.exhaust_after_contract:
                 assert state['calls'] == 13
-            else:
+            elif args.fail_after_contract:
                 assert len(report['guarantees']) == 1 and report['guarantees'][0]['id'] == 'gua:0'
+            else:
+                assert state['source_crosscheck_seen'] and not report['guarantees']
+                assert report['extraction_passes'][0]['finished'] and not report['extraction_passes'][1]['finished']
             assert len(report['requirements']) == 1 and 'req:0' in report['checks']
             assert report['coverage']['e_finished'] and not report['coverage']['generation_finished']
             assert not report['coverage']['workflow_complete'] and report['partial_extraction']
             assert report['review_disabled'] and not report['reviews']
             expected_error = {'context_error': 'BadRequestError', 'api_error': 'InternalServerError',
-                              'disconnect': 'APIConnectionError'}.get(args.fail_after_contract, 'MaxTurnsExceeded')
+                              'disconnect': 'APIConnectionError'}.get(args.fail_after_contract, 'BadRequestError' if args.fail_crosscheck else 'MaxTurnsExceeded')
             assert expected_error in report['error'] and manifest['exit_code'] == 2
             assert (report_path.parent/'stateful_bugs/reports.json').is_file()
             assert (report_path.parent/'sdk_source_tools.jsonl').is_file()
@@ -315,6 +370,10 @@ def main():
         assert any(row['name'] == 'exec_command' and row['event'] == 'tool_result' for row in source_events)
         assert model['coverage']['ir_functions'] == state['ir_function_total']
         assert report['coverage']['workflow_complete']
+        assert report['requirement_sweep_enabled']==(not args.no_source_crosscheck)
+        assert len(report['extraction_passes'])==(1 if args.no_source_crosscheck else 2)
+        assert all(p['finished'] for p in report['extraction_passes'])
+        assert bool(state.get('source_crosscheck_seen'))==(not args.no_source_crosscheck)
         if args.recover_lock_binding:
             assert state['binding_recovery_done'] and len(report['source_binding_revisions'])==3
             recovered=report['checks']['req:0']['bindings'][0]
@@ -338,6 +397,12 @@ def main():
             'ir_evidence_is_on_demand':True}
         summary['initial_request_profile']=state['initial_request_profile']
         summary['source_binding_recovery']=args.recover_lock_binding
+        sys.path.insert(0,str(repo/'harness'))
+        from run_batch import summarize
+        batch_summary=summarize(args.output)
+        assert batch_summary['usage_complete'], 'Second extraction pass broke batch usage accounting'
+        assert batch_summary['total_usage']['requests']==state['calls'], 'Completed SDK runs lost/double-counted requests'
+        summary['extraction_passes']=report['extraction_passes']
         (args.output/'offline-validation.json').write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))
     finally:

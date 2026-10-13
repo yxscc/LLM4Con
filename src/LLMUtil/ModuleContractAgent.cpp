@@ -37,6 +37,15 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
         {"harness","openai-agents"},{"observation_format","source-workspace-sdk-shell-no-ast-v2"},{"agent_instructions",moduleExtractionInstructions()},{"protocol_catalog",catalog_},
         {"graph_coverage",model_.at("coverage")}};
     for (const auto& f:model_["functions"]) functions_.insert(f.at("name"));
+    if (const char* sweep=std::getenv("LACE_REQUIREMENT_SWEEP")) {
+        const std::string mode=sweep;
+        if (mode!="on"&&mode!="off") throw std::invalid_argument("LACE_REQUIREMENT_SWEEP must be on or off");
+        requirementSweep_=mode=="on";
+    }
+    data_["requirement_sweep_enabled"]=requirementSweep_;
+    data_["extraction_workflow"]=requirementSweep_ ? "state-led incremental Req/Gua with source requirement crosscheck" :
+        "state-led incremental Req/Gua; source requirement crosscheck disabled";
+    data_["extraction_passes"]=J::array();
     initializeRepositoryContext();
     if (const char* turns=std::getenv("LACE_MODULE_MAX_TURNS")) set_max_turns(std::stoi(turns));
     save();
@@ -77,11 +86,23 @@ void ModuleContractAgent::generate() {
         // Bibliography is provenance retained in the ledger, not task input.
         // Keep every actual pattern/question and its interpretation unchanged.
         auto catalogInput=catalog_; catalogInput.erase("sources");
+        data_["extraction_passes"].push_back({{"pass","discovery"},{"finished",false}}); save();
         send_message("Phase A. Audit the whole available module through SDK exec_command/write_stdin. Sources are under module/, with the full index in module_files.json. Read original source and follow source-supported protocols across files; use line-numbered slices and targeted searches, continuing after tool output truncation. contract_state.json is a read-only live view of accepted contracts, not a submission interface. The directory index below contains no source bodies. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
-            "Use the extensible catalog as an auditing guide, pursue other source-supported protocols too, and declare actual concurrency Req/Gua. "
+            "Start from shared-state accesses, actual uses and invalidating operations; identify each safety need before deciding whether a lock/ref/framework satisfies it. Submit satisfied as well as violated Req and independently source-supported Gua. Use the extensible catalog as an auditing guide and pursue other source-supported protocols too. "
             "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalogInput.dump()+
             "\nRepository context: "+(data_["repository_context"].is_null()?std::string("not configured"):data_["repository_context"]["revision"].get<std::string>())+"\n"+packet);
-        if (!generationFinished_) throw std::runtime_error("Agent did not finalize contract extraction"); save();
+        if (!generationFinished_) throw std::runtime_error("Agent did not finalize contract discovery");
+        data_["extraction_passes"].back()["finished"]=true; save();
+        if (requirementSweep_) {
+            generationFinished_=false;
+            inspectedDiagnosticState_.clear();
+            data_["extraction_passes"].push_back({{"pass","source_requirement_crosscheck"},{"finished",false}}); save();
+            // Same official SDK conversation and raw ledger. No E results, GT,
+            // synthetic summary, fresh custom harness or Phase C judgment.
+            send_message(moduleSourceCrosscheck);
+            if (!generationFinished_) throw std::runtime_error("Agent did not finalize source requirement crosscheck");
+            data_["extraction_passes"].back()["finished"]=true; save();
+        }
     } catch (const std::exception& e) { save(e.what()); throw; }
 }
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
@@ -99,7 +120,9 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
          {"operation_kind","string","read, write, call, atomic, fence or unspecified.",false},{"symbol","string","Exact source lvalue (e.g. p->field) or callee name, copied from the cited statement.",false},{"function","string","Containing source function name.",false}}});
     tools.push_back({"get_source_operations","Batch validated source anchors; no graph binding is silently invented.",
         {Parameter("operations",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"path",{{"type","string"}}},{"first_line",{{"type","integer"}}},{"last_line",{{"type","integer"}}},{"operation_kind",{{"type","string"}}},{"symbol",{{"type","string"}}},{"function",{{"type","string"}}}}},{"required",{"path","first_line","last_line"}},{"additionalProperties",false}}}},true)}});
-    tools.push_back({"record_gap","Record missing source/context, unresolved mapping or unsupported semantics.",{{"description","string","Missing evidence and affected protocol.",true}}});
+    tools.push_back({"record_gap","Record missing source/context or unsupported semantics. For an inspected unresolved source correspondence, cite source_ids and why it remains unknown; this permits completion without inventing a binding.",
+        {{"description","string","Missing evidence and affected protocol; for correspondence explain why inspected candidates cannot establish the intended effect.",true},
+         source("source_ids")}});
     tools.push_back({"get_obligations","Query all requirements (empty IDs) or full selected records with E evidence and reviews.",{list("ids","string","IDs, or [] for all.")}});
     if (generating_) {
         tools.push_back({"bind_source_operation","Recover an unresolved source-to-IR correspondence after inspecting get_operations. Select one actual effect within this source anchor's coordinates/function and explain the compiler lowering or ambiguity. Records an Agent judgment, not synchronization, atomicity or instance proof. When no IR candidate exists, preserve unknown. Req/Gua keep their source IDs; E uses the recorded mapping.",
@@ -110,7 +133,7 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
             {list("functions","string","Related module functions; not a coverage quota."),{"summary","string","Protocol, source evidence, assumptions and gaps.",true},choice("status",{"reviewed","unknown"})}});
         tools.push_back({"record_pattern_review","Record how a catalog question was investigated. This accounts for the checklist, not semantic completeness.",
             {{"pattern_id","string","Catalog pattern ID.",true},choice("status",{"reviewed","not_applicable","unknown"}),{"reason","string","Source-based audit position; describe unresolved evidence.",true}}});
-        tools.push_back({"get_contract_diagnostics","Inspect extraction bindings, local sequence reachability and declared Gua applicability. No AST/IR records, semantic proof, HB or E discharge. Correct actual extraction errors with add_requirement/add_guarantee replace_id; preserve unresolved mappings as gaps.",
+        tools.push_back({"get_contract_diagnostics","Inspect extraction bindings, local reachability AND E's local sequence-order premise, plus declared Gua applicability. No AST/IR records, semantic proof, HB or E discharge. Inspect ids=[] before finishing; correct extraction errors or preserve inspected unknown mappings with record_gap(source_ids).",
             {list("ids","string","Req/Gua IDs; [] for all accepted contracts.")}});
         tools.push_back({"add_requirement","Record or explicitly replace one concurrency safety relation. Returns extraction diagnostics; no static object or entry IDs required.",
             {choice("form",{"MustPrecede","MustBeAtomic","MustBeMediated"}),{"resource","string","Concrete source resource expression.",true},
@@ -128,7 +151,7 @@ std::vector<Tool> ModuleContractAgent::get_available_tools() const {
              Parameter("regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_node",{{"type","integer"}}},{"end_node",{{"type","integer"}}}}},{"required",{"start_node","end_node"}},{"additionalProperties",false}}},{"description","Exclude: matching acquisition/release boundaries for each protected interval. E requires whole sequence continuously protected; opaque interior calls remain unsupported. [] for other Gua."}},true),
              Parameter("source_regions",J{{"type","array"},{"items",{{"type","object"},{"properties",{{"start_source",{{"type","string"}}},{"end_source",{{"type","string"}}}}},{"required",{"start_source","end_source"}},{"additionalProperties",false}}}},false),
              repo(),replacement(),correction(),{"note","string","Actual mechanism and why it supplies the claimed synchronization effect on this domain.",true}}});
-        tools.push_back({"finalize_contract","Finish after explicitly considering every catalog pattern; unknown positions are retained. No per-object/function quota.",{}});
+        tools.push_back({"finalize_contract","Finish this extraction pass after catalog consideration and current diagnostics. Referenced unresolved operations with IR candidates must have been inspected and repaired or explained in record_gap(source_ids). Unknown remains legal; this does not certify Req completeness or impose a quota.",{}});
     } else {
         tools.push_back({"review_obligations","Review every Req, including E discharges. Source-supported reports need a concrete applicable harmful interleaving.",
             {list("ids","string","Req IDs sharing this judgment."),choice("status",{"source_supported","satisfied","not_applicable","unknown"}),
@@ -181,6 +204,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
         }
         J result={{"rows",page},{"total",rows.size()},{"next_offset",size_t(offset)+page.size()<rows.size()?J(size_t(offset)+page.size()):J(nullptr)}};
         if (!anchor.is_null()) result["source_binding"]=bindSourceOperation(anchor,model_,data_["source_manifest"]);
+        if (!anchor.is_null()&&!page.empty()) inspectedSourceQueries_.insert(args.at("source_id").get<std::string>());
         return result.dump();
     }
     if (name=="get_source_operation") return sourceOperation(args).dump();
@@ -202,7 +226,16 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             {"semantics_verified",false},{"synchronization_established",false}}.dump();
     }
     if (auto result=executeRepositoryTool(name,args)) return *result;
-    if (name=="record_gap") { nonempty(args,"description"); data_["gaps"].push_back(args.at("description")); save(); return "Gap recorded"; }
+    if (name=="record_gap") {
+        nonempty(args,"description"); auto ids=validSources(args,"source_ids");
+        if (args.at("description").get<std::string>().find_first_not_of(" \t\r\n")==std::string::npos)
+            throw std::invalid_argument("A gap needs a concrete nonblank reason");
+        for (const auto& id:ids) if (!inspectedSourceQueries_.count(id)&&data_["source_operations"].at(id).value("ir_candidate_count",size_t(0))>0)
+            throw std::invalid_argument("Inspect this source_id with get_operations before retaining a correspondence gap");
+        data_["gaps"].push_back(args.at("description"));
+        for (const auto& id:ids) data_["source_binding_gaps"][id]={{"reason",args.at("description")},{"source_snapshot",data_["source_operations"].at(id)}};
+        save(); return "Gap recorded";
+    }
     if (name=="get_obligations") {
         auto ids=args.at("ids").get<std::set<std::string>>(); J out=J::array();
         for (const auto& r:data_["requirements"]) {
@@ -222,6 +255,7 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             out.push_back(row);found.insert(id);
         }
         if (!ids.empty()&&found!=ids) throw std::invalid_argument("Unknown Req/Gua ID");
+        if (ids.empty()) inspectedDiagnosticState_=extractionState(data_);
         return out.dump();
     }
     if (name=="record_protocol"&&generating_) {
@@ -266,6 +300,9 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
     if (name=="finalize_contract"&&generating_) {
         J missing=J::array(); for (const auto& p:catalog_["patterns"]) if (!data_["pattern_reviews"].contains(p.at("id"))) missing.push_back(p.at("id"));
         if (!missing.empty()) return J{{"error","Unaccounted catalog patterns"},{"missing",missing}}.dump();
+        auto issues=extractionCompletionIssues(data_,model_,inspectedSourceQueries_,inspectedDiagnosticState_);
+        if (!issues.empty()) return J{{"error","Extraction consistency actions remain"},{"pending",issues},
+            {"unknown_permitted",true},{"semantic_completeness_proved",false}}.dump();
         generationFinished_=true; save(); return "finish";
     }
     if (name=="review_obligations"&&!generating_) {

@@ -83,7 +83,10 @@ def summarize(output):
         review_statuses=dict(Counter(r["status"] for r in report["reviews"].values())),
         source_supported_ids=[i for i, r in report["reviews"].items() if r["status"] == "source_supported"],
         completed_phase_usage=[r["usage"] for r in completed],
-        usage_complete=bool(manifest.get("exit_code") == 0 and len(completed) == (1 if manifest.get("review_disabled") else 2)),
+        extraction_passes=report.get("extraction_passes", []),
+        usage_complete=bool(manifest.get("exit_code") == 0 and len(completed) ==
+            (len(report["extraction_passes"]) if "extraction_passes" in report else 1)
+            + (0 if manifest.get("review_disabled") else 1)),
         tool_calls=dict(tools), rejected_calls_in_completed_history=rejected,
         repository_files_read=sorted({e["path"] for e in report["repository_evidence"].values()}),
         gaps=report["gaps"], error=report.get("error"),
@@ -105,7 +108,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--no-review", action="store_true", help="Disable final Agent review in every case")
     parser.add_argument("--jobs", type=int, default=2)
-    parser.add_argument("--max-turns", type=int, default=0, help="Optional per-phase cap; 0 disables it (default).")
+    parser.add_argument("--max-turns", type=int, default=0, help="Optional cap per SDK invocation; 0 disables it (default).")
+    parser.add_argument("--requirement-sweep", choices=["on","off"], default=os.getenv("LACE_REQUIREMENT_SWEEP","on"))
     args = parser.parse_args()
     if args.jobs < 1 or args.max_turns < 0:
         parser.error("jobs >= 1 and max-turns >= 0")
@@ -136,6 +140,7 @@ def main():
                 "implementation_commit": git(project, "rev-parse", "HEAD"),
                 "binary_sha256": sha256(project / "Release-build/llm_detector"),
                 "model": os.environ.get("LLM_MODEL"), "max_turns_per_phase": args.max_turns,
+                "max_turns_per_sdk_invocation": args.max_turns, "requirement_sweep_requested": args.requirement_sweep,
                 "jobs": args.jobs, "model_api": os.environ.get("LACE_MODEL_API", "chat_completions"),
                 "context_management_requested": os.environ.get("LACE_CONTEXT_MANAGEMENT", "auto"),
                 "compaction_threshold": os.environ.get("LACE_COMPACT_THRESHOLD", "sdk_default"),
@@ -150,7 +155,7 @@ def main():
         command = [sys.executable, str(project / "harness/run_module.py"),
                    "--source", row["source"], "--bitcode", row["bitcode"], "--output", str(output),
                    "--repository", str(args.repository.resolve()), "--revision", row["revision"],
-                   "--max-turns", str(args.max_turns)]
+                   "--max-turns", str(args.max_turns), "--requirement-sweep", args.requirement_sweep]
         if args.no_review:
             command.append("--no-review")
         if row.get("autoconf_path"):

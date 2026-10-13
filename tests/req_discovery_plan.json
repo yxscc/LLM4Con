@@ -1,0 +1,78 @@
+{
+  "name": "state-led-req-discovery-development",
+  "scope_policy": "Reuse the frozen controlled full72 source/IR/config inputs without changes; same-model E-only comparison, manual post-hoc report/source/trace/contract review. No GT or fix content is loaded by the Agent.",
+  "experiment_status": "planned_not_started",
+  "cases": [
+    {
+      "case": "CVE-2024-40953",
+      "split": "development",
+      "revision": "09b2d2a2267187336b446f4c08e6204c30688bcf",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-35301db28c64310d",
+      "split": "development",
+      "revision": "6b47808f223c70ff564f9b363446d2a5fa1e05b2",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35999",
+      "split": "development",
+      "revision": "39ad3d61d23e099a93687f63eeb5a8402e0f7be8",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35977",
+      "split": "development",
+      "revision": "6613476e225e090cc9aad49be7fa504e290dd33d",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-37854",
+      "split": "development",
+      "revision": "82b6aaa867bd4dcb0c639b4739802a62cc12896a",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-39503",
+      "split": "development",
+      "revision": "3c2a6dd631062904e3d9b1954656676356f617a4",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-27019",
+      "split": "development",
+      "revision": "0b6de00206adbbfc6373b3ae38d2a6f197987907",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-56788",
+      "revision": "b15b0df3967e5de43e1638bb152c575ae60062d1",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h",
+      "split": "validation"
+    },
+    {
+      "case": "CVE-2022-48830",
+      "revision": "7db788ad627aabff2b74d4f1a3b68516d0fee0d7",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h",
+      "split": "validation"
+    },
+    {
+      "case": "CVE-2016-7911",
+      "revision": "74524955556096a0b2a821a49b4d0abebad3ee16",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h",
+      "split": "validation"
+    }
+  ],
+  "validation_policy": "Three previously corresponding reports are source/contract regression controls; still evaluated manually, no GT/fix passed to the Agent."
+}
