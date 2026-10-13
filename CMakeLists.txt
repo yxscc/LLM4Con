@@ -19,7 +19,7 @@ add_executable(llm_detector
     src/Query/ModuleFinding.cpp
     src/LLMUtil/SDKBridge.cpp src/LLMUtil/LLMClient.cpp src/LLMUtil/Conversation.cpp
     src/LLMUtil/SharedToolKit.cpp src/LLMUtil/ModuleContractAgent.cpp src/LLMUtil/ModuleRepository.cpp
-    src/LLMUtil/OperationBinding.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
+    src/LLMUtil/OperationBinding.cpp src/LLMUtil/ContractArtifact.cpp src/LLMUtil/ModuleArtifacts.cpp src/LLMUtil/ContractFeedback.cpp src/LLMUtil/RequirementChecker.cpp src/LLMUtil/ModuleAnalysis.cpp src/llm_main.cpp)
 target_link_libraries(llm_detector PRIVATE lace_static_core)
 add_executable(contract_replay src/contract_replay.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/RequirementChecker.cpp)
 llvm_map_components_to_libnames(LACE_IR_LIBRARIES core irreader analysis support)
@@ -27,6 +27,8 @@ add_executable(module_fact_refresh src/module_fact_refresh.cpp src/CCPG/IRSource
 target_link_libraries(module_fact_refresh PRIVATE ${LACE_IR_LIBRARIES})
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(contract_artifact_test tests/contract_artifact_test.cpp src/LLMUtil/ContractArtifact.cpp src/LLMUtil/OperationBinding.cpp src/LLMUtil/ContractFeedback.cpp)
+    add_test(NAME contract_artifact COMMAND contract_artifact_test)
     add_executable(module_graph_test tests/module_graph_test.cpp)
     target_link_libraries(module_graph_test PRIVATE lace_static_core)
     add_test(NAME complete_module_graph COMMAND module_graph_test)

@@ -1,6 +1,7 @@
 #include "LLMUtil/ContractFeedback.h"
 #include "LLMUtil/OperationBinding.h"
 #include <map>
+#include <algorithm>
 #include <queue>
 #include <set>
 #include <stdexcept>
@@ -180,7 +181,17 @@ J storeContract(J& ledger, const J& arguments, bool requirement) {
             if (ledger.at(collection).at(i).at("id") == replacement) { position = i; found = true; break; }
         if (!found) throw std::invalid_argument("Unknown replacement ID for this contract kind");
     } else if (!reason.empty()) throw std::invalid_argument("correction_reason requires replace_id");
-    record["id"] = replacement.empty() ? prefix + std::to_string(position) : replacement;
+    size_t next=position;
+    if (replacement.empty()) for (const auto& old:ledger.at(collection)) {
+        const std::string id=old.at("id");
+        if (id.rfind(prefix,0)==0) next=std::max(next,size_t(std::stoull(id.substr(prefix.size())))+1);
+    }
+    // IDs survive file updates/deletions and are never recycled in this run.
+    if (replacement.empty()) {
+        const auto counter=std::string("next_")+prefix;
+        next=std::max(next,ledger.value(counter,size_t(0)));ledger[counter]=next+1;
+    }
+    record["id"] = replacement.empty() ? prefix + std::to_string(next) : replacement;
     if (requirement) record["origin"] = "source_agent";
     if (!replacement.empty()) {
         J revision = {{"contract_id", replacement}, {"reason", reason},

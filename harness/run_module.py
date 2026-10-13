@@ -26,6 +26,8 @@ def main():
     parser.add_argument("--max-turns", type=int, default=0, help="Optional cap per SDK invocation (0: no cap). Each extraction pass has an invocation; exhaustion remains incomplete.")
     parser.add_argument("--requirement-sweep", choices=["on","off"], default=os.getenv("LACE_REQUIREMENT_SWEEP","on"),
                         help="Further source-led Req discovery within Phase A; off supports controlled ablation.")
+    parser.add_argument("--contract-input", choices=["artifacts","tools"], default=os.getenv("LACE_CONTRACT_INPUT","artifacts"),
+                        help="Source Req/Gua files (default), or legacy per-record tools for regression comparisons.")
     args = parser.parse_args()
     if not args.source.is_dir() or not args.bitcode.is_file():
         parser.error("--source must be an existing directory and --bitcode an existing matching IR file")
@@ -46,7 +48,7 @@ def main():
     env = os.environ.copy()
     env.update(LACE_PYTHON=sys.executable, LLM_MODEL=args.model or "",
                LACE_DUMP_ROOT=str(args.output.resolve() / "artifacts"), LACE_MODULE_MAX_TURNS=str(args.max_turns),
-               LACE_REQUIREMENT_SWEEP=args.requirement_sweep)
+               LACE_REQUIREMENT_SWEEP=args.requirement_sweep, LACE_CONTRACT_INPUT=args.contract_input)
     if args.catalog:
         env["LACE_PROTOCOL_CATALOG"] = str(args.catalog.resolve())
     env.pop('LACE_CPG_AUTOCONF', None)
@@ -66,6 +68,7 @@ def main():
     # Paths/model/budget are safe metadata. Credentials and gateway URL are not
     # copied into the manifest or process arguments.
     manifest = {"model": args.model, "harness": "openai-agents", "max_turns_per_phase": args.max_turns,
+                "contract_input": args.contract_input,
                 "max_turns_per_sdk_invocation": args.max_turns, "requirement_sweep_requested": args.requirement_sweep,
                 "sdk_versions": {name: importlib.metadata.version(name) for name in ("openai", "openai-agents")},
                 "model_api": env.get("LACE_MODEL_API", "chat_completions"),
@@ -75,7 +78,7 @@ def main():
                 "source": str(args.source.resolve()), "bitcode": str(args.bitcode.resolve()),
                 "entry_mode": "not_inferred", "graph_scope": "complete_input_module",
                 "agent_observation_policy": "source_first_ir_on_demand_no_ast",
-                "source_access": "sdk_exec_command_write_stdin_read_only_workspace",
+                "source_access": "sdk_exec_command_write_stdin_read_only_sources_writable_contract_artifacts" if args.contract_input=='artifacts' else "sdk_exec_command_write_stdin_read_only_workspace",
                 "ground_truth_files_loaded": False, "review_disabled": args.no_review}
     manifest['cpg_build_config'] = {'mode': 'explicit_autoconf' if args.autoconf else 'legacy_compile_log_discovery',
         'path': str(args.autoconf.resolve()) if args.autoconf else None,

@@ -1,4 +1,4 @@
-"""Expose SDK shell tools over an isolated, read-only source workspace.
+"""Expose SDK shell tools over isolated source and contract workspaces.
 
 The SDK owns command execution, PTYs, output formatting and the agent loop.
 This adapter only stages allowed inputs, confines the local backend, and audits
@@ -48,6 +48,10 @@ def stage_sources(source_root, contract_path):
     # The live ledger is mounted over this placeholder for each command. Atomic
     # backend rewrites therefore remain visible on the next query, including C.
     (workspace / 'contract_state.json').write_text('{}\n')
+    if state.get('contract_input') == 'artifacts':
+        from contract_format import CONTRACT_FORMAT
+        (workspace/'contracts').mkdir(exist_ok=True)
+        (workspace/'contract_format.json').write_text(json.dumps(CONTRACT_FORMAT, indent=2))
     return workspace, ledger, inventory
 
 
@@ -62,6 +66,26 @@ async def source_tools(request):
     if not bwrap:
         raise RuntimeError('Install bubblewrap or set LACE_SOURCE_BWRAP for SDK source tools')
     workspace, ledger, inventory = stage_sources(request['source_root'], request['contract_path'])
+    artifact_mode = json.loads(ledger.read_text()).get('contract_input') == 'artifacts'
+    writable_contracts = artifact_mode and any(t['name']=='finalize_contract' for t in request.get('tools', []))
+    contracts = workspace/'contracts'
+    if artifact_mode and contracts.is_symlink():
+        raise ValueError('Contract directory cannot be a symlink')
+
+    def artifact_signature():
+        if not writable_contracts:
+            return None
+        signature = {}
+        for path in sorted(contracts.rglob('*.json')):
+            key = path.relative_to(contracts).as_posix()
+            if path.is_symlink():
+                signature[key] = ('symlink', os.readlink(path))
+            elif path.is_file():
+                signature[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+            else:
+                signature[key] = 'not_a_regular_file'
+        return signature
+    last_signature = artifact_signature()
 
     class SourceSession(UnixLocalSandboxSession):
         def _confined_exec_command(self, *, command_parts, workspace_root, env):
@@ -81,7 +105,10 @@ async def source_tools(request):
                 command += ['--ro-bind', '/etc/ld.so.cache', '/etc/ld.so.cache']
             command += ['--ro-bind', str(workspace_root), str(workspace_root),
                         '--ro-bind', str(ledger), str(workspace_root / 'contract_state.json'),
-                        '--chdir', str(workspace_root), '--', *command_parts]
+                        ]
+            if writable_contracts:
+                command += ['--bind', str(contracts), str(contracts)]
+            command += ['--chdir', str(workspace_root), '--', *command_parts]
             return command
 
     client = UnixLocalSandboxClient(inherit_host_environment=False)
@@ -105,6 +132,7 @@ async def source_tools(request):
         name = tool.name
 
         async def audit(context, arguments, *, invoke=invoke, name=name):
+            nonlocal last_signature
             def record(event):
                 with events.open('a') as stream:
                     stream.write(json.dumps(event, ensure_ascii=False)+'\n')
@@ -115,8 +143,22 @@ async def source_tools(request):
                 record({'event': 'tool_error', 'name': name, 'error_type': type(exc).__name__, 'message': str(exc)})
                 raise
             record({'event': 'tool_result', 'name': name, 'output': result})
+            current = artifact_signature()
+            if current != last_signature:
+                # Native SDK tools own command execution. Notify the existing
+                # C++ tool service after changes, without another model turn.
+                notify = request.get('artifact_sync')
+                if notify is not None:
+                    feedback = notify()
+                    if hasattr(feedback, '__await__'):
+                        feedback = await feedback
+                    record({'event': 'artifact_sync', 'feedback': feedback})
+                    result += '\n[contract artifacts] '+json.dumps(feedback, ensure_ascii=False)
+                last_signature = current
             return result
         tool.on_invoke_tool = audit
     return tools, session, {'implementation': 'agents.sandbox.ExecCommandTool/WriteStdinTool',
-                           'isolation': 'bubblewrap_read_only_source', 'files': len(inventory),
+                           'isolation': 'bubblewrap_read_only_source_writable_contracts' if writable_contracts else 'bubblewrap_read_only_source',
+                           'contract_input': 'artifacts' if artifact_mode else 'tools', 'contracts_writable': writable_contracts,
+                           'files': len(inventory),
                            'workspace': str(workspace), 'tool_trace': str(events)}

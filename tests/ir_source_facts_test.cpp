@@ -29,6 +29,10 @@ int main(int argc,char** argv) {
             throw std::runtime_error("fixture marker absent");
         };
         auto bind=[&](const J& o) {return llm_client::bindSourceOperation(o,model,manifest);};
+        auto wrapper=bind(op("INLINE_CALL_WRAPPER","call","source_lock","wrapper_user"));
+        check(wrapper["status"]=="bound","compiler inline wrapper call not bound");
+        check(wrapper["correspondence"][0]["kind"]=="compiler_inline_call","inline wrapper bound without compiler call evidence");
+        check(bind(op("INLINE_CALL_AMBIGUOUS","call","source_lock","wrapper_twice"))["status"]=="ambiguous","two inline wrapper effects arbitrarily selected");
         auto read=op("ATOMIC_READ","atomic","atomic_read","check_then_call");auto bound=bind(read);
         if (bound.at("status")!="bound") {
             std::cerr<<bound.dump(2)<<'\n';

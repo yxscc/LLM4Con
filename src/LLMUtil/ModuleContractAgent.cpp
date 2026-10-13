@@ -1,6 +1,7 @@
 #include "LLMUtil/ModuleContractAgent.h"
 #include "LLMUtil/OperationBinding.h"
 #include "LLMUtil/ContractFeedback.h"
+#include "LLMUtil/ContractArtifact.h"
 #include "LLMUtil/ModulePrompt.h"
 #include "Util/TargetPath.h"
 #include <fstream>
@@ -46,6 +47,17 @@ ModuleContractAgent::ModuleContractAgent(std::shared_ptr<LLMClient> client,CCPG*
     data_["extraction_workflow"]=requirementSweep_ ? "state-led incremental Req/Gua with source requirement crosscheck" :
         "state-led incremental Req/Gua; source requirement crosscheck disabled";
     data_["extraction_passes"]=J::array();
+    if (const char* input=std::getenv("LACE_CONTRACT_INPUT")) {
+        const std::string mode=input;
+        if (mode!="artifacts"&&mode!="tools") throw std::invalid_argument("LACE_CONTRACT_INPUT must be artifacts or tools");
+        artifactMode_=mode=="artifacts";
+    }
+    data_["contract_input"]=artifactMode_?"artifacts":"tools";
+    if (artifactMode_) {
+        set_instructions(moduleArtifactExtractionInstructions());
+        data_["agent_instructions"]=moduleArtifactExtractionInstructions();
+        data_["observation_format"]="source-contract-artifacts-v1";
+    }
     initializeRepositoryContext();
     if (const char* turns=std::getenv("LACE_MODULE_MAX_TURNS")) set_max_turns(std::stoi(turns));
     save();
@@ -87,7 +99,8 @@ void ModuleContractAgent::generate() {
         // Keep every actual pattern/question and its interpretation unchanged.
         auto catalogInput=catalog_; catalogInput.erase("sources");
         data_["extraction_passes"].push_back({{"pass","discovery"},{"finished",false}}); save();
-        send_message("Phase A. Audit the whole available module through SDK exec_command/write_stdin. Sources are under module/, with the full index in module_files.json. Read original source and follow source-supported protocols across files; use line-numbered slices and targeted searches, continuing after tool output truncation. contract_state.json is a read-only live view of accepted contracts, not a submission interface. The directory index below contains no source bodies. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
+        const std::string artifactInput=artifactMode_?"Read contract_format.json, then incrementally write source-level Req/Gua JSON files under contracts/. Changes are automatically imported; contract_status.json contains compact feedback. No operation registration or graph ID is needed. ":"";
+        send_message("Phase A. Audit the whole available module through SDK exec_command/write_stdin. Sources are under module/, with the full index in module_files.json. Read original source and follow source-supported protocols across files; use line-numbered slices and targeted searches, continuing after tool output truncation. contract_state.json is a read-only live view of accepted contracts, not a submission interface. "+artifactInput+"The directory index below contains no source bodies. There are NO precomputed requirements, shared-object buckets, or inferred parallel entries. "
             "Start from shared-state accesses, actual uses and invalidating operations; identify each safety need before deciding whether a lock/ref/framework satisfies it. Submit satisfied as well as violated Req and independently source-supported Gua. Use the extensible catalog as an auditing guide and pursue other source-supported protocols too. "
             "Graph coverage (navigation/checking only): "+model_["coverage"].dump()+"\nCatalog: "+catalogInput.dump()+
             "\nRepository context: "+(data_["repository_context"].is_null()?std::string("not configured"):data_["repository_context"]["revision"].get<std::string>())+"\n"+packet);
@@ -99,14 +112,34 @@ void ModuleContractAgent::generate() {
             data_["extraction_passes"].push_back({{"pass","source_requirement_crosscheck"},{"finished",false}}); save();
             // Same official SDK conversation and raw ledger. No E results, GT,
             // synthetic summary, fresh custom harness or Phase C judgment.
-            send_message(moduleSourceCrosscheck);
+            send_message(artifactMode_?moduleArtifactCrosscheck:moduleSourceCrosscheck);
             if (!generationFinished_) throw std::runtime_error("Agent did not finalize source requirement crosscheck");
             data_["extraction_passes"].back()["finished"]=true; save();
         }
-    } catch (const std::exception& e) { save(e.what()); throw; }
+    } catch (const std::exception& e) {
+        if (artifactMode_) {try {syncContractArtifacts();} catch (...) {} }
+        save(e.what()); throw;
+    }
 }
 std::vector<Tool> ModuleContractAgent::get_available_tools() const {
     auto tools=repositoryTools();
+    if (artifactMode_&&generating_) {
+        const J locator={{"type","object"},{"properties",{
+            {"path",{{"type","string"}}},{"line",{{"type","integer"}}},{"end_line",{{"type","integer"}}},
+            {"kind",{{"type","string"},{"enum",{"read","write","call","atomic","fence"}}}},
+            {"expression",{{"type","string"}}},{"function",{{"type","string"}}}}},
+            {"required",{"path","line","kind","expression"}},{"additionalProperties",false}};
+        tools.push_back({"get_operations","Optional IR evidence for an actual source-operation ambiguity. Use the same locator as in the contract file. Relevant effects appear first; all coordinate candidates remain available through pagination. No AST.",
+            {Parameter("operation",locator,true),{"offset","integer","Page start; default 0.",false},
+             {"limit","integer","Page size 1..1000; default 50.",false}}});
+        tools.push_back({"bind_source_operation","Optional recovery after inspecting IR candidates. Use the source locator directly, plus the inspected instruction and correspondence reason. This never establishes synchronization.",
+            {Parameter("operation",locator,true),{"node_id","integer","Inspected IR node; -1 withdraws a selection.",true},
+             {"reason","string","Concrete correspondence or withdrawal reason.",true}}});
+        tools.push_back({"get_contract_diagnostics","Optional checking of selected contract files, including atomic-sequence order premises. Empty files returns compact status only. Unknown mappings do not block completion.",
+            {list("files","string","Names under contracts/, e.g. counter.json; [] for compact status.")}});
+        tools.push_back({"finalize_contract","Finish this source extraction pass. Contract files are imported and structurally validated. Source/IR unknowns stay explicit and do not require mechanical per-anchor queries. This does not prove extraction completeness.",{}});
+        return tools;
+    }
     tools.push_back({"get_module_functions","Query all source/IR function representations; these are not parallel entries. Pagination retains all rows.",
         {{"name","string","Exact function name, or empty for all.",true},{"origin","string","source, ir, or empty for both.",true},{"offset","integer","Start at zero.",true},{"limit","integer","Page size 1..1000; follow next_offset.",true}}});
     tools.push_back({"get_operations","On-demand IR evidence only; never returns AST nodes. Filter narrowly by function/file/lines or a registered source_id. Coordinates are navigation, not proven source equivalence. Pagination retains every matching instruction.",
@@ -172,6 +205,33 @@ std::vector<int> ModuleContractAgent::validNodes(const J& args,const char* key,b
     if (required&&out.empty()) throw std::invalid_argument(std::string(key)+" must not be empty"); return out;
 }
 std::string ModuleContractAgent::execute_tool(const std::string& name,const J& args) {
+    if (name=="_sync_contract_artifacts") return syncContractArtifacts().dump();
+    if (artifactMode_&&args.contains("operation")&&(name=="get_operations"||name=="bind_source_operation")) {
+        const auto op=sourceOperation(artifactOperationArguments(args.at("operation")));
+        J query;
+        if (name=="get_operations") query={{"origin","ir"},{"source_id",op.at("source_id")},
+            {"function_id",-1},{"path",""},{"first_line",0},{"last_line",0},
+            {"offset",args.value("offset",0)},{"limit",args.value("limit",50)}};
+        else query={{"source_id",op.at("source_id")},{"node_id",args.at("node_id")},{"reason",args.at("reason")}};
+        auto result=execute_tool(name,query);
+        if (name=="bind_source_operation") syncContractArtifacts();
+        return result;
+    }
+    if (artifactMode_&&name=="get_contract_diagnostics"&&args.contains("files")) {
+        syncContractArtifacts();
+        if (args.at("files").empty()) {
+            J rows=J::object();
+            for (const auto& file:data_.at("contract_artifacts").items()) rows[file.key()]=artifactFeedback(file.value().at("id"));
+            return J{{"files",rows},{"errors",data_.at("artifact_errors")},{"unknown_permitted",true}}.dump();
+        }
+        J ids=J::array();
+        for (const auto& file:args.at("files")) {
+            const auto key=file.get<std::string>();
+            if (!data_.at("contract_artifacts").contains(key)) throw std::invalid_argument("Unknown contract file: "+key);
+            ids.push_back(data_.at("contract_artifacts").at(key).at("id"));
+        }
+        return execute_tool(name,J{{"ids",ids}});
+    }
     if (name=="get_module_functions"||name=="get_operations") {
         int offset=args.at("offset"),limit=args.at("limit"); if (offset<0||limit<1||limit>1000) throw std::invalid_argument("Invalid page");
         const auto origin=args.at("origin").get<std::string>(); if (origin!=""&&origin!="source"&&origin!="ir") throw std::invalid_argument("Invalid origin");
@@ -197,6 +257,18 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
                 if ((!path.empty()||first>0||last>0)&&!sourceCoordinateMatches(row,
                     J{{"path",path},{"first_line",first>0?first:0},{"last_line",last>0?last:2147483647}},data_["source_manifest"])) continue;
             } rows.push_back(row);
+        }
+        if (!anchor.is_null()&&anchor.value("statement_binding",false)) {
+            const auto binding=bindSourceOperation(anchor,model_,data_["source_manifest"]);
+            std::set<int> semantic;for (const auto& id:binding.at("matching_candidates")) semantic.insert(id.get<int>());
+            auto rank=[&](const J& row) {
+                if (semantic.count(row.at("node_id").get<int>())) return 3;
+                const std::string api=row.value("callee_api",std::string());
+                if (api.rfind("llvm.dbg.",0)==0||api.rfind("llvm.lifetime.",0)==0) return 0;
+                if (row.value("memory_role",std::string())==anchor.value("operation_kind",std::string())) return 2;
+                return 1;
+            };
+            std::stable_sort(rows.begin(),rows.end(),[&](const J& a,const J& b){return rank(a)>rank(b);});
         }
         J page=J::array(); for (size_t i=offset;i<rows.size()&&i<size_t(offset+limit);++i) {
             page.push_back(rows[i]);
@@ -269,8 +341,9 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
         bool known=false; for (const auto& p:catalog_["patterns"]) known|=p.at("id")==id;
         if (!known) throw std::invalid_argument("Unknown catalog pattern"); data_["pattern_reviews"][id]=args; save(); return "Audit position recorded";
     }
-    if ((name=="add_requirement"||name=="add_guarantee")&&generating_) {
-        bool req=name=="add_requirement"; const std::string form=args.at("form");
+    if ((name=="add_requirement"||name=="add_guarantee"||name=="_artifact_requirement"||name=="_artifact_guarantee")&&generating_) {
+        const bool imported=name.rfind("_artifact_",0)==0;
+        bool req=name=="add_requirement"||name=="_artifact_requirement"; const std::string form=args.at("form");
         if (req?(form!="MustPrecede"&&form!="MustBeAtomic"&&form!="MustBeMediated"):(form!="Order"&&form!="Wait"&&form!="Exclude"&&form!="AtomicOp")) throw std::invalid_argument("Invalid contract form");
         nonempty(args,"resource"); nonempty(args,"scope"); nonempty(args,"note");
         auto a=validNodes(args,"a_nodes",false),b=validNodes(args,"b_nodes",false); auto sa=validSources(args,"a_sources"),sb=validSources(args,"b_sources");
@@ -293,11 +366,16 @@ std::string ModuleContractAgent::execute_tool(const std::string& name,const J& a
             for (const auto& region:args.at("regions")) { validNodes(J{{"boundary",{region.at("start_node"),region.at("end_node")}}},"boundary"); }
             for (const auto& region:args.value("source_regions",J::array())) validSources(J{{"bounds",{region.at("start_source"),region.at("end_source")}}},"bounds");
         }
-        auto diagnostics=contractFeedback(args,model_,data_["source_operations"],data_["source_manifest"]);
+        auto diagnostics=imported?J(nullptr):contractFeedback(args,model_,data_["source_operations"],data_["source_manifest"]);
         auto record=storeContract(data_,args,req);
-        save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false},{"diagnostics",diagnostics}}.dump();
+        if (!importingArtifacts_) save(); return J{{"id",record.at("id")},{"recorded",true},{"semantics_verified",false},{"diagnostics",diagnostics}}.dump();
     }
     if (name=="finalize_contract"&&generating_) {
+        if (artifactMode_) {
+            const auto sync=syncContractArtifacts();
+            if (!sync.at("errors").empty()) return J{{"error","Invalid contract files remain"},{"files",sync.at("errors")}}.dump();
+            generationFinished_=true;save();return "finish";
+        }
         J missing=J::array(); for (const auto& p:catalog_["patterns"]) if (!data_["pattern_reviews"].contains(p.at("id"))) missing.push_back(p.at("id"));
         if (!missing.empty()) return J{{"error","Unaccounted catalog patterns"},{"missing",missing}}.dump();
         auto issues=extractionCompletionIssues(data_,model_,inspectedSourceQueries_,inspectedDiagnosticState_);

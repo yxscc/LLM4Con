@@ -35,9 +35,11 @@ J ModuleContractAgent::sourceOperation(const J& args) {
     if (!nonempty) throw std::invalid_argument("Empty source operation");
     std::string id = "module-op:" + path + ":" + std::to_string(first) + ":" + std::to_string(last);
     for (const char* key:{"operation_kind","symbol","function"}) if (args.contains(key)) id += ":" + args.at(key).get<std::string>();
+    if (args.value("statement_binding",false)) id+=":statement";
     J op = {{"source_id", id}, {"path", path}, {"first_line", first}, {"last_line", last},
             {"content", content.str()}, {"static_analysis", false}};
     for (const char* key:{"operation_kind","symbol","function"}) if (args.contains(key)) op[key]=args.at(key);
+    if (args.value("statement_binding",false)) op["statement_binding"]=true;
     if (op.contains("operation_kind")) {
         const auto kind=op.at("operation_kind").get<std::string>();
         if (kind!="read"&&kind!="write"&&kind!="call"&&kind!="atomic"&&kind!="fence"&&kind!="unspecified") throw std::invalid_argument("Invalid operation selector kind");
@@ -54,7 +56,7 @@ J ModuleContractAgent::sourceOperation(const J& args) {
         {"action",binding.at("coordinate_candidates").empty()?"retain_unknown":"inspect_ir_candidates"},
         {"query_tool","get_operations"},{"source_id",id},
         {"selection_tool","bind_source_operation"}};
-    data_["source_operations"][id] = op; save(); return op;
+    data_["source_operations"][id] = op; if (!importingArtifacts_) save(); return op;
 }
 std::vector<std::string> ModuleContractAgent::validSources(const J& args, const char* key) const {
     auto value = args.value(key, J::array());

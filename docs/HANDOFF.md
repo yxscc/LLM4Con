@@ -1,8 +1,19 @@
 # 新对话交接：LACE 源码主导 Agent / E-only 优化
 
-更新：2026-10-12。**本文是当前交接入口**。旧清理版已保存到
+更新：2026-10-13。**本文是当前交接入口**。旧清理版已保存到
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
+
+### 2026-10-13 源码契约文件接口（最新实现，优先于后面的旧提交/结束流程）
+
+- 用户同意 Agent 增量维护源码层 Req/Gua JSON，后端处理 ID、校验和一般绑定。最新分支 `codex/source-contract-artifacts`，工作树仍为 `/mlx_devbox/users/mayunlong.39/playground/LLM4Con-req-first-workflow`，基于 `2c9fa779`；原七例模型实验和原分支结果保留。
+- 默认 `--contract-input artifacts`。SDK 原生 shell 只读源码与状态，仅 `contracts/` 可写；一文件一条 Req 或 Gua，内联源码操作使用 `path,line,kind,expression`，可加 `function/end_line`。后端增量导入、自动 ID、同名修订、删除撤回、保留历史，非法编辑回滚且阻止结束。普通 notes 不解析成规则。
+- 紧凑反馈附在同一次 shell 返回；IR/详细契约诊断按需查询。同一定位可直接用于 get_operations/bind_source_operation；默认不再逐项操作注册、pattern 记账、全量诊断重读和强制未知锚点查询。unknown 继续进入 E；不是抽取完备证明。旧接口及旧完成门槛可用 `--contract-input tools` 对照。
+- 新增 compiler-derived inline_calls；内联 API 的具体内存效果优先于诊断 helper。文件接口可用窄单行/唯一类型效果补缺失编译器名称；已知字段冲突、多效果/嵌套调用和真正无 IR 保留未知。不能随意取同一行节点，不能把 volatile atomic_read 改成 LLVM atomic。
+- Req/Gua 类型、scope/resource 适用规则、两次源码调查、官方 SDK、部分 E/E-only 和可选 C 未改；原生模型尚未用新接口重跑，不能声称召回率或真实运行时间改善。
+- 6 项 CTest、25 项 SDK/工作区/仓库 Python 测试通过；localhost 新接口正常 A→E、API 失败部分 E、A→E→C 均通过（0 真实模型调用）。早期失败尝试与修复后结果均保留。详细设计和验证见 [SOURCE_CONTRACT_ARTIFACTS_20261013.md](SOURCE_CONTRACT_ARTIFACTS_20261013.md)。验证根目录为远端 `/mlx_devbox/users/mayunlong.39/playground/lace-source-contract-artifacts-validation-20261013`。
+- 最新七例冻结模型/原账本零模型 E 重放与原生 checks 完全一致。CIFS 独立刷新 compiler facts 后，82 个 spin_lock/spin_unlock 未知定位自动绑定到实际 raw 调用；无手工指定节点，原实验不改。派生结果不是新 Agent 召回。新接口无仓库样例工具 7 个，schema 5,803 字节；真实速度/召回仍待实验。
+- 此前七例状态需求导向 pilot 已全部结束，粗粒度人工判断 MACSEC 与 NF objects 对应，其他五例仍未对应；这七例是原全量漏报子集，不能与最初 Nouveau/CAN 等七例混为一批。原始文件见本地 `../analysis_outputs/lace-req-discovery-pilot-20261013/native/`。该批使用 `2c9fa779` 和旧工具接口，不能当成此次文件接口实验。
 
 ### 2026-10-13 状态需求导向的抽取流程（隔离开发分支）
 

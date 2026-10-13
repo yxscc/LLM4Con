@@ -13,6 +13,7 @@ MODULE = Path(__file__).resolve().parents[1] / 'harness/source_workspace.py'
 spec = importlib.util.spec_from_file_location('source_workspace', MODULE)
 workspace_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(workspace_module)
+sys.path.insert(0, str(MODULE.parent))
 
 
 def test_sdk_source_shell_isolation_and_live_ledger(tmp_path, monkeypatch):
@@ -74,3 +75,51 @@ def test_source_snapshot_stays_consistent_across_phases(tmp_path):
     (source/'hello.c').write_text('int changed;\n')
     with pytest.raises(ValueError, match='source bytes changed'):
         workspace_module.stage_sources(source, ledger)
+
+
+def test_artifact_workspace_incremental_changes_and_review_is_read_only(tmp_path):
+    from agents import RunContextWrapper
+    source = tmp_path/'source'; source.mkdir()
+    (source/'hello.c').write_text('int shared;\n')
+    ledger = tmp_path/'module_contracts.json'
+    ledger.write_text(json.dumps({'contract_input': 'artifacts', 'source_manifest': [
+        {'path': 'hello.c', 'lines': 1, 'bytes': 12}]}))
+    changes = []
+
+    async def check():
+        context = RunContextWrapper(context=None)
+        request = {'source_root': str(source), 'contract_path': str(ledger),
+                   'tools': [{'name': 'finalize_contract'}],
+                   'artifact_sync': lambda: changes.append('changed') or {'accepted': ['fixture']}}
+        tools, session, config = await workspace_module.source_tools(request)
+        execute = {t.name: t for t in tools}['exec_command'].on_invoke_tool
+        async def command(cmd):
+            return await execute(context, json.dumps({'cmd': cmd}))
+        try:
+            assert config['contracts_writable']
+            assert 'lace-source-contract-v1' in await command('cat contract_format.json')
+            assert 'Read-only file system' in await command('printf changed > module/hello.c')
+            assert 'Read-only file system' in await command('printf changed > contract_state.json')
+            assert 'contract artifacts' not in await command("printf '{}' > contracts/pending.tmp")
+            output = await command('mv contracts/pending.tmp contracts/req.json')
+            assert 'contract artifacts' in output and len(changes) == 1
+            await command('cat contracts/req.json')
+            assert len(changes) == 1
+            await command("printf '{\"updated\":true}' > contracts/req.json")
+            assert len(changes) == 2
+            await command("mkdir contracts/nested; printf '{}' > contracts/nested/other.json")
+            assert len(changes) == 3
+            await command('rm contracts/req.json')
+            assert len(changes) == 4
+        finally:
+            await session.aclose()
+        review = {**request, 'tools': [{'name': 'finalize_review'}]}
+        tools, session, config = await workspace_module.source_tools(review)
+        try:
+            assert not config['contracts_writable']
+            output = await {t.name: t for t in tools}['exec_command'].on_invoke_tool(
+                context, json.dumps({'cmd': "printf changed > contracts/nested/other.json"}))
+            assert 'Read-only file system' in output and len(changes) == 4
+        finally:
+            await session.aclose()
+    asyncio.run(check())

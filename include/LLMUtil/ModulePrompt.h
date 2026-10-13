@@ -294,4 +294,77 @@ new Req just to change the count. Investigate relevant gaps, preserve unsupporte
 ones explicitly, inspect current contract diagnostics and finalize_contract when
 this further investigation is complete. Phase C remains a separate optional step.
 )PROMPT";
+inline std::string moduleArtifactExtractionInstructions() {
+    std::string prompt=moduleExtractionInstructions();
+    const auto anchor=prompt.find("\nANCHORS AND STATIC MODEL");
+    if (anchor!=std::string::npos) prompt.erase(anchor);
+    auto replace=[&](const std::string& from,const std::string& to) {
+        const auto pos=prompt.find(from);
+        if (pos!=std::string::npos) prompt.replace(pos,from.size(),to);
+    };
+    replace("Only add_requirement/add_guarantee\nsubmit contracts; contract_state.json lets you reread the current raw Req/Gua,\nsource anchors and corrections without relying on conversation memory.",
+        "Write source-level JSON contract files under contracts/ as you discover\nreal relations. contract_format.json describes the format and examples;\ncontract_status.json gives current import/binding status. contract_state.json\nis the read-only canonical backend ledger, available for detailed rereading.");
+    replace("Keep extraction incremental: identify the relation, register its real operands,\nsubmit Req, investigate and submit Gua, and address structural feedback.",
+        "Keep extraction incremental: identify a relation and write its Req file\nwith inline source locators; investigate actual synchronization and write Gua\nfiles within their supported domains. Correct source/logic errors as found.");
+    replace("Record a source-based position on each pattern with\nrecord_pattern_review; not_applicable and unknown are legitimate.",
+        "Use those questions to guide actual source investigation. Unknowns are\nlegitimate; separate checklist completion calls are not required.");
+    replace("Record ordinary control flow, API preconditions, ownership facts and local\nprogram order with record_protocol.",
+        "Ordinary control flow, API preconditions, ownership and local program\norder may be noted in contracts/notes.md.");
+    replace("For that Req, a_sources/a_nodes is S in execution order, b_sources/b_nodes is\nempty, and interference_sources/interference_nodes is I from opposing actors.",
+        "For an Atomic Req file, a is S in execution order, b is empty, and\ninterference is I from opposing actors, all using inline source locators.");
+    replace("concrete interference_nodes/sources.","concrete interference operations.");
+    replace("Use source_regions\n  (start_source/end_source IDs) when citing source operands.",
+        "In a Gua file use regions with source-operation start/end locators.");
+    prompt+=R"PROMPT(
+
+SOURCE CONTRACT FILES AND BACKEND CORRESPONDENCE
+Use SDK exec_command/write_stdin to incrementally write one JSON file per Req or
+Gua under contracts/. Read contract_format.json first. Each operation has path,
+line, kind and expression; optional end_line/function narrow its context. Copy
+paths, exact statements and expressions from the module source. Include ordered
+a/b/interference/evidence and matching start/end regions according to the form.
+The backend generates internal IDs, validates every file, registers source
+operands and binds compiler effects automatically. No source registration or
+graph-ID bookkeeping is required to write a contract. File changes are imported
+after shell activity; feedback lists only changed files and actual errors.
+Write a temporary file then rename to .json when practical. Editing the same
+file revises its contract; deleting it retracts the active contract. All accepted
+versions remain in the audit history. Wait for commands writing contracts to
+complete before finalizing the pass. Invalid edits retain the last accepted
+version and must be corrected before finalize_contract. Valid contracts survive
+an interrupted extraction. Keep separate resources/protection domains in separate
+relations rather than pooling unrelated registries or fields into Cartesian pairs.
+
+An unknown binding is legal and is preserved for E. File/line plus effect type
+are compiler correspondence evidence, not synchronization or instance proof.
+For a genuine ambiguity that matters to a concrete relation, get_operations can
+inspect IR using the SAME inline source locator. bind_source_operation optionally
+records an inspected instruction and reason; it does not alter compiler facts.
+Several effects or alternative compiler arms cannot be replaced by an arbitrary
+first node. Keep real source operands and unsupported context instead.
+get_contract_diagnostics(files=[...]) optionally examines selected contracts,
+especially atomic sequence premises; files=[] gives compact status. Local paths
+are not inter-thread HB; cycles can reflect unsupported occurrence order. Correct
+wrong source transactions, preserving real steps when local checking is limited.
+When source investigation is done, finalize_contract imports the current files
+and checks their structure. Unknown bindings do not trigger mandatory per-anchor
+queries, diagnostic re-reading or a quota. Completion is workflow state, never
+proof that all requirements were discovered or that code is concurrency-safe.
+)PROMPT";
+    return prompt;
+}
+inline constexpr const char* moduleArtifactCrosscheck=R"PROMPT(
+Phase A continues: SOURCE REQUIREMENT CROSSCHECK, before E and without bug review.
+Revisit concrete shared-state accesses, their opposing activations and lifetime
+boundaries against the Req files already in contracts/. Investigate missing
+scalar/RMW conflicts, same-entry overlap, protection-domain outsiders, first
+admission, post-completion uses, child resources, generations and hardware actors.
+Incrementally write additional Req/Gua files or correct existing files when
+source supports a real change. Do not manufacture a quota or merely repeat
+protocol summaries. Preserve valid existing relations and unsupported source
+operands. Use the same source workspace, dependency tools and SDK history.
+Read contract_status.json for structural errors; optional IR/contract queries
+address concrete ambiguities. Finish with finalize_contract. No E results,
+GT, fix or final Phase C judgment is supplied in this step.
+)PROMPT";
 }

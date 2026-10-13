@@ -30,6 +30,9 @@ private:
     std::map<std::string, std::vector<std::string>> sourceLines_;
     bool generating_ = true, generationFinished_ = false, reviewFinished_ = false;
     bool requirementSweep_ = true;
+    bool artifactMode_ = true, importingArtifacts_ = false;
+    nlohmann::json syncContractArtifacts();
+    nlohmann::json artifactFeedback(const std::string&) const;
     std::string sourcePacket();
     std::string execute_tool(const std::string&, const nlohmann::json&) override;
     std::vector<Tool> get_available_tools() const override;

@@ -110,6 +110,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--max-turns", type=int, default=0, help="Optional cap per SDK invocation; 0 disables it (default).")
     parser.add_argument("--requirement-sweep", choices=["on","off"], default=os.getenv("LACE_REQUIREMENT_SWEEP","on"))
+    parser.add_argument("--contract-input", choices=["artifacts","tools"], default=os.getenv("LACE_CONTRACT_INPUT","artifacts"))
     args = parser.parse_args()
     if args.jobs < 1 or args.max_turns < 0:
         parser.error("jobs >= 1 and max-turns >= 0")
@@ -141,10 +142,11 @@ def main():
                 "binary_sha256": sha256(project / "Release-build/llm_detector"),
                 "model": os.environ.get("LLM_MODEL"), "max_turns_per_phase": args.max_turns,
                 "max_turns_per_sdk_invocation": args.max_turns, "requirement_sweep_requested": args.requirement_sweep,
+                "contract_input": args.contract_input,
                 "jobs": args.jobs, "model_api": os.environ.get("LACE_MODEL_API", "chat_completions"),
                 "context_management_requested": os.environ.get("LACE_CONTEXT_MANAGEMENT", "auto"),
                 "compaction_threshold": os.environ.get("LACE_COMPACT_THRESHOLD", "sdk_default"),
-                "source_access": "sdk_exec_command_write_stdin_read_only_workspace",
+                "source_access": "sdk_exec_command_write_stdin_read_only_sources_writable_contract_artifacts" if args.contract_input=='artifacts' else "sdk_exec_command_write_stdin_read_only_workspace",
                 "reasoning_effort": os.environ.get("LACE_REASONING_EFFORT", "provider default"),
                 "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "ground_truth_files_loaded": False, "review_disabled": args.no_review, "results": {}}
@@ -155,7 +157,8 @@ def main():
         command = [sys.executable, str(project / "harness/run_module.py"),
                    "--source", row["source"], "--bitcode", row["bitcode"], "--output", str(output),
                    "--repository", str(args.repository.resolve()), "--revision", row["revision"],
-                   "--max-turns", str(args.max_turns), "--requirement-sweep", args.requirement_sweep]
+                   "--max-turns", str(args.max_turns), "--requirement-sweep", args.requirement_sweep,
+                   "--contract-input", args.contract_input]
         if args.no_review:
             command.append("--no-review")
         if row.get("autoconf_path"):

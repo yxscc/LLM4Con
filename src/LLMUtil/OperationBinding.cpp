@@ -3,6 +3,7 @@
 #include <regex>
 #include <set>
 #include <stdexcept>
+#include <vector>
 namespace llm_client {
 using J=nlohmann::json;
 namespace {
@@ -30,6 +31,7 @@ bool sourceCoordinateMatches(const J& n,const J& op,const J& manifest) {
 namespace {
 J automaticBinding(const J& op,const J& model,const J& manifest) {
     J coordinates=J::array(),selected=J::array(),correspondence=J::array();
+    std::vector<const J*> sourceNodes;
     auto role=op.value("operation_kind",std::string("unspecified")),symbol=op.value("symbol",std::string()),fn=op.value("function",std::string());
     auto text=norm(op.value("content",std::string()));
     const bool selectorInSource=symbol.empty()||text.find(norm(symbol))!=std::string::npos;
@@ -37,6 +39,7 @@ J automaticBinding(const J& op,const J& model,const J& manifest) {
         if (n.at("origin")!="ir"||n.at("kind")=="Method") continue;
         if (!sourceCoordinateMatches(n,op,manifest)) continue; coordinates.push_back(n.at("node_id"));
         if (!selectorInSource||(!fn.empty()&&n.value("source_function",std::string())!=fn)) continue;
+        sourceNodes.push_back(&n);
         const auto actualRole=n.value("memory_role",std::string());
         bool semantic=false;
         std::string basis;
@@ -59,7 +62,60 @@ J automaticBinding(const J& op,const J& model,const J& manifest) {
             if (!sourceCoordinateMatches(J{{"file",effect.at("file")},{"line",effect.at("line")}},op,manifest)) continue;
             if (!symbol.empty()&&effect.at("api")==symbol) {semantic=true;basis="compiler_inline_effect";}
         }
+        if (!semantic&&role=="call") for (const auto& site:n.value("inline_calls",J::array())) {
+            if (!sourceCoordinateMatches(J{{"file",site.at("file")},{"line",site.at("line")}},op,manifest)) continue;
+            if (!symbol.empty()&&site.at("api")==symbol) {semantic=true;basis="compiler_inline_call";}
+        }
         if (semantic) { selected.push_back(n.at("node_id"));correspondence.push_back({{"node_id",n.at("node_id")},{"kind",basis}}); }
+    }
+    // An inline API's concrete memory effect takes precedence over nested
+    // helper/instrumentation calls from that same inline frame. atomic_read,
+    // for example, may contain a diagnostic call as well as its volatile load.
+    bool inlineEffect=false;
+    for (const auto& item:correspondence) inlineEffect|=item.at("kind")=="compiler_inline_effect";
+    if (inlineEffect) {
+        J effects=J::array(),evidence=J::array();
+        for (const auto& item:correspondence) if (item.at("kind")!="compiler_inline_call") {
+            effects.push_back(item.at("node_id"));evidence.push_back(item);
+        }
+        selected=std::move(effects);correspondence=std::move(evidence);
+    }
+    // File artifacts request a concrete statement effect. Existing frozen
+    // ledgers keep their original selector behavior. A narrow source statement
+    // with one matching executable effect can be mapped even when DWARF did
+    // not preserve its field name. Known incompatible access paths are never
+    // overridden, and multiple effects/alternative arms remain ambiguous.
+    if (selected.empty()&&selectorInSource&&op.value("statement_binding",false)&&
+        op.at("first_line")==op.at("last_line")&&!symbol.empty()) {
+        std::set<std::string> contexts;std::vector<const J*> effects;
+        bool otherInlineMemory=false;size_t roleEffects=0;
+        for (const J* node:sourceNodes) {
+            const auto& n=*node;contexts.insert(n.value("source_function",std::string()));
+            const auto actual=n.value("memory_role",std::string());
+            const auto api=n.value("callee_api",n.value("api",std::string()));
+            const bool inlineNode=n.value("source_locations",J::array()).size()>1;
+            if (inlineNode&&!n.value("local_memory",true)&&
+                (actual=="read"||actual=="write"||actual=="atomic"||actual=="fence")) otherInlineMemory=true;
+            if (actual!=role||n.value("local_memory",false)) continue;
+            if (role=="call") {
+                if (api.rfind("llvm.dbg.",0)==0||api.rfind("llvm.lifetime.",0)==0) continue;
+                ++roleEffects;
+            } else if (role=="read"||role=="write"||role=="fence") {
+                ++roleEffects;
+                if (!n.value("access_paths",J::array()).empty()) continue;
+            } else continue; // Atomic API effects need actual compiler correspondence.
+            effects.push_back(node);
+        }
+        // A nested warning/callback is not the atomic/memory effect of its
+        // inline API. That case retains the compiler effect/unknown mapping.
+        const auto original=op.value("content",std::string());
+        const std::regex callSyntax("[A-Za-z_][A-Za-z0-9_]*\\s*\\(");
+        const size_t sourceCalls=std::distance(std::sregex_iterator(original.begin(),original.end(),callSyntax),std::sregex_iterator());
+        if (contexts.size()==1&&!contexts.begin()->empty()&&roleEffects==1&&
+            (role!="call"||(!otherInlineMemory&&sourceCalls==1))&&effects.size()==1) {
+            const int id=effects.front()->at("node_id");selected.push_back(id);
+            correspondence.push_back({{"node_id",id},{"kind","source_statement_role"}});
+        }
     }
     std::string status;
     if (!selectorInSource) status="selector_not_in_source";
@@ -75,7 +131,7 @@ J automaticBinding(const J& op,const J& model,const J& manifest) {
 }
 J sourceSnapshot(const J& op) {
     J snapshot=J::object();
-    for (const char* key:{"path","first_line","last_line","content","operation_kind","symbol","function"})
+    for (const char* key:{"path","first_line","last_line","content","operation_kind","symbol","function","statement_binding"})
         if (op.contains(key)) snapshot[key]=op.at(key);
     return snapshot;
 }
@@ -108,6 +164,16 @@ J bindSourceOperation(const J& op,const J& model,const J& manifest) {
     auto automatic=automaticBinding(op,model,manifest);
     if (!op.contains("agent_binding")) return automatic;
     const auto& selection=op.at("agent_binding");
+    if (automatic.at("status")=="bound"&&selection.value("node_id",-1)==automatic.at("node_id")) {
+        const auto current=sourceSnapshot(op);
+        const J* node=nullptr;
+        for (const auto& n:model.at("nodes")) if (n.at("node_id")==automatic.at("node_id")) {node=&n;break;}
+        if (node&&selection.value("source_snapshot",J())==current&&selection.value("node_snapshot",J())==nodeSnapshot(*node)) {
+            automatic["binding_origin"]="compiler_agrees_with_previous_selection";
+            automatic["automatic_status"]=automatic.at("status");
+            return automatic;
+        }
+    }
     auto error=selectionError(op,selection,automatic,model);
     J result=automatic; result["automatic_status"]=automatic.at("status");
     result["binding_origin"]="agent_selected";

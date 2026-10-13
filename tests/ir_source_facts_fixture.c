@@ -41,3 +41,7 @@ int escaped_callback(struct provider *psy, void (*change)(int (**)(struct provid
     change(&callback);
     return callback(psy); /* ESCAPED_CALLBACK */
 }
+extern void raw_lock(void);
+static inline __attribute__((always_inline)) void source_lock(void) { raw_lock(); }
+void wrapper_user(void) { source_lock(); } /* INLINE_CALL_WRAPPER */
+void wrapper_twice(void) { source_lock(); source_lock(); } /* INLINE_CALL_AMBIGUOUS */

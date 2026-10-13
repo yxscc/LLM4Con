@@ -19,8 +19,10 @@ sufficient-discharge rules over the complete input graph, then continues the
    an extensible protocol catalog. All original source files are available in
    a read-only workspace through the SDK's native `exec_command/write_stdin`;
    source bodies are not pasted into the initial prompt. It identifies overlapping actors from source
-   evidence and records resource protocols, Req and Gua. Detailed graph facts
-   are obtained through paginated tools; they do not restrict source auditing.
+   evidence and incrementally writes source-level Req/Gua JSON files under
+   `contracts/`. The backend validates changes, generates IDs and binds source
+   operands; compact feedback returns with the SDK shell result. Optional
+   paginated IR queries resolve specific ambiguities.
 4. E checks each Req using scoped Gua and exact IR control-flow relations.
 5. The same agent reviews **all** Req, including discharges and graph unknowns,
    tracing synchronization semantics, instances, activations and source intent.
@@ -29,17 +31,20 @@ sufficient-discharge rules over the complete input graph, then continues the
 
 ## Handling incomplete graphs
 
-Source and IR are separate representations. A source-coordinate match does not
-establish operation equivalence. `get_source_operation(s)` validates exact text
-in the input snapshot and returns binding status and candidate counts. When
-automatic matching fails, the agent inspects candidate IR instructions using
-`get_operations` and records a justified selection with `bind_source_operation`.
+Source and IR are separate representations. Each file operand cites a module
+path, source line, effect kind and source expression, optionally a function or
+end line. The backend validates it against the input source. Binding combines
+coordinates with compiler access/callee facts and inline call sites. Narrow
+statement binding may use a unique typed effect when compiler naming is missing;
+known conflicting fields, nested source calls and multiple effects remain unknown.
+When needed, the agent inspects candidate IR instructions using `get_operations`
+with the same source locator and records a justified `bind_source_operation` selection.
 The selected instruction must have been inspected and belong to that anchor's
 coordinates/function. Req/Gua retain their source IDs; feedback and E use the
 same persisted correspondence, marked as an Agent judgment. Selections can be
 corrected or withdrawn; snapshots and revision history preserve their provenance.
-Ambiguous mappings are not silently selected. If none is suitable, use the validated module source ID
-in `a_sources`, `b_sources` or `interference_sources`. The Req is retained, E
+Ambiguous mappings are not silently selected. If none is suitable, retain the
+real source operand in the contract file. The Req is retained, E
 returns `requires_semantic_review`, and source review/reporting still proceeds.
 No fabricated graph nodes, synthetic execution roots or ignored Req are used.
 
@@ -52,7 +57,7 @@ as graph gaps. This is **input-relative coverage**, not whole-kernel coverage.
 
 ## Contract interface
 
-Req forms: `MustPrecede(A,B)`, `MustBeMediated(A,B)`, `MustBeAtomic(sequence)`.
+Req forms: `MustPrecede(A,B)`, `MustBeMediated(A,B)`, `MustBeAtomic(S,I)`.
 Each Req records a concrete resource, instance/lifetime/activation `scope`,
 at least two actors and source-based rationale. Atomicity Req also records the
 identified interfering operation set. Unresolved applicability is explicit in
@@ -67,18 +72,31 @@ matching assumptions and conditions. Exclude records acquisition/release
 Enum and anchor validation checks structural validity only. It does not prove
 that the model's synchronization interpretation or concurrency claim is true.
 
-Tools:
+The default contract interface is source JSON files. Read the workspace's
+`contract_format.json`, write one Req or Gua per `contracts/**/*.json`, and edit
+as evidence changes. `contract_status.json` gives compact import/binding status;
+`contract_state.json` is the read-only canonical ledger. File updates preserve
+IDs and previous versions; deletions retract active claims with an audit record.
+Invalid updates retain the last accepted version and block extraction finish.
+Binding unknowns stay explicit without mandatory per-anchor query/diagnostic
+loops. Interrupted extraction still runs E on accepted contracts and remains
+incomplete. Notes are optional and never parsed into Req/Gua.
 
-- SDK `exec_command/write_stdin`: source listing/search/reads and live raw contract queries in the read-only workspace.
-- `get_module_functions`: paginated source/IR function inventory.
-- `get_operations`: optional, paginated **IR-only** evidence by source ID or function/file/lines. AST operation queries are rejected.
-- `get_source_operation(s)`: validates source path/lines/text and reports an unbound IR candidate count; returns no graph nodes, even for whole-function spans. A unique debug-line candidate is not automatically bound.
+Default tools:
+
+- SDK `exec_command/write_stdin`: list/search/read module sources and incrementally write contract files. Only `contracts/` is writable; sources and canonical state remain read-only.
+- `get_operations`: optional, paginated **IR-only** evidence using a source operation locator. AST operation queries are rejected; relevant semantic effects appear before debug records without removing candidates.
 - `bind_source_operation`: after IR inspection, recover a failed/ambiguous source correspondence with an explicit node ID and reason. `node_id=-1` withdraws a previous selection. No IR candidate stays unknown; selection does not change compiler facts or supply a synchronization Gua.
 - `get_module_calls`: paginated compact API/function/path/line index; read source for arguments. No AST records are returned.
 - `repository_search/read`: pinned dependency lookup when configured.
-- `record_protocol`, `record_pattern_review`, `record_gap`: source audit record.
-- `add_requirement`, `add_guarantee`, `get_obligations`: contract ledger.
-- `review_obligations`, `finalize_contract/review`: validated workflow accounting.
+- `get_contract_diagnostics(files)`: compact status or detailed feedback for selected files.
+- `get_obligations`, `review_obligations`: optional Phase C over the accepted ledger.
+- `finalize_contract/review`: validated workflow accounting.
+
+`--contract-input tools` (or `LACE_CONTRACT_INPUT=tools`) preserves the legacy
+registration/submission tools and completion gates for controlled comparisons.
+The default is `artifacts`. Req/Gua forms and E's discharge rules are shared
+between both interfaces. See [source contract design](docs/SOURCE_CONTRACT_ARTIFACTS_20261013.md).
 
 The initial request contains extraction instructions, all catalog questions,
 coverage counts, a directory summary and tool schemas. It does not contain source

@@ -123,6 +123,14 @@ async def run(request):
             if not request.get('source_root') or not request.get('contract_path'):
                 raise ValueError('SDK source tools require source_root and contract_path together')
             from source_workspace import source_tools
+            def artifact_sync():
+                emit({'event': 'tool_call', 'name': '_sync_contract_artifacts', 'arguments': {}})
+                line = sys.stdin.readline()
+                if not line:
+                    raise RuntimeError('Static artifact service disconnected')
+                output = json.loads(line)['output']
+                return json.loads(output)
+            request['artifact_sync'] = artifact_sync
             native_tools, source_session, source_config = await source_tools(request)
         model_class = (OpenAIResponsesModel if model_api == "responses"
                        else OpenAIChatCompletionsModel)

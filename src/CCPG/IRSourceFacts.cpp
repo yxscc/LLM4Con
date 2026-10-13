@@ -110,7 +110,7 @@ nlohmann::json IRSourceFacts::describe(const llvm::Instruction& i) const {
     else if (auto* a=llvm::dyn_cast<llvm::AtomicCmpXchgInst>(&i)) {role="atomic";address=a->getPointerOperand();ordering=order(a->getSuccessOrdering());}
     else if (auto* f=llvm::dyn_cast<llvm::FenceInst>(&i)) {role="fence";ordering=order(f->getOrdering());}
     else if (llvm::isa<llvm::CallBase>(i)) role="call";
-    J paths=J::array(),locations=J::array(),inlineEffects=J::array(),callees=J::array(); std::set<const llvm::Value*> active;
+    J paths=J::array(),locations=J::array(),inlineEffects=J::array(),inlineCalls=J::array(),callees=J::array(); std::set<const llvm::Value*> active;
     if (auto p=path(address,active);!p.empty()) paths.push_back(p);
     const llvm::Value* root=address; std::set<const llvm::Value*> visited;
     while (root&&visited.insert(root).second) {
@@ -135,11 +135,18 @@ nlohmann::json IRSourceFacts::describe(const llvm::Instruction& i) const {
         if (concreteEffect&&sp) inlineEffects.push_back({{"api",sp->getName().str()},
             {"file",site->getFilename().str()},{"line",site->getLine()},{"column",site->getColumn()},
             {"effect_role",role},{"inline_assembly",assembly}});
+        // Correspondence of a source wrapper to an actual nested call is a
+        // separate fact from its memory/atomic effects. Do not rewrite the
+        // callee, ordering or atomic flags and do not count debug intrinsics.
+        if (call&&sp&&!assembly&&calleeApi.rfind("llvm.dbg.",0)!=0&&calleeApi.rfind("llvm.lifetime.",0)!=0)
+            inlineCalls.push_back({{"api",sp->getName().str()},{"file",site->getFilename().str()},
+                {"line",site->getLine()},{"column",site->getColumn()},{"callee",calleeApi}});
     }
     for (auto* d=i.getDebugLoc().get();d;d=d->getInlinedAt()) locations.push_back({{"file",d->getFilename().str()},{"line",d->getLine()},{"column",d->getColumn()}});
     auto* sp=i.getFunction()->getSubprogram();
     return {{"memory_role",role},{"access_paths",paths},{"memory_ordering",ordering},{"volatile",vol},
         {"source_locations",locations},{"source_function",sp?sp->getName().str():i.getFunction()->getName().str()},
-        {"local_memory",local},{"inline_effects",inlineEffects},{"callee_api",calleeApi},{"callee_access_paths",callees}};
+        {"local_memory",local},{"inline_effects",inlineEffects},{"inline_calls",inlineCalls},
+        {"callee_api",calleeApi},{"callee_access_paths",callees}};
 }
 }

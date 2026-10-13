@@ -336,7 +336,7 @@ def main():
     env.pop('LACE_MODEL_API', None)
     env['LACE_REQUIREMENT_SWEEP']='off' if args.no_source_crosscheck else 'on'
     try:
-        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--repository',str(args.repository),'--revision',args.revision] if args.repository else []) + (['--no-review'] if args.no_review else []) + (['--max-turns', '13'] if args.exhaust_after_contract else []), env=env,
+        code = subprocess.call([sys.executable, str(repo/'harness/run_module.py'), '--contract-input', 'tools', '--source', str(args.source), '--bitcode', str(args.bitcode), '--output', str(args.output)] + (['--repository',str(args.repository),'--revision',args.revision] if args.repository else []) + (['--no-review'] if args.no_review else []) + (['--max-turns', '13'] if args.exhaust_after_contract else []), env=env,
                                stdout=subprocess.DEVNULL)
         assert not errors, errors
         assert code == (2 if args.exhaust_after_contract or args.fail_after_contract or args.fail_crosscheck else 0), f'Unexpected native exit; see {args.output}/run.log'
