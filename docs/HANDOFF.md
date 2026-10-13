@@ -4,6 +4,14 @@
 [history/HANDOFF_20261011_CLEANUP.md](history/HANDOFF_20261011_CLEANUP.md)；
 [SOURCE_LED_HANDOFF.md](SOURCE_LED_HANDOFF.md) 保留重构历史，不能把旧流程当成现状。
 
+### 2026-10-13 Req 推导七例真实重跑（最新结果，全部结束）
+
+- 实验代码 `18ab94cdac000190e30f935e7c347a533ccc6aaa`；17:14:42–17:37:09；同一七例development源码/IR/autoconf、模型/SDK，jobs7、无cap、两次A、E-only。7/7 exit0/E结束/implementation_unchanged，artifact_errors为空，无上下文异常。没有运行队列待接管。
+- 人工同一宽松口径：MACSEC明确对应；serdev/CIFS粗相关且有逻辑缺口；KVM/ipset/GPU仍无目标关系，NF objects相对上批回退。1明确+2粗相关，即3/7（上批2明确+2粗相关，4/7）；不是全72 benchmark，不可声称整体召回改善。
+- serdev明确写出open先于初始化且priv绑定，但准确admission仍是假设，未包括外部dispatcher的ops NULL读；CIFS完整锁外返回读多次进入上下文，Req却只选锁内picker读，gua又因两个bitmap宏未知而不能用；NF读注册/注销后漏追全局类型查找，没有目标Req被E错误消解的证据。
+- 平均15.23→15.56分钟，请求407→394，input41.9M→38.5M。引用未知操作252/1127→144/958，集合改变，不能当纯binder消融；所有write都用字段，未触发归一化，也无错误function诊断。ipset报告2→15不代表owner/RCU目标召回，部分正常API Gua因未核验语义而声明false。
+- 完整原始382文件约311MB已下载并逐文件校验。远端 `lace-req-reasoning-pilot-20261013`；本地 `../analysis_outputs/lace-req-reasoning-pilot-20261013`。详细记录见 [REQ_REASONING_PILOT_20261013.md](REQ_REASONING_PILOT_20261013.md)。此后只记录结果，没有继续代码优化或新实验。
+
 ### 2026-10-13 Req 遗漏调查与源码对应优化（最新修改）
 
 - 用户授权优先解决 IR 未绑定和 Req 未产生；本轮人工读最新七例轨迹，尚未启动新真实模型实验。CIFS 主要漏读真正 picker 读；KVM 已读未提出，当前日志没有明确放弃理由；serdev 查到首个 open 准入却错选较晚 set_client_ops；ipset 漏追 RCU callback 对 owner 的依赖；GPU 没追软件生命周期外的硬件/reset 完成链，后两例本批没有 pinned 依赖读取。不能统一认定“LLM 不懂知识”。
