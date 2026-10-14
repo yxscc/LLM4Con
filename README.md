@@ -1,9 +1,17 @@
 # LACE: source-led module concurrency agent
 
 This branch reads the complete supplied module source, extracts concurrency
-Requirements (Req) and synchronization Guarantees (Gua), applies deterministic
-sufficient-discharge rules over the complete input graph, then continues the
-**same agent conversation** to review every Req and produce candidate reports.
+Requirements (Req) and synchronization Guarantees (Gua), and applies deterministic
+sufficient-discharge rules over the complete supplied-input graph. Optional final
+review continues the **same agent conversation**. The current experiment baseline
+uses **E-only (`--no-review`)**, with two source extraction passes and no turn cap.
+
+**Current baseline (2026-10-14): 30/71 recalled (42.3%)**, comprising 13 direct
+and 17 coarse manual matches; 41 misses. One of the full 72 cases retains an
+inconsistent input and was not run. Four initial gateway failures completed in
+separate retries. Coarse matches count toward recall while their contract/binding/E
+limitations remain documented. See [the full result and case table](docs/FULL72_BASELINE_20261014.md)
+and [current handoff](docs/HANDOFF.md). Older pilot results are historical.
 
 ## Workflow
 
@@ -23,11 +31,17 @@ sufficient-discharge rules over the complete input graph, then continues the
    `contracts/`. The backend validates changes, generates IDs and binds source
    operands; compact feedback returns with the SDK shell result. Optional
    paginated IR queries resolve specific ambiguities.
-4. E checks each Req using scoped Gua and exact IR control-flow relations.
-5. The same agent reviews **all** Req, including discharges and graph unknowns,
+4. By default, a second source requirement crosscheck continues the same SDK
+   history, looking for omitted participants, ordinary accesses, generation and
+   admission/completion boundaries. It can revise Req/Gua before E and receives
+   neither E output nor GT. Disable only for a deliberate comparison with
+   `--requirement-sweep off`.
+5. E checks each Req using scoped Gua and exact IR control-flow relations.
+6. Optional Phase C reviews **all** Req, including discharges and graph unknowns,
    tracing synchronization semantics, instances, activations and source intent.
-6. Write the contract ledger, evidence, unknowns, model history and final
-   `stateful_bugs/reports.json`. Reports are source-supported, not reproduced.
+   With `--no-review`, failed E combinations directly produce static candidates.
+7. Write the contract ledger, evidence, unknowns, model history and final
+   `stateful_bugs/reports.json`. Candidates are not reproduced defects.
 
 ## Handling incomplete graphs
 
@@ -69,6 +83,9 @@ recorded as a protocol explanation, **never an Order Gua**. A Gua must use the
 same resource/scope label as a Req it supports and retain mechanism evidence,
 matching assumptions and conditions. Exclude records acquisition/release
 `regions`; individual atomic effects do not make a compound transaction atomic.
+Guas are submitted independently of Req IDs and submission order. The current
+checker uses the accepted Gua ledger to establish query-time synchronization
+relations; a persistent independently augmented graph is not claimed here.
 Enum and anchor validation checks structural validity only. It does not prove
 that the model's synchronization interpretation or concurrency claim is true.
 
@@ -140,7 +157,8 @@ are **relative to the graph and declared Gua semantics/scope**; `proof=false`
 means no program-safety proof is asserted. Results expose used Gua, local facts,
 unresolved combinations and missing premises. Failure of a sufficient rule is
 not a feasible interleaving witness. This version does **not** claim to construct
-counterexample execution paths. Final review is mandatory even for discharges.
+counterexample execution paths. When Phase C is enabled, it includes discharges;
+the current E-only experiments deliberately disable that final review.
 
 ## Extensible protocol catalog
 
@@ -189,7 +207,8 @@ Release-build/llm_detector --input-src /path/module --input-bc /path/merged.ll -
 # Model credentials and endpoint are provided through the existing environment.
 python harness/run_module.py --source /path/module --bitcode /path/merged.ll \
   --output /path/new-run --model MODEL \
-  --repository /path/linux --revision FULL_COMMIT_SHA
+  --repository /path/linux --revision FULL_COMMIT_SHA \
+  --no-review --max-turns 0 --requirement-sweep on --contract-input artifacts
 ```
 
 Optional `--autoconf` must be the actual configuration used to compile the IR;
@@ -216,9 +235,21 @@ function with no recognized entry and no debug locations retains every actual
 instruction and its CFG. Synthetic judgments do **not** measure
 model recall and must not be counted as discovered bugs.
 
-`coverage.workflow_complete` means the two agent phases accounted for their
-records. Unknown judgments, mapping gaps and graph coverage remain separate;
+`coverage.workflow_complete` means the requested extraction passes, E, and
+optional review completed their workflow. Unknown judgments, mapping gaps and graph coverage remain separate;
 workflow completion never means all program requirements were found or proved.
+
+### Current full-cohort baseline (2026-10-14)
+
+[tests/source_contract_full72_plan.json](tests/source_contract_full72_plan.json)
+freezes the 71 runnable development inputs and the one blocked case. Inputs are
+whole-file controlled functional units, not entry/GT-site slices or every kernel
+configuration. Source, IR and autoconf hashes, selected runs and manual case
+judgments are in [the portable result manifest](docs/results/source_contract_full72_20261014.json).
+The implementation tested was `18ab94c`; experiment manifests record `4ab053a`
+because intervening changes were documentation only. This publication does not
+rewrite those original versions or partial results. See [the baseline report](docs/FULL72_BASELINE_20261014.md)
+for archive hashes, reproduction settings, coarse-match caveats and runtime usage.
 
 ### E-only stage diagnostics (2026-10-12)
 

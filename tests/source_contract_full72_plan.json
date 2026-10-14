@@ -1,0 +1,507 @@
+{
+  "name": "source-contract-req-reasoning-full72",
+  "scope_policy": "Whole-file functional units; no entry/surface filtering, no row/node sampling, no arbitrary object/participant caps",
+  "full_cohort_cases": 72,
+  "incomplete_cases": [
+    "CVE-2017-15265"
+  ],
+  "cases": [
+    {
+      "case": "CVE-2013-1792",
+      "split": "development",
+      "revision": "7c6baa304b841673d3a55ea4fcf9a5cbf7a1674b",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2015-7550",
+      "split": "development",
+      "revision": "73796d8bf27372e26c2b79881947304c14c2d353",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2016-7911",
+      "split": "development",
+      "revision": "74524955556096a0b2a821a49b4d0abebad3ee16",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2016-9806",
+      "split": "development",
+      "revision": "45e093ae2830cd1264677d47ff9a95a71f5d9f9c",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2017-6346",
+      "split": "development",
+      "revision": "f39f0d1e1e93145a0e91d9a7a639c42fd037ecc3",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2022-48830",
+      "split": "development",
+      "revision": "7db788ad627aabff2b74d4f1a3b68516d0fee0d7",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2022-48931",
+      "split": "development",
+      "revision": "038101e6b2cd5c55f888f85db42ea2ad3aecb4b6",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2022-49215",
+      "split": "development",
+      "revision": "f54eeae970f4dd4400d8ef3157788fbd3e2dd0e3",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2022-49607",
+      "split": "development",
+      "revision": "88084a3df1672e131ddc1b4e39eeacfd39864acf",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2023-53046",
+      "split": "development",
+      "revision": "294d749b5df5a22d17989833fb1a0a2cd1dfd243",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-26974",
+      "split": "development",
+      "revision": "c0ad5cab04d2da8c436611e26f1c613e2e6ec1a1",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-26984",
+      "split": "development",
+      "revision": "4c08f01934ab67d1d283d5cbaa52b923abcfe4cd",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-27019",
+      "split": "development",
+      "revision": "0b6de00206adbbfc6373b3ae38d2a6f197987907",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-27030",
+      "split": "development",
+      "revision": "53e6709a2ff1a140549a3662a0c5ebf5c9c8d724",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-27404",
+      "split": "development",
+      "revision": "ba2cf922502c557cd5f2f15d3004f1a168ef3764",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35898",
+      "split": "development",
+      "revision": "994209ddf4f430946f6247616b2e33d179243769",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35977",
+      "split": "development",
+      "revision": "6613476e225e090cc9aad49be7fa504e290dd33d",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35986",
+      "split": "development",
+      "revision": "4201b8c8f2c32af321fb50867e68ac6c1cbed4be",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-35999",
+      "split": "development",
+      "revision": "39ad3d61d23e099a93687f63eeb5a8402e0f7be8",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-36938",
+      "split": "development",
+      "revision": "a81bcc6abf49da7bf534538e926bb7ece18abf6c",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-39503",
+      "split": "development",
+      "revision": "3c2a6dd631062904e3d9b1954656676356f617a4",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-39508",
+      "split": "development",
+      "revision": "61a96da9649a6b6a1a5d5bde9374b045fdb5c12e",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-40953",
+      "split": "development",
+      "revision": "09b2d2a2267187336b446f4c08e6204c30688bcf",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-41081",
+      "split": "development",
+      "revision": "127707132f7047d9cb05708f78122b6b31ae09de",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-42234",
+      "split": "development",
+      "revision": "2fe29fe945637b9834c5569fbb1c9d4f881d8263",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-43830",
+      "split": "development",
+      "revision": "e6daf3bf851b43f6f683c7295b868e66ab255df2",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-43891",
+      "split": "development",
+      "revision": "9a9716bbbf3dd6b6cbefba3abcc89af8b72631f4",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-45000",
+      "split": "development",
+      "revision": "1f566eb912d192c83475a919331aea59619e1197",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-46704",
+      "split": "development",
+      "revision": "98cc1730c89467fc26e2dc2ceb2a014f332daa97",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-47715",
+      "split": "development",
+      "revision": "43ebb3039527ad3ba68c4118b935028015462482",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-50082",
+      "split": "development",
+      "revision": "d95fa989716fd8de86c4ddf9ca8b9691910dccb6",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-53124",
+      "split": "development",
+      "revision": "252e01e68241d33bfe0ed1fc333220d9bd8b06df",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-53136",
+      "split": "development",
+      "revision": "fef0b00f318f4017f51c008bc99cd2d524a407ec",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-53160",
+      "split": "development",
+      "revision": "0ea3acbc804c2d5a165442cdf9c0526f4d324888",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-53186",
+      "split": "development",
+      "revision": "db5f8243067f87138888a6842acbce5340d1626c",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-56555",
+      "split": "development",
+      "revision": "dc8aea47b928cc153b591b3558829ce42f685074",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-56788",
+      "split": "development",
+      "revision": "b15b0df3967e5de43e1638bb152c575ae60062d1",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2024-58072",
+      "split": "development",
+      "revision": "36af24bd988c5c1e3c8f85e3df8fdc1c870f565d",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-21732",
+      "split": "development",
+      "revision": "f5f01c5c409e697c6ae7091ca578bfbd3825e87c",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-22050",
+      "split": "development",
+      "revision": "4e39e6cb21aafd956244cf6d612b5b584662e7a4",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-23142",
+      "split": "development",
+      "revision": "20035e675ca0256ed55ad13bda549c1a68170ca3",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-23151",
+      "split": "development",
+      "revision": "cba6bdfd79291b82422b6e6b4036ebc076d5625f",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-37772",
+      "split": "development",
+      "revision": "9beb2c91fb86e0be70a5833c6730441fa3c9efa8",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-37854",
+      "split": "development",
+      "revision": "82b6aaa867bd4dcb0c639b4739802a62cc12896a",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-37882",
+      "split": "development",
+      "revision": "cbfa55bda1feb96dac7cf2312d607dddef768089",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-37920",
+      "split": "development",
+      "revision": "5cb9e07f84e527974b12e82e2549fa6c0cc6eef0",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38078",
+      "split": "development",
+      "revision": "0622846db728a5332b917c797c733e202c4620ae",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38104",
+      "split": "development",
+      "revision": "71e59a426845a033cf782652c36cb733296917b8",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38165",
+      "split": "development",
+      "revision": "3a8e680f7d7cfa02fc505eb465a87ab7e87a6fe8",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38217",
+      "split": "development",
+      "revision": "e04c78d86a9699d136910cfc0bdcf01087e3267e",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38242",
+      "split": "development",
+      "revision": "517f496e1e61bd169d585dab4dd77e7147506322",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38250",
+      "split": "development",
+      "revision": "90133b12243c44ba87496b0a8d33a4469ea95303",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38337",
+      "split": "development",
+      "revision": "a97668ec6d73dab237cd1c15efe012a10090a4ed",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38383",
+      "split": "development",
+      "revision": "b65e4b56e9f406f291656b3e92723952c180fbab",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "CVE-2025-38429",
+      "split": "development",
+      "revision": "6ba6e64dcef5193334d96c5ab14d120906d3db99",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-01affb1491750534",
+      "split": "development",
+      "revision": "24cdab5787a0ae90260df1f8ac8284877a70b7b3",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-1c486d0b62032c82",
+      "split": "development",
+      "revision": "8661bb9c717a07b7636224339fe8818b65db6ddf",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-2d373c9936c00d7e",
+      "split": "development",
+      "revision": "aa85822c611aef7cd4dc17d27121d43e21bb82f0",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-2e4de7fe846aba66",
+      "split": "development",
+      "revision": "20021578ba226bda1f0ddf50e4d4a12ea1c6c6c1",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-35301db28c64310d",
+      "split": "development",
+      "revision": "6b47808f223c70ff564f9b363446d2a5fa1e05b2",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-3b6b32dc50537a49",
+      "split": "development",
+      "revision": "05fba0a11557dfdc1b6895f4a3fb59165669e643",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-3cc3a12efa69aa6f",
+      "split": "development",
+      "revision": "9b7fd1670a94a57d974795acebde843a5c1a354e",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-417aeb05fd190f3a",
+      "split": "development",
+      "revision": "669602b5b7386e4fa00fc67b045ca3fd816e685d",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-44cf88a58d91b12b",
+      "split": "development",
+      "revision": "966f435add4821f53bf1c507dadc3ba9aaeb5f01",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-4a03518df1e31b53",
+      "split": "development",
+      "revision": "00d873c17e29cc32d90ca852b82685f1673acaa5",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-4a06d4373fd52f0b",
+      "split": "development",
+      "revision": "173ea743bf7a9eef04460e03b00ba267cc52aee2",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-52e3dbded1f71729",
+      "split": "development",
+      "revision": "c99f0f7e68376dda5df8db7950cd6b67e73c6d3c",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-5676077ba016d741",
+      "split": "development",
+      "revision": "248401cb2c4612d83eb0c352ee8103b78b8eb365",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-5a486fef3de40e0d",
+      "split": "development",
+      "revision": "c750629caeca01979da3403f4bebecda88713233",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-5cce5938c6c2c518",
+      "split": "development",
+      "revision": "f534f6581ec084fe94d6759f7672bd009794b07e",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    },
+    {
+      "case": "SYZBOT-63cbe31877bb80ef",
+      "split": "development",
+      "revision": "2c854e5c63ac56e7e0633fb6140c1bdf4d3dad96",
+      "ir": "module.bc",
+      "autoconf": "build_config/autoconf.h"
+    }
+  ]
+}
